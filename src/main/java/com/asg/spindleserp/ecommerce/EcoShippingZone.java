@@ -3,6 +3,8 @@ package com.asg.spindleserp.ecommerce;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.io.Serializable;
+
 @Entity
 @Table(name = "eco_shipping_zones",
         uniqueConstraints = @UniqueConstraint(name = "uk_sz_store_name", columnNames = {"store_id", "name"}),

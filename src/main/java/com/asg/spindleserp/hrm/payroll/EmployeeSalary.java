@@ -3,8 +3,12 @@ package com.asg.spindleserp.hrm.payroll;
 import com.asg.spindleserp.hrm.pims.Employee;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.CreationTimestamp;
 
+import java.io.Serializable;
 import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "hrm_employee_salaries",

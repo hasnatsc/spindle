@@ -6,6 +6,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.math.BigDecimal;
+
 @Entity
 @Table(name = "acc_customers",
         uniqueConstraints = @UniqueConstraint(name = "uk_customer_org_code", columnNames = {"organization_id", "customer_code"}))

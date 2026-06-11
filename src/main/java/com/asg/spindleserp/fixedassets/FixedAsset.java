@@ -11,6 +11,7 @@ import com.asg.spindleserp.inventory.setup.Warehouse;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 
 @Entity

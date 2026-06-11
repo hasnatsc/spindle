@@ -4,6 +4,7 @@ import com.asg.spindleserp.inventory.item.InventoryItem;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 

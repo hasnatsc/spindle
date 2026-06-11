@@ -3,7 +3,16 @@ package com.asg.spindleserp.budget;
 import com.asg.spindleserp.accounts.setup.Account;
 import com.asg.spindleserp.accounts.setup.CostCenter;
 import com.asg.spindleserp.hrm.setup.Department;
-import lombok.Getter;
+import jakarta.persistence.*;
+import lombok.*;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
+
+import java.io.Serializable;
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "bgt_budget_lines",

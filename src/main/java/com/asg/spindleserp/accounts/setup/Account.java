@@ -2,8 +2,9 @@ package com.asg.spindleserp.accounts.setup;
 
 import com.asg.spindleserp.common.BaseOrgEntity;
 import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.Setter;
+import lombok.*;
+
+import java.math.BigDecimal;
 
 @Entity
 @Table(name = "acc_chart_of_accounts",

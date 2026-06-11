@@ -2,7 +2,15 @@ package com.asg.spindleserp.budget;
 
 import com.asg.spindleserp.global.documents.BusinessDocument;
 import com.asg.spindleserp.security.Organization;
-import lombok.Getter;
+import jakarta.persistence.*;
+import lombok.*;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
+
+import java.io.Serializable;
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 /**
  * BudgetEncumbrance — created when a PO is approved.

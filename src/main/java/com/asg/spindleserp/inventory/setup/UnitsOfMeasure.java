@@ -4,6 +4,8 @@ import com.asg.spindleserp.common.BaseOrgEntity;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.math.BigDecimal;
+
 @Entity
 @Table(name = "stp_units_of_measure",
         uniqueConstraints = @UniqueConstraint(name = "uk_uom_org_code", columnNames = {"organization_id", "code"}))

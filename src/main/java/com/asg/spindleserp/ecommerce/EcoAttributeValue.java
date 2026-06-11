@@ -3,6 +3,8 @@ package com.asg.spindleserp.ecommerce;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.io.Serializable;
+
 @Entity
 @Table(name = "eco_attribute_values",
         uniqueConstraints = @UniqueConstraint(name = "uk_atv_grp_slug", columnNames = {"attribute_group_id", "slug"}),

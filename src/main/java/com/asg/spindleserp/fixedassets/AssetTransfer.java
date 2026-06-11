@@ -8,6 +8,9 @@ import com.asg.spindleserp.inventory.setup.Warehouse;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+
 @Entity
 @Table(name = "fa_asset_transfers",
         indexes = @Index(name = "idx_fatrf_asset", columnList = "asset_id"))

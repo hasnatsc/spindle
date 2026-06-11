@@ -3,6 +3,10 @@ package com.asg.spindleserp.ecommerce;
 import com.asg.spindleserp.dummy.EcoProductVariant;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.CreationTimestamp;
+
+import java.io.Serializable;
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "eco_product_images",

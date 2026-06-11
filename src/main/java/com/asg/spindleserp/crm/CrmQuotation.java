@@ -4,8 +4,12 @@ import com.asg.spindleserp.global.documents.BusinessDocument;
 import com.asg.spindleserp.production.order.Opportunity;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.CreationTimestamp;
 
+import java.io.Serializable;
 import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "crm_quotations",

@@ -2,8 +2,10 @@ package com.asg.spindleserp.accounts.setup;
 
 import com.asg.spindleserp.common.BaseOrgEntity;
 import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.Setter;
+import lombok.*;
+
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "stp_banks",

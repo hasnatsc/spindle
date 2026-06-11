@@ -4,6 +4,8 @@ import com.asg.spindleserp.global.lot.GlobalInventoryLot;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.math.BigDecimal;
+
 @Entity
 @Table(name = "prd_recipe_item_lots",
         indexes = @Index(name = "idx_rlot_item", columnList = "production_recipe_item_id"))

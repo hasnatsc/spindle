@@ -4,6 +4,8 @@ import com.asg.spindleserp.common.BaseReferenceEntity;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.math.BigDecimal;
+
 @Entity
 @Table(name = "stp_hs_codes")
 @Getter

@@ -4,6 +4,8 @@ import com.asg.spindleserp.security.Organization;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.io.Serializable;
+
 /**
  * DocumentSequence — per-org, per-prefix, per-year-month counter.
  * Used by fn_next_doc_no() via JDBC and also accessible from JPA.

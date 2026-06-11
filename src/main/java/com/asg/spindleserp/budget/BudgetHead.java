@@ -1,7 +1,11 @@
 package com.asg.spindleserp.budget;
 
 import com.asg.spindleserp.common.BaseOrgEntity;
-import lombok.Getter;
+import jakarta.persistence.*;
+import lombok.*;
+
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "bgt_budget_heads",

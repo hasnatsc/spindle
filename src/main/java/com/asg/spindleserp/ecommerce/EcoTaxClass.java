@@ -3,6 +3,7 @@ package com.asg.spindleserp.ecommerce;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.io.Serializable;
 import java.math.BigDecimal;
 
 @Entity

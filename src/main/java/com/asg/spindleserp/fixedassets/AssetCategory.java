@@ -3,8 +3,9 @@ package com.asg.spindleserp.fixedassets;
 import com.asg.spindleserp.accounts.setup.Account;
 import com.asg.spindleserp.common.BaseOrgEntity;
 import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.Setter;
+import lombok.*;
+
+import java.math.BigDecimal;
 
 @Entity
 @Table(name = "fa_asset_categories",

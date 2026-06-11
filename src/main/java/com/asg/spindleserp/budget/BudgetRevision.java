@@ -4,7 +4,18 @@ import com.asg.spindleserp.approval.ApprovalRequest;
 import com.asg.spindleserp.approval.ApprovalStatus;
 import com.asg.spindleserp.approval.DocumentType;
 import com.asg.spindleserp.security.Organization;
+import jakarta.persistence.*;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
+
+import java.io.Serializable;
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "bgt_budget_revisions",

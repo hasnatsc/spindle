@@ -3,6 +3,10 @@ package com.asg.spindleserp.stp;
 import com.asg.spindleserp.security.Organization;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.CreationTimestamp;
+
+import java.io.Serializable;
+import java.time.LocalDateTime;
 
 /**
  * DocumentFile — polymorphic file attachment.

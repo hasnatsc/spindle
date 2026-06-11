@@ -3,8 +3,11 @@ package com.asg.spindleserp.ecommerce;
 import com.asg.spindleserp.common.BaseOrgEntity;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.math.BigDecimal;
+import java.util.Map;
 
 @Entity
 @Table(name = "eco_payment_methods",

@@ -2,6 +2,10 @@ package com.asg.spindleserp.ecommerce;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.CreationTimestamp;
+
+import java.io.Serializable;
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "eco_customer_notifications",

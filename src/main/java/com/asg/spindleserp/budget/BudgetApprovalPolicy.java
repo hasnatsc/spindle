@@ -2,7 +2,10 @@ package com.asg.spindleserp.budget;
 
 import com.asg.spindleserp.approval.ApprovalConfig;
 import com.asg.spindleserp.common.BaseOrgEntity;
-import lombok.Getter;
+import jakarta.persistence.*;
+import lombok.*;
+
+import java.math.BigDecimal;
 
 @Entity
 @Table(name = "bgt_approval_policies",

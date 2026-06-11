@@ -1,7 +1,12 @@
 package com.asg.spindleserp.budget;
 
 import com.asg.spindleserp.security.User;
-import lombok.Getter;
+import jakarta.persistence.*;
+import lombok.*;
+import org.hibernate.annotations.CreationTimestamp;
+
+import java.io.Serializable;
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "bgt_budget_notes",

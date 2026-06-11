@@ -3,8 +3,11 @@ package com.asg.spindleserp.ecommerce;
 import com.asg.spindleserp.dummy.EcoCustomer;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.CreationTimestamp;
 
+import java.io.Serializable;
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "eco_coupon_usages",

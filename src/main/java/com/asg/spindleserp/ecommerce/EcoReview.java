@@ -4,6 +4,8 @@ import com.asg.spindleserp.common.BaseOrgEntity;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.time.LocalDateTime;
+
 @Entity
 @Table(name = "eco_reviews",
         uniqueConstraints = @UniqueConstraint(name = "uk_review_prod_cust_order",

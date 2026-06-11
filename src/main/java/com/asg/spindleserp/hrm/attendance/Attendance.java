@@ -3,8 +3,11 @@ package com.asg.spindleserp.hrm.attendance;
 import com.asg.spindleserp.common.BaseOrgEntity;
 import com.asg.spindleserp.hrm.pims.Employee;
 import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.Setter;
+import lombok.*;
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalTime;
 
 @Entity
 @Table(name = "hrm_attendances",

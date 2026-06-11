@@ -4,6 +4,8 @@ import com.asg.spindleserp.common.BaseOrgEntity;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.math.BigDecimal;
+
 /**
  * SubAccount — JOINED TABLE INHERITANCE base.
  * sub_account_type discriminates: BANK | CASH | CUSTOMER | SUPPLIER | GENERAL

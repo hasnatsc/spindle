@@ -8,6 +8,7 @@ import com.asg.spindleserp.global.documents.BusinessDocument;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 
 @Entity

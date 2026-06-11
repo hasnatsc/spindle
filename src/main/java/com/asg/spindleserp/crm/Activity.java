@@ -4,9 +4,9 @@ import com.asg.spindleserp.common.BaseOrgEntity;
 import com.asg.spindleserp.production.order.Opportunity;
 import com.asg.spindleserp.security.User;
 import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.Setter;
+import lombok.*;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity

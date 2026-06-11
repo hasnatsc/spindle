@@ -3,11 +3,14 @@ package com.asg.spindleserp.audit;
 import com.asg.spindleserp.security.Organization;
 import com.asg.spindleserp.security.User;
 import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.Setter;
+import lombok.*;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.io.Serializable;
 import java.time.LocalDateTime;
+import java.util.Map;
 
 @Entity
 @Table(name = "sys_audit_log",

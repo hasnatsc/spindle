@@ -3,7 +3,14 @@ package com.asg.spindleserp.budget;
 import com.asg.spindleserp.accounts.journal.JournalEntry;
 import com.asg.spindleserp.accounts.journal.JournalEntryLine;
 import com.asg.spindleserp.security.Organization;
-import lombok.Getter;
+import jakarta.persistence.*;
+import lombok.*;
+import org.hibernate.annotations.CreationTimestamp;
+
+import java.io.Serializable;
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 /**
  * BudgetActual — immutable.

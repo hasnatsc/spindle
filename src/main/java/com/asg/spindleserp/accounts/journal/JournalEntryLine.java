@@ -6,6 +6,8 @@ import com.asg.spindleserp.accounts.setup.SubAccount;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.math.BigDecimal;
+
 @Entity
 @Table(name = "acc_journal_entry_lines",
         indexes = {

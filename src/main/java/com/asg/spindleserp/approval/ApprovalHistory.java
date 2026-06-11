@@ -2,8 +2,7 @@ package com.asg.spindleserp.approval;
 
 import com.asg.spindleserp.security.User;
 import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.Setter;
+import lombok.*;
 
 import java.io.Serializable;
 import java.time.LocalDateTime;

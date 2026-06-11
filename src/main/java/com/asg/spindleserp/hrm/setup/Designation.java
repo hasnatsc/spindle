@@ -5,6 +5,7 @@ import com.asg.spindleserp.security.Organization;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.io.Serializable;
 import java.math.BigDecimal;
 
 @Entity

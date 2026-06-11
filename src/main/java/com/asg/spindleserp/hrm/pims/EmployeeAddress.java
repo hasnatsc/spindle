@@ -3,6 +3,8 @@ package com.asg.spindleserp.hrm.pims;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.io.Serializable;
+
 @Entity
 @Table(name = "hrm_employee_addresses",
         indexes = @Index(name = "idx_eaddr_emp", columnList = "employee_id"))

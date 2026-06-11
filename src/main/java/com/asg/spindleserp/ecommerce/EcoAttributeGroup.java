@@ -4,6 +4,9 @@ import com.asg.spindleserp.dummy.EcoAttributeValue;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.io.Serializable;
+import java.util.ArrayList;
+
 @Entity
 @Table(name = "eco_attribute_groups",
         uniqueConstraints = @UniqueConstraint(name = "uk_atg_store_slug", columnNames = {"store_id", "slug"}),

@@ -6,8 +6,11 @@ import com.asg.spindleserp.global.lot.GlobalInventoryLot;
 import com.asg.spindleserp.inventory.item.InventoryItem;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.CreationTimestamp;
 
+import java.io.Serializable;
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "eco_shipment_items",

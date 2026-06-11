@@ -8,6 +8,7 @@ import com.asg.spindleserp.inventory.setup.UnitsOfMeasure;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
