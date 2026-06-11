@@ -4,9 +4,14 @@ import com.asg.spindleserp.hrm.pims.Employee;
 import com.asg.spindleserp.security.Organization;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 
 import java.io.Serializable;
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.HashSet;
+import java.util.Set;
 
 @Entity
 @Table(name = "hrm_designations",

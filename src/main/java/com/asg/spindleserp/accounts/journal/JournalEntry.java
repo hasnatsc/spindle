@@ -1,7 +1,6 @@
 package com.asg.spindleserp.accounts.journal;
 
 import com.asg.spindleserp.common.BaseOrgEntity;
-import com.asg.spindleserp.dummy.JournalEntryLine;
 import jakarta.persistence.*;
 import lombok.*;
 
