@@ -22,9 +22,7 @@ import java.util.*;
 // ═══════════════════════════════════════════════════════════════════════════
 package com.hasnat.optimum.organization.repository;
 import com.hasnat.optimum.organization.entity.*;
-import org.springframework.data.jpa.repository.*;
 import Repository;
-import java.util.*;
 
 @Repository
 public interface OrganizationRepository extends JpaRepository<Organization, Long> {
@@ -58,44 +56,6 @@ import org.springframework.data.jpa.repository.*;
 import org.springframework.data.repository.query.Param;
 import Repository;
 import java.util.*;
-
-@Repository
-public interface CurrencyRepository extends JpaRepository<Currency, Long> {
-    Optional<Currency> findByCode(String code);
-    List<Currency>     findByActiveTrue();
-}
-
-@Repository
-public interface BankRepository extends JpaRepository<Bank, Long>, JpaSpecificationExecutor<Bank> {
-    Optional<Bank> findByOrganizationIdAndBankCode(Long orgId, String bankCode);
-    List<Bank>     findByOrganizationIdAndIsActiveTrue(Long orgId);
-    List<Bank>     findByOrganizationIdAndIsActiveTrueAndSupportsLcTrue(Long orgId);
-    boolean        existsByOrganizationIdAndBankCode(Long orgId, String bankCode);
-}
-
-@Repository
-public interface DocumentSequenceRepository extends JpaRepository<DocumentSequence, Long> {
-    Optional<DocumentSequence> findByOrganizationIdAndPrefixAndYearCode(
-        Long orgId, String prefix, String yearCode);
-
-    @Modifying
-    @Query("UPDATE DocumentSequence ds SET ds.lastSeq = ds.lastSeq + 1 " +
-           "WHERE ds.organizationId = :orgId AND ds.prefix = :prefix AND ds.yearCode = :yearCode")
-    void increment(@Param("orgId") Long orgId,
-                   @Param("prefix") String prefix,
-                   @Param("yearCode") String yearCode);
-}
-
-@Repository
-public interface TermsMasterRepository extends JpaRepository<TermsMaster, Long> {
-    List<TermsMaster> findByDocumentTypeAndIsActiveTrue(String documentType);
-}
-
-@Repository
-public interface DocumentFileRepository extends JpaRepository<DocumentFile, Long> {
-    List<DocumentFile> findByDocumentTypeAndReferenceId(String docType, Long refId);
-    void deleteByDocumentTypeAndReferenceId(String docType, Long refId);
-}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // INVENTORY  (★ YarnType/YarnCount/YarnProduct repositories REMOVED)
@@ -250,58 +210,6 @@ import Repository;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.*;
-
-@Repository
-public interface BomRepository extends JpaRepository<Bom, Long>, JpaSpecificationExecutor<Bom> {
-    Optional<Bom>  findByOrganizationIdAndBomCode(Long orgId, String code);
-    List<Bom>      findByOrganizationIdAndIsActiveTrue(Long orgId);
-    List<Bom>      findByFinishedItemIdAndIsActiveTrue(Long itemId);
-    Optional<Bom>  findByFinishedItemIdAndIsDefaultTrue(Long itemId);
-    boolean        existsByOrganizationIdAndBomCode(Long orgId, String code);
-}
-
-@Repository
-public interface BomItemRepository extends JpaRepository<BomItem, Long> {
-    List<BomItem> findByBomIdOrderByLineNumber(Long bomId);
-    List<BomItem> findByRawItemId(Long rawItemId);
-}
-
-@Repository
-public interface ProductionRepository extends JpaRepository<Production, Long>, JpaSpecificationExecutor<Production> {
-    Optional<Production> findByOrganizationIdAndProductionNo(Long orgId, String no);
-    List<Production>     findByOrganizationIdAndStatus(Long orgId, ProductionStatus status);
-    List<Production>     findByOrganizationIdAndFinishedItemId(Long orgId, Long itemId);
-    List<Production>     findByCostCenterId(Long costCenterId);
-    boolean              existsByOrganizationIdAndProductionNo(Long orgId, String no);
-
-    // For labor cost proportioning
-    @Query("SELECT COALESCE(SUM(p.producedQuantity), 0) FROM Production p " +
-           "WHERE p.costCenter.id = :costCenterId " +
-           "AND FUNCTION('TO_CHAR', p.productionDate, 'YYYY-MM') = :month " +
-           "AND p.status = 'COMPLETED'")
-    BigDecimal sumProducedQtyByCostCenterAndMonth(
-        @Param("costCenterId") Long costCenterId,
-        @Param("month") String month);
-}
-
-@Repository
-public interface ProductionInputRepository extends JpaRepository<ProductionInput, Long> {
-    List<ProductionInput> findByProductionIdOrderByLineNumber(Long productionId);
-    List<ProductionInput> findByRawItemId(Long rawItemId);
-    List<ProductionInput> findByLotId(Long lotId);
-
-    // Sum material cost for a production — after all inputs recorded
-    @Query("SELECT COALESCE(SUM(pi.totalCost), 0) FROM ProductionInput pi " +
-           "WHERE pi.production.id = :productionId")
-    java.math.BigDecimal sumTotalCostByProduction(@Param("productionId") Long productionId);
-}
-
-@Repository
-public interface ProductionOutputRepository extends JpaRepository<ProductionOutput, Long> {
-    List<ProductionOutput> findByProductionIdOrderByLineNumber(Long productionId);
-    List<ProductionOutput> findByFinishedItemId(Long itemId);
-    List<ProductionOutput> findByLotId(Long lotId);
-}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // HRM  (★ Added CostCenterAllocationRepository)
