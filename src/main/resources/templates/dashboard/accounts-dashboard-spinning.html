@@ -1,0 +1,2868 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>HASSML ERP | GMD Dashboard</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=IBM+Plex+Sans:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/4.6.2/css/bootstrap.min.css"
+    />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/4.6.2/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+    <style>
+      :root {
+        --accent: #00c8ff;
+        --accent2: #7c3aed;
+        --green: #10b981;
+        --red: #f43f5e;
+        --yellow: #f59e0b;
+        --orange: #f97316;
+        --blue: #2563eb;
+        --purple: #7c3aed;
+        --grey: #64748b;
+        --sidebar-w: 210px;
+        --topbar-h: 116px;
+        --radius: 10px;
+        --radius-sm: 6px;
+        --radius-xs: 4px;
+        --transition: 0.22s ease;
+        --fs-xs: 0.688rem;
+        --fs-sm: 0.75rem;
+        --fs-base: 0.8125rem;
+        --fs-md: 0.875rem;
+        --fs-lg: 1rem;
+        --fs-xl: 1.125rem;
+        --fs-2xl: 1.375rem;
+        --fs-3xl: 1.625rem;
+        --sp-1: 4px;
+        --sp-2: 8px;
+        --sp-3: 12px;
+        --sp-4: 16px;
+        --sp-5: 20px;
+        --sp-6: 24px;
+        --sp-7: 32px;
+      }
+      [data-theme="dark"] {
+        --bg: #0b0f1c;
+        --surface: #111827;
+        --surface2: #182033;
+        --surface3: #1e2d45;
+        --border: rgba(255, 255, 255, 0.07);
+        --text: #e2e8f0;
+        --text2: #94a3b8;
+        --shadow: 0 4px 24px rgba(0, 0, 0, 0.45);
+        --overlay: rgba(0, 0, 0, 0.55);
+      }
+      [data-theme="light"] {
+        --bg: #f0f4f9;
+        --surface: #ffffff;
+        --surface2: #f1f5fb;
+        --surface3: #e4eaf3;
+        --border: rgba(0, 0, 0, 0.08);
+        --text: #0f172a;
+        --text2: #4e5a6b;
+        --shadow: 0 2px 16px rgba(0, 0, 0, 0.08);
+        --overlay: rgba(0, 0, 0, 0.35);
+      }
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family: "IBM Plex Sans", sans-serif;
+        font-size: var(--fs-base);
+        line-height: 1.5;
+        background: var(--bg);
+        color: var(--text);
+        transition:
+          background var(--transition),
+          color var(--transition);
+        -webkit-font-smoothing: antialiased;
+      }
+      ::-webkit-scrollbar {
+        width: 5px;
+        height: 5px;
+      }
+      ::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: var(--surface3);
+        border-radius: 3px;
+      }
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+
+      /* SIDEBAR — accounts-dashboard style */
+      .sidebar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: var(--sidebar-w);
+        height: 100vh;
+        background: var(--surface);
+        border-right: 1px solid var(--border);
+        display: flex;
+        flex-direction: column;
+        z-index: 1050;
+        transition:
+          transform var(--transition),
+          background var(--transition),
+          border-color var(--transition);
+        overflow-y: auto;
+      }
+      .sb-logo {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 18px 18px 16px;
+        border-bottom: 1px solid var(--border);
+        flex-shrink: 0;
+      }
+      .sb-logo-icon {
+        width: 36px;
+        height: 36px;
+        flex-shrink: 0;
+        background: linear-gradient(135deg, var(--accent), var(--accent2));
+        border-radius: 9px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 17px;
+      }
+      .sb-logo-text {
+        font-family: sans-serif;
+        font-size: 10.5px;
+        font-weight: 700;
+        line-height: 1.35;
+        color: var(--text);
+      }
+      .sb-logo-text em {
+        color: var(--accent);
+        font-style: normal;
+      }
+      .sb-logo-text small {
+        display: block;
+        font-size: 9px;
+        font-weight: 400;
+        color: var(--text2);
+        line-height: 1.4;
+      }
+      .sb-close {
+        display: none;
+        margin-left: auto;
+        background: none;
+        border: none;
+        color: var(--text2);
+        font-size: 20px;
+        cursor: pointer;
+        padding: 2px 6px;
+        border-radius: 5px;
+      }
+      .sb-close:hover {
+        background: var(--surface2);
+        color: var(--text);
+      }
+      .sb-section-label {
+        font-size: 9px;
+        font-weight: 700;
+        color: var(--text2);
+        text-transform: uppercase;
+        letter-spacing: 1.3px;
+        padding: 6px 18px 4px;
+      }
+      .sb-nav {
+        padding: 10px 0 4px;
+        flex: 1;
+      }
+      .sb-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 8px 18px;
+        cursor: pointer;
+        color: var(--text2);
+        font-size: 12px;
+        font-weight: 500;
+        border-left: 3px solid transparent;
+        transition: all 0.18s;
+        user-select: none;
+      }
+      .sb-item:hover {
+        color: var(--text);
+        background: var(--surface2);
+      }
+      .sb-item.active {
+        color: var(--accent);
+        background: rgba(0, 200, 255, 0.07);
+        border-left-color: var(--accent);
+        font-weight: 600;
+      }
+      .sb-item .si {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+      }
+      .sb-item .icon {
+        font-size: 14px;
+        width: 18px;
+        text-align: center;
+        flex-shrink: 0;
+      }
+      .sb-item .arr {
+        font-size: 10px;
+        opacity: 0.4;
+      }
+      .sb-user {
+        margin-top: auto;
+        padding: 12px 18px;
+        border-top: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-shrink: 0;
+      }
+      .sb-user-av {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, var(--accent), var(--accent2));
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 10px;
+        font-weight: 700;
+        color: #fff;
+        flex-shrink: 0;
+      }
+      .sb-user-name {
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--text);
+      }
+      .sb-user-role {
+        font-size: 9.5px;
+        color: var(--accent);
+      }
+      .sb-quick {
+        padding: 10px 18px 14px;
+        border-top: 1px solid var(--border);
+      }
+      .sb-quick-label {
+        font-size: 9px;
+        font-weight: 700;
+        color: var(--text2);
+        text-transform: uppercase;
+        letter-spacing: 1.3px;
+        margin-bottom: 6px;
+      }
+      .sb-quick-btn {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 0;
+        color: var(--text2);
+        font-size: 11px;
+        cursor: pointer;
+        border-radius: 5px;
+        transition: all 0.15s;
+      }
+      .sb-quick-btn:hover {
+        color: var(--accent);
+        background: rgba(0, 200, 255, 0.06);
+        padding-left: 6px;
+      }
+
+      /* OVERLAY */
+      .overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: var(--overlay);
+        z-index: 1045;
+        opacity: 0;
+        transition: opacity 0.25s;
+      }
+      .overlay.show {
+        opacity: 1;
+      }
+
+      /* TOPBAR — accounts-dashboard style */
+      .topbar {
+        position: fixed;
+        top: 0;
+        left: var(--sidebar-w);
+        right: 0;
+        z-index: 1040;
+        background: var(--surface);
+        border-bottom: 1px solid var(--border);
+        transition:
+          left var(--transition),
+          background var(--transition),
+          border-color var(--transition);
+      }
+      .tb-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 20px;
+        height: 56px;
+        border-bottom: 1px solid var(--border);
+        gap: 10px;
+      }
+      .tb-left {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        overflow: hidden;
+        flex: 1;
+        min-width: 0;
+      }
+      .menu-btn {
+        display: none;
+        background: none;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        width: 34px;
+        height: 34px;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        font-size: 18px;
+        color: var(--text2);
+        flex-shrink: 0;
+        transition: background 0.18s;
+      }
+      .menu-btn:hover {
+        background: var(--surface2);
+        color: var(--text);
+      }
+      .tb-title {
+        font-family: sans-serif;
+        font-size: 14px;
+        font-weight: 800;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .tb-title span {
+        color: var(--accent);
+      }
+      .tb-sub {
+        font-size: 11px;
+        color: var(--text2);
+        margin-top: 2px;
+      }
+      .tb-right {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        flex-shrink: 0;
+      }
+      .tb-filters-strip {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 0 20px;
+        height: 60px;
+        overflow-x: auto;
+        border-bottom: 1px solid var(--border);
+      }
+      .tb-filters-strip::-webkit-scrollbar {
+        height: 2px;
+      }
+      .f-group {
+        display: flex;
+        flex-direction: column;
+        flex-shrink: 0;
+      }
+      .f-label {
+        font-size: 9px;
+        color: var(--text2);
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.07em;
+        margin-bottom: 3px;
+      }
+      .f-input {
+        background: var(--surface2);
+        border: 1px solid var(--border);
+        border-radius: 7px;
+        padding: 5px 10px;
+        font-size: 11px;
+        color: var(--text);
+        font-family: inherit;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        white-space: nowrap;
+        transition: border-color 0.15s;
+      }
+      .f-input:hover,
+      .f-input:focus-within {
+        border-color: var(--accent);
+      }
+      .f-input select,
+      .f-input input {
+        background: none;
+        border: none;
+        color: var(--text);
+        font-size: 11px;
+        font-family: inherit;
+        outline: none;
+      }
+      .f-input select {
+        min-width: 70px;
+        cursor: pointer;
+      }
+      .f-input input {
+        width: 95px;
+      }
+      .f-input input::placeholder {
+        color: var(--text2);
+      }
+      .f-reset {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        background: none;
+        border: 1px solid var(--border);
+        border-radius: 7px;
+        padding: 6px 12px;
+        color: var(--accent);
+        font-size: 11px;
+        cursor: pointer;
+        font-family: inherit;
+        transition: background 0.15s;
+        white-space: nowrap;
+        flex-shrink: 0;
+      }
+      .f-reset:hover {
+        background: var(--surface2);
+      }
+
+      /* icon buttons */
+      .icon-btn {
+        position: relative;
+        width: 34px;
+        height: 34px;
+        border-radius: 8px;
+        background: var(--surface2);
+        border: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        font-size: 15px;
+        transition: background 0.18s;
+      }
+      .icon-btn:hover {
+        background: var(--surface3);
+      }
+      .notif-badge {
+        position: absolute;
+        top: -4px;
+        right: -4px;
+        background: var(--red);
+        color: #fff;
+        border-radius: 50%;
+        width: 16px;
+        height: 16px;
+        font-size: 9px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+      }
+      .theme-toggle {
+        width: 54px;
+        height: 28px;
+        border-radius: 14px;
+        background: var(--surface3);
+        border: 1px solid var(--border);
+        position: relative;
+        cursor: pointer;
+        flex-shrink: 0;
+        transition: background 0.25s;
+      }
+      .theme-toggle .knob {
+        position: absolute;
+        top: 3px;
+        left: 3px;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, var(--accent), var(--accent2));
+        transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 11px;
+      }
+      [data-theme="light"] .theme-toggle .knob {
+        transform: translateX(26px);
+      }
+      .user-chip {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        background: var(--surface2);
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        padding: 4px 11px 4px 4px;
+        cursor: pointer;
+        transition: background 0.18s;
+      }
+      .user-chip:hover {
+        background: var(--surface3);
+      }
+      .user-av {
+        width: 26px;
+        height: 26px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, var(--accent), var(--accent2));
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 10px;
+        font-weight: 800;
+        color: #fff;
+        flex-shrink: 0;
+      }
+      .user-name {
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--text);
+      }
+      .tb-datetime {
+        font-size: 11px;
+        color: var(--text2);
+        white-space: nowrap;
+      }
+
+      /* date range pair */
+      .date-pair {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .date-pair .vs-label {
+        font-size: var(--fs-xs);
+        color: var(--text2);
+      }
+
+      /* MAIN */
+      .main {
+        margin-left: var(--sidebar-w);
+        padding-top: var(--topbar-h);
+        min-height: 100vh;
+        transition: margin-left var(--transition);
+      }
+      .content {
+        padding: var(--sp-5) var(--sp-5) 60px;
+        max-width: 1800px;
+      }
+      .content .row + .row {
+        margin-top: 0.75rem;
+      }
+      @media (min-width: 992px) {
+        .content .row + .row {
+          margin-top: 1.1rem;
+        }
+      }
+
+      /* SECTION LABEL */
+      .section-label {
+        font-family: "Plus Jakarta Sans", sans-serif;
+        font-size: 0.625rem;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--text2);
+        display: flex;
+        align-items: center;
+        gap: var(--sp-2);
+        margin-bottom: var(--sp-3);
+        margin-top: var(--sp-1);
+      }
+      .section-label::after {
+        content: "";
+        flex: 1;
+        height: 1px;
+        background: var(--border);
+      }
+
+      /* CARD */
+      .card-dash {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: var(--sp-4) var(--sp-4);
+        box-shadow: var(--shadow);
+        height: 100%;
+      }
+      .sec-title {
+        font-family: "Plus Jakarta Sans", sans-serif;
+        font-size: var(--fs-xs);
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: var(--accent);
+        margin-bottom: var(--sp-3);
+        display: flex;
+        align-items: center;
+        gap: var(--sp-2);
+      }
+
+      /* KPI HEADER COLORED TILES */
+      .kpi-header {
+        border-radius: var(--radius);
+        padding: var(--sp-3) var(--sp-4);
+        color: #fff;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        transition:
+          transform 0.18s,
+          box-shadow 0.18s;
+        min-height: 90px;
+      }
+      .kpi-header:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+      }
+      .kh-label {
+        font-size: var(--fs-xs);
+        font-weight: 600;
+        opacity: 0.85;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        margin-bottom: 4px;
+      }
+      .kh-val {
+        font-family: "Plus Jakarta Sans", sans-serif;
+        font-size: var(--fs-xl);
+        font-weight: 800;
+        line-height: 1.1;
+      }
+      .kh-val sub {
+        font-size: var(--fs-xs);
+        font-weight: 500;
+        vertical-align: baseline;
+        margin-left: 2px;
+      }
+      .kh-sub {
+        font-size: var(--fs-xs);
+        opacity: 0.75;
+        margin-top: 5px;
+        display: flex;
+        align-items: center;
+        gap: 3px;
+        flex-wrap: wrap;
+      }
+      .bg-sales {
+        background: linear-gradient(135deg, #1d4ed8, #3b82f6);
+      }
+      .bg-sqty {
+        background: linear-gradient(135deg, #0e7490, #06b6d4);
+      }
+      .bg-prod {
+        background: linear-gradient(135deg, #065f46, #059669);
+      }
+      .bg-del {
+        background: linear-gradient(135deg, #047857, #10b981);
+      }
+      .bg-gp {
+        background: linear-gradient(135deg, #5b21b6, #7c3aed);
+      }
+      .bg-col {
+        background: linear-gradient(135deg, #92400e, #d97706);
+      }
+      .bg-recv {
+        background: linear-gradient(135deg, #881337, #e11d48);
+      }
+      .bg-fgs {
+        background: linear-gradient(135deg, #78350f, #b45309);
+      }
+      .bg-rms {
+        background: linear-gradient(135deg, #1e3a5f, #1d4ed8);
+      }
+
+      /* MINI KPI */
+      .mini-kpi {
+        background: var(--surface2);
+        border-radius: var(--radius-sm);
+        padding: 10px var(--sp-3);
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+      }
+      .mk-lbl {
+        font-size: var(--fs-xs);
+        color: var(--text2);
+        margin-bottom: 3px;
+        line-height: 1.3;
+      }
+      .mk-val {
+        font-family: "Plus Jakarta Sans", sans-serif;
+        font-size: var(--fs-lg);
+        font-weight: 800;
+      }
+      .mk-val small {
+        font-size: var(--fs-xs);
+        font-weight: 500;
+        font-family: "IBM Plex Sans", sans-serif;
+      }
+      .mk-sub {
+        font-size: var(--fs-xs);
+        color: var(--text2);
+        margin-top: 2px;
+      }
+
+      /* STAT ROW */
+      .stat-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 6px 0;
+        border-bottom: 1px solid var(--border);
+      }
+      .stat-row:last-child {
+        border-bottom: none;
+      }
+      .stat-lbl {
+        font-size: var(--fs-xs);
+        color: var(--text2);
+      }
+      .stat-val {
+        font-size: var(--fs-sm);
+        font-weight: 700;
+        font-family: "Plus Jakarta Sans", sans-serif;
+      }
+
+      /* TABLE */
+      .tbl-wrap {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+      }
+      .tbl-wrap table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+      .tbl-wrap th {
+        font-size: var(--fs-xs);
+        font-weight: 600;
+        color: var(--text2);
+        text-align: left;
+        padding: 0 var(--sp-2) var(--sp-2);
+        text-transform: uppercase;
+        letter-spacing: 0.07em;
+        white-space: nowrap;
+        font-family: "Plus Jakarta Sans", sans-serif;
+      }
+      .tbl-wrap td {
+        font-size: var(--fs-xs);
+        padding: 7px var(--sp-2);
+        border-top: 1px solid var(--border);
+        white-space: nowrap;
+        vertical-align: middle;
+      }
+      .tbl-wrap tr:hover td {
+        background: var(--surface2);
+      }
+      .tr {
+        text-align: right;
+      }
+      .tc {
+        text-align: center;
+      }
+
+      /* BADGES */
+      .badge-pill {
+        display: inline-flex;
+        align-items: center;
+        padding: 2px 7px;
+        border-radius: 99px;
+        font-size: 0.62rem;
+        font-weight: 700;
+        letter-spacing: 0.03em;
+      }
+      .bp-green {
+        background: rgba(5, 150, 105, 0.15);
+        color: #34d399;
+      }
+      .bp-red {
+        background: rgba(225, 29, 72, 0.15);
+        color: #fb7185;
+      }
+      .bp-yellow {
+        background: rgba(217, 119, 6, 0.18);
+        color: #fbbf24;
+      }
+      .bp-orange {
+        background: rgba(234, 88, 12, 0.15);
+        color: #fb923c;
+      }
+      .bp-blue {
+        background: rgba(37, 99, 235, 0.15);
+        color: #60a5fa;
+      }
+      .bp-grey {
+        background: rgba(100, 116, 139, 0.15);
+        color: #94a3b8;
+      }
+      .bp-critical {
+        background: rgba(225, 29, 72, 0.22);
+        color: #ef4444;
+        font-weight: 800;
+      }
+      .bp-high {
+        background: rgba(234, 88, 12, 0.22);
+        color: #fb923c;
+        font-weight: 800;
+      }
+      .bp-medium {
+        background: rgba(217, 119, 6, 0.22);
+        color: #fbbf24;
+      }
+      .bp-watch {
+        background: rgba(217, 119, 6, 0.15);
+        color: #fbbf24;
+      }
+
+      /* COLORS */
+      .c-accent {
+        color: var(--accent);
+      }
+      .c-green {
+        color: var(--green);
+      }
+      .c-red {
+        color: var(--red);
+      }
+      .c-yellow {
+        color: var(--yellow);
+      }
+      .c-orange {
+        color: var(--orange);
+      }
+      .c-blue {
+        color: var(--blue);
+      }
+      .c-purple {
+        color: var(--purple);
+      }
+      .c-text2 {
+        color: var(--text2);
+      }
+      .fw6 {
+        font-weight: 600;
+      }
+      .fw7 {
+        font-weight: 700;
+      }
+      .fw8 {
+        font-weight: 800;
+      }
+      .dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        display: inline-block;
+        flex-shrink: 0;
+      }
+
+      /* PROGRESS BAR */
+      .prog-bar {
+        background: var(--surface3);
+        border-radius: 99px;
+        height: 5px;
+        overflow: hidden;
+      }
+      .prog-fill {
+        height: 100%;
+        border-radius: 99px;
+      }
+
+      /* CHART BOX */
+      .chart-box {
+        position: relative;
+        width: 100%;
+      }
+
+      /* ALERT ROW */
+      .alert-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 7px 0;
+        border-bottom: 1px solid var(--border);
+      }
+      .alert-row:last-child {
+        border-bottom: none;
+      }
+
+      /* EXCEPTION ROW */
+      .exc-row {
+        display: flex;
+        align-items: flex-start;
+        gap: var(--sp-2);
+        padding: 7px 0;
+        border-bottom: 1px solid var(--border);
+      }
+      .exc-row:last-child {
+        border-bottom: none;
+      }
+      .exc-icon {
+        flex-shrink: 0;
+        font-size: 13px;
+        margin-top: 1px;
+      }
+      .exc-text {
+        font-size: var(--fs-xs);
+        color: var(--text2);
+        line-height: 1.4;
+      }
+      .exc-text strong {
+        color: var(--text);
+        font-weight: 600;
+      }
+
+      /* QUALITY KPI GRID */
+      .qkpi-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: var(--sp-2);
+        margin-bottom: var(--sp-3);
+      }
+      .qkpi {
+        background: var(--surface2);
+        border-radius: var(--radius-sm);
+        padding: 10px var(--sp-3);
+        text-align: center;
+      }
+      .qkpi .ql {
+        font-size: var(--fs-xs);
+        color: var(--text2);
+        margin-bottom: 3px;
+      }
+      .qkpi .qv {
+        font-family: "Plus Jakarta Sans", sans-serif;
+        font-size: var(--fs-2xl);
+        font-weight: 800;
+      }
+      .qkpi .qs {
+        font-size: var(--fs-xs);
+        color: var(--text2);
+        margin-top: 2px;
+      }
+
+      /* CASH FLOW TILE */
+      .cf-tile {
+        background: var(--surface2);
+        border-radius: var(--radius-sm);
+        padding: 9px var(--sp-3);
+        text-align: center;
+      }
+      .cf-tile .cl {
+        font-size: var(--fs-xs);
+        color: var(--text2);
+        margin-bottom: 2px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 3px;
+      }
+      .cf-tile .cv {
+        font-family: "Plus Jakarta Sans", sans-serif;
+        font-size: var(--fs-md);
+        font-weight: 800;
+      }
+
+      /* DONUT */
+      .donut-wrap {
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .donut-center {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        text-align: center;
+        pointer-events: none;
+      }
+      .donut-center .dv {
+        font-family: "Plus Jakarta Sans", sans-serif;
+        font-size: var(--fs-xl);
+        font-weight: 800;
+      }
+      .donut-center .dl {
+        font-size: var(--fs-xs);
+        color: var(--text2);
+      }
+
+      /* ── Dashboard Switcher ─────────────────────── */
+      .dash-switcher {
+        padding: 10px 14px 12px;
+        border-bottom: 1px solid var(--border);
+        flex-shrink: 0;
+      }
+      .dash-switcher-label {
+        font-size: 9px;
+        font-weight: 700;
+        color: var(--text2);
+        text-transform: uppercase;
+        letter-spacing: 1.3px;
+        margin-bottom: 7px;
+        padding: 0 4px;
+      }
+      .dash-switch-btn {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 7px 8px;
+        border-radius: 8px;
+        cursor: pointer;
+        color: var(--text2);
+        font-size: 11.5px;
+        font-weight: 500;
+        text-decoration: none;
+        transition: all 0.18s;
+        margin-bottom: 3px;
+      }
+      .dash-switch-btn:hover {
+        background: var(--surface2);
+        color: var(--text);
+        text-decoration: none;
+      }
+      .dash-switch-btn.current {
+        background: rgba(0, 200, 255, 0.08);
+        color: var(--accent);
+        font-weight: 600;
+        pointer-events: none;
+      }
+      .dash-switch-btn .dsb-icon {
+        width: 24px;
+        height: 24px;
+        border-radius: 6px;
+        background: var(--surface3);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+        flex-shrink: 0;
+      }
+      .dash-switch-btn.current .dsb-icon {
+        background: rgba(0, 200, 255, 0.15);
+      }
+      .dash-switch-btn .dsb-info {
+        min-width: 0;
+      }
+      .dash-switch-btn .dsb-name {
+        display: block;
+        font-size: 11px;
+        font-weight: 600;
+        line-height: 1.2;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .dash-switch-btn .dsb-sub {
+        display: block;
+        font-size: 9.5px;
+        color: var(--text2);
+        line-height: 1.2;
+      }
+      .dash-switch-btn.current .dsb-sub {
+        color: rgba(0, 200, 255, 0.6);
+      }
+      @media (max-width: 991px) {
+        :root {
+          --sidebar-w: 0px;
+          --topbar-h: 56px;
+        }
+        .sidebar {
+          transform: translateX(-220px);
+          width: 220px;
+          box-shadow: none;
+        }
+        .sidebar.open {
+          transform: translateX(0);
+          box-shadow: 4px 0 24px rgba(0, 0, 0, 0.3);
+        }
+        .sb-close {
+          display: flex !important;
+          align-items: center;
+          justify-content: center;
+        }
+        .menu-btn {
+          display: flex;
+        }
+        .topbar {
+          left: 0;
+        }
+        .main {
+          margin-left: 0;
+        }
+        .tb-sub,
+        .tb-datetime {
+          display: none;
+        }
+        .date-pair {
+          display: none;
+        }
+      }
+      @media (max-width: 767px) {
+        .user-name {
+          display: none;
+        }
+        .tb-top {
+          height: 54px;
+          padding: 0 var(--sp-4);
+          gap: var(--sp-2);
+        }
+        .tb-filters-strip {
+          height: auto;
+          padding: var(--sp-3) var(--sp-4);
+          flex-wrap: wrap;
+          gap: var(--sp-2);
+        }
+        .content {
+          padding: var(--sp-4) var(--sp-4) 48px;
+        }
+        .card-dash {
+          padding: var(--sp-3);
+        }
+        .qkpi-grid {
+          grid-template-columns: repeat(2, 1fr);
+        }
+      }
+      @media (max-width: 575px) {
+        .content {
+          padding: var(--sp-3) var(--sp-3) 40px;
+        }
+        .card-dash {
+          padding: var(--sp-3);
+        }
+        .tb-title {
+          font-size: var(--fs-base);
+        }
+        .tb-top {
+          padding: 0 var(--sp-3);
+        }
+        .kh-val {
+          font-size: var(--fs-lg) !important;
+        }
+        .kpi-header {
+          min-height: 76px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="overlay" id="overlay" onclick="closeSidebar()"></div>
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sb-logo">
+        <div class="sb-logo-icon">🏭</div>
+        <div class="sb-logo-text">
+          HASSML ERP<small>Hazrat Amanat Shah Spinning Mill</small>
+        </div>
+        <button class="sb-close" onclick="closeSidebar()">✕</button>
+      </div>
+
+      <!-- Dashboard Switcher -->
+      <div class="dash-switcher">
+        <div class="dash-switcher-label">🔀 Switch Dashboard</div>
+        <a class="dash-switch-btn" href="/dashboard/accounts-dashboard">
+          <div class="dsb-icon">📊</div>
+          <div class="dsb-info">
+            <span class="dsb-name">Accounts</span>
+            <span class="dsb-sub">Group Financial Command</span>
+          </div>
+        </a>
+        <a class="dash-switch-btn" href="/dashboard/accounts-dashboard-fabrics">
+          <div class="dsb-icon">🗼</div>
+          <div class="dsb-info">
+            <span class="dsb-name">ERP Control Tower</span>
+            <span class="dsb-sub">ASFL GMD Operations</span>
+          </div>
+        </a>
+        <a class="dash-switch-btn current" href="/dashboard/accounts-dashboard-spinning">
+          <div class="dsb-icon">🏭</div>
+          <div class="dsb-info">
+            <span class="dsb-name">GMD Dashboard</span>
+            <span class="dsb-sub">HASSML ERP Overview</span>
+          </div>
+        </a>
+        <a class="dash-switch-btn" href="/dashboard/fabric-precosting-dashboard">
+          <div class="dsb-icon">🧵</div>
+          <div>
+            <span class="dsb-name">Fabric Pre-Costing</span>
+            <span class="dsb-sub">Control Tower · ASG</span>
+          </div>
+        </a>
+      </div>
+
+      <nav class="sb-nav">
+        <!-- <div class="sb-section-label">Dashboards</div> -->
+        <div class="sb-item active">
+          <span class="si"><span class="icon">📊</span> GMD Dashboard</span>
+        </div>
+        <div class="sb-item">
+          <span class="si"><span class="icon">💼</span> Sales Dashboard</span
+          ><span class="arr">›</span>
+        </div>
+        <div class="sb-item">
+          <span class="si"
+            ><span class="icon">📦</span> Order &amp; Delivery</span
+          ><span class="arr">›</span>
+        </div>
+        <div class="sb-item">
+          <span class="si"
+            ><span class="icon">⚙️</span> Production Dashboard</span
+          ><span class="arr">›</span>
+        </div>
+        <div class="sb-item">
+          <span class="si"><span class="icon">📋</span> Planning Dashboard</span
+          ><span class="arr">›</span>
+        </div>
+        <div class="sb-item">
+          <span class="si"
+            ><span class="icon">🏪</span> Raw Material Dashboard</span
+          ><span class="arr">›</span>
+        </div>
+        <div class="sb-item">
+          <span class="si"
+            ><span class="icon">📦</span> Finished Goods Dashboard</span
+          ><span class="arr">›</span>
+        </div>
+        <div class="sb-item">
+          <span class="si"
+            ><span class="icon">🛒</span> Purchase &amp; LC Dashboard</span
+          ><span class="arr">›</span>
+        </div>
+        <div class="sb-section-label">Finance &amp; Quality</div>
+        <div class="sb-item">
+          <span class="si"
+            ><span class="icon">💹</span> Costing &amp; Profitability</span
+          ><span class="arr">›</span>
+        </div>
+        <div class="sb-item">
+          <span class="si"><span class="icon">✅</span> Quality Dashboard</span
+          ><span class="arr">›</span>
+        </div>
+        <div class="sb-item">
+          <span class="si"
+            ><span class="icon">💰</span> Receivable Dashboard</span
+          ><span class="arr">›</span>
+        </div>
+        <div class="sb-item">
+          <span class="si"><span class="icon">📤</span> Payable Dashboard</span
+          ><span class="arr">›</span>
+        </div>
+        <div class="sb-section-label">Operations</div>
+        <div class="sb-item">
+          <span class="si"
+            ><span class="icon">⚠️</span> Exception Dashboard</span
+          ><span class="arr">›</span>
+        </div>
+        <div class="sb-item">
+          <span class="si"><span class="icon">✔️</span> Approval Dashboard</span
+          ><span class="arr">›</span>
+        </div>
+        <div class="sb-item">
+          <span class="si"><span class="icon">📁</span> Reports</span
+          ><span class="arr">›</span>
+        </div>
+        <div class="sb-item">
+          <span class="si"><span class="icon">🗂️</span> Audit Trail</span
+          ><span class="arr">›</span>
+        </div>
+      </nav>
+      <div class="sb-user">
+        <div class="sb-user-av">GM</div>
+        <div>
+          <div class="sb-user-name">GMD</div>
+          <div class="sb-user-role">● Online · Welcome, GMD</div>
+        </div>
+      </div>
+      <div class="sb-quick">
+        <div class="sb-quick-label">Quick Access</div>
+        <div class="sb-quick-btn">➕ Add Sales Order</div>
+        <div class="sb-quick-btn">🏭 Add Production</div>
+        <div class="sb-quick-btn">📦 Stock Entry</div>
+        <div class="sb-quick-btn">🛒 Create Purchase</div>
+      </div>
+    </aside>
+
+    <!-- TOPBAR -->
+    <header class="topbar">
+      <div class="tb-top">
+        <div class="tb-left">
+          <button class="menu-btn" onclick="openSidebar()">☰</button>
+          <div>
+            <div class="tb-title">
+              HASSML ERP &nbsp;<span
+                style="color: var(--text2); font-weight: 300"
+                >|</span
+              >&nbsp; <span>GMD Dashboard</span>
+            </div>
+            <div class="tb-sub">Business Overview &amp; Control Center</div>
+          </div>
+        </div>
+        <div class="tb-right">
+          <div class="date-pair">
+            <div class="f-input">
+              📅<select>
+                <option>01 May 2024 – 31 May 2024</option>
+                <option>Apr 2024</option>
+                <option>Q1 FY2024</option>
+              </select>
+            </div>
+            <span class="vs-label">vs</span>
+            <div class="f-input">
+              📅<select>
+                <option>01 Apr 2024 – 30 Apr 2024</option>
+                <option>Mar 2024</option>
+              </select>
+            </div>
+          </div>
+          <div class="icon-btn">🔔<span class="notif-badge">8</span></div>
+          <div class="icon-btn">⚙️</div>
+          <div class="theme-toggle" onclick="toggleTheme()">
+            <div class="knob" id="themeKnob">🌙</div>
+          </div>
+          <div class="user-chip">
+            <div class="user-av">GM</div>
+            <span class="user-name">GMD ▾</span>
+          </div>
+        </div>
+      </div>
+      <div class="tb-filters-strip">
+        <div class="f-group">
+          <div class="f-label">Unit</div>
+          <div class="f-input">
+            <select>
+              <option>All Units</option>
+              <option>Unit 1 (Ring)</option>
+              <option>Unit 2 (Ring)</option>
+              <option>Unit 3 (Ring)</option>
+              <option>Rotor Unit</option>
+            </select>
+          </div>
+        </div>
+        <div class="f-group">
+          <div class="f-label">Department</div>
+          <div class="f-input">
+            <select>
+              <option>All Departments</option>
+              <option>Production</option>
+              <option>Sales</option>
+              <option>Finance</option>
+              <option>Quality</option>
+              <option>Planning</option>
+            </select>
+          </div>
+        </div>
+        <div class="f-group">
+          <div class="f-label">Count / Blend</div>
+          <div class="f-input">
+            <select>
+              <option>All Counts</option>
+              <option>30/1 CVC</option>
+              <option>40/1 Cotton</option>
+              <option>60/1 CWC</option>
+              <option>20/1 PC</option>
+              <option>10/1 OE</option>
+            </select>
+          </div>
+        </div>
+        <button class="f-reset">↺ Reset</button>
+      </div>
+    </header>
+
+    <!-- MAIN -->
+    <main class="main">
+      <div class="content">
+        <!-- KPI STRIP -->
+        <div class="section-label">
+          📊 Key Performance Indicators — May 2024
+        </div>
+        <div class="row g-2 mb-4">
+          <div class="col-6 col-sm-4 col-md-3 col-xl">
+            <div class="kpi-header bg-sales">
+              <div class="kh-label">🛒 Sales (MTD)</div>
+              <div class="kh-val">Tk 18.56<sub>Cr</sub></div>
+              <div class="kh-sub">
+                vs Apr: Tk 15.34 Cr &nbsp;▲ <strong>21.00%</strong>
+              </div>
+            </div>
+          </div>
+          <div class="col-6 col-sm-4 col-md-3 col-xl">
+            <div class="kpi-header bg-sqty">
+              <div class="kh-label">📏 Sales Qty (MTD)</div>
+              <div class="kh-val">420.35<sub>Tons</sub></div>
+              <div class="kh-sub">
+                vs Apr: 362.20 Tons &nbsp;▲ <strong>16.06%</strong>
+              </div>
+            </div>
+          </div>
+          <div class="col-6 col-sm-4 col-md-3 col-xl">
+            <div class="kpi-header bg-prod">
+              <div class="kh-label">⚙️ Production (MTD)</div>
+              <div class="kh-val">510.40<sub>Tons</sub></div>
+              <div class="kh-sub">
+                vs Apr: 442.10 Tons &nbsp;▲ <strong>15.46%</strong>
+              </div>
+            </div>
+          </div>
+          <div class="col-6 col-sm-4 col-md-3 col-xl">
+            <div class="kpi-header bg-del">
+              <div class="kh-label">🚚 Delivery (MTD)</div>
+              <div class="kh-val">420.10<sub>Tons</sub></div>
+              <div class="kh-sub">
+                vs Apr: 365.50 Tons &nbsp;▲ <strong>14.93%</strong>
+              </div>
+            </div>
+          </div>
+          <div class="col-6 col-sm-4 col-md-3 col-xl">
+            <div class="kpi-header bg-gp">
+              <div class="kh-label">💹 Gross Profit (MTD)</div>
+              <div class="kh-val">Tk 2.19<sub>Cr</sub></div>
+              <div class="kh-sub">
+                Margin 11.80% &nbsp;▼
+                <strong style="color: #fca5a5">1.52%</strong>
+              </div>
+            </div>
+          </div>
+          <div class="col-6 col-sm-4 col-md-3 col-xl">
+            <div class="kpi-header bg-col">
+              <div class="kh-label">💰 Collection (MTD)</div>
+              <div class="kh-val">Tk 14.20<sub>Cr</sub></div>
+              <div class="kh-sub">
+                vs Apr: Tk 11.50 Cr &nbsp;▲ <strong>23.46%</strong>
+              </div>
+            </div>
+          </div>
+          <div class="col-6 col-sm-4 col-md-3 col-xl">
+            <div class="kpi-header bg-recv">
+              <div class="kh-label">📋 Receivables</div>
+              <div class="kh-val">Tk 31.25<sub>Cr</sub></div>
+              <div class="kh-sub" style="color: #fca5a5">
+                Overdue: Tk 6.85 Cr ⚠️ High
+              </div>
+            </div>
+          </div>
+          <div class="col-6 col-sm-4 col-md-3 col-xl">
+            <div class="kpi-header bg-fgs">
+              <div class="kh-label">📦 FG Stock Value</div>
+              <div class="kh-val">Tk 9.52<sub>Cr</sub></div>
+              <div class="kh-sub">190.30 Tons &nbsp;🔴 High</div>
+            </div>
+          </div>
+          <div class="col-6 col-sm-4 col-md-3 col-xl">
+            <div class="kpi-header bg-rms">
+              <div class="kh-label">🧵 Raw Material Stock</div>
+              <div class="kh-val">Tk 42.30<sub>Cr</sub></div>
+              <div class="kh-sub">450.80 Tons &nbsp;🟡 Medium</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ROW 2: SALES + PRODUCTION + INVENTORY -->
+        <div class="section-label">📈 Sales, Production & Inventory</div>
+        <div class="row g-2 mb-3">
+          <!-- SALES & ORDER OVERVIEW -->
+          <div class="col-12 col-lg-4">
+            <div class="card-dash">
+              <div class="sec-title">🛒 Sales &amp; Order Overview</div>
+              <div class="row g-2 mb-3">
+                <div class="col-12">
+                  <div
+                    class="mini-kpi"
+                    style="flex-direction: row; align-items: center; gap: 12px"
+                  >
+                    <div style="font-size: 26px">🛒</div>
+                    <div>
+                      <div class="mk-lbl">Order Booked</div>
+                      <div class="mk-val">485.60 <small>Tons</small></div>
+                      <div class="mk-sub">Tk 21.85 Cr</div>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-6">
+                  <div
+                    class="mini-kpi"
+                    style="
+                      background: rgba(217, 119, 6, 0.1);
+                      border: 1px solid rgba(217, 119, 6, 0.18);
+                    "
+                  >
+                    <div class="mk-lbl">🚛 Pending Delivery</div>
+                    <div class="mk-val c-yellow">
+                      165.50 <small>Tons</small>
+                    </div>
+                    <div class="mk-sub">Tk 7.25 Cr</div>
+                  </div>
+                </div>
+                <div class="col-6">
+                  <div
+                    class="mini-kpi"
+                    style="
+                      background: rgba(225, 29, 72, 0.1);
+                      border: 1px solid rgba(225, 29, 72, 0.18);
+                    "
+                  >
+                    <div class="mk-lbl">⚠️ Over Delivery</div>
+                    <div class="mk-val c-red">42.30 <small>Tons</small></div>
+                    <div class="mk-sub">Tk 1.92 Cr</div>
+                  </div>
+                </div>
+                <div class="col-12">
+                  <div class="mini-kpi">
+                    <div class="mk-lbl">💲 Avg Selling Price</div>
+                    <div class="mk-val c-accent">
+                      Tk 441.85 <small>/Kg</small>
+                    </div>
+                    <div class="mk-sub">vs Apr: Tk 435.20 ▲</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="sec-title">📊 Monthly Sales vs Target</div>
+              <div class="chart-box" style="height: 110px">
+                <canvas id="salesChart"></canvas>
+              </div>
+
+              <div class="sec-title" style="margin-top: var(--sp-3)">
+                🏆 Top 5 Customers (MTD)
+              </div>
+              <div class="tbl-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th>Customer</th>
+                      <th class="tr">Sales (Tk)</th>
+                      <th class="tr">Qty (T)</th>
+                      <th class="tr">Margin%</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td class="c-text2">1</td>
+                      <td>Smart Fashion Ltd.</td>
+                      <td class="tr">3.25 Cr</td>
+                      <td class="tr">74.20</td>
+                      <td class="tr c-green fw7">12.45%</td>
+                    </tr>
+                    <tr>
+                      <td class="c-text2">2</td>
+                      <td>Denim Tex (BD) Ltd.</td>
+                      <td class="tr">2.85 Cr</td>
+                      <td class="tr">62.10</td>
+                      <td class="tr c-green fw7">11.25%</td>
+                    </tr>
+                    <tr>
+                      <td class="c-text2">3</td>
+                      <td>Global Thread Inc.</td>
+                      <td class="tr">2.45 Cr</td>
+                      <td class="tr">55.30</td>
+                      <td class="tr c-green fw7">13.75%</td>
+                    </tr>
+                    <tr>
+                      <td class="c-text2">4</td>
+                      <td>Apparels World Ltd.</td>
+                      <td class="tr">2.10 Cr</td>
+                      <td class="tr">48.65</td>
+                      <td class="tr c-yellow fw7">10.85%</td>
+                    </tr>
+                    <tr>
+                      <td class="c-text2">5</td>
+                      <td>Knit Concern Ltd.</td>
+                      <td class="tr">1.85 Cr</td>
+                      <td class="tr">40.75</td>
+                      <td class="tr c-yellow fw7">9.95%</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- PRODUCTION PERFORMANCE -->
+          <div class="col-12 col-lg-4">
+            <div class="card-dash">
+              <div class="sec-title">⚙️ Production Performance</div>
+              <div class="row g-2 mb-3">
+                <div class="col-6">
+                  <div class="mini-kpi">
+                    <div class="mk-lbl">Efficiency</div>
+                    <div class="mk-val c-green">87.35%</div>
+                    <div class="mk-sub">vs Apr: 84.10% ▲</div>
+                  </div>
+                </div>
+                <div class="col-6">
+                  <div class="mini-kpi">
+                    <div class="mk-lbl">Utilization</div>
+                    <div class="mk-val c-accent">82.40%</div>
+                    <div class="mk-sub">vs Apr: 78.60% ▲</div>
+                  </div>
+                </div>
+                <div class="col-6">
+                  <div
+                    class="mini-kpi"
+                    style="background: rgba(217, 119, 6, 0.08)"
+                  >
+                    <div class="mk-lbl">Waste %</div>
+                    <div class="mk-val c-yellow">6.25%</div>
+                    <div class="mk-sub">vs Apr: 6.80% ▼</div>
+                  </div>
+                </div>
+                <div class="col-6">
+                  <div
+                    class="mini-kpi"
+                    style="background: rgba(225, 29, 72, 0.08)"
+                  >
+                    <div class="mk-lbl">Rejection %</div>
+                    <div class="mk-val c-red">1.62%</div>
+                    <div class="mk-sub">vs Apr: 1.85% ▼</div>
+                  </div>
+                </div>
+              </div>
+              <div class="sec-title">📊 Production vs Plan (Tons)</div>
+              <div class="chart-box" style="height: 110px">
+                <canvas id="prodChart"></canvas>
+              </div>
+              <div class="sec-title" style="margin-top: var(--sp-3)">
+                🏭 Unit Wise Production (MTD)
+              </div>
+              <div class="tbl-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Unit</th>
+                      <th>Count</th>
+                      <th class="tr">Plan</th>
+                      <th class="tr">Actual</th>
+                      <th class="tr">Eff%</th>
+                      <th class="tr">Waste%</th>
+                      <th class="tr">Rej%</th>
+                      <th class="tc">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>Unit 1 (Ring)</td>
+                      <td>40/1 CVC</td>
+                      <td class="tr">12,000</td>
+                      <td class="tr">10,800</td>
+                      <td class="tr c-green">90.00%</td>
+                      <td class="tr">5.20%</td>
+                      <td class="tr">1.10%</td>
+                      <td class="tc">
+                        <span
+                          class="dot"
+                          style="background: var(--green)"
+                        ></span>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td>Unit 2 (Ring)</td>
+                      <td>20/1 PC</td>
+                      <td class="tr">12,000</td>
+                      <td class="tr">10,900</td>
+                      <td class="tr c-green">82.00%</td>
+                      <td class="tr">6.50%</td>
+                      <td class="tr">1.80%</td>
+                      <td class="tc">
+                        <span
+                          class="dot"
+                          style="background: var(--yellow)"
+                        ></span>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td>Unit 3 (Ring)</td>
+                      <td>20/1 PC</td>
+                      <td class="tr">18,000</td>
+                      <td class="tr">14,500</td>
+                      <td class="tr c-yellow">81.00%</td>
+                      <td class="tr">7.80%</td>
+                      <td class="tr">2.50%</td>
+                      <td class="tc">
+                        <span class="dot" style="background: var(--red)"></span>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td>Rotor Unit</td>
+                      <td>10/1 OE</td>
+                      <td class="tr">10,000</td>
+                      <td class="tr">9,800</td>
+                      <td class="tr c-green">88.00%</td>
+                      <td class="tr">4.90%</td>
+                      <td class="tr">1.30%</td>
+                      <td class="tc">
+                        <span
+                          class="dot"
+                          style="background: var(--green)"
+                        ></span>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- INVENTORY SUMMARY -->
+          <div class="col-12 col-lg-4">
+            <div class="card-dash">
+              <div class="sec-title">📦 Inventory Summary</div>
+              <div
+                class="donut-wrap"
+                style="height: 185px; margin-bottom: var(--sp-3)"
+              >
+                <canvas id="invDonut" width="170" height="170"></canvas>
+                <div class="donut-center">
+                  <div class="dv c-accent">Tk 72.07</div>
+                  <div class="dl">Cr Total Value</div>
+                </div>
+              </div>
+              <div class="row g-1 mb-3" style="font-size: var(--fs-xs)">
+                <div class="col-6 d-flex align-items-center gap-2">
+                  <span class="dot" style="background: #2563eb"></span> Raw
+                  Material<span class="ml-auto fw7">Tk 42.30 Cr</span>
+                  <small class="c-text2">(58.7%)</small>
+                </div>
+                <div class="col-6 d-flex align-items-center gap-2">
+                  <span class="dot" style="background: #059669"></span> WIP<span
+                    class="ml-auto fw7"
+                    >Tk 8.75 Cr</span
+                  >
+                  <small class="c-text2">(12.1%)</small>
+                </div>
+                <div class="col-6 d-flex align-items-center gap-2">
+                  <span class="dot" style="background: #d97706"></span> Finished
+                  Goods<span class="ml-auto fw7">Tk 9.52 Cr</span>
+                  <small class="c-text2">(13.2%)</small>
+                </div>
+                <div class="col-6 d-flex align-items-center gap-2">
+                  <span class="dot" style="background: #7c3aed"></span> Packing
+                  Mat.<span class="ml-auto fw7">Tk 3.85 Cr</span>
+                  <small class="c-text2">(5.3%)</small>
+                </div>
+                <div class="col-6 d-flex align-items-center gap-2">
+                  <span class="dot" style="background: #64748b"></span> Other
+                  Items<span class="ml-auto fw7">Tk 7.65 Cr</span>
+                  <small class="c-text2">(10.6%)</small>
+                </div>
+              </div>
+
+              <div class="sec-title">
+                📊 Top 5 Finished Yarn Stock (By Value)
+              </div>
+              <div class="tbl-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Count/Blend</th>
+                      <th class="tr">Qty (T)</th>
+                      <th class="tr">Value (Tk)</th>
+                      <th class="tr">Avg Age</th>
+                      <th class="tc">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>30/1 CVC</td>
+                      <td class="tr">75</td>
+                      <td class="tr">5.80 Cr</td>
+                      <td class="tr">22</td>
+                      <td class="tc">
+                        <span
+                          class="dot"
+                          style="background: var(--green)"
+                        ></span>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td>40/1 Cotton</td>
+                      <td class="tr">42.10</td>
+                      <td class="tr">3.25 Cr</td>
+                      <td class="tr">45</td>
+                      <td class="tc">
+                        <span
+                          class="dot"
+                          style="background: var(--green)"
+                        ></span>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td>20/1 PC</td>
+                      <td class="tr">32.40</td>
+                      <td class="tr">2.45 Cr</td>
+                      <td class="tr">35</td>
+                      <td class="tc">
+                        <span
+                          class="dot"
+                          style="background: var(--yellow)"
+                        ></span>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td>60/1 CWC</td>
+                      <td class="tr">22.30</td>
+                      <td class="tr">1.60 Cr</td>
+                      <td class="tr">28</td>
+                      <td class="tc">
+                        <span
+                          class="dot"
+                          style="background: var(--yellow)"
+                        ></span>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td>10/1 OE</td>
+                      <td class="tr">18.30</td>
+                      <td class="tr">1.20 Cr</td>
+                      <td class="tr">20</td>
+                      <td class="tc">
+                        <span
+                          class="dot"
+                          style="background: var(--green)"
+                        ></span>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <div class="sec-title" style="margin-top: var(--sp-3)">
+                ⚠️ Stock Alerts
+              </div>
+              <div class="alert-row">
+                <div style="font-size: var(--fs-xs)">⚠️ Cotton (USA)</div>
+                <div>
+                  <span class="badge-pill bp-red">Only 12 Days Cover</span>
+                </div>
+              </div>
+              <div class="alert-row">
+                <div style="font-size: var(--fs-xs)">⚠️ Viscose</div>
+                <div>
+                  <span class="badge-pill bp-orange">Only 8 Days Cover</span>
+                </div>
+              </div>
+              <div class="alert-row">
+                <div style="font-size: var(--fs-xs)">⚠️ 60/1 CWC Yarn</div>
+                <div>
+                  <span class="badge-pill bp-grey">90+ Days Stock</span>
+                </div>
+              </div>
+              <div class="alert-row">
+                <div style="font-size: var(--fs-xs)">⚠️ Polyester</div>
+                <div><span class="badge-pill bp-yellow">Low Stock</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ROW 3: PURCHASE + COSTING + FINANCIAL -->
+        <div class="section-label">
+          🛒 Purchase, Costing & Financial Overview
+        </div>
+        <div class="row g-2 mb-3">
+          <!-- PURCHASE -->
+          <div class="col-12 col-lg-4">
+            <div class="card-dash">
+              <div class="sec-title">🛒 Purchase &amp; Supply Chain</div>
+              <div class="row g-2 mb-3">
+                <div class="col-6">
+                  <div class="mini-kpi">
+                    <div class="mk-lbl">Open PO Value</div>
+                    <div class="mk-val c-accent">Tk 28.40 Cr</div>
+                  </div>
+                </div>
+                <div class="col-6">
+                  <div class="mini-kpi">
+                    <div class="mk-lbl">LC in Pipeline</div>
+                    <div class="mk-val c-blue">Tk 16.75 Cr</div>
+                  </div>
+                </div>
+                <div class="col-6">
+                  <div class="mini-kpi">
+                    <div class="mk-lbl">Goods in Transit</div>
+                    <div class="mk-val c-yellow">Tk 9.80 Cr</div>
+                  </div>
+                </div>
+                <div class="col-6">
+                  <div
+                    class="mini-kpi"
+                    style="background: rgba(225, 29, 72, 0.1)"
+                  >
+                    <div class="mk-lbl">Overdue PO</div>
+                    <div class="mk-val c-red">Tk 3.25 Cr</div>
+                  </div>
+                </div>
+              </div>
+              <div class="sec-title">🏆 Top 5 Suppliers Performance (MTD)</div>
+              <div class="tbl-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Supplier</th>
+                      <th class="tc">OTIF%</th>
+                      <th class="tc">Quality Rating</th>
+                      <th class="tc">Price Trend</th>
+                      <th class="tc">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>Cotton USA Inc.</td>
+                      <td class="tc">92%</td>
+                      <td class="tc">A</td>
+                      <td class="tc c-green">↓</td>
+                      <td class="tc">
+                        <span
+                          class="dot"
+                          style="background: var(--green)"
+                        ></span>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td>Poly Fibre Ltd.</td>
+                      <td class="tc">90%</td>
+                      <td class="tc">A</td>
+                      <td class="tc c-text2">→</td>
+                      <td class="tc">
+                        <span
+                          class="dot"
+                          style="background: var(--green)"
+                        ></span>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td>Viscose World</td>
+                      <td class="tc">85%</td>
+                      <td class="tc">B+</td>
+                      <td class="tc c-red">↑</td>
+                      <td class="tc">
+                        <span
+                          class="dot"
+                          style="background: var(--yellow)"
+                        ></span>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td>Spin Pack Ltd.</td>
+                      <td class="tc">88%</td>
+                      <td class="tc">A</td>
+                      <td class="tc c-text2">→</td>
+                      <td class="tc">
+                        <span
+                          class="dot"
+                          style="background: var(--green)"
+                        ></span>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td>Global Chemicals</td>
+                      <td class="tc">80%</td>
+                      <td class="tc">B</td>
+                      <td class="tc c-red">↑</td>
+                      <td class="tc">
+                        <span
+                          class="dot"
+                          style="background: var(--yellow)"
+                        ></span>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="sec-title" style="margin-top: var(--sp-3)">
+                💸 Landed Cost Variance (MTD)
+              </div>
+              <div class="row g-2">
+                <div class="col-4">
+                  <div class="mini-kpi">
+                    <div class="mk-lbl">Actual Landed Cost</div>
+                    <div
+                      class="mk-val"
+                      style="font-size: var(--fs-base) !important"
+                    >
+                      Tk 112.50<small>/Kg</small>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-4">
+                  <div class="mini-kpi">
+                    <div class="mk-lbl">Standard Landed Cost</div>
+                    <div
+                      class="mk-val"
+                      style="font-size: var(--fs-base) !important"
+                    >
+                      Tk 107.80<small>/Kg</small>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-4">
+                  <div
+                    class="mini-kpi"
+                    style="background: rgba(225, 29, 72, 0.1)"
+                  >
+                    <div class="mk-lbl">Variance</div>
+                    <div
+                      class="mk-val c-red"
+                      style="font-size: var(--fs-base) !important"
+                    >
+                      Tk 4.70<small>/Kg</small>
+                    </div>
+                    <div class="mk-sub c-red">▲ 4.36%</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- COSTING -->
+          <div class="col-12 col-lg-4">
+            <div class="card-dash">
+              <div class="sec-title">💹 Costing &amp; Profitability</div>
+              <div class="row g-2 mb-3">
+                <div class="col-6">
+                  <div class="mini-kpi">
+                    <div class="mk-lbl">Avg Cost /Kg</div>
+                    <div class="mk-val">Tk 392.45</div>
+                    <div class="mk-sub">vs Apr: Tk 378.25 ▲</div>
+                  </div>
+                </div>
+                <div class="col-6">
+                  <div class="mini-kpi">
+                    <div class="mk-lbl">Avg Selling /Kg</div>
+                    <div class="mk-val c-accent">Tk 441.85</div>
+                    <div class="mk-sub">vs Apr: Tk 435.20 ▲</div>
+                  </div>
+                </div>
+                <div class="col-6">
+                  <div class="mini-kpi">
+                    <div class="mk-lbl">Gross Margin /Kg</div>
+                    <div class="mk-val c-green">Tk 49.40</div>
+                    <div class="mk-sub">vs Apr: Tk 56.95 ▼</div>
+                  </div>
+                </div>
+                <div class="col-6">
+                  <div
+                    class="mini-kpi"
+                    style="background: rgba(217, 119, 6, 0.08)"
+                  >
+                    <div class="mk-lbl">Gross Margin %</div>
+                    <div class="mk-val c-yellow">11.80%</div>
+                    <div class="mk-sub">vs Apr: 13.08% ▼</div>
+                  </div>
+                </div>
+              </div>
+              <div class="sec-title">📊 Profitability by Count (MTD)</div>
+              <div class="tbl-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Count / Blend</th>
+                      <th class="tr">Sales (Tk)</th>
+                      <th class="tr">Cost/Kg</th>
+                      <th class="tr">Sell/Kg</th>
+                      <th class="tr">Margin/Kg</th>
+                      <th class="tr">Margin%</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>30/1 CVC</td>
+                      <td class="tr">3.85 Cr</td>
+                      <td class="tr">385.20</td>
+                      <td class="tr">435.00</td>
+                      <td class="tr c-green">50.30</td>
+                      <td class="tr c-green fw7">11.56%</td>
+                    </tr>
+                    <tr>
+                      <td>30/1 CVC</td>
+                      <td class="tr">5.60 Cr</td>
+                      <td class="tr">390.80</td>
+                      <td class="tr">440.20</td>
+                      <td class="tr c-green">49.40</td>
+                      <td class="tr c-green fw7">11.22%</td>
+                    </tr>
+                    <tr>
+                      <td>40/1 Cotton</td>
+                      <td class="tr">4.20 Cr</td>
+                      <td class="tr">400.60</td>
+                      <td class="tr">452.10</td>
+                      <td class="tr c-green">51.50</td>
+                      <td class="tr c-green fw7">11.39%</td>
+                    </tr>
+                    <tr>
+                      <td>60/1 CWC</td>
+                      <td class="tr">2.30 Cr</td>
+                      <td class="tr">415.25</td>
+                      <td class="tr">468.75</td>
+                      <td class="tr c-yellow">53.50</td>
+                      <td class="tr c-yellow fw7">11.43%</td>
+                    </tr>
+                    <tr>
+                      <td>10/1 OE</td>
+                      <td class="tr">1.30 Cr</td>
+                      <td class="tr">360.20</td>
+                      <td class="tr">398.60</td>
+                      <td class="tr c-yellow">38.40</td>
+                      <td class="tr c-yellow fw7">9.65%</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="sec-title" style="margin-top: var(--sp-3)">
+                🧾 Cost Components (Per Kg)
+              </div>
+              <div class="chart-box" style="height: 70px">
+                <canvas id="costChart"></canvas>
+              </div>
+              <div
+                style="
+                  display: flex;
+                  flex-wrap: wrap;
+                  gap: var(--sp-3);
+                  margin-top: var(--sp-3);
+                  font-size: var(--fs-xs);
+                  color: var(--text2);
+                "
+              >
+                <span>Raw Mat: <strong class="c-accent">248.60</strong></span>
+                <span>Conversion: <strong class="c-accent">58.45</strong></span>
+                <span>Power/Fuel: <strong class="c-accent">18.25</strong></span>
+                <span>Labour: <strong class="c-accent">32.10</strong></span>
+                <span>Packing: <strong class="c-accent">10.85</strong></span>
+                <span>Other OH: <strong class="c-accent">24.20</strong></span>
+                <span
+                  >| Total Cost: <strong class="c-red">Tk 392.45</strong></span
+                >
+              </div>
+            </div>
+          </div>
+
+          <!-- FINANCIAL OVERVIEW -->
+          <div class="col-12 col-lg-4">
+            <div class="card-dash">
+              <div class="sec-title">💰 Financial Overview</div>
+              <div class="row g-2 mb-3">
+                <div class="col-6">
+                  <div class="mini-kpi">
+                    <div class="mk-lbl">Collection (MTD)</div>
+                    <div class="mk-val c-green">Tk 14.20 Cr</div>
+                  </div>
+                </div>
+                <div class="col-6">
+                  <div class="mini-kpi">
+                    <div class="mk-lbl">Receivables</div>
+                    <div class="mk-val c-accent">Tk 31.25 Cr</div>
+                  </div>
+                </div>
+                <div class="col-6">
+                  <div
+                    class="mini-kpi"
+                    style="background: rgba(225, 29, 72, 0.1)"
+                  >
+                    <div class="mk-lbl">Overdue &gt;30 Days</div>
+                    <div class="mk-val c-red">Tk 6.85 Cr</div>
+                  </div>
+                </div>
+                <div class="col-6">
+                  <div class="mini-kpi">
+                    <div class="mk-lbl">Payables</div>
+                    <div class="mk-val c-yellow">Tk 22.40 Cr</div>
+                  </div>
+                </div>
+              </div>
+              <div class="sec-title">📊 MTD Collection vs Sales (Tk Cr)</div>
+              <div class="chart-box" style="height: 110px">
+                <canvas id="collChart"></canvas>
+              </div>
+
+              <div class="sec-title" style="margin-top: var(--sp-3)">
+                🍩 Receivable Ageing (Tk Cr)
+              </div>
+              <div style="display: flex; align-items: center; gap: var(--sp-4)">
+                <div
+                  class="donut-wrap"
+                  style="height: 110px; width: 110px; flex-shrink: 0"
+                >
+                  <canvas id="recvDonut" width="110" height="110"></canvas>
+                  <div class="donut-center">
+                    <div class="dv c-accent" style="font-size: var(--fs-md)">
+                      Tk 31.25
+                    </div>
+                    <div class="dl">Cr</div>
+                  </div>
+                </div>
+                <div style="flex: 1; font-size: var(--fs-xs)">
+                  <div class="stat-row">
+                    <div>
+                      <span class="dot" style="background: var(--green)"></span>
+                      Current
+                    </div>
+                    <div class="fw7 c-green">
+                      Tk 15.25 Cr <span class="c-text2">(48.8%)</span>
+                    </div>
+                  </div>
+                  <div class="stat-row">
+                    <div>
+                      <span class="dot" style="background: var(--blue)"></span>
+                      1–30 Days
+                    </div>
+                    <div class="fw7 c-blue">
+                      Tk 9.15 Cr <span class="c-text2">(29.3%)</span>
+                    </div>
+                  </div>
+                  <div class="stat-row">
+                    <div>
+                      <span
+                        class="dot"
+                        style="background: var(--yellow)"
+                      ></span>
+                      31–60 Days
+                    </div>
+                    <div class="fw7 c-yellow">
+                      Tk 4.25 Cr <span class="c-text2">(13.6%)</span>
+                    </div>
+                  </div>
+                  <div class="stat-row">
+                    <div>
+                      <span class="dot" style="background: var(--red)"></span>
+                      60+ Days
+                    </div>
+                    <div class="fw7 c-red">
+                      Tk 2.60 Cr <span class="c-text2">(8.3%)</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="sec-title" style="margin-top: var(--sp-3)">
+                💵 Cash Flow Snapshot (MTD)
+              </div>
+              <div class="row g-2">
+                <div class="col-6 col-sm-3">
+                  <div class="cf-tile">
+                    <div class="cl">📂 Opening</div>
+                    <div class="cv c-blue">Tk 5.20 Cr</div>
+                  </div>
+                </div>
+                <div class="col-6 col-sm-3">
+                  <div class="cf-tile">
+                    <div class="cl">📥 Inflow</div>
+                    <div class="cv c-green">Tk 16.45 Cr</div>
+                  </div>
+                </div>
+                <div class="col-6 col-sm-3">
+                  <div class="cf-tile">
+                    <div class="cl">📤 Outflow</div>
+                    <div class="cv c-red">Tk 13.80 Cr</div>
+                  </div>
+                </div>
+                <div class="col-6 col-sm-3">
+                  <div class="cf-tile">
+                    <div class="cl">💼 Closing</div>
+                    <div class="cv c-accent">Tk 7.85 Cr</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ROW 4: EXCEPTION + QUALITY -->
+        <div class="section-label">
+          ⚠️ Exception Monitoring & Quality Governance
+        </div>
+        <div class="row g-2">
+          <!-- EXCEPTION -->
+          <div class="col-12 col-lg-8">
+            <div class="card-dash">
+              <div class="sec-title">
+                ⚠️ Exception &amp; Risk Dashboard
+                <span
+                  style="
+                    color: var(--red);
+                    text-transform: none;
+                    letter-spacing: 0;
+                    font-weight: 600;
+                    font-size: var(--fs-xs);
+                    margin-left: 4px;
+                  "
+                  >(Needs Immediate Attention)</span
+                >
+              </div>
+              <div class="tbl-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th></th>
+                      <th>Issue</th>
+                      <th>Department</th>
+                      <th>Responsible Person</th>
+                      <th class="tr">Impact (Tk)</th>
+                      <th class="tc">Aging</th>
+                      <th class="tc">Status</th>
+                      <th>Action Required</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>🔴</td>
+                      <td style="max-width: 160px; white-space: normal">
+                        30/1 CVC Delivery Delayed (Customer: Smart Fashion Ltd.)
+                      </td>
+                      <td>Sales / Production</td>
+                      <td>Sales Manager + PM</td>
+                      <td class="tr fw7">85.00 Lakh</td>
+                      <td class="tc">5 Days</td>
+                      <td class="tc">
+                        <span class="badge-pill bp-critical">Critical</span>
+                      </td>
+                      <td style="white-space: normal">
+                        Dispatch within 3 Days
+                      </td>
+                    </tr>
+                    <tr>
+                      <td>🟡</td>
+                      <td style="max-width: 160px; white-space: normal">
+                        Cotton Stock Below Safety Level (USA Origin)
+                      </td>
+                      <td>Purchase / Store</td>
+                      <td>SCM Head</td>
+                      <td class="tr fw7">12.00 Cr Risk</td>
+                      <td class="tc">3 Days</td>
+                      <td class="tc">
+                        <span class="badge-pill bp-high">High</span>
+                      </td>
+                      <td style="white-space: normal">
+                        Open Urgent LC / Local Purchase
+                      </td>
+                    </tr>
+                    <tr>
+                      <td>🟡</td>
+                      <td style="max-width: 160px; white-space: normal">
+                        Waste % Above Standard (Unit 3 - 20/1 PC)
+                      </td>
+                      <td>Production</td>
+                      <td>Unit Head</td>
+                      <td class="tr fw7">18.00 Lakh Loss</td>
+                      <td class="tc">Current Month</td>
+                      <td class="tc">
+                        <span class="badge-pill bp-high">High</span>
+                      </td>
+                      <td style="white-space: normal">Root Cause Analysis</td>
+                    </tr>
+                    <tr>
+                      <td>🟡</td>
+                      <td style="max-width: 160px; white-space: normal">
+                        Customer Overdue Payment (Denim Tex BD Ltd.)
+                      </td>
+                      <td>Accounts / Sales</td>
+                      <td>Sales Head</td>
+                      <td class="tr fw7">2.40 Cr</td>
+                      <td class="tc">45 Days</td>
+                      <td class="tc">
+                        <span class="badge-pill bp-high">High</span>
+                      </td>
+                      <td style="white-space: normal">
+                        Followup &amp; Hold New Delivery
+                      </td>
+                    </tr>
+                    <tr>
+                      <td>🟠</td>
+                      <td style="max-width: 160px; white-space: normal">
+                        Negative Margin Order (Order SO-2405128)
+                      </td>
+                      <td>Sales / Planning</td>
+                      <td>Sales Manager</td>
+                      <td class="tr fw7">2.10 Lakh Loss</td>
+                      <td class="tc">Current</td>
+                      <td class="tc">
+                        <span class="badge-pill bp-medium">Medium</span>
+                      </td>
+                      <td style="white-space: normal">
+                        Price Revision / Approval
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- QUALITY OVERVIEW -->
+          <div class="col-12 col-lg-4">
+            <div class="card-dash">
+              <div class="sec-title">✅ Quality Overview</div>
+              <div class="qkpi-grid">
+                <div class="qkpi">
+                  <div class="ql">Avg IPI</div>
+                  <div class="qv c-green">182</div>
+                  <div class="qs">vs Apr: 175 ▲</div>
+                </div>
+                <div class="qkpi">
+                  <div class="ql">Avg CSP</div>
+                  <div class="qv c-accent">2960</div>
+                  <div class="qs">vs Apr: 2900 ▲</div>
+                </div>
+                <div class="qkpi">
+                  <div class="ql">Avg CV%</div>
+                  <div class="qv c-yellow">13.8%</div>
+                  <div class="qs">vs Apr: 13.2% ▲</div>
+                </div>
+                <div class="qkpi">
+                  <div class="ql">Claims (MTD)</div>
+                  <div class="qv c-red">Tk 1.35L</div>
+                  <div class="qs">vs Apr: 0.95L ▲</div>
+                </div>
+              </div>
+              <div class="sec-title">📋 Recent Lot Quality Summary</div>
+              <div class="tbl-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Lot No.</th>
+                      <th class="tc">Count/Blend</th>
+                      <th class="tc">Customer</th>
+                      <th class="tc">IPI</th>
+                      <th class="tc">CSP</th>
+                      <th class="tc">CV%</th>
+                      <th class="tc">Status</th>
+                      <th class="tc">Claim</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td style="font-size: 0.63rem">HASS-30CVC-001</td>
+                      <td class="tc">30/1 CVC</td>
+                      <td class="tc">Local</td>
+                      <td class="tc">145</td>
+                      <td class="tc">2950</td>
+                      <td class="tc">12.8</td>
+                      <td class="tc">
+                        <span class="badge-pill bp-green">Pass</span>
+                      </td>
+                      <td class="tc">No</td>
+                    </tr>
+                    <tr>
+                      <td style="font-size: 0.63rem">HASS-40C-008</td>
+                      <td class="tc">40/1 Cotton</td>
+                      <td class="tc">Export</td>
+                      <td class="tc">190</td>
+                      <td class="tc">2850</td>
+                      <td class="tc">14.2</td>
+                      <td class="tc">
+                        <span class="badge-pill bp-watch">Watch</span>
+                      </td>
+                      <td class="tc">Yes</td>
+                    </tr>
+                    <tr>
+                      <td style="font-size: 0.63rem">HASS-60CWC-011</td>
+                      <td class="tc">60/1 CWC</td>
+                      <td class="tc">Export</td>
+                      <td class="tc">165</td>
+                      <td class="tc">3020</td>
+                      <td class="tc">13.6</td>
+                      <td class="tc">
+                        <span class="badge-pill bp-critical">Critical</span>
+                      </td>
+                      <td class="tc">No</td>
+                    </tr>
+                    <tr>
+                      <td style="font-size: 0.63rem">HASS-20PC-009</td>
+                      <td class="tc">20/1 PC</td>
+                      <td class="tc">Local</td>
+                      <td class="tc">165</td>
+                      <td class="tc">2780</td>
+                      <td class="tc">13.0</td>
+                      <td class="tc">
+                        <span class="badge-pill bp-green">Pass</span>
+                      </td>
+                      <td class="tc">No</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="sec-title" style="margin-top: var(--sp-3)">
+                🔍 Top Quality Issues
+              </div>
+              <div class="exc-row">
+                <div class="exc-icon">⚠️</div>
+                <div class="exc-text">
+                  <strong>High IPI in 60/1 CWC Lots</strong> — Lot #011 under
+                  investigation
+                </div>
+              </div>
+              <div class="exc-row">
+                <div class="exc-icon">⚠️</div>
+                <div class="exc-text">
+                  <strong>CV% Variation in 40/1 Cotton</strong> — Frame
+                  maintenance required
+                </div>
+              </div>
+              <div class="exc-row">
+                <div class="exc-icon">⚠️</div>
+                <div class="exc-text">
+                  <strong>Hairiness Above Limit in 20/1 PC</strong> — Traveller
+                  change scheduled
+                </div>
+              </div>
+              <div class="exc-row">
+                <div class="exc-icon">🔴</div>
+                <div class="exc-text">
+                  <strong>More Breakages in Unit 3</strong> — Humidity control
+                  issue flagged
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- /content -->
+    </main>
+
+    <script>
+      function getTheme() {
+        return document.documentElement.getAttribute("data-theme");
+      }
+      function toggleTheme() {
+        const dark = getTheme() === "dark";
+        document.documentElement.setAttribute(
+          "data-theme",
+          dark ? "light" : "dark",
+        );
+        document.getElementById("themeKnob").textContent = dark ? "☀️" : "🌙";
+        buildCharts();
+      }
+      function openSidebar() {
+        document.getElementById("sidebar").classList.add("open");
+        const ov = document.getElementById("overlay");
+        ov.style.display = "block";
+        requestAnimationFrame(() => ov.classList.add("show"));
+        document.body.style.overflow = "hidden";
+      }
+      function closeSidebar() {
+        document.getElementById("sidebar").classList.remove("open");
+        const ov = document.getElementById("overlay");
+        ov.classList.remove("show");
+        setTimeout(() => {
+          ov.style.display = "none";
+        }, 240);
+        document.body.style.overflow = "";
+      }
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") closeSidebar();
+      });
+      document.querySelectorAll(".sb-item").forEach((item) => {
+        item.addEventListener("click", () => {
+          if (window.innerWidth < 992) closeSidebar();
+        });
+      });
+
+      let charts = {};
+      const GN = "#059669",
+        RD = "#e11d48",
+        YL = "#d97706",
+        OR = "#ea580c",
+        BL = "#2563eb",
+        PU = "#7c3aed",
+        AC = "#00b8e6";
+
+      function buildCharts() {
+        Object.values(charts).forEach((c) => c.destroy());
+        charts = {};
+        const dark = getTheme() === "dark";
+        const gridC = dark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.06)";
+        const textC = dark ? "#7a90aa" : "#5a6b80";
+        Chart.defaults.color = textC;
+        Chart.defaults.borderColor = gridC;
+        Chart.defaults.font.family = "'IBM Plex Sans', sans-serif";
+        Chart.defaults.font.size = 10;
+        const baseOpts = { responsive: true, maintainAspectRatio: false };
+
+        // Monthly Sales vs Target
+        charts.sales = new Chart(document.getElementById("salesChart"), {
+          type: "bar",
+          data: {
+            labels: ["Dec", "Jan", "Feb", "Mar", "Apr", "May"],
+            datasets: [
+              {
+                label: "Sales Value (Tk Cr)",
+                data: [12.4, 13.9, 15.35, 17.1, 15.34, 18.56],
+                backgroundColor: "rgba(37,99,235,0.65)",
+                borderColor: BL,
+                borderWidth: 1,
+                borderRadius: 3,
+              },
+              {
+                label: "Target (Tk Cr)",
+                data: [14, 15, 16, 17, 17, 18],
+                type: "line",
+                borderColor: YL,
+                borderWidth: 1.5,
+                pointRadius: 2,
+                fill: false,
+                tension: 0.3,
+              },
+            ],
+          },
+          options: {
+            ...baseOpts,
+            plugins: {
+              legend: {
+                display: true,
+                position: "top",
+                labels: { boxWidth: 8, padding: 6 },
+              },
+            },
+            scales: {
+              x: { grid: { display: false } },
+              y: {
+                grid: { color: gridC },
+                ticks: { callback: (v) => v + "Cr" },
+              },
+            },
+          },
+        });
+
+        // Production vs Plan
+        charts.prod = new Chart(document.getElementById("prodChart"), {
+          type: "bar",
+          data: {
+            labels: ["Dec", "Jan", "Feb", "Mar", "Apr", "May"],
+            datasets: [
+              {
+                label: "Actual (Tons)",
+                data: [410, 450, 470, 520, 442, 510],
+                backgroundColor: "rgba(0,184,230,0.6)",
+                borderColor: AC,
+                borderWidth: 1,
+                borderRadius: 3,
+              },
+              {
+                label: "Plan (Tons)",
+                data: [420, 440, 480, 510, 450, 520],
+                type: "line",
+                borderColor: RD,
+                borderWidth: 1.5,
+                pointRadius: 2,
+                fill: false,
+                tension: 0.3,
+              },
+            ],
+          },
+          options: {
+            ...baseOpts,
+            plugins: {
+              legend: {
+                display: true,
+                position: "top",
+                labels: { boxWidth: 8, padding: 6 },
+              },
+            },
+            scales: {
+              x: { grid: { display: false } },
+              y: { grid: { color: gridC }, ticks: { stepSize: 100 } },
+            },
+          },
+        });
+
+        // Cost stacked horizontal
+        charts.cost = new Chart(document.getElementById("costChart"), {
+          type: "bar",
+          data: {
+            labels: ["Cost/Kg"],
+            datasets: [
+              {
+                label: "Raw Mat",
+                data: [248.6],
+                backgroundColor: "rgba(37,99,235,0.75)",
+                borderRadius: 2,
+              },
+              {
+                label: "Conversion",
+                data: [58.45],
+                backgroundColor: "rgba(0,184,230,0.75)",
+                borderRadius: 2,
+              },
+              {
+                label: "Power/Fuel",
+                data: [18.25],
+                backgroundColor: "rgba(217,119,6,0.75)",
+                borderRadius: 2,
+              },
+              {
+                label: "Labour",
+                data: [32.1],
+                backgroundColor: "rgba(5,150,105,0.75)",
+                borderRadius: 2,
+              },
+              {
+                label: "Packing",
+                data: [10.85],
+                backgroundColor: "rgba(124,58,237,0.75)",
+                borderRadius: 2,
+              },
+              {
+                label: "Other OH",
+                data: [24.2],
+                backgroundColor: "rgba(100,116,139,0.75)",
+                borderRadius: 2,
+              },
+            ],
+          },
+          options: {
+            indexAxis: "y",
+            ...baseOpts,
+            plugins: { legend: { display: false } },
+            scales: {
+              x: {
+                stacked: true,
+                grid: { color: gridC },
+                ticks: { callback: (v) => "Tk" + v },
+              },
+              y: {
+                stacked: true,
+                grid: { display: false },
+                ticks: { display: false },
+              },
+            },
+          },
+        });
+
+        // Collection vs Sales
+        charts.coll = new Chart(document.getElementById("collChart"), {
+          type: "bar",
+          data: {
+            labels: ["Dec", "Jan", "Feb", "Mar", "Apr", "May"],
+            datasets: [
+              {
+                label: "Sales",
+                data: [12.4, 13.9, 11.5, 15.4, 17.1, 18.6],
+                backgroundColor: "rgba(37,99,235,0.6)",
+                borderColor: BL,
+                borderWidth: 1,
+                borderRadius: 3,
+              },
+              {
+                label: "Collection",
+                data: [11.5, 13.2, 14.2, 15.3, 11.5, 14.2],
+                backgroundColor: "rgba(0,184,230,0.6)",
+                borderColor: AC,
+                borderWidth: 1,
+                borderRadius: 3,
+              },
+            ],
+          },
+          options: {
+            ...baseOpts,
+            plugins: {
+              legend: {
+                display: true,
+                position: "top",
+                labels: { boxWidth: 8, padding: 6 },
+              },
+            },
+            scales: {
+              x: { grid: { display: false } },
+              y: {
+                grid: { color: gridC },
+                ticks: { callback: (v) => v + "Cr" },
+              },
+            },
+          },
+        });
+
+        // Inventory donut
+        charts.inv = new Chart(document.getElementById("invDonut"), {
+          type: "doughnut",
+          data: {
+            labels: [
+              "Raw Material",
+              "WIP",
+              "Finished Goods",
+              "Packing",
+              "Others",
+            ],
+            datasets: [
+              {
+                data: [42.3, 8.75, 9.52, 3.85, 7.65],
+                backgroundColor: [BL, GN, YL, PU, "#64748b"],
+                borderWidth: 0,
+                hoverOffset: 4,
+              },
+            ],
+          },
+          options: {
+            responsive: false,
+            maintainAspectRatio: false,
+            cutout: "65%",
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                callbacks: { label: (c) => ` ${c.label}: Tk ${c.parsed} Cr` },
+              },
+            },
+          },
+        });
+
+        // Receivable ageing donut
+        charts.recv = new Chart(document.getElementById("recvDonut"), {
+          type: "doughnut",
+          data: {
+            labels: ["Current", "1-30 Days", "31-60 Days", "60+ Days"],
+            datasets: [
+              {
+                data: [15.25, 9.15, 4.25, 2.6],
+                backgroundColor: [GN, BL, YL, RD],
+                borderWidth: 0,
+                hoverOffset: 4,
+              },
+            ],
+          },
+          options: {
+            responsive: false,
+            maintainAspectRatio: false,
+            cutout: "65%",
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                callbacks: { label: (c) => ` ${c.label}: Tk ${c.parsed} Cr` },
+              },
+            },
+          },
+        });
+      }
+
+      buildCharts();
+    </script>
+  </body>
+</html>

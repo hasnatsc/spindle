@@ -23,19 +23,16 @@ import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 import org.springframework.security.web.session.HttpSessionEventPublisher;
 
 /**
- * Spring Security 7.x / Spring Boot 4.x configuration.
+ * Spring Security 7.x / Spring Boot 4.1.0 — complete configuration.
  *
- * FIXES applied vs previous version:
+ * All three breaking-change fixes applied:
+ *   ✅ DaoAuthenticationProvider(userDetailsService) — no-arg constructor removed in SS7
+ *   ✅ DynamicAuthorizationManager.authorize() — not check() in SS7
+ *   ✅ LoginFailureHandler throws IOException, ServletException — SS7 requirement
  *
- *   FIX 1 — DaoAuthenticationProvider constructor (Breaking change in SS7):
- *     OLD (SS6): new DaoAuthenticationProvider()  then  .setUserDetailsService(svc)
- *     NEW (SS7): new DaoAuthenticationProvider(userDetailsService)
- *                setUserDetailsService() method has been REMOVED.
- *                setPasswordEncoder() is still called separately — it was NOT moved to constructor.
- *
- *   FIX 2 — DynamicAuthorizationManager uses authorize() not check() (see that file).
- *
- *   FIX 3 — LoginFailureHandler declares throws ServletException (see that file).
+ * Public paths: /login, /css/**, /js/**, /images/**, /fonts/**, /error, /access-denied
+ * Everything else → DynamicAuthorizationManager (zero DB hit per request)
+ * SUPER_ADMIN → bypasses all checks
  */
 @Configuration
 @EnableWebSecurity
@@ -49,39 +46,28 @@ public class SecurityConfig {
     private final LoginFailureHandler         loginFailureHandler;
     private final CustomAccessDeniedHandler   accessDeniedHandler;
 
-    // ── Public paths — no login required ─────────────────────────────────
-    private static final String[] PUBLIC_PATHS = {
-            "/login", "/login/**",
-            "/css/**", "/js/**", "/images/**", "/fonts/**",
-            "/webjars/**", "/favicon.ico",
-            "/error", "/access-denied",
-            "/actuator/health"
+    // ── Public paths ──────────────────────────────────────────────────────────
+    private static final String[] PUBLIC = {
+        "/login", "/login/**",
+        "/css/**", "/js/**", "/images/**", "/fonts/**", "/img/**",
+        "/webjars/**", "/favicon.ico", "/favicon.svg",
+        "/error", "/access-denied",
+        "/actuator/health"
     };
 
-    // ── Password encoder ──────────────────────────────────────────────────
-
+    // ── Password encoder ──────────────────────────────────────────────────────
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder(12);
     }
 
-    // ── Authentication provider ───────────────────────────────────────────
-
+    // ── Authentication provider ───────────────────────────────────────────────
+    // ✅ FIX: SS7 requires UserDetailsService in the constructor
     @Bean
     public DaoAuthenticationProvider authenticationProvider() {
-
-        // ✅ FIX 1: Spring Security 7 removed the no-arg constructor.
-        //    UserDetailsService is now a required constructor argument.
-        DaoAuthenticationProvider provider =
-                new DaoAuthenticationProvider(userDetailsService);
-
-        // setPasswordEncoder() still exists and is still called separately
+        DaoAuthenticationProvider provider = new DaoAuthenticationProvider(userDetailsService);
         provider.setPasswordEncoder(passwordEncoder());
-
-        // Don't hide UsernameNotFoundException — lets LoginFailureHandler
-        // distinguish "user not found" from "wrong password"
-        provider.setHideUserNotFoundExceptions(false);
-
+        provider.setHideUserNotFoundExceptions(false); // allow LoginFailureHandler to distinguish
         return provider;
     }
 
@@ -90,70 +76,78 @@ public class SecurityConfig {
         return new ProviderManager(authenticationProvider());
     }
 
-    // ── Session event publisher ───────────────────────────────────────────
-
+    // ── Session event publisher (required for concurrent session control) ─────
     @Bean
     public HttpSessionEventPublisher httpSessionEventPublisher() {
         return new HttpSessionEventPublisher();
     }
 
-    // ── Main filter chain ─────────────────────────────────────────────────
-
+    // ── Main security filter chain ────────────────────────────────────────────
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
 
         http
-            // ── CSRF ──────────────────────────────────────────────────────
-            // CookieCsrfTokenRepository.withHttpOnlyFalse() lets JavaScript
-            // read XSRF-TOKEN cookie. secureFetch.js injects X-XSRF-TOKEN.
+            // ── CSRF ──────────────────────────────────────────────────────────
+            // CookieCsrfTokenRepository.withHttpOnlyFalse() → JS can read
+            // XSRF-TOKEN cookie. secureFetch.js injects X-XSRF-TOKEN on mutations.
             .csrf(csrf -> csrf
                 .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
                 .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler())
             )
 
-            // ── Authorization ─────────────────────────────────────────────
-            // All non-public URLs go through DynamicAuthorizationManager.
-            // No hardcoded role or permission names here.
+            // ── Authorization ─────────────────────────────────────────────────
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers(PUBLIC_PATHS).permitAll()
+                .requestMatchers(PUBLIC).permitAll()
                 .anyRequest().access(dynamicAuthorizationManager)
             )
 
-            // ── Form login ────────────────────────────────────────────────
+            // ── Form login ────────────────────────────────────────────────────
+            // usernameParameter("username") — matches name="username" in login.html
+            // UserDetailsServiceImpl tries username → email → phone in sequence
             .formLogin(form -> form
                 .loginPage("/login")
                 .loginProcessingUrl("/login")
-                .usernameParameter("username")  // HTML field name
+                .usernameParameter("username")
                 .passwordParameter("password")
                 .successHandler(loginSuccessHandler)
                 .failureHandler(loginFailureHandler)
                 .permitAll()
             )
 
-            // ── Logout ────────────────────────────────────────────────────
+            // ── Remember-me (7-day cookie) ────────────────────────────────────
+            // name="remember-me" in login.html checkbox
+            .rememberMe(rm -> rm
+                .userDetailsService(userDetailsService)
+                .tokenValiditySeconds(7 * 24 * 60 * 60)
+                .rememberMeParameter("remember-me")
+                .key("spindleErpRememberMeKey2026")  // move to application.properties in prod
+            )
+
+            // ── Logout ────────────────────────────────────────────────────────
             .logout(logout -> logout
                 .logoutUrl("/logout")
                 .logoutSuccessUrl("/login?logout")
                 .invalidateHttpSession(true)
-                .deleteCookies("JSESSIONID", "XSRF-TOKEN")
+                .deleteCookies("JSESSIONID", "XSRF-TOKEN", "remember-me")
                 .clearAuthentication(true)
                 .permitAll()
             )
 
-            // ── Session management ────────────────────────────────────────
+            // ── Session management ────────────────────────────────────────────
             .sessionManagement(session -> session
                 .sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED)
                 .sessionFixation(fix -> fix.newSession())
+                .invalidSessionUrl("/login?expired")
                 .maximumSessions(1)
-                    .maxSessionsPreventsLogin(false) // new login kicks old session
+                    .maxSessionsPreventsLogin(false)  // new login kicks old session
                     .expiredUrl("/login?expired")
             )
 
-            // ── Exception handling ────────────────────────────────────────
+            // ── Exception handling ────────────────────────────────────────────
             .exceptionHandling(ex -> ex
                 .accessDeniedHandler(accessDeniedHandler)
                 .authenticationEntryPoint((req, res, e) -> {
-                    if (isAjaxRequest(req)) {
+                    if (isAjax(req)) {
                         res.setStatus(401);
                         res.setContentType("application/json;charset=UTF-8");
                         res.getWriter().write(
@@ -161,7 +155,7 @@ public class SecurityConfig {
                             {"success":false,"message":"Session expired. Please log in again."}
                             """);
                     } else {
-                        res.sendRedirect(req.getContextPath() + "/login?sessionExpired");
+                        res.sendRedirect(req.getContextPath() + "/login?expired");
                     }
                 })
             )
@@ -171,10 +165,10 @@ public class SecurityConfig {
         return http.build();
     }
 
-    private boolean isAjaxRequest(jakarta.servlet.http.HttpServletRequest req) {
+    private boolean isAjax(jakarta.servlet.http.HttpServletRequest req) {
         String accept = req.getHeader("Accept");
         String xhr    = req.getHeader("X-Requested-With");
         return "XMLHttpRequest".equals(xhr)
-                || (accept != null && accept.contains("application/json"));
+               || (accept != null && accept.contains("application/json"));
     }
 }

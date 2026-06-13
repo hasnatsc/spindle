@@ -3,20 +3,30 @@ package com.asg.spindleserp.security.entity;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.io.Serial;
+import java.io.Serializable;
 import java.time.LocalDateTime;
 
+/**
+ * FIX: implements Serializable
+ *
+ * Permission is the leaf node of the security object graph:
+ *   User → Role → Permission
+ *
+ * All three must implement Serializable for Spring Session JDBC
+ * to successfully serialize the SecurityContext into the database.
+ */
 @Entity
 @Table(name = "sec_permissions",
-        indexes = {
-                @Index(name = "idx_perm_name", columnList = "name"),
-                @Index(name = "idx_perm_module", columnList = "module")
-        })
-@Getter
-@Setter
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
-public class Permission {
+    indexes = {
+        @Index(name = "idx_perm_name",   columnList = "name"),
+        @Index(name = "idx_perm_module", columnList = "module")
+    })
+@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+public class Permission implements Serializable {   // ✅ FIX
+
+    @Serial
+    private static final long serialVersionUID = 1L;
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

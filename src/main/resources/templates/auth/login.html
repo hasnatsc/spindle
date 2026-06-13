@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="en"
+      xmlns:th="http://www.thymeleaf.org"
+      data-theme="dark">
+<!--
+  ╔══════════════════════════════════════════════════════════════════╗
+  ║  auth/login.html                                                 ║
+  ║  Standalone page — does NOT use layout/base                      ║
+  ║  Design matches the Fabric Pre-Costing Control Tower dashboard   ║
+  ║  Same color vars, DM Sans font, dark-first with light toggle     ║
+  ╚══════════════════════════════════════════════════════════════════╝
+-->
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sign In — Spindle ERP</title>
+
+  <!-- Fonts (same as dashboard) -->
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800;1,9..40,400&display=swap"
+        rel="stylesheet">
+
+  <style>
+    /* ── CSS variables — identical to dashboard ───────────────────── */
+    :root {
+      --accent:     #00c8ff;
+      --accent2:    #7c3aed;
+      --green:      #10b981;
+      --red:        #f43f5e;
+      --yellow:     #f59e0b;
+      --orange:     #f97316;
+      --blue:       #3b82f6;
+      --purple:     #a855f7;
+      --radius:     10px;
+      --transition: 0.22s ease;
+    }
+    [data-theme="dark"] {
+      --bg:      #0b0f1c;
+      --surface: #111827;
+      --surface2:#182033;
+      --surface3:#1e2d45;
+      --border:  rgba(255,255,255,0.07);
+      --text:    #e2e8f0;
+      --text2:   #94a3b8;
+      --shadow:  0 4px 24px rgba(0,0,0,0.45);
+    }
+    [data-theme="light"] {
+      --bg:      #f0f4f9;
+      --surface: #fff;
+      --surface2:#f1f5fb;
+      --surface3:#e4eaf3;
+      --border:  rgba(0,0,0,0.08);
+      --text:    #0f172a;
+      --text2:   #4e5a6b;
+      --shadow:  0 2px 16px rgba(0,0,0,0.08);
+    }
+
+    /* ── Reset ───────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      height: 100%;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 13px;
+      background: var(--bg);
+      color: var(--text);
+      transition: background var(--transition), color var(--transition);
+    }
+
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-thumb { background: var(--surface3); border-radius: 3px; }
+
+    /* ── Full-screen flex split ──────────────────────────────────── */
+    .login-wrap {
+      display: flex;
+      min-height: 100vh;
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       LEFT — Brand / Info Panel
+    ═══════════════════════════════════════════════════════════════ */
+    .brand-panel {
+      flex: 0 0 420px;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 48px 40px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Subtle grid pattern (same as dashboard's topbar look) */
+    .brand-panel::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(0,200,255,.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,200,255,.04) 1px, transparent 1px);
+      background-size: 28px 28px;
+      pointer-events: none;
+    }
+
+    /* Glow orb behind logo area */
+    .brand-panel::after {
+      content: '';
+      position: absolute;
+      width: 320px;
+      height: 320px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(0,200,255,.12) 0%, transparent 70%);
+      top: -80px;
+      left: -80px;
+      pointer-events: none;
+    }
+
+    .brand-top { position: relative; z-index: 1; }
+
+    /* Logo — same style as .sidebar-logo */
+    .brand-logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 40px;
+    }
+    .brand-logo-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      flex-shrink: 0;
+    }
+    .brand-logo-text {
+      font-size: 12px;
+      font-weight: 700;
+      line-height: 1.4;
+      color: var(--text);
+    }
+    .brand-logo-text em {
+      color: var(--accent);
+      font-style: normal;
+    }
+
+    .brand-headline {
+      font-size: 26px;
+      font-weight: 800;
+      line-height: 1.25;
+      margin-bottom: 14px;
+      letter-spacing: -0.03em;
+    }
+    .brand-headline span { color: var(--accent); }
+
+    .brand-desc {
+      font-size: 12px;
+      color: var(--text2);
+      line-height: 1.7;
+      margin-bottom: 36px;
+    }
+
+    /* Feature list */
+    .brand-features {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .brand-feature {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 11.5px;
+      color: var(--text2);
+    }
+    .brand-feature-icon {
+      width: 28px;
+      height: 28px;
+      border-radius: 7px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      flex-shrink: 0;
+    }
+
+    .brand-bottom {
+      position: relative;
+      z-index: 1;
+      font-size: 10px;
+      color: var(--text2);
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       RIGHT — Form Panel
+    ═══════════════════════════════════════════════════════════════ */
+    .form-panel {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 24px;
+      position: relative;
+    }
+
+    /* Theme toggle button in top-right corner */
+    .theme-toggle-wrap {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+    }
+    .theme-toggle {
+      width: 54px;
+      height: 28px;
+      border-radius: 14px;
+      background: var(--surface3);
+      border: 1px solid var(--border);
+      position: relative;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    .theme-toggle .knob {
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      transition: transform 0.25s cubic-bezier(0.34,1.56,0.64,1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+    }
+    [data-theme="light"] .theme-toggle .knob {
+      transform: translateX(26px);
+    }
+
+    /* Card */
+    .form-card {
+      width: 100%;
+      max-width: 420px;
+    }
+
+    .form-header {
+      margin-bottom: 28px;
+    }
+    .form-header h2 {
+      font-size: 22px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      margin-bottom: 4px;
+    }
+    .form-header p {
+      font-size: 12px;
+      color: var(--text2);
+    }
+
+    /* ── Alert box ───────────────────────────────────────────────── */
+    .login-alert {
+      display: flex;
+      align-items: flex-start;
+      gap: 9px;
+      padding: 11px 13px;
+      border-radius: var(--radius);
+      font-size: 11.5px;
+      margin-bottom: 20px;
+      border-width: 1px;
+      border-style: solid;
+    }
+    .login-alert.error   { background: rgba(244,63,94,.1);  border-color: rgba(244,63,94,.25);  color: #f43f5e; }
+    .login-alert.success { background: rgba(16,185,129,.1); border-color: rgba(16,185,129,.25); color: #10b981; }
+    .login-alert.warning { background: rgba(245,158,11,.1); border-color: rgba(245,158,11,.25); color: #f59e0b; }
+    .login-alert.info    { background: rgba(0,200,255,.1);  border-color: rgba(0,200,255,.25);  color: #00c8ff; }
+    .login-alert-icon { font-size: 15px; flex-shrink: 0; margin-top: 1px; }
+    .login-alert.hidden  { display: none; }
+
+    /* ── Input fields ───────────────────────────────────────────── */
+    .form-field {
+      margin-bottom: 16px;
+    }
+    .form-field label {
+      display: block;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text2);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+    }
+    .input-wrap {
+      position: relative;
+    }
+    .input-icon {
+      position: absolute;
+      left: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 14px;
+      color: var(--text2);
+      pointer-events: none;
+      line-height: 1;
+    }
+    .form-input {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 12px 10px 36px;
+      font-size: 12.5px;
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      outline: none;
+      transition: border-color var(--transition), background var(--transition);
+    }
+    .form-input::placeholder { color: var(--text2); opacity: .6; }
+    .form-input:focus {
+      border-color: var(--accent);
+      background: var(--surface);
+    }
+    /* Show/hide password button */
+    .input-eye {
+      position: absolute;
+      right: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      color: var(--text2);
+      cursor: pointer;
+      font-size: 14px;
+      padding: 4px;
+      border-radius: 4px;
+      line-height: 1;
+      transition: color var(--transition);
+    }
+    .input-eye:hover { color: var(--accent); }
+
+    /* ── Remember / Forgot row ─────────────────────────────────── */
+    .form-options {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 22px;
+      font-size: 11px;
+    }
+    .remember-wrap {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      user-select: none;
+      color: var(--text2);
+    }
+    .remember-wrap input[type="checkbox"] {
+      accent-color: var(--accent);
+      width: 14px;
+      height: 14px;
+      cursor: pointer;
+    }
+    .forgot-link {
+      color: var(--accent);
+      text-decoration: none;
+      font-weight: 600;
+      transition: opacity var(--transition);
+    }
+    .forgot-link:hover { opacity: .7; }
+
+    /* ── Submit button ──────────────────────────────────────────── */
+    .btn-login {
+      width: 100%;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border: none;
+      border-radius: 8px;
+      padding: 11px;
+      font-size: 13px;
+      font-weight: 700;
+      color: #fff;
+      font-family: 'DM Sans', sans-serif;
+      cursor: pointer;
+      letter-spacing: 0.02em;
+      transition: opacity var(--transition), transform 0.15s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+    }
+    .btn-login:hover { opacity: .88; }
+    .btn-login:active { transform: scale(0.98); }
+    .btn-login:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+
+    /* Spinner inside button */
+    .btn-spinner {
+      display: none;
+      width: 14px;
+      height: 14px;
+      border: 2px solid rgba(255,255,255,.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .btn-login.loading .btn-spinner { display: block; }
+    .btn-login.loading .btn-text    { display: none; }
+
+    /* ── Divider ─────────────────────────────────────────────────── */
+    .form-divider {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 20px 0;
+      font-size: 10px;
+      color: var(--text2);
+    }
+    .form-divider::before,
+    .form-divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    /* ── System badges ──────────────────────────────────────────── */
+    .system-badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+      justify-content: center;
+    }
+    .sys-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 4px 9px;
+      font-size: 10px;
+      color: var(--text2);
+      white-space: nowrap;
+    }
+
+    /* ── Footer note ────────────────────────────────────────────── */
+    .form-footer {
+      margin-top: 28px;
+      text-align: center;
+      font-size: 10px;
+      color: var(--text2);
+    }
+
+    /* ── Responsive ─────────────────────────────────────────────── */
+    @media (max-width: 860px) {
+      .brand-panel { display: none; }
+      .form-panel  { padding: 32px 20px; }
+    }
+    @media (max-width: 480px) {
+      .form-card { max-width: 100%; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="login-wrap">
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       LEFT — Brand panel
+  ═══════════════════════════════════════════════════════════════ -->
+  <aside class="brand-panel">
+
+    <div class="brand-top">
+
+      <!-- Logo -->
+      <div class="brand-logo">
+        <div class="brand-logo-icon">🧵</div>
+        <div class="brand-logo-text">
+          ASG Group<br><em>Spindle ERP</em>
+        </div>
+      </div>
+
+      <div class="brand-headline">
+        Run your entire<br>
+        <span>business from here.</span>
+      </div>
+
+      <p class="brand-desc">
+        Procurement · Sales · Inventory · Production<br>
+        Accounts · HRM · Budget · Reports — all in one place.
+      </p>
+
+      <div class="brand-features">
+        <div class="brand-feature">
+          <div class="brand-feature-icon">📊</div>
+          Real-time dashboards &amp; KPI control towers
+        </div>
+        <div class="brand-feature">
+          <div class="brand-feature-icon">🔐</div>
+          Role-based access with runtime permissions
+        </div>
+        <div class="brand-feature">
+          <div class="brand-feature-icon">✅</div>
+          Multi-level approval workflows
+        </div>
+        <div class="brand-feature">
+          <div class="brand-feature-icon">📈</div>
+          Fabric pre-costing &amp; margin analysis
+        </div>
+        <div class="brand-feature">
+          <div class="brand-feature-icon">🏭</div>
+          Production cost sheet with COGS integration
+        </div>
+      </div>
+    </div>
+
+    <div class="brand-bottom">
+      &copy; <span th:text="${#temporals.year(#temporals.createNow())}">2026</span>
+      ASG Group &nbsp;·&nbsp; Spindle ERP &nbsp;·&nbsp; All rights reserved.
+    </div>
+
+  </aside>
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       RIGHT — Form panel
+  ═══════════════════════════════════════════════════════════════ -->
+  <main class="form-panel">
+
+    <!-- Theme toggle -->
+    <div class="theme-toggle-wrap">
+      <div class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">
+        <div class="knob" id="themeKnob">🌙</div>
+      </div>
+    </div>
+
+    <div class="form-card">
+
+      <div class="form-header">
+        <h2>Welcome back</h2>
+        <p>Sign in to your Spindle ERP account</p>
+      </div>
+
+      <!-- ── Alert box (shown when th:if has a message, or by JS) ── -->
+      <div th:if="${alertType != null}"
+           class="login-alert"
+           th:classappend="${alertType}">
+        <span class="login-alert-icon"
+              th:text="${alertType == 'error'   ? '⚠' :
+                         alertType == 'success' ? '✓' :
+                         alertType == 'warning' ? '⚠' : 'ℹ'}">ℹ</span>
+        <span th:text="${alertMsg}">Message</span>
+      </div>
+
+      <!-- Hidden alert div for URL-param JS fallback
+           (if navigating to /login?error without server rendering) -->
+      <div id="jsAlert" class="login-alert hidden" role="alert">
+        <span class="login-alert-icon" id="jsAlertIcon">⚠</span>
+        <span id="jsAlertMsg"></span>
+      </div>
+
+      <!-- ════════════════════════════════════════════════════════════
+           LOGIN FORM
+           action="/login"  → Spring Security's loginProcessingUrl
+           name="username"  → matches SecurityConfig.usernameParameter("username")
+           name="password"  → matches SecurityConfig.passwordParameter("password")
+      ════════════════════════════════════════════════════════════ -->
+      <form th:action="@{/login}" method="POST"
+            id="loginForm" autocomplete="on" novalidate>
+
+        <!-- Thymeleaf auto-injects CSRF hidden input when using th:action -->
+
+        <!-- Username / Email / Phone -->
+        <div class="form-field">
+          <label for="username">Username / Email / Phone</label>
+          <div class="input-wrap">
+            <span class="input-icon">👤</span>
+            <input type="text"
+                   class="form-input"
+                   id="username"
+                   name="username"
+                   placeholder="Enter username, email or phone"
+                   autocomplete="username"
+                   autofocus
+                   required>
+          </div>
+        </div>
+
+        <!-- Password -->
+        <div class="form-field">
+          <label for="password">Password</label>
+          <div class="input-wrap">
+            <span class="input-icon">🔒</span>
+            <input type="password"
+                   class="form-input"
+                   id="password"
+                   name="password"
+                   placeholder="Enter your password"
+                   autocomplete="current-password"
+                   required>
+            <button type="button" class="input-eye"
+                    onclick="togglePassword()" title="Show / hide password"
+                    id="eyeBtn">👁</button>
+          </div>
+        </div>
+
+        <!-- Remember me + Forgot -->
+        <div class="form-options">
+          <label class="remember-wrap">
+            <input type="checkbox" name="remember-me" id="rememberMe">
+            Remember me for 7 days
+          </label>
+          <a href="/forgot-password" class="forgot-link">Forgot password?</a>
+        </div>
+
+        <!-- Submit -->
+        <button type="submit" class="btn-login" id="loginBtn">
+          <div class="btn-spinner" id="btnSpinner"></div>
+          <span class="btn-text">Sign In &nbsp;→</span>
+        </button>
+
+      </form>
+
+      <!-- Divider -->
+      <div class="form-divider">Secure access</div>
+
+      <!-- Module badges (decorative, shows what the ERP covers) -->
+      <div class="system-badges">
+        <span class="sys-badge">📦 Inventory</span>
+        <span class="sys-badge">🛒 Purchase</span>
+        <span class="sys-badge">🏷️ Sales</span>
+        <span class="sys-badge">🏭 Production</span>
+        <span class="sys-badge">💰 Accounts</span>
+        <span class="sys-badge">👥 HRM</span>
+        <span class="sys-badge">📊 Budget</span>
+        <span class="sys-badge">📋 Reports</span>
+      </div>
+
+      <div class="form-footer">
+        Protected by Spring Security &nbsp;·&nbsp; Session encrypted
+      </div>
+
+    </div><!-- /form-card -->
+  </main>
+
+</div><!-- /login-wrap -->
+
+<script>
+  /* ── Theme toggle (same logic as dashboard) ───────────────────────── */
+  function toggleTheme() {
+    const html  = document.documentElement;
+    const knob  = document.getElementById('themeKnob');
+    const isDark = html.getAttribute('data-theme') === 'dark';
+    html.setAttribute('data-theme', isDark ? 'light' : 'dark');
+    knob.textContent = isDark ? '☀️' : '🌙';
+    localStorage.setItem('spindleTheme', isDark ? 'light' : 'dark');
+  }
+
+  /* Restore saved theme on load */
+  (function () {
+    const saved = localStorage.getItem('spindleTheme') || 'dark';
+    document.documentElement.setAttribute('data-theme', saved);
+    const knob = document.getElementById('themeKnob');
+    if (knob) knob.textContent = saved === 'dark' ? '🌙' : '☀️';
+  })();
+
+  /* ── Show/hide password ───────────────────────────────────────────── */
+  function togglePassword() {
+    const inp = document.getElementById('password');
+    const btn = document.getElementById('eyeBtn');
+    if (inp.type === 'password') {
+      inp.type = 'text';
+      btn.textContent = '🙈';
+    } else {
+      inp.type = 'password';
+      btn.textContent = '👁';
+    }
+  }
+
+  /* ── JS-side URL-param alert (handles edge cases with no server render) */
+  (function () {
+    const params  = new URLSearchParams(window.location.search);
+    const jsAlert = document.getElementById('jsAlert');
+    const jsMsg   = document.getElementById('jsAlertMsg');
+    const jsIcon  = document.getElementById('jsAlertIcon');
+
+    // Only show the JS alert if Thymeleaf didn't already render a server alert
+    const serverAlert = document.querySelector('.login-alert:not(#jsAlert)');
+    if (serverAlert) return;
+
+    let type = null, msg = null;
+
+    if (params.has('error')) {
+      type = 'error'; msg = 'Invalid username / email / phone or password.';
+    } else if (params.has('disabled')) {
+      type = 'warning'; msg = 'Your account has been disabled.';
+    } else if (params.has('locked')) {
+      type = 'warning'; msg = 'Your account is locked. Contact your administrator.';
+    } else if (params.has('logout')) {
+      type = 'success'; msg = 'You have been signed out successfully.';
+    } else if (params.has('expired') || params.has('sessionExpired')) {
+      type = 'info'; msg = 'Your session has expired. Please sign in again.';
+    }
+
+    if (type && jsAlert && jsMsg) {
+      jsAlert.classList.remove('hidden');
+      jsAlert.classList.add(type);
+      jsMsg.textContent = msg;
+      jsIcon.textContent = type === 'error' ? '⚠' : type === 'success' ? '✓' : 'ℹ';
+    }
+  })();
+
+  /* ── Form submit — show spinner on the button ─────────────────────── */
+  document.getElementById('loginForm').addEventListener('submit', function (e) {
+    const username = document.getElementById('username').value.trim();
+    const password = document.getElementById('password').value.trim();
+    const btn      = document.getElementById('loginBtn');
+
+    // Basic client-side guard (server validates properly)
+    if (!username || !password) {
+      e.preventDefault();
+      const jsAlert = document.getElementById('jsAlert');
+      const jsMsg   = document.getElementById('jsAlertMsg');
+      if (jsAlert && jsMsg) {
+        jsAlert.classList.remove('hidden', 'success', 'info', 'warning');
+        jsAlert.classList.add('error');
+        jsMsg.textContent = 'Please enter your username and password.';
+        document.getElementById('jsAlertIcon').textContent = '⚠';
+      }
+      return;
+    }
+
+    // Show loading spinner
+    if (btn) {
+      btn.classList.add('loading');
+      btn.disabled = true;
+    }
+  });
+</script>
+
+</body>
+</html>
