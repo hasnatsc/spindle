@@ -1,0 +1,35 @@
+package com.asg.spindleserp.common.enums;
+
+public enum DocumentType {
+    // Purchase cycle
+    PURCHASE_REQUISITION,
+    REQUEST_FOR_QUOTATION,
+    COMPARATIVE_STATEMENT,
+    PURCHASE_ORDER,
+    GOODS_RECEIPT_NOTE,
+    PURCHASE_INVOICE,
+    // Sales cycle
+    SALES_QUOTATION,
+    SALES_ORDER,
+    DELIVERY_ORDER,
+    DELIVERY_CHALLAN,
+    SALES_INVOICE,
+    // Stock movements
+    STORE_REQUISITION,
+    MATERIAL_ISSUE,
+    MATERIAL_RECEIVE,
+    STOCK_TRANSFER,
+    STOCK_ADJUSTMENT,
+    // ★ Generic Production
+    PRODUCTION_ORDER,
+    PRODUCTION_REQUISITION,
+    PRODUCTION_MATERIAL_ISSUE,
+    FINISHED_GOODS_RECEIVE,
+    // Credit / Debit
+    DEBIT_NOTE,
+    CREDIT_NOTE,
+    // Commercial
+    EXPORT_PROFORMA_INVOICE,
+    IMPORT_PROFORMA_INVOICE,
+    LETTER_OF_CREDIT
+}
