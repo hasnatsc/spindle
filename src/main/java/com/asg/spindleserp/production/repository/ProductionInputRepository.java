@@ -3,6 +3,7 @@ package com.asg.spindleserp.production.repository;
 import com.asg.spindleserp.production.entity.ProductionInput;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;

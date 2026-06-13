@@ -1,9 +1,9 @@
 package com.asg.spindleserp.setup.repository;
 
+import com.asg.spindleserp.setup.entity.Currency;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
-import java.util.Currency;
 import java.util.List;
 import java.util.Optional;
 

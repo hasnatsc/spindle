@@ -14,7 +14,7 @@ import java.util.Optional;
 public interface ChartOfAccountSubRepository extends JpaRepository<ChartOfAccountSub, Long>, JpaSpecificationExecutor<ChartOfAccountSub> {
     Optional<ChartOfAccountSub> findBySubAccountCode(String code);
 
-    List<ChartOfAccountSub> findByOrganizationIdAndSubAccountTypeAndIsActiveTrue(Long orgId, String type);
+//    List<ChartOfAccountSub> findByOrganizationIdAndSubAccountTypeAndIsActiveTrue(Long orgId, String type);
 
     List<ChartOfAccountSub> findByOrganizationIdAndIsActiveTrue(Long orgId);
 

@@ -1,5 +1,6 @@
 package com.asg.spindleserp.hrm.repository;
 
+import com.asg.spindleserp.hrm.entity.PayrollRunLine;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

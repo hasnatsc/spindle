@@ -1,5 +1,6 @@
 package com.asg.spindleserp.inventory.repository;
 
+import com.asg.spindleserp.inventory.entity.ItemUom;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

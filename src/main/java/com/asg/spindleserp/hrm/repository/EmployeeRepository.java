@@ -1,5 +1,6 @@
 package com.asg.spindleserp.hrm.repository;
 
+import com.asg.spindleserp.hrm.entity.Employee;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;

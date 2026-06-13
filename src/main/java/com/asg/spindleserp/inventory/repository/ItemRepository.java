@@ -1,5 +1,7 @@
 package com.asg.spindleserp.inventory.repository;
 
+import com.asg.spindleserp.common.enums.ItemType;
+import com.asg.spindleserp.inventory.entity.Item;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
