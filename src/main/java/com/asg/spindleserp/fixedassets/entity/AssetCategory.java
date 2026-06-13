@@ -1,5 +1,7 @@
 package com.asg.spindleserp.fixedassets.entity;
 
+import com.asg.spindleserp.BaseEntity;
+import com.asg.spindleserp.accounts.entity.ChartOfAccount;
 import jakarta.persistence.*;
 import lombok.*;
 

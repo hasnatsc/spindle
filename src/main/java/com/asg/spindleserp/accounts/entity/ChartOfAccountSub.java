@@ -70,7 +70,6 @@ public abstract class ChartOfAccountSub extends BaseEntity {
     @Column(length = 50)
     private String vatRegistrationNo;
 
-    @Builder.Default
     @Column(nullable = false)
     private boolean isActive = true;
 
@@ -133,7 +132,6 @@ public abstract class ChartOfAccountSub extends BaseEntity {
     private BigDecimal minimumLimit;
     @Column(precision = 18, scale = 2)
     private BigDecimal approvalLimit;
-    @Builder.Default
     @Column(nullable = false)
     private boolean requiresApproval = false;
 
@@ -149,9 +147,7 @@ public abstract class ChartOfAccountSub extends BaseEntity {
     private String salesRepresentative;
     @Column(length = 50)
     private String customerGroup;
-    @Builder.Default
     private Integer loyaltyPoints = 0;
-    @Builder.Default
     private Boolean isExportCustomer = false;
 
     // ── SUPPLIER-specific ───────────────────────────────────────────────────
@@ -160,7 +156,6 @@ public abstract class ChartOfAccountSub extends BaseEntity {
     private Integer leadTimeDays;
     @Column(columnDefinition = "text")
     private String certifications;
-    @Builder.Default
     private Boolean isImportSupplier = false;
     @Column(length = 3)
     private String preferredCurrency;

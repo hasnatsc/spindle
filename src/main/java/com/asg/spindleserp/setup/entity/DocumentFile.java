@@ -3,6 +3,8 @@ package com.asg.spindleserp.setup.entity;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.time.LocalDateTime;
+
 @Entity
 @Table(name = "stp_document_file",
         indexes = @Index(name = "idx_docfile_ref", columnList = "document_type, reference_id"))
