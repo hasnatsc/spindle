@@ -36,8 +36,7 @@ public class SecurityDataInitializer implements ApplicationRunner {
     private final PasswordEncoder      passwordEncoder;
 
     // Inject via a simple JPA query — Organization must exist first
-    private final org.springframework.data.jpa.repository.JpaRepository
-            <Organization, Long> organizationRepository;
+    private final org.springframework.data.jpa.repository.JpaRepository<Organization, Long> organizationRepository;
 
     @Override
     @Transactional
@@ -112,7 +111,7 @@ public class SecurityDataInitializer implements ApplicationRunner {
                 .username("superadmin")
                 .email("superadmin@spindle.local")
                 .phone("01000000000")
-                .password(passwordEncoder.encode("Admin@1234"))
+                .password(passwordEncoder.encode("SuperAdmin@2025"))
                 .fullName("Super Administrator")
                 .enabled(true)
 //                .isEnabled(true)
