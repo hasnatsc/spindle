@@ -14,7 +14,8 @@ import java.math.BigDecimal;
                 @Index(name = "idx_jel_account", columnList = "account_id"),
                 @Index(name = "idx_jel_sub", columnList = "sub_account_id"),
                 @Index(name = "idx_jel_cc", columnList = "cost_center_id"),
-                @Index(name = "idx_jel_org", columnList = "organization_id")
+                @Index(name = "idx_jel_org", columnList = "organization_id"),
+                @Index(name = "idx_jel_source", columnList = "source_type,source_id")
         })
 @Getter
 @Setter
@@ -51,15 +52,17 @@ public class JournalEntryLine extends BaseEntity {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 10)
-    private JournalEntryLine.EntryType entryType;
+    private EntryType entryType;
 
     @Column(nullable = false, precision = 18, scale = 2)
     private BigDecimal amount;
 
     @Column(length = 500)
     private String narration;
+
     @Column(length = 100)
     private String referenceNo;
+
     @Column(length = 20)
     private String taxCode;
 
@@ -67,5 +70,32 @@ public class JournalEntryLine extends BaseEntity {
     @Column(nullable = false)
     private boolean isTaxLine = false;
 
-    public enum EntryType {DEBIT, CREDIT}
+    /* ==============================
+       Future ERP Enhancements
+       ============================== */
+
+    @Column(length = 20)
+    private String currencyCode;
+
+    @Column(precision = 18, scale = 6)
+    private BigDecimal exchangeRate;
+
+    @Column(precision = 18, scale = 2)
+    private BigDecimal baseAmount;
+
+    @Column(length = 50)
+    private String sourceType;
+
+    private Long sourceId;
+
+    @Column(length = 100)
+    private String sourceNumber;
+
+    @Column(length = 100)
+    private String externalReference;
+
+    public enum EntryType {
+        DEBIT,
+        CREDIT
+    }
 }
