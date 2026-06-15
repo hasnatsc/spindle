@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Breadcrumb Fragment</title>
+</head>
+<body>
+
+<!-- Breadcrumb Fragment -->
+<div th:fragment="breadcrumb(items)">
+    <ol class="breadcrumb float-xl-end">
+        <li class="breadcrumb-item">
+            <a th:href="@{/}">
+                <i class="fa fa-home"></i> Home
+            </a>
+        </li>
+        <th:block th:each="item, iterStat : ${items}">
+            <li class="breadcrumb-item"
+                th:classappend="${iterStat.last} ? 'active' : ''"
+                th:attrappend="aria-current=${iterStat.last} ? 'page' : null">
+                <a th:if="${!iterStat.last and item.url != null}"
+                   th:href="@{${item.url}}"
+                   th:text="${item.label}">Label</a>
+                <span th:if="${iterStat.last or item.url == null}"
+                      th:text="${item.label}">Label</span>
+            </li>
+        </th:block>
+    </ol>
+</div>
+
+<!-- Alternative: Simple Breadcrumb with Icon Support -->
+<div th:fragment="breadcrumbWithIcons(items)">
+    <ol class="breadcrumb float-xl-end">
+        <li class="breadcrumb-item">
+            <a th:href="@{/}">
+                <i class="fa fa-home"></i> Home
+            </a>
+        </li>
+        <th:block th:each="item, iterStat : ${items}">
+            <li class="breadcrumb-item"
+                th:classappend="${iterStat.last} ? 'active' : ''"
+                th:attrappend="aria-current=${iterStat.last} ? 'page' : null">
+                <a th:if="${!iterStat.last and item.url != null}"
+                   th:href="@{${item.url}}">
+                    <i th:if="${item.icon != null}"
+                       th:class="${'fa ' + item.icon + ' me-1'}"></i>
+                    <span th:text="${item.label}">Label</span>
+                </a>
+                <span th:if="${iterStat.last or item.url == null}">
+                    <i th:if="${item.icon != null}"
+                       th:class="${'fa ' + item.icon + ' me-1'}"></i>
+                    <span th:text="${item.label}">Label</span>
+                </span>
+            </li>
+        </th:block>
+    </ol>
+</div>
+
+</body>
+</html>

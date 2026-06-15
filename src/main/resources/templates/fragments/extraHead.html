@@ -1,0 +1,30 @@
+<head th:fragment="commonHead(title)">
+  <meta charset="UTF-8">
+  <title th:text="${title}">App</title>
+  <link rel="icon" type="image/png" th:href="@{/img/favicon.svg}">
+  <meta name="_csrf" th:content="${_csrf.token}">
+  <meta name="_csrf_header" th:content="${_csrf.headerName}">
+  <link th:href="@{/css/app.min.css}" rel="stylesheet"/>
+  <link th:href="@{/css/vendor.min.css}" rel="stylesheet"/>
+  <link th:href="@{/css/application.css}" rel="stylesheet"/>
+  <link th:href="@{/css/dataTables/dataTables.bootstrap5.min.css}" rel="stylesheet"/>
+  <link th:href="@{/css/dataTables/responsive.bootstrap5.min.css}" rel="stylesheet"/>
+  <link th:href="@{/css/plugins/select2.min.css}" rel="stylesheet"/>
+  <th:block th:insert="~{::extraHead}" />
+
+  <script th:src="@{/js/app.min.js}"></script>
+  <script th:src="@{/js/vendor.min.js}"></script>
+  <script th:src="@{/js/dataTables/dataTables.min.js}"></script>
+  <script th:src="@{/js/dataTables/dataTables.bootstrap5.min.js}"></script>
+  <script th:src="@{/js/dataTables/dataTables.responsive.min.js}"></script>
+  <script th:src="@{/js/dataTables/responsive.bootstrap5.min.js}"></script>
+  <script th:src="@{/js/plugins/bootstrap-datepicker.js}"></script>
+  <script th:src="@{/js/plugins/bootstrap-datetimepicker.min.js}"></script>
+  <script th:src="@{/js/dataTables/highlight.min.js}"></script>
+  <script th:src="@{/js/dataTables/render.highlight.js}"></script>
+  <script th:src="@{/js/plugins/select2.min.js}"></script>
+  <script th:src="@{/js/plugins/sweetalert.js}"></script>
+  <script th:src="@{/js/plugins/parsley.min.js}"></script>
+  <script th:src="@{/js/application.js}"></script>
+  <th:block th:insert="~{::extraHeadScript}" />
+</head>
