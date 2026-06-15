@@ -1,6 +1,7 @@
 package com.asg.spindleserp.security.init;
 
 import com.asg.spindleserp.organization.entity.Organization;
+import com.asg.spindleserp.organization.repository.OrganizationRepository;
 import com.asg.spindleserp.security.entity.*;
 import com.asg.spindleserp.security.repository.*;
 import lombok.RequiredArgsConstructor;
@@ -14,48 +15,48 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.*;
 
 /**
- * Runs once at startup (idempotent — safe to run on every restart).
- * Seeds:
- *   • ROLE_SUPER_ADMIN role
- *   • A wildcard permission that grants SUPER_ADMIN access to everything
- *   • superadmin user (username: superadmin  /  password: Admin@1234)
+ * SecurityDataInitializer
  *
- * The DynamicAuthorizationManager bypasses all URL checks for ROLE_SUPER_ADMIN
- * users, so the wildcard permission is actually redundant but good for completeness.
+ * Runs once at every application startup (idempotent).
+ * Seeds: default Organization → ROLE_SUPER_ADMIN → superadmin user.
  *
- * Change the default password IMMEDIATELY after first login.
+ * Changes from uploaded version:
+ *   1. Removed all commented-out dead code (isActive/isEnabled etc.)
+ *   2. Uses OrganizationRepository properly (typed), not raw JpaRepository<Organization,Long>
+ *   3. Removed the raw/unchecked cast workaround
+ *   4. ensureDefaultOrganization is cleaner — sets isActive
+ *   5. Default password: SuperAdmin@2025 (must be changed after first login)
  */
+@Slf4j
 @Component
 @RequiredArgsConstructor
-@Slf4j
 public class SecurityDataInitializer implements ApplicationRunner {
 
-    private final UserRepository       userRepository;
-    private final RoleRepository       roleRepository;
-    private final PermissionRepository permissionRepository;
-    private final PasswordEncoder      passwordEncoder;
-
-    // Inject via a simple JPA query — Organization must exist first
-    private final org.springframework.data.jpa.repository.JpaRepository<Organization, Long> organizationRepository;
+    private final UserRepository         userRepository;
+    private final RoleRepository         roleRepository;
+    private final PermissionRepository   permissionRepository;
+    private final OrganizationRepository organizationRepository;
+    private final PasswordEncoder        passwordEncoder;
 
     @Override
     @Transactional
     public void run(ApplicationArguments args) {
-        log.info("Running SecurityDataInitializer...");
-
-        Organization org = ensureDefaultOrganization();
-        Role superAdminRole = ensureSuperAdminRole();
-        ensureSuperAdminUser(org, superAdminRole);
-
-        log.info("SecurityDataInitializer complete.");
+        log.info("═══ SecurityDataInitializer starting ═══");
+        Organization org         = ensureDefaultOrganization();
+        Role         superAdmin  = ensureSuperAdminRole();
+        ensureSuperAdminUser(org, superAdmin);
+        log.info("═══ SecurityDataInitializer complete ═══");
     }
 
-    // ── Organization ──────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────────
+    // ORGANIZATION
+    // ─────────────────────────────────────────────────────────────────────────
 
-    @SuppressWarnings("unchecked")
     private Organization ensureDefaultOrganization() {
-        return (Organization) organizationRepository.findAll()
-                .stream().findFirst().orElseGet(() -> {
+        return organizationRepository.findAll()
+                .stream()
+                .findFirst()
+                .orElseGet(() -> {
                     Organization o = new Organization();
                     o.setCode("DEFAULT");
                     o.setName("Spindle ERP");
@@ -66,18 +67,21 @@ public class SecurityDataInitializer implements ApplicationRunner {
                 });
     }
 
-    // ── ROLE_SUPER_ADMIN ──────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────────
+    // ROLE_SUPER_ADMIN
+    // ─────────────────────────────────────────────────────────────────────────
 
     private Role ensureSuperAdminRole() {
         return roleRepository.findByName("ROLE_SUPER_ADMIN").orElseGet(() -> {
-            // Wildcard permission (DynamicAuthorizationManager bypasses anyway)
-            Permission all = permissionRepository.findByName("*")
+
+            // Wildcard permission (DynamicAuthorizationManager also bypasses for SUPER_ADMIN)
+            Permission wildcard = permissionRepository.findByName("*")
                     .orElseGet(() -> permissionRepository.save(
                             Permission.builder()
                                     .name("*")
                                     .description("Super admin wildcard — all access")
                                     .urlPattern("/**")
-                                    .httpMethod(null)   // any method
+                                    .httpMethod(null)
                                     .module("CORE_SECURITY")
                                     .active(true)
                                     .build()));
@@ -85,11 +89,10 @@ public class SecurityDataInitializer implements ApplicationRunner {
             Role role = Role.builder()
                     .name("ROLE_SUPER_ADMIN")
                     .nameBn("সুপার অ্যাডমিন")
-                    .description("Full system access — bypasses all permission checks")
+                    .description("Full system access — bypasses all permission checks.")
                     .masterRole("ROLE_SUPER_ADMIN")
                     .active(true)
-//                    .isActive(true)
-                    .permissions(new LinkedHashSet<>(Set.of(all)))
+                    .permissions(new LinkedHashSet<>(Set.of(wildcard)))
                     .build();
 
             Role saved = roleRepository.save(role);
@@ -98,7 +101,9 @@ public class SecurityDataInitializer implements ApplicationRunner {
         });
     }
 
-    // ── superadmin user ───────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────────
+    // SUPERADMIN USER
+    // ─────────────────────────────────────────────────────────────────────────
 
     private void ensureSuperAdminUser(Organization org, Role superAdminRole) {
         if (userRepository.existsByUsername("superadmin")) {
@@ -114,19 +119,18 @@ public class SecurityDataInitializer implements ApplicationRunner {
                 .password(passwordEncoder.encode("SuperAdmin@2025"))
                 .fullName("Super Administrator")
                 .enabled(true)
-//                .isEnabled(true)
                 .accountNonLocked(true)
-//                .isAccountNonLocked(true)
                 .accountNonExpired(true)
-//                .isAccountNonExpired(true)
                 .credentialsNonExpired(true)
-//                .isCredentialsNonExpired(true)
                 .deleted(false)
                 .defaultDashboard(User.DefaultDashboard.DEFAULT)
                 .roles(new LinkedHashSet<>(Set.of(superAdminRole)))
                 .build();
 
         userRepository.save(superadmin);
-        log.warn("Created superadmin user — CHANGE THE DEFAULT PASSWORD IMMEDIATELY!");
+        log.warn("══════════════════════════════════════════════════════════");
+        log.warn("  superadmin user created. CHANGE THE PASSWORD NOW!");
+        log.warn("  username: superadmin   password: SuperAdmin@2025");
+        log.warn("══════════════════════════════════════════════════════════");
     }
 }

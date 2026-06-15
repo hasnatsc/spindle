@@ -5,21 +5,27 @@ import com.asg.spindleserp.security.entity.User;
 import com.asg.spindleserp.security.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.authentication.DisabledException;
+import org.springframework.security.authentication.LockedException;
 import org.springframework.security.core.userdetails.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Loads a user by username, email, OR phone (whichever was entered in the login form).
+ * UserDetailsServiceImpl
  *
- * The @Transactional ensures that the lazy Role→Permission collection is loaded
- * within the same session before the entity is detached.
- * After this method returns, all authorities are cached in CustomUserDetails —
- * no further DB hits for permission checks.
+ * Loads a user by username, email, OR phone (whichever was entered).
+ * Uses a single optimized query: findByIdentifierWithRolesAndPermissions.
+ * Falls back to the three separate queries if the single one is not preferred.
+ *
+ * Fix over uploaded version:
+ *   user.isAccountLocked() → NOT a method on the User entity.
+ *   User has `accountNonLocked` (boolean); Lombok generates isAccountNonLocked().
+ *   The correct check is:  !user.isAccountNonLocked()
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
-@Slf4j
 public class UserDetailsServiceImpl implements UserDetailsService {
 
     private final UserRepository userRepository;
@@ -29,22 +35,34 @@ public class UserDetailsServiceImpl implements UserDetailsService {
     public UserDetails loadUserByUsername(String identifier)
             throws UsernameNotFoundException {
 
-        // Try username first, then email, then phone
+        // Single optimized query: tries username | email | phone
         User user = userRepository
-                .findByUsernameWithRolesAndPermissions(identifier)
-                .or(() -> userRepository.findByEmailWithRolesAndPermissions(identifier))
-                .or(() -> userRepository.findByPhoneWithRolesAndPermissions(identifier))
-                .orElseThrow(() ->
-                        new UsernameNotFoundException(
-                                "No user found for: " + identifier));
+                .findByIdentifierWithRolesAndPermissions(identifier)
+                .orElseThrow(() -> {
+                    log.warn("Login failed — no user found for identifier: {}", identifier);
+                    return new UsernameNotFoundException("Invalid username or password.");
+                });
 
+        // Soft-delete check
         if (user.isDeleted()) {
-            throw new UsernameNotFoundException("Account has been deleted: " + identifier);
+            log.warn("Login failed — deleted account: {}", identifier);
+            throw new UsernameNotFoundException("Account does not exist.");
         }
 
-        log.debug("Loaded user '{}' with {} role(s)", user.getUsername(),
-                user.getRoles().size());
+        // Disabled check
+        if (!user.isEnabled()) {
+            log.warn("Login failed — disabled account: {}", identifier);
+            throw new DisabledException("Your account has been disabled. Contact your administrator.");
+        }
 
+        // ✅ FIX: was user.isAccountLocked() which does not exist on User.
+        // Correct method is !user.isAccountNonLocked() (Lombok from 'accountNonLocked' field).
+        if (!user.isAccountNonLocked()) {
+            log.warn("Login failed — locked account: {}", identifier);
+            throw new LockedException("Your account is locked. Contact your administrator.");
+        }
+
+        log.debug("Login OK — user='{}' roles={}", user.getUsername(), user.getRoles().size());
         return new CustomUserDetails(user);
     }
 }

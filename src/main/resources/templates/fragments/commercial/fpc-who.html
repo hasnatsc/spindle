@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<!--
+  FRAGMENT: fragments/commercial/fpc-who :: fpcWho(dash)
+-->
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+<th:block th:fragment="fpcWho(dash)">
+<!-- ══ ROW 1: WHO IS PERFORMING ═══════════════════════════════════ -->
+      <div class="section-label sl-blue">👥 Who Is Performing</div>
+      <div class="row g-2">
+
+        <!-- Team Target vs Projection + mini stats -->
+        <div class="col-12 col-lg-4">
+          <div class="card-dash">
+            <div class="sec-title">🏆 Team Target vs Projection (YDS)</div>
+            <div class="row g-2 mb-3">
+              <div class="col-6">
+                <div class="mini-kpi" style="background:rgba(37,99,235,0.1);border:1px solid rgba(37,99,235,0.18)">
+                  <div class="mk-lbl">🎯 Top Team</div>
+                  <div class="mk-val c-blue">Las Vegas</div>
+                  <div class="mk-sub">400k yds · 125% achiev.</div>
+                </div>
+              </div>
+              <div class="col-6">
+                <div class="mini-kpi" style="background:rgba(244,63,94,0.08);border:1px solid rgba(244,63,94,0.18)">
+                  <div class="mk-lbl">⚠️ Below Target</div>
+                  <div class="mk-val c-red">Morocco</div>
+                  <div class="mk-sub">93k yds · 103% achiev.</div>
+                </div>
+              </div>
+            </div>
+            <div class="sec-title">📊 Bar Chart</div>
+            <div class="chart-box ch-180"><canvas id="chartTargetProj"></canvas></div>
+          </div>
+        </div>
+
+        <!-- Coordinator Contribution donut + table -->
+        <div class="col-12 col-sm-6 col-lg-4">
+          <div class="card-dash">
+            <div class="sec-title">🍩 Coordinator Contribution (YDS)</div>
+            <div style="display:flex;align-items:center;gap:14px;margin-bottom:var(--sp-3)">
+              <div class="donut-wrap" style="width:120px;height:120px;flex-shrink:0">
+                <canvas id="chartDonut" width="120" height="120"></canvas>
+                <div class="donut-center">
+                  <div class="dv c-accent">3.85M</div>
+                  <div class="dl">Total yds</div>
+                </div>
+              </div>
+              <div style="flex:1">
+                <div class="stat-row">
+                  <div class="stat-lbl"><span class="dot dot-b" style="margin-right:5px"></span>Tonoy</div>
+                  <div class="stat-val">1,770,000</div>
+                </div>
+                <div class="stat-row">
+                  <div class="stat-lbl"><span class="dot dot-g" style="margin-right:5px"></span>Rasel</div>
+                  <div class="stat-val">1,280,000</div>
+                </div>
+                <div class="stat-row">
+                  <div class="stat-lbl"><span class="dot" style="background:#a855f7;margin-right:5px"></span>Masud</div>
+                  <div class="stat-val">650,000</div>
+                </div>
+                <div class="stat-row">
+                  <div class="stat-lbl"><span class="dot" style="background:#f59e0b;margin-right:5px"></span>Morocco
+                  </div>
+                  <div class="stat-val">150,000</div>
+                </div>
+              </div>
+            </div>
+            <div class="sec-title">📋 Performance Summary</div>
+            <div class="tbl-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Coordinator</th>
+                    <th class="tr">Target</th>
+                    <th class="tr">Proj.</th>
+                    <th class="tr">Ach%</th>
+                    <th class="tr">Mgn%</th>
+                    <th class="tc">🚩</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>Tonoy</td>
+                    <td class="tr">1,700k</td>
+                    <td class="tr">1,770k</td>
+                    <td class="tr c-green fw7">104.1%</td>
+                    <td class="tr">5.26%</td>
+                    <td class="tc c-red fw7">6</td>
+                  </tr>
+                  <tr>
+                    <td>Rasel</td>
+                    <td class="tr">1,100k</td>
+                    <td class="tr">1,280k</td>
+                    <td class="tr c-green fw7">116.4%</td>
+                    <td class="tr">4.18%</td>
+                    <td class="tc c-orange fw7">5</td>
+                  </tr>
+                  <tr>
+                    <td>Masud</td>
+                    <td class="tr">600k</td>
+                    <td class="tr">650k</td>
+                    <td class="tr c-green fw7">108.3%</td>
+                    <td class="tr">4.25%</td>
+                    <td class="tc c-orange fw7">4</td>
+                  </tr>
+                  <tr>
+                    <td>Morocco</td>
+                    <td class="tr">200k</td>
+                    <td class="tr">150k</td>
+                    <td class="tr c-red fw7">75.0%</td>
+                    <td class="tr">2.35%</td>
+                    <td class="tc c-yellow fw7">3</td>
+                  </tr>
+                <tfoot>
+                  <tr>
+                    <td>TOTAL</td>
+                    <td class="tr">3,600k</td>
+                    <td class="tr">3,850k</td>
+                    <td class="tr c-green">106.9%</td>
+                    <td class="tr">4.72%</td>
+                    <td class="tc c-red">18</td>
+                  </tr>
+                </tfoot>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Margin & Risk Heatmap -->
+        <div class="col-12 col-sm-6 col-lg-4">
+          <div class="card-dash">
+            <div class="sec-title">🌡️ Margin &amp; Risk Heatmap by Team</div>
+            <div class="row g-2 mb-3">
+              <div class="col-6">
+                <div class="mini-kpi" style="background:rgba(16,185,129,0.08)">
+                  <div class="mk-lbl">Best Margin</div>
+                  <div class="mk-val c-green">5.60%</div>
+                  <div class="mk-sub">Las Vegas</div>
+                </div>
+              </div>
+              <div class="col-6">
+                <div class="mini-kpi" style="background:rgba(244,63,94,0.08)">
+                  <div class="mk-lbl">Worst Margin</div>
+                  <div class="mk-val c-red">−5.68%</div>
+                  <div class="mk-sub">Sydney ⚠️</div>
+                </div>
+              </div>
+            </div>
+            <div class="tbl-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Team</th>
+                    <th class="tr">Margin%</th>
+                    <th class="tc">Delivery</th>
+                    <th class="tc">R&D</th>
+                    <th class="tc">Feasibility</th>
+                    <th class="tc">Aging</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>Las Vegas</td>
+                    <td class="tr c-green fw7">5.60%</td>
+                    <td class="tc"><span class="badge-pill bp-green">Low</span></td>
+                    <td class="tc"><span class="badge-pill bp-green">Low</span></td>
+                    <td class="tc"><span class="badge-pill bp-green">Low</span></td>
+                    <td class="tc"><span class="badge-pill bp-green">Low</span></td>
+                  </tr>
+                  <tr>
+                    <td>San Francisco</td>
+                    <td class="tr c-green fw7">5.25%</td>
+                    <td class="tc"><span class="badge-pill bp-green">Low</span></td>
+                    <td class="tc"><span class="badge-pill bp-green">Low</span></td>
+                    <td class="tc"><span class="badge-pill bp-green">Low</span></td>
+                    <td class="tc"><span class="badge-pill bp-green">Low</span></td>
+                  </tr>
+                  <tr>
+                    <td>Munich</td>
+                    <td class="tr c-green fw7">4.85%</td>
+                    <td class="tc"><span class="badge-pill bp-medium">Med</span></td>
+                    <td class="tc"><span class="badge-pill bp-green">Low</span></td>
+                    <td class="tc"><span class="badge-pill bp-medium">Med</span></td>
+                    <td class="tc"><span class="badge-pill bp-green">Low</span></td>
+                  </tr>
+                  <tr>
+                    <td>London</td>
+                    <td class="tr c-green fw7">4.40%</td>
+                    <td class="tc"><span class="badge-pill bp-green">Low</span></td>
+                    <td class="tc"><span class="badge-pill bp-green">Low</span></td>
+                    <td class="tc"><span class="badge-pill bp-green">Low</span></td>
+                    <td class="tc"><span class="badge-pill bp-green">Low</span></td>
+                  </tr>
+                  <tr>
+                    <td>Sydney</td>
+                    <td class="tr c-red fw8">−5.68%</td>
+                    <td class="tc"><span class="badge-pill bp-critical">High</span></td>
+                    <td class="tc"><span class="badge-pill bp-critical">High</span></td>
+                    <td class="tc"><span class="badge-pill bp-critical">High</span></td>
+                    <td class="tc"><span class="badge-pill bp-critical">High</span></td>
+                  </tr>
+                  <tr>
+                    <td>Barcelona</td>
+                    <td class="tr c-yellow fw7">3.90%</td>
+                    <td class="tc"><span class="badge-pill bp-medium">Med</span></td>
+                    <td class="tc"><span class="badge-pill bp-medium">Med</span></td>
+                    <td class="tc"><span class="badge-pill bp-medium">Med</span></td>
+                    <td class="tc"><span class="badge-pill bp-medium">Med</span></td>
+                  </tr>
+                  <tr>
+                    <td>Tokyo</td>
+                    <td class="tr c-yellow fw7">3.20%</td>
+                    <td class="tc"><span class="badge-pill bp-green">Low</span></td>
+                    <td class="tc"><span class="badge-pill bp-medium">Med</span></td>
+                    <td class="tc"><span class="badge-pill bp-medium">Med</span></td>
+                    <td class="tc"><span class="badge-pill bp-green">Low</span></td>
+                  </tr>
+                  <tr>
+                    <td>Morocco</td>
+                    <td class="tr c-text2 fw7">2.10%</td>
+                    <td class="tc"><span class="badge-pill bp-green">Low</span></td>
+                    <td class="tc"><span class="badge-pill bp-green">Low</span></td>
+                    <td class="tc"><span class="badge-pill bp-medium">Med</span></td>
+                    <td class="tc"><span class="badge-pill bp-green">Low</span></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+</th:block>
+</body>
+</html>

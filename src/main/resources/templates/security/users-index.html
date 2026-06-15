@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<!--
+  ╔══════════════════════════════════════════════════════════════════════╗
+  ║  security/users-index.html                                           ║
+  ║  Thymeleaf page — extends layout/base                               ║
+  ║  Controller : UserController  GET /users                            ║
+  ║  Permission : PERM_USER_VIEW                                        ║
+  ╚══════════════════════════════════════════════════════════════════════╝
+-->
+<html th:replace="~{layout/base :: layout('User Management', ~{::section})}"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+
+<section>
+<div id="content" class="app-content">
+
+  <div th:replace="~{fragments/breadcrumb
+       :: pageHeader('Security', 'User Management',
+          'create users, assign roles, and manage access')}">
+  </div>
+
+  <div class="panel panel-inverse">
+    <div class="panel-heading">
+      <div class="panel-title">
+        <a href="javascript:;" onclick="userOpenCreate()"
+           sec:authorize="hasAuthority('PERM_USER_CREATE')">
+          <span class="badge btn btn-outline-success">
+            <i class="fa fa-user-plus me-1"></i> New User
+          </span>
+        </a>
+      </div>
+      <div class="panel-heading-btn">
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-default" data-toggle="panel-expand"><i class="fa fa-expand"></i></a>
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-success" data-toggle="panel-reload"><i class="fa fa-redo"></i></a>
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-warning" data-toggle="panel-collapse"><i class="fa fa-minus"></i></a>
+      </div>
+    </div>
+
+    <div class="panel-body">
+      <table id="userTable" width="100%"
+             class="table table-striped table-bordered align-middle text-nowrap">
+        <thead>
+          <tr>
+            <th width="3%">#</th>
+            <th>Username</th>
+            <th>Full Name</th>
+            <th>Email</th>
+            <th>Phone</th>
+            <th>Roles</th>
+            <th class="text-center">Status</th>
+            <th>Created</th>
+            <th class="text-center" width="12%">Actions</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div><!-- /panel-body -->
+
+    <!-- Injected modals -->
+    <div th:replace="~{security/users-form     :: modalForm}"></div>
+    <div th:replace="~{security/users-view     :: modalView}"></div>
+    <div th:replace="~{security/users-password :: passwordModal}"></div>
+
+  </div><!-- /panel -->
+</div><!-- /content -->
+
+<!-- ══ PAGE SCRIPT ══════════════════════════════════════════════════════ -->
+<script>
+/* ── DataTable ────────────────────────────────────────────────────────── */
+let userDT;
+
+document.addEventListener('DOMContentLoaded', function () {
+  userDT = $('#userTable').DataTable({
+    processing : true,
+    serverSide : true,
+    responsive : true,
+    pageLength : 25,
+    ajax: { url: '/users/list', type: 'GET' },
+    columns: [
+      { data: 'sl',         orderable: false, width: '40px' },
+      { data: 'username'   },
+      { data: 'full_name'  },
+      { data: 'email'      },
+      { data: 'phone'      },
+      { data: 'roles',     orderable: false },
+      { data: 'status',    orderable: false, className: 'text-center' },
+      { data: 'created_at'},
+      { data: 'actions',   orderable: false, className: 'text-center' }
+    ],
+    // Render HTML in roles, status, actions columns
+    columnDefs: [
+      { targets: [5, 6, 8], render: data => data }
+    ],
+    language: {
+      search: 'Search users:',
+      emptyTable: 'No users found.',
+      zeroRecords: 'No users matched the search.'
+    }
+  });
+});
+
+/* ── Create ───────────────────────────────────────────────────────────── */
+function userOpenCreate() {
+  userResetForm();
+  document.getElementById('uModalLabel').textContent = 'Create User';
+  document.getElementById('uId').value = '';
+  // Show password section
+  document.getElementById('uPasswordSection').style.display = '';
+  document.getElementById('uPassword').setAttribute('required', 'required');
+  document.getElementById('uConfirmPassword').setAttribute('required', 'required');
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('userModal')).show();
+}
+
+/* ── Show ─────────────────────────────────────────────────────────────── */
+function userShow(id) {
+  secureFetch('/users/show/' + id).then(res => {
+    if (!res.success) { Swal.fire('Error', res.message, 'error'); return; }
+    const u = res.obj.defaultData;
+
+    document.getElementById('uv_username').textContent   = u.username    || '—';
+    document.getElementById('uv_fullName').textContent   = u.fullName    || '—';
+    document.getElementById('uv_email').textContent      = u.email       || '—';
+    document.getElementById('uv_phone').textContent      = u.phone       || '—';
+    document.getElementById('uv_dashboard').textContent  = u.defaultDashboardLabel || '—';
+    document.getElementById('uv_status').innerHTML       = u.enabled
+        ? "<span class='badge bg-success'>Active</span>"
+        : "<span class='badge bg-danger'>Disabled</span>";
+    document.getElementById('uv_roles').innerHTML = buildRolesHtml(u.roleNames);
+    document.getElementById('uv_createdAt').textContent  = u.createdAt    || '—';
+    document.getElementById('uv_updatedAt').textContent  = u.updatedAt    || '—';
+    document.getElementById('uv_lastLogin').textContent  = u.lastLoginAt  || 'Never';
+
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('userViewModal')).show();
+  });
+}
+
+/* ── Edit ─────────────────────────────────────────────────────────────── */
+function userEdit(id) {
+  secureFetch('/users/show/' + id).then(res => {
+    if (!res.success) { Swal.fire('Error', res.message, 'error'); return; }
+    const u = res.obj.defaultData;
+
+    userResetForm();
+    document.getElementById('uId').value                 = u.id;
+    document.getElementById('uUsername').value           = u.username      || '';
+    document.getElementById('uFullName').value           = u.fullName      || '';
+    document.getElementById('uEmail').value              = u.email         || '';
+    document.getElementById('uPhone').value              = u.phone         || '';
+    document.getElementById('uEnabled').checked          = u.enabled;
+    document.getElementById('uAccountNonExpired').checked      = u.accountNonExpired;
+    document.getElementById('uAccountNonLocked').checked       = u.accountNonLocked;
+    document.getElementById('uCredentialsNonExpired').checked  = u.credentialsNonExpired;
+    document.getElementById('uDefaultDashboard').value   = u.defaultDashboard || 'DEFAULT';
+    $('#uRoleIds').val(u.roleIds || []).trigger('change');
+
+    // Hide password on edit
+    document.getElementById('uPasswordSection').style.display = 'none';
+    document.getElementById('uPassword').removeAttribute('required');
+    document.getElementById('uConfirmPassword').removeAttribute('required');
+
+    document.getElementById('uModalLabel').textContent = 'Edit User — ' + u.username;
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('userModal')).show();
+  });
+}
+
+/* ── Toggle status ────────────────────────────────────────────────────── */
+function userToggle(id) {
+  confirmAndExecute({
+    title:        'Change Status?',
+    text:         'This will toggle the user\'s active/disabled state.',
+    icon:         'question',
+    url:          `/users/toggle/${id}`,
+    method:       'POST',
+    successTitle: 'Status Updated',
+    reloadTable:  true,
+    dataTable:    document.getElementById('userTable')
+  });
+}
+
+/* ── Delete ───────────────────────────────────────────────────────────── */
+function userDelete(id) {
+  confirmAndExecute({
+    title:        'Delete User?',
+    text:         'The user will be soft-deleted and cannot log in.',
+    icon:         'warning',
+    confirmText:  'Yes, delete',
+    confirmColor: '#d33',
+    url:          `/users/delete/${id}`,
+    method:       'DELETE',
+    successTitle: 'Deleted!',
+    reloadTable:  true,
+    dataTable:    document.getElementById('userTable')
+  });
+}
+
+/* ── Change password ──────────────────────────────────────────────────── */
+function userPwd(id) {
+  document.getElementById('pwdUserId').value          = id;
+  document.getElementById('pwdNewPassword').value     = '';
+  document.getElementById('pwdConfirmPassword').value = '';
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('passwordModal')).show();
+}
+
+/* ── Helpers ──────────────────────────────────────────────────────────── */
+function userResetForm() {
+  const form = document.getElementById('userForm');
+  if (form) hsResetForm(form);
+  document.getElementById('uEnabled').checked              = true;
+  document.getElementById('uAccountNonExpired').checked    = true;
+  document.getElementById('uAccountNonLocked').checked     = true;
+  document.getElementById('uCredentialsNonExpired').checked= true;
+  if (typeof $ !== 'undefined') $('#uRoleIds').val(null).trigger('change');
+}
+
+function buildRolesHtml(roleNames) {
+  if (!roleNames || !roleNames.length)
+    return "<span class='badge bg-secondary'>No Roles</span>";
+  return roleNames.map(r =>
+    `<span class='badge bg-primary me-1'>${r.replace('ROLE_','')}</span>`
+  ).join('');
+}
+</script>
+
+</section>
+</html>
