@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<!--
+  FRAGMENT: security/users-view :: modalView
+  Read-only User detail modal.
+  Inject: <div th:replace="~{security/users-view :: modalView}"></div>
+-->
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+<div th:fragment="modalView">
+
+  <div class="modal fade" id="userViewModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+      <div class="modal-content">
+
+        <div class="modal-header">
+          <h5 class="modal-title">
+            <i class="fa fa-user me-1 text-primary"></i> User Details
+          </h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+
+        <div class="modal-body">
+          <div class="hs-box">
+            <div class="row">
+
+              <!-- Basic -->
+              <div class="col-12">
+                <h6 class="text-primary mb-0">
+                  <i class="fa fa-user me-1"></i>Basic Information
+                </h6>
+                <hr class="mt-1 mb-2">
+              </div>
+
+              <div class="col-md-6 view-group">
+                <label class="view-label">Username</label>
+                <span id="uv_username" class="form-control hs_span_show"></span>
+              </div>
+              <div class="col-md-6 view-group">
+                <label class="view-label">Full Name</label>
+                <span id="uv_fullName" class="form-control hs_span_show"></span>
+              </div>
+              <div class="col-md-4 view-group">
+                <label class="view-label">Email</label>
+                <span id="uv_email" class="form-control hs_span_show"></span>
+              </div>
+              <div class="col-md-4 view-group">
+                <label class="view-label">Phone</label>
+                <span id="uv_phone" class="form-control hs_span_show"></span>
+              </div>
+              <div class="col-md-4 view-group">
+                <label class="view-label">Default Dashboard</label>
+                <span id="uv_dashboard" class="form-control hs_span_show"></span>
+              </div>
+
+              <!-- Status -->
+              <div class="col-12">
+                <h6 class="text-secondary mb-0 mt-1">
+                  <i class="fa fa-info-circle me-1"></i>Account Status
+                </h6>
+                <hr class="mt-1 mb-2">
+              </div>
+              <div class="col-12 view-group">
+                <label class="view-label">Status</label>
+                <span id="uv_status" class="form-control hs_span_show"
+                      style="height:auto;min-height:38px"></span>
+              </div>
+
+              <!-- Roles -->
+              <div class="col-12">
+                <h6 class="text-success mb-0 mt-1">
+                  <i class="fa fa-shield-alt me-1"></i>Assigned Roles
+                </h6>
+                <hr class="mt-1 mb-2">
+              </div>
+              <div class="col-12 view-group">
+                <label class="view-label">Roles</label>
+                <span id="uv_roles" class="form-control hs_span_show"
+                      style="height:auto;min-height:38px"></span>
+              </div>
+
+              <!-- Audit -->
+              <div class="col-12">
+                <h6 class="text-info mb-0 mt-1">
+                  <i class="fa fa-clock me-1"></i>Activity
+                </h6>
+                <hr class="mt-1 mb-2">
+              </div>
+              <div class="col-md-4 view-group">
+                <label class="view-label">Created At</label>
+                <span id="uv_createdAt" class="form-control hs_span_show"></span>
+              </div>
+              <div class="col-md-4 view-group">
+                <label class="view-label">Last Updated</label>
+                <span id="uv_updatedAt" class="form-control hs_span_show"></span>
+              </div>
+              <div class="col-md-4 view-group">
+                <label class="view-label">Last Login</label>
+                <span id="uv_lastLogin" class="form-control hs_span_show"></span>
+              </div>
+
+            </div>
+          </div>
+        </div><!-- /modal-body -->
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-white" data-bs-dismiss="modal">Close</button>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

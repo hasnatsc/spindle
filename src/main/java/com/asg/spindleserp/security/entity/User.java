@@ -11,36 +11,50 @@ import java.util.LinkedHashSet;
 import java.util.Set;
 
 /**
- * FIXES applied in this version:
- *
- * FIX 1 — implements Serializable:
- *   Spring Session JDBC serializes SecurityContext → Authentication → CustomUserDetails → User
- *   into the SPRING_SESSION_ATTRIBUTES table as a byte[].
- *   Without Serializable the write throws NotSerializableException.
- *
- * FIX 2 — Organization is now FetchType.EAGER:
- *   The original LAZY fetch causes Hibernate to wrap Organization in a
- *   ByteBuddy/CGLib proxy. That proxy is NOT serializable, so even after
- *   adding implements Serializable the error reappears.
- *   For the sec_users → org_organizations join (always 1 row), EAGER is correct.
- *
- * FIX 3 — Duplicate boolean fields REMOVED:
- *   The original entity had both:
- *     private boolean enabled     ← Lombok generates isEnabled() getter
- *     private boolean isEnabled   ← Lombok generates isIsEnabled() getter
- *                                   AND Spring Security calls isEnabled() which
- *                                   finds the first field → confusion + warnings
- *   Solution: keep only ONE field per boolean property (without "is" prefix).
- *   Lombok's @Getter will generate the correct isXxx() getter automatically.
+ * ╔══════════════════════════════════════════════════════════════════╗
+ * ║  sec_users                                                       ║
+ * ║                                                                  ║
+ * ║  Three fixes applied over the uploaded version:                  ║
+ * ║                                                                  ║
+ * ║  FIX 1 — implements Serializable                                ║
+ * ║    Spring Session JDBC serializes the full SecurityContext       ║
+ * ║    (CustomUserDetails → User → Organization → Role → Permission)║
+ * ║    into SPRING_SESSION_ATTRIBUTES as a byte[].                   ║
+ * ║    Every class in that graph must be Serializable.               ║
+ * ║                                                                  ║
+ * ║  FIX 2 — Organization FetchType.EAGER                           ║
+ * ║    LAZY creates a ByteBuddy proxy that is NOT serializable.      ║
+ * ║    Organization is always needed (1 row, 1 join) so EAGER        ║
+ * ║    is correct and cheap.                                         ║
+ * ║                                                                  ║
+ * ║  FIX 3 — ONE boolean per flag (no "is" prefix on field names)   ║
+ * ║    Lombok @Getter on `boolean enabled` generates isEnabled().    ║
+ * ║    A second field `boolean isEnabled` would generate             ║
+ * ║    isIsEnabled() causing ambiguity with Spring Security.         ║
+ * ║                                                                  ║
+ * ║  FIX 4 — @PrePersist / @PreUpdate for audit timestamps          ║
+ * ║    The uploaded version had no lifecycle callbacks; createdAt    ║
+ * ║    and updatedAt were never set automatically.                   ║
+ * ║                                                                  ║
+ * ║  Soft-delete: set deleted = true; never physically remove rows. ║
+ * ╚══════════════════════════════════════════════════════════════════╝
  */
 @Entity
-@Table(name = "sec_users",
+@Table(
+    name = "sec_users",
     indexes = {
         @Index(name = "idx_user_org",      columnList = "organization_id"),
         @Index(name = "idx_user_username", columnList = "username"),
         @Index(name = "idx_user_email",    columnList = "email"),
+        @Index(name = "idx_user_phone",    columnList = "phone"),
         @Index(name = "idx_user_deleted",  columnList = "deleted")
-    })
+    },
+    uniqueConstraints = {
+        @UniqueConstraint(name = "uq_user_username", columnNames = "username"),
+        @UniqueConstraint(name = "uq_user_email",    columnNames = "email"),
+        @UniqueConstraint(name = "uq_user_phone",    columnNames = "phone")
+    }
+)
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class User implements Serializable {   // ✅ FIX 1
 
@@ -51,10 +65,13 @@ public class User implements Serializable {   // ✅ FIX 1
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // ✅ FIX 2: EAGER so Hibernate doesn't wrap in an unserializable proxy
+    // ── Organization ──────────────────────────────────────────────────────────
+    // ✅ FIX 2: EAGER — avoids unserializable ByteBuddy/CGLIB proxy
     @ManyToOne(fetch = FetchType.EAGER, optional = false)
     @JoinColumn(name = "organization_id", nullable = false)
     private Organization organization;
+
+    // ── Identity ──────────────────────────────────────────────────────────────
 
     @Column(nullable = false, unique = true, length = 80)
     private String username;
@@ -62,6 +79,7 @@ public class User implements Serializable {   // ✅ FIX 1
     @Column(nullable = false, unique = true, length = 150)
     private String email;
 
+    /** Optional — used as alternative login identifier. */
     @Column(nullable = false, unique = true, length = 30)
     private String phone;
 
@@ -71,34 +89,78 @@ public class User implements Serializable {   // ✅ FIX 1
     @Column(length = 200)
     private String fullName;
 
-    // ✅ FIX 3: ONE field per boolean — Lombok generates isEnabled(), isAccountNonLocked(), etc.
-    // Removed the duplicate isEnabled, isAccountNonLocked, isAccountNonExpired, isCredentialsNonExpired
-    // Spring Security's UserDetails interface calls isEnabled() — Lombok generates this from 'enabled'
+    // ── UserDetails flags ─────────────────────────────────────────────────────
+    // ✅ FIX 3: ONE field per boolean. Lombok generates:
+    //   isEnabled(), isAccountNonLocked(), isAccountNonExpired(), isCredentialsNonExpired()
+    // Spring Security's UserDetails interface expects exactly those method names.
+
     @Builder.Default @Column(nullable = false) private boolean enabled                = true;
     @Builder.Default @Column(nullable = false) private boolean accountNonLocked       = true;
     @Builder.Default @Column(nullable = false) private boolean accountNonExpired      = true;
     @Builder.Default @Column(nullable = false) private boolean credentialsNonExpired  = true;
     @Builder.Default @Column(nullable = false) private boolean deleted                = false;
 
+    // ── Preferences ───────────────────────────────────────────────────────────
+
     @Enumerated(EnumType.STRING)
-    @Column(length = 30)
+    @Column(name = "default_dashboard", length = 35)
     private DefaultDashboard defaultDashboard;
 
-    private LocalDateTime lastLoginAt;
-    private LocalDateTime createdAt;
-    private LocalDateTime updatedAt;
-
-    @Column(length = 100) private String createdBy;
-    @Column(length = 100) private String updatedBy;
+    // ── Roles ─────────────────────────────────────────────────────────────────
+    // EAGER: Spring Security builds the GrantedAuthority set at login.
+    // Keep role count small (1–2 per user) to keep this safe.
 
     @Builder.Default
     @ManyToMany(fetch = FetchType.EAGER)
-    @JoinTable(name = "sec_user_roles",
+    @JoinTable(
+        name = "sec_user_roles",
         joinColumns        = @JoinColumn(name = "user_id"),
-        inverseJoinColumns = @JoinColumn(name = "role_id"))
+        inverseJoinColumns = @JoinColumn(name = "role_id")
+    )
     private Set<Role> roles = new LinkedHashSet<>();
 
+    // ── Audit ─────────────────────────────────────────────────────────────────
+
+    @Column(name = "last_login_at")
+    private LocalDateTime lastLoginAt;
+
+    @Column(name = "created_at", updatable = false)
+    private LocalDateTime createdAt;
+
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
+
+    @Column(name = "created_by", length = 100)
+    private String createdBy;
+
+    @Column(name = "updated_by", length = 100)
+    private String updatedBy;
+
+    // ── Lifecycle hooks ───────────────────────────────────────────────────────
+    // ✅ FIX 4: ensure timestamps are set automatically
+
+    @PrePersist
+    protected void onCreate() {
+        createdAt = updatedAt = LocalDateTime.now();
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        updatedAt = LocalDateTime.now();
+    }
+
+    // ── Enums ─────────────────────────────────────────────────────────────────
+
     public enum DefaultDashboard {
-        DEFAULT, ACCOUNTS, INVENTORY, PRODUCTION, SALES, PURCHASE, HRM
+        DEFAULT,
+        ACCOUNTS,
+        INVENTORY,
+        PRODUCTION,
+        SALES,
+        PURCHASE,
+        HRM,
+        COMMERCIAL,
+        HR,
+        FINANCE
     }
 }

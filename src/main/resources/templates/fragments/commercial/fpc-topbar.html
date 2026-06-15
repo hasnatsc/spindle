@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<!--
+  FRAGMENT: fragments/commercial/fpc-topbar :: fpcTopbar(dash)
+  Top navigation bar with title, controls, and filter strip.
+-->
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+<th:block th:fragment="fpcTopbar(dash)">
+
+  <header class="topbar">
+
+    <!-- Top Row -->
+    <div class="tb-top">
+      <div class="tb-left">
+        <button class="menu-btn" onclick="openSidebar()">☰</button>
+        <div>
+          <div class="tb-title">
+            ASFL &nbsp;<span style="color:var(--text2);font-weight:300">|</span>&nbsp;
+            <span>Fabric Pre-Costing Control Tower</span>
+          </div>
+          <div class="tb-sub">Target · Margin · Risk · Approval · Growth Dashboard — ASG Division</div>
+        </div>
+      </div>
+      <div class="tb-right">
+        <div class="icon-btn">🔔<span class="notif-badge" th:text="${dash.alertCount ?: 12}">12</span></div>
+        <div class="icon-btn">⚙️</div>
+        <div class="theme-toggle" onclick="toggleTheme()">
+          <div class="knob" id="themeKnob">🌙</div>
+        </div>
+        <div class="user-chip">
+          <div class="user-av">GM</div>
+          <span class="user-name">GMD ▾</span>
+        </div>
+        <div class="refresh-btn" id="refreshBtn">↻ Refresh</div>
+      </div>
+    </div>
+
+    <!-- Filter Strip -->
+    <form method="get" th:action="@{/commercial/fabric-precosting}" class="tb-filters-strip" id="fpcFilterForm">
+
+      <div class="f-group">
+        <div class="f-label">Period</div>
+        <div class="f-input">
+          <select name="period" onchange="this.form.submit()">
+            <option th:each="p : ${dash.periods}" th:value="${p}" th:text="${p}"
+                    th:selected="${p == dash.selectedPeriod}">June 2026</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="f-group">
+        <div class="f-label">Coordinator</div>
+        <div class="f-input">
+          <select name="coordinator" onchange="this.form.submit()">
+            <option value="">All</option>
+            <option th:each="c : ${dash.coordinators}" th:value="${c}" th:text="${c}"
+                    th:selected="${c == dash.selectedCoordinator}">Coordinator</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="f-group">
+        <div class="f-label">Team / Region</div>
+        <div class="f-input">
+          <select name="team" onchange="this.form.submit()">
+            <option value="">All Teams</option>
+            <option th:each="t : ${dash.teams}" th:value="${t}" th:text="${t}"
+                    th:selected="${t == dash.selectedTeam}">Team</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="f-group">
+        <div class="f-label">Buyer</div>
+        <div class="f-input">
+          <select name="buyer" onchange="this.form.submit()">
+            <option value="">All Buyers</option>
+            <option th:each="b : ${dash.buyers}" th:value="${b}" th:text="${b}"
+                    th:selected="${b == dash.selectedBuyer}">Buyer</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="f-group">
+        <div class="f-label">Approval Stage</div>
+        <div class="f-input">
+          <select name="stage" onchange="this.form.submit()">
+            <option value="">All Stages</option>
+            <option th:each="s : ${dash.stages}" th:value="${s}" th:text="${s}"
+                    th:selected="${s == dash.selectedStage}">Stage</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="f-group">
+        <div class="f-label">Flag Status</div>
+        <div class="f-input">
+          <select name="flag" onchange="this.form.submit()">
+            <option value="">All</option>
+            <option value="RED"   th:selected="${'RED'   == dash.selectedFlag}">🔴 Red</option>
+            <option value="AMBER" th:selected="${'AMBER' == dash.selectedFlag}">🟡 Amber</option>
+            <option value="GREEN" th:selected="${'GREEN' == dash.selectedFlag}">🟢 Green</option>
+          </select>
+        </div>
+      </div>
+
+      <a th:href="@{/commercial/fabric-precosting}" class="f-reset">↺ Reset Filters</a>
+
+    </form>
+
+  </header>
+
+</th:block>
+</body>
+</html>

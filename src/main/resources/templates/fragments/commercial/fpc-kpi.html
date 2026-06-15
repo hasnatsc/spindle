@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<!--
+  FRAGMENT: fragments/commercial/fpc-kpi :: fpcKpi(kpi, period)
+-->
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+<th:block th:fragment="fpcKpi(kpi, period)">
+<!-- ══ KPI STRIP ════════════════════════════════════════════════════ -->
+      <div class="section-label sl-blue">📊 Key Performance Indicators — <span th:text="${period}">June 2026</span></div>
+      <div class="row g-2 mb-3">
+        <div class="col-6 col-sm-4 col-md-3 col-xl mb-2">
+          <div class="kpi-header bg-blue">
+            <div class="kh-label">🎯 Monthly Target</div>
+            <div class="kh-val"><span th:text="${kpi.monthlyTarget}">3,600,000</span><sub>yds</sub></div>
+            <div class="kh-sub">LM: <span th:text="${kpi.monthlyTargetLm}">3,300,000</span> &nbsp;▲ <strong th:text="${kpi.targetMom}">9.09%</strong> MoM</div>
+          </div>
+        </div>
+        <div class="col-6 col-sm-4 col-md-3 col-xl mb-2">
+          <div class="kpi-header bg-green">
+            <div class="kh-label">📈 Total Projection</div>
+            <div class="kh-val"><span th:text="${kpi.projection}">3,850,000</span><sub>yds</sub></div>
+            <div class="kh-sub">LM: <span th:text="${kpi.projectionLm}">3,240,000</span> &nbsp;▲ <strong th:text="${kpi.projectionMom}">18.83%</strong> MoM</div>
+          </div>
+        </div>
+        <div class="col-6 col-sm-4 col-md-3 col-xl mb-2">
+          <div class="kpi-header bg-purple">
+            <div class="kh-label">% Achievement</div>
+            <div class="kh-val"><span th:text="${kpi.achievement}">106.9%</span></div>
+            <div class="kh-sub">LM: 98.2% &nbsp;▲ <strong>8.70 pp</strong> MoM</div>
+          </div>
+        </div>
+        <div class="col-6 col-sm-4 col-md-3 col-xl mb-2">
+          <div class="kpi-header bg-teal">
+            <div class="kh-label">✅ Approved Qty</div>
+            <div class="kh-val"><span th:text="${kpi.approved}">2,950,000</span><sub>yds</sub></div>
+            <div class="kh-sub">LM: 2,360,000 &nbsp;▲ <strong>25.00%</strong> MoM</div>
+          </div>
+        </div>
+        <div class="col-6 col-sm-4 col-md-3 col-xl mb-2">
+          <div class="kpi-header bg-orange">
+            <div class="kh-label">⏳ Pending Qty</div>
+            <div class="kh-val"><span th:text="${kpi.pending}">900,000</span><sub>yds</sub></div>
+            <div class="kh-sub">LM: 880,000 &nbsp;▲ <strong>2.27%</strong> MoM</div>
+          </div>
+        </div>
+        <div class="col-6 col-sm-4 col-md-3 col-xl mb-2">
+          <div class="kpi-header bg-yellow">
+            <div class="kh-label">💹 Avg. Margin %</div>
+            <div class="kh-val"><span th:text="${kpi.avgMargin}">4.72%</span></div>
+            <div class="kh-sub">LM: 4.35% &nbsp;▲ <strong>0.37 pp</strong> MoM</div>
+          </div>
+        </div>
+        <div class="col-6 col-sm-4 col-md-3 col-xl mb-2">
+          <div class="kpi-header bg-emerald">
+            <div class="kh-label">💵 Projected Profit</div>
+            <div class="kh-val"><span th:text="${kpi.profit}">$142,680</span></div>
+            <div class="kh-sub">LM: $75,350 &nbsp;▲ <strong>89.3%</strong> MoM</div>
+          </div>
+        </div>
+        <div class="col-6 col-sm-4 col-md-3 col-xl mb-2">
+          <div class="kpi-header bg-red">
+            <div class="kh-label">🚩 Red Flag Count</div>
+            <div class="kh-val"><span th:text="${kpi.redFlags}">18</span></div>
+            <div class="kh-sub" style="color:#fca5a5">LM: 12 &nbsp;▲ +50% MoM (↑ worse)</div>
+          </div>
+        </div>
+      </div>
+</th:block>
+</body>
+</html>

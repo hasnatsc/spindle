@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<!--
+  FRAGMENT: security/users-form :: modalForm
+  Create / Edit User modal.
+  Inject: <div th:replace="~{security/users-form :: modalForm}"></div>
+-->
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+<div th:fragment="modalForm">
+
+  <div class="modal fade" id="userModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+      <div class="modal-content">
+
+        <div class="modal-header">
+          <h5 class="modal-title" id="uModalLabel">
+            <i class="fa fa-user-circle me-1 text-success"></i> Create User
+          </h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+
+        <form id="userForm" novalidate>
+          <div class="modal-body">
+            <input type="hidden" id="uId" name="id">
+
+            <!-- ── Basic Information ─────────────────────────────── -->
+            <div class="col-12 mb-1">
+              <h6 class="text-primary mb-0">
+                <i class="fa fa-user me-1"></i>Basic Information
+              </h6>
+              <hr class="mt-1 mb-2">
+            </div>
+
+            <div class="row g-2 mb-2">
+
+              <div class="col-md-6 view-group">
+                <input id="uUsername" name="username" type="text"
+                       class="form-control hs_span_view"
+                       placeholder="Enter username (min 3 chars)" required>
+                <label for="uUsername" class="input-label">
+                  Username <span class="text-danger">*</span>
+                </label>
+              </div>
+
+              <div class="col-md-6 view-group">
+                <input id="uFullName" name="fullName" type="text"
+                       class="form-control hs_span_view"
+                       placeholder="Enter full name">
+                <label for="uFullName" class="input-label">Full Name</label>
+              </div>
+
+              <div class="col-md-4 view-group">
+                <input id="uEmail" name="email" type="email"
+                       class="form-control hs_span_view"
+                       placeholder="Enter email address" required>
+                <label for="uEmail" class="input-label">
+                  Email <span class="text-danger">*</span>
+                </label>
+              </div>
+
+              <div class="col-md-4 view-group">
+                <input id="uPhone" name="phone" type="text"
+                       class="form-control hs_span_view"
+                       placeholder="e.g. 01XXXXXXXXX">
+                <label for="uPhone" class="input-label">Phone</label>
+              </div>
+
+              <div class="col-md-4 select-group mb-2">
+                <label for="uDefaultDashboard" class="view-label">Default Dashboard</label>
+                <select id="uDefaultDashboard" name="defaultDashboard" class="form-select">
+                  <option value="DEFAULT">Default</option>
+                  <option value="ACCOUNTS">Accounts</option>
+                  <option value="INVENTORY">Inventory</option>
+                  <option value="PRODUCTION">Production</option>
+                  <option value="SALES">Sales</option>
+                  <option value="PURCHASE">Purchase</option>
+                  <option value="HRM">HRM</option>
+                  <option value="COMMERCIAL">Commercial</option>
+                  <option value="HR">HR</option>
+                  <option value="FINANCE">Finance</option>
+                </select>
+              </div>
+
+            </div>
+
+            <!-- ── Password (hidden on edit) ──────────────────────── -->
+            <div id="uPasswordSection">
+              <div class="col-12 mb-1">
+                <h6 class="text-warning mb-0">
+                  <i class="fa fa-lock me-1"></i>Password
+                </h6>
+                <hr class="mt-1 mb-2">
+              </div>
+              <div class="row g-2 mb-2">
+                <div class="col-md-6 view-group">
+                  <input id="uPassword" name="password" type="password"
+                         class="form-control hs_span_view"
+                         placeholder="Minimum 8 characters" required
+                         autocomplete="new-password">
+                  <label for="uPassword" class="input-label">
+                    Password <span class="text-danger">*</span>
+                  </label>
+                </div>
+                <div class="col-md-6 view-group">
+                  <input id="uConfirmPassword" name="confirmPassword" type="password"
+                         class="form-control hs_span_view"
+                         placeholder="Repeat password" required
+                         autocomplete="new-password">
+                  <label for="uConfirmPassword" class="input-label">
+                    Confirm Password <span class="text-danger">*</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <!-- ── Roles ───────────────────────────────────────────── -->
+            <div class="col-12 mb-1">
+              <h6 class="text-success mb-0">
+                <i class="fa fa-shield-alt me-1"></i>Roles &amp; Permissions
+              </h6>
+              <hr class="mt-1 mb-2">
+            </div>
+
+            <div class="col-12 select-group mb-2">
+              <label for="uRoleIds" class="view-label">Assign Roles</label>
+              <select id="uRoleIds" name="roleIds"
+                      class="hsSelectTwo form-control" multiple></select>
+            </div>
+
+            <!-- ── Account Flags ───────────────────────────────────── -->
+            <div class="col-12 mb-1">
+              <h6 class="text-secondary mb-0">
+                <i class="fa fa-sliders me-1"></i>Account Flags
+              </h6>
+              <hr class="mt-1 mb-2">
+            </div>
+
+            <div class="row g-2 mb-1">
+              <div class="col-md-3 col-sm-6">
+                <div class="form-check">
+                  <input type="checkbox" class="form-check-input" id="uEnabled" name="enabled" checked>
+                  <label class="form-check-label" for="uEnabled">
+                    <span class="text-success fw-semibold">Active</span>
+                  </label>
+                </div>
+              </div>
+              <div class="col-md-3 col-sm-6">
+                <div class="form-check">
+                  <input type="checkbox" class="form-check-input" id="uAccountNonLocked" name="accountNonLocked" checked>
+                  <label class="form-check-label" for="uAccountNonLocked">Not Locked</label>
+                </div>
+              </div>
+              <div class="col-md-3 col-sm-6">
+                <div class="form-check">
+                  <input type="checkbox" class="form-check-input" id="uAccountNonExpired" name="accountNonExpired" checked>
+                  <label class="form-check-label" for="uAccountNonExpired">Not Expired</label>
+                </div>
+              </div>
+              <div class="col-md-3 col-sm-6">
+                <div class="form-check">
+                  <input type="checkbox" class="form-check-input" id="uCredentialsNonExpired" name="credentialsNonExpired" checked>
+                  <label class="form-check-label" for="uCredentialsNonExpired">Creds Valid</label>
+                </div>
+              </div>
+            </div>
+
+          </div><!-- /modal-body -->
+
+          <div class="modal-footer">
+            <button type="submit" class="btn btn-success" id="uSubmitBtn">
+              <span class="spinner-border spinner-border-sm me-2 d-none" id="uSpinner"></span>
+              <span id="uBtnText">Save User</span>
+            </button>
+            <button type="button" class="btn btn-white" data-bs-dismiss="modal">Cancel</button>
+          </div>
+        </form>
+
+      </div>
+    </div>
+  </div>
+
+  <script>
+  (function () {
+    const form      = document.getElementById('userForm');
+    const submitBtn = document.getElementById('uSubmitBtn');
+    const spinner   = document.getElementById('uSpinner');
+    const btnText   = document.getElementById('uBtnText');
+
+    document.addEventListener('DOMContentLoaded', function () {
+
+      // Load roles into Select2
+      secureFetch('/users/roles/all').then(roles => {
+        const sel = document.getElementById('uRoleIds');
+        roles.forEach(r => {
+          const o  = document.createElement('option');
+          o.value  = r.id;
+          o.text   = r.name + (r.description ? ' — ' + r.description : '');
+          sel.appendChild(o);
+        });
+        if (typeof $ !== 'undefined' && $.fn.select2) {
+          $('#uRoleIds').select2({
+            dropdownParent: $('#userModal'),
+            width: '100%',
+            placeholder: 'Select roles...'
+          });
+        }
+      });
+
+      // Form submit
+      form.addEventListener('submit', function (e) {
+        e.preventDefault();
+
+        const isEdit = !!document.getElementById('uId').value;
+        const pw     = document.getElementById('uPassword').value;
+        const cpw    = document.getElementById('uConfirmPassword').value;
+
+        // Client-side password validation (create only)
+        if (!isEdit) {
+          if (!pw || pw.length < 8) {
+            Swal.fire('Validation Error', 'Password must be at least 8 characters.', 'error');
+            return;
+          }
+          if (pw !== cpw) {
+            Swal.fire('Validation Error', 'Passwords do not match.', 'error');
+            return;
+          }
+        }
+
+        hsDisableButton(submitBtn, spinner, btnText);
+
+        const payload = objectifyForm(form);
+
+        // Override checkbox values (objectifyForm may miss unchecked boxes)
+        payload.enabled               = document.getElementById('uEnabled').checked;
+        payload.accountNonLocked      = document.getElementById('uAccountNonLocked').checked;
+        payload.accountNonExpired     = document.getElementById('uAccountNonExpired').checked;
+        payload.credentialsNonExpired = document.getElementById('uCredentialsNonExpired').checked;
+
+        // Multi-select: collect selected role IDs as numbers
+        payload.roleIds = Array.from(
+            document.getElementById('uRoleIds').selectedOptions
+        ).map(o => Number(o.value));
+
+        payload.defaultDashboard = document.getElementById('uDefaultDashboard').value;
+
+        secureFetch('/users/save', {
+          method: 'POST',
+          body: JSON.stringify(payload)
+        })
+        .then(data => {
+          if (data.success) {
+            bootstrap.Modal.getInstance(document.getElementById('userModal'))?.hide();
+            userResetForm();
+          }
+          hsAfterSaveMessages(data.message, data.success, form, userDT);
+        })
+        .catch(err => hsAfterSaveMessages(err.message, false, null, null))
+        .finally(() => hsEnableButton(submitBtn, spinner, btnText));
+      });
+
+    });
+  })();
+  </script>
+
+</div>
+</body>
+</html>
