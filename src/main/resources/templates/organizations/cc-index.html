@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<!--  organizations/cc-index.html  |  GET /cost-centers  -->
+<html th:replace="~{layout/base :: layout('Cost Centers', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
+<section>
+  <ol class="breadcrumb float-xl-end">
+    <li class="breadcrumb-item"><a th:href="@{/dashboard}">Home</a></li>
+    <li class="breadcrumb-item">Setup</li>
+    <li class="breadcrumb-item active">Cost Centers</li>
+  </ol>
+  <h1 class="page-header">Cost Centers <small>manage cost allocation units</small></h1>
+
+  <div class="panel panel-inverse">
+    <div class="panel-heading">
+      <div class="panel-title">
+        <a href="javascript:;" onclick="ccOpenCreate()"><span class="badge btn btn-outline-success"><i class="fa fa-plus me-1"></i> Add Cost Center</span></a>
+      </div>
+      <div class="panel-heading-btn">
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-success" data-toggle="panel-reload"><i class="fa fa-redo"></i></a>
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-warning" data-toggle="panel-collapse"><i class="fa fa-minus"></i></a>
+      </div>
+    </div>
+    <div class="panel-body">
+      <table id="ccTable" width="100%" class="table table-striped table-bordered align-middle text-nowrap">
+        <thead><tr>
+          <th width="1%">SL</th><th>Code</th><th>Name</th><th>Type</th>
+          <th>Business Unit</th><th>Parent</th><th>Manager</th>
+          <th class="text-center" width="7%">Status</th><th>Created At</th>
+          <th class="text-center" width="12%">Actions</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <!-- CREATE / EDIT MODAL -->
+    <div tabindex="-1" id="ccModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="ccModalTitle"><i class="fa fa-chart-pie me-1 text-success"></i> Add Cost Center</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <form id="ccForm" novalidate>
+            <div class="modal-body"><div class="hs-box"><div class="row g-2">
+              <input type="hidden" id="ccId">
+
+              <div class="col-12"><h6 class="text-primary mb-1"><i class="fa fa-info-circle me-1"></i> Basic Details</h6><hr class="mt-0 mb-2"></div>
+
+              <div class="col-md-12 mb-2">
+                <label for="ccBuId" class="view-label">Business Unit <span class="text-danger">*</span></label>
+                <select id="ccBuId" class="form-select" required></select>
+              </div>
+              <div class="col-md-4 view-group">
+                <input id="ccCode" placeholder="e.g. CC-001" type="text" class="form-control hs_span_view text-uppercase" required maxlength="50">
+                <label for="ccCode" class="input-label">Code <span class="text-danger">*</span></label>
+              </div>
+              <div class="col-md-8 view-group">
+                <input id="ccName" placeholder="Cost Center Name" type="text" class="form-control hs_span_view" required maxlength="200">
+                <label for="ccName" class="input-label">Name <span class="text-danger">*</span></label>
+              </div>
+              <div class="col-md-6 mb-2">
+                <label for="ccType" class="view-label">Type</label>
+                <select id="ccType" class="form-select">
+                  <option value="">— Select Type —</option>
+                  <option value="DEPARTMENT">Department</option>
+                  <option value="PROJECT">Project</option>
+                  <option value="BRANCH">Branch</option>
+                  <option value="DIVISION">Division</option>
+                  <option value="PRODUCT">Product</option>
+                  <option value="SERVICE">Service</option>
+                </select>
+              </div>
+              <div class="col-md-6 mb-2">
+                <label for="ccParentId" class="view-label">Parent Cost Center</label>
+                <select id="ccParentId" class="form-select">
+                  <option value="">— None —</option>
+                </select>
+              </div>
+
+              <div class="col-12"><hr class="mt-1 mb-2"><h6 class="text-info mb-1"><i class="fa fa-user me-1"></i> Manager</h6></div>
+              <div class="col-md-6 view-group">
+                <input id="ccManagerName" placeholder="Manager Name" type="text" class="form-control hs_span_view" maxlength="100">
+                <label for="ccManagerName" class="input-label">Manager Name</label>
+              </div>
+              <div class="col-md-6 view-group">
+                <input id="ccManagerEmail" placeholder="manager@company.com" type="email" class="form-control hs_span_view" maxlength="100">
+                <label for="ccManagerEmail" class="input-label">Manager Email</label>
+              </div>
+              <div class="col-md-12 view-group">
+                <textarea id="ccDesc" class="form-control hs_span_view" rows="2" placeholder="Description" maxlength="1000"></textarea>
+                <label for="ccDesc" class="input-label">Description</label>
+              </div>
+              <div class="col-md-12 mt-1">
+                <div class="form-check form-switch">
+                  <input type="checkbox" id="ccActive" class="form-check-input" checked>
+                  <label class="form-check-label" for="ccActive"><strong>Active</strong></label>
+                </div>
+              </div>
+            </div></div></div>
+            <div class="modal-footer">
+              <button class="btn btn-success" type="submit" id="ccSubmitBtn">
+                <span class="spinner-border spinner-border-sm me-2 d-none" id="ccSpinner"></span>
+                <span id="ccBtnText">Save</span>
+              </button>
+              <button type="button" class="btn btn-white" data-bs-dismiss="modal">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- VIEW MODAL -->
+    <div tabindex="-1" id="ccViewModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-md">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title"><i class="fa fa-chart-pie me-1 text-primary"></i> Cost Center Details</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body"><div class="hs-box"><div class="row g-2">
+            <div class="col-md-4 view-group"><label class="view-label">Code</label><span id="cv_code" class="form-control hs_span_show"></span></div>
+            <div class="col-md-8 view-group"><label class="view-label">Name</label><span id="cv_name" class="form-control hs_span_show"></span></div>
+            <div class="col-md-6 view-group"><label class="view-label">Type</label><span id="cv_type" class="form-control hs_span_show"></span></div>
+            <div class="col-md-6 view-group"><label class="view-label">Business Unit</label><span id="cv_bu" class="form-control hs_span_show"></span></div>
+            <div class="col-md-6 view-group"><label class="view-label">Parent</label><span id="cv_parent" class="form-control hs_span_show"></span></div>
+            <div class="col-md-6 view-group"><label class="view-label">Manager</label><span id="cv_manager" class="form-control hs_span_show"></span></div>
+            <div class="col-md-6 view-group"><label class="view-label">Manager Email</label><span id="cv_email" class="form-control hs_span_show"></span></div>
+            <div class="col-md-6 view-group"><label class="view-label">Status</label><span id="cv_status" class="form-control hs_span_show" style="min-height:38px"></span></div>
+            <div class="col-12 view-group"><label class="view-label">Description</label><span id="cv_desc" class="form-control hs_span_show" style="min-height:38px"></span></div>
+            <div class="col-md-6 view-group"><label class="view-label">Created At</label><span id="cv_createdAt" class="form-control hs_span_show"></span></div>
+            <div class="col-md-6 view-group"><label class="view-label">Updated By</label><span id="cv_updatedBy" class="form-control hs_span_show"></span></div>
+          </div></div></div>
+          <div class="modal-footer"><button type="button" class="btn btn-white" data-bs-dismiss="modal"><i class="fa fa-times me-1"></i> Close</button></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+  (function(){
+    'use strict';
+    var dt, currentId=0;
+    document.addEventListener('DOMContentLoaded', function(){
+      dt = $('#ccTable').DataTable({
+        processing:true, serverSide:true, responsive:true, pageLength:25,
+        ajax:{url:'/cost-centers/list',type:'GET'},
+        columns:[
+          {data:'sl',orderable:false,width:'40px'},{data:'code'},{data:'name'},{data:'type',orderable:false,className:'text-center'},
+          {data:'business_unit'},{data:'parent'},{data:'manager'},
+          {data:'status',orderable:false,className:'text-center'},{data:'created_at'},{data:'actions',orderable:false,className:'text-center'}
+        ],
+        language:{emptyTable:'No cost centers found.',processing:'<span class="spinner-border spinner-border-sm me-2"></span> Loading…'}
+      });
+      window._ccDT = dt;
+      loadBUs();
+      document.getElementById('ccForm').addEventListener('submit', onSubmit);
+    });
+
+    function loadBUs(){secureFetch('/business-units/active').then(function(data){var sel=document.getElementById('ccBuId');while(sel.options.length>1)sel.remove(1);data.forEach(function(b){var op=document.createElement('option');op.value=b.id;op.text=b.name+' ('+b.code+')';sel.appendChild(op);});});}
+    function loadParents(excludeId){secureFetch('/cost-centers/parents/all?excludeId='+(excludeId||0)).then(function(data){var sel=document.getElementById('ccParentId');while(sel.options.length>1)sel.remove(1);data.forEach(function(c){var op=document.createElement('option');op.value=c.id;op.text=c.name+' ('+c.code+')';sel.appendChild(op);});});}
+
+    window.ccOpenCreate=function(){resetForm();loadParents(0);document.getElementById('ccModalTitle').innerHTML='<i class="fa fa-plus me-1 text-success"></i> Add Cost Center';document.getElementById('ccBtnText').textContent='Save';bootstrap.Modal.getOrCreateInstance(document.getElementById('ccModal')).show();};
+    window.ccShow=function(id){secureFetch('/cost-centers/show/'+id).then(function(res){if(!res.success){Swal.fire('Error',res.message,'error');return;}var c=res.obj.defaultData;set('cv_code',c.costCenterCode);set('cv_name',c.costCenterName);set('cv_type',c.costCenterType||'—');set('cv_bu',c.businessUnitName);set('cv_parent',c.parentCostCenterName||'—');set('cv_manager',c.managerName||'—');set('cv_email',c.managerEmail||'—');set('cv_desc',c.description||'—');set('cv_createdAt',c.createdAt);set('cv_updatedBy',c.updatedBy||'—');document.getElementById('cv_status').innerHTML=c.active?"<span class='badge bg-success'>Active</span>":"<span class='badge bg-danger'>Inactive</span>";bootstrap.Modal.getOrCreateInstance(document.getElementById('ccViewModal')).show();});};
+    window.ccEdit=function(id){secureFetch('/cost-centers/show/'+id).then(function(res){if(!res.success){Swal.fire('Error',res.message,'error');return;}var c=res.obj.defaultData;currentId=c.id;resetForm();loadParents(c.id);val('ccId',c.id);val('ccCode',c.costCenterCode);val('ccName',c.costCenterName);document.getElementById('ccType').value=c.costCenterType||'';document.getElementById('ccBuId').value=c.businessUnitId;val('ccManagerName',c.managerName||'');val('ccManagerEmail',c.managerEmail||'');val('ccDesc',c.description||'');document.getElementById('ccActive').checked=c.active;setTimeout(function(){document.getElementById('ccParentId').value=c.parentCostCenterId||'';},300);document.getElementById('ccModalTitle').innerHTML='<i class="fa fa-pencil me-1 text-warning"></i> Edit Cost Center';document.getElementById('ccBtnText').textContent='Update';bootstrap.Modal.getOrCreateInstance(document.getElementById('ccModal')).show();});};
+    window.ccToggle=function(id){Swal.fire({title:'Change Status?',icon:'question',showCancelButton:true,confirmButtonText:'Yes'}).then(function(r){if(!r.isConfirmed)return;secureFetch('/cost-centers/toggle/'+id,{method:'POST'}).then(function(d){d.success?dt.ajax.reload(null,false):Swal.fire('Error',d.message,'error');});});};
+    window.ccDelete=function(id){Swal.fire({title:'Delete?',icon:'warning',showCancelButton:true,confirmButtonColor:'#d33',confirmButtonText:'Yes, delete!'}).then(function(r){if(!r.isConfirmed)return;secureFetch('/cost-centers/delete/'+id,{method:'DELETE'}).then(function(d){if(d.success){Swal.fire({icon:'success',title:'Deleted!',text:d.message,timer:1500,showConfirmButton:false});dt.ajax.reload(null,false);}else Swal.fire('Error',d.message,'error');});});};
+
+    function onSubmit(e){
+      e.preventDefault();
+      var sb=document.getElementById('ccSubmitBtn'),sp=document.getElementById('ccSpinner'),bt=document.getElementById('ccBtnText');
+      hsDisableButton(sb,sp,bt);
+      var p={id:g('ccId')||null,businessUnitId:document.getElementById('ccBuId').value,costCenterCode:g('ccCode'),costCenterName:g('ccName'),costCenterType:document.getElementById('ccType').value||null,parentCostCenterId:document.getElementById('ccParentId').value||null,managerName:g('ccManagerName'),managerEmail:g('ccManagerEmail'),description:g('ccDesc'),active:document.getElementById('ccActive').checked};
+      secureFetch('/cost-centers/save',{method:'POST',body:JSON.stringify(p)})
+        .then(function(d){if(d.success){Swal.fire({icon:'success',title:'Saved!',text:d.message,timer:1600,showConfirmButton:false});bootstrap.Modal.getOrCreateInstance(document.getElementById('ccModal')).hide();dt.ajax.reload(null,false);}else Swal.fire('Error',d.message,'error');})
+        .catch(function(err){Swal.fire('Error',err.message||'Failed.','error');}).finally(function(){hsEnableButton(sb,sp,bt);});
+    }
+    function resetForm(){document.getElementById('ccForm').reset();document.getElementById('ccId').value='';document.getElementById('ccActive').checked=true;currentId=0;}
+    function g(id){var e=document.getElementById(id);return e?e.value:'';}
+    function val(id,v){var e=document.getElementById(id);if(e)e.value=v||'';}
+    function set(id,v){var e=document.getElementById(id);if(e)e.textContent=v||'—';}
+  })();
+  </script>
+</section>
+</html>
