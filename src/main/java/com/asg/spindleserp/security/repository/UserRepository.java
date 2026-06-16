@@ -30,6 +30,7 @@ public interface UserRepository extends JpaRepository<User, Long>,
 
     // ── Login loading  (JOIN FETCH prevents N+1 at login) ─────────────────────
     // Single query tries all three identifiers at once; used by UserDetailsServiceImpl.
+    Optional<User> findByUsername(String username);
 
     @Query("""
         SELECT DISTINCT u FROM User u
@@ -123,4 +124,7 @@ public interface UserRepository extends JpaRepository<User, Long>,
     @Query("UPDATE User u SET u.lastLoginAt = :ts WHERE u.username = :username")
     void updateLastLogin(@Param("username") String username,
                          @Param("ts") LocalDateTime ts);
+
+    @Query("SELECT u FROM User u LEFT JOIN FETCH u.roles WHERE u.username = :username")
+    Optional<User> findByUsernameWithRoles(@Param("username") String username);
 }
