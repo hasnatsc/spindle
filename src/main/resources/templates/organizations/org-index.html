@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<!--
+  organizations/org-index.html  |  GET /organizations
+  JS fns: orgShow / orgEdit / orgToggle / orgDelete / orgOpenCreate
+-->
+<html th:replace="~{layout/base :: layout('Organizations', ~{::section})}"
+      xmlns:th="http://www.thymeleaf.org">
+<section>
+
+  <ol class="breadcrumb float-xl-end">
+    <li class="breadcrumb-item"><a th:href="@{/dashboard}">Home</a></li>
+    <li class="breadcrumb-item">Setup</li>
+    <li class="breadcrumb-item active">Organizations</li>
+  </ol>
+  <h1 class="page-header">Organizations <small>manage company entities</small></h1>
+
+  <div class="panel panel-inverse">
+    <div class="panel-heading">
+      <div class="panel-title">
+        <a href="javascript:;" onclick="orgOpenCreate()">
+          <span class="badge btn btn-outline-success"><i class="fa fa-plus me-1"></i> Add Organization</span>
+        </a>
+      </div>
+      <div class="panel-heading-btn">
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-success" data-toggle="panel-reload"><i class="fa fa-redo"></i></a>
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-warning" data-toggle="panel-collapse"><i class="fa fa-minus"></i></a>
+      </div>
+    </div>
+    <div class="panel-body">
+      <table id="orgTable" width="100%" class="table table-striped table-bordered align-middle text-nowrap">
+        <thead><tr>
+          <th width="1%">SL</th><th>Code</th><th>Name</th><th>Name (BN)</th>
+          <th>Email</th><th>Phone</th><th>Country</th>
+          <th class="text-center" width="7%">Status</th><th>Created At</th>
+          <th class="text-center" width="12%">Actions</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <!-- ══ MODAL ════════════════════════════════════════════════════════════ -->
+    <div tabindex="-1" id="orgModal" class="modal fade" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="orgModalTitle"><i class="fa fa-building me-1 text-success"></i> Add Organization</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <form id="orgForm" novalidate>
+            <div class="modal-body"><div class="hs-box"><div class="row g-2">
+              <input type="hidden" id="orgId">
+
+              <div class="col-12"><h6 class="text-primary mb-1"><i class="fa fa-info-circle me-1"></i> Basic Info</h6><hr class="mt-0 mb-2"></div>
+              <div class="col-md-3 view-group">
+                <input id="orgCode" placeholder="e.g. SPINDLE" type="text" class="form-control hs_span_view text-uppercase" required maxlength="50">
+                <label for="orgCode" class="input-label">Code <span class="text-danger">*</span></label>
+              </div>
+              <div class="col-md-5 view-group">
+                <input id="orgName" placeholder="Full legal name" type="text" class="form-control hs_span_view" required maxlength="200">
+                <label for="orgName" class="input-label">Name <span class="text-danger">*</span></label>
+              </div>
+              <div class="col-md-4 view-group">
+                <input id="orgNameBn" placeholder="বাংলা নাম" type="text" class="form-control hs_span_view" maxlength="200">
+                <label for="orgNameBn" class="input-label">Name (Bengali)</label>
+              </div>
+              <div class="col-md-12 view-group">
+                <textarea id="orgAbout" class="form-control hs_span_view" rows="2" placeholder="About the organization" maxlength="2000"></textarea>
+                <label for="orgAbout" class="input-label">About</label>
+              </div>
+
+              <div class="col-12"><hr class="mt-1 mb-2"><h6 class="text-info mb-1"><i class="fa fa-map-marker-alt me-1"></i> Contact &amp; Address</h6></div>
+              <div class="col-md-4 view-group">
+                <input id="orgPhone" type="text" class="form-control hs_span_view" placeholder="+880 2 xxx" maxlength="20">
+                <label for="orgPhone" class="input-label">Phone</label>
+              </div>
+              <div class="col-md-4 view-group">
+                <input id="orgEmail" type="email" class="form-control hs_span_view" placeholder="info@company.com" maxlength="100">
+                <label for="orgEmail" class="input-label">Email</label>
+              </div>
+              <div class="col-md-4 view-group">
+                <input id="orgWebsite" type="text" class="form-control hs_span_view" placeholder="https://…" maxlength="255">
+                <label for="orgWebsite" class="input-label">Website</label>
+              </div>
+              <div class="col-md-12 view-group">
+                <textarea id="orgAddress" class="form-control hs_span_view" rows="2" placeholder="Street address" maxlength="2000"></textarea>
+                <label for="orgAddress" class="input-label">Address</label>
+              </div>
+              <div class="col-md-3 view-group">
+                <input id="orgCity" type="text" class="form-control hs_span_view" placeholder="City" maxlength="100">
+                <label for="orgCity" class="input-label">City</label>
+              </div>
+              <div class="col-md-3 view-group">
+                <input id="orgState" type="text" class="form-control hs_span_view" placeholder="State/Division" maxlength="100">
+                <label for="orgState" class="input-label">State</label>
+              </div>
+              <div class="col-md-3 view-group">
+                <input id="orgCountry" type="text" class="form-control hs_span_view" placeholder="Country" maxlength="100">
+                <label for="orgCountry" class="input-label">Country</label>
+              </div>
+              <div class="col-md-3 view-group">
+                <input id="orgPostalCode" type="text" class="form-control hs_span_view" placeholder="1200" maxlength="20">
+                <label for="orgPostalCode" class="input-label">Postal Code</label>
+              </div>
+
+              <div class="col-12"><hr class="mt-1 mb-2"><h6 class="text-warning mb-1"><i class="fa fa-file-invoice me-1"></i> Tax &amp; Registration</h6></div>
+              <div class="col-md-4 view-group">
+                <input id="orgTaxId" type="text" class="form-control hs_span_view" placeholder="Tax ID / TIN" maxlength="50">
+                <label for="orgTaxId" class="input-label">Tax ID</label>
+              </div>
+              <div class="col-md-4 view-group">
+                <input id="orgVatNo" type="text" class="form-control hs_span_view" placeholder="VAT Number" maxlength="50">
+                <label for="orgVatNo" class="input-label">VAT No.</label>
+              </div>
+              <div class="col-md-4 view-group">
+                <input id="orgBinNo" type="text" class="form-control hs_span_view" placeholder="BIN Number" maxlength="50">
+                <label for="orgBinNo" class="input-label">BIN No.</label>
+              </div>
+
+              <div class="col-md-12 mt-1">
+                <div class="form-check form-switch">
+                  <input type="checkbox" id="orgActive" class="form-check-input" checked>
+                  <label class="form-check-label" for="orgActive"><strong>Active</strong></label>
+                </div>
+              </div>
+            </div></div></div>
+            <div class="modal-footer">
+              <button class="btn btn-success" type="submit" id="orgSubmitBtn">
+                <span class="spinner-border spinner-border-sm me-2 d-none" id="orgSpinner"></span>
+                <span id="orgBtnText">Save</span>
+              </button>
+              <button type="button" class="btn btn-white" data-bs-dismiss="modal">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ VIEW MODAL ════════════════════════════════════════════════════════ -->
+    <div tabindex="-1" id="orgViewModal" class="modal fade" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title"><i class="fa fa-building me-1 text-primary"></i> Organization Details</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body"><div class="hs-box"><div class="row g-2">
+            <div class="col-md-3 view-group"><label class="view-label">Code</label><span id="ov_code" class="form-control hs_span_show"></span></div>
+            <div class="col-md-5 view-group"><label class="view-label">Name</label><span id="ov_name" class="form-control hs_span_show"></span></div>
+            <div class="col-md-4 view-group"><label class="view-label">Name (BN)</label><span id="ov_nameBn" class="form-control hs_span_show"></span></div>
+            <div class="col-md-4 view-group"><label class="view-label">Phone</label><span id="ov_phone" class="form-control hs_span_show"></span></div>
+            <div class="col-md-4 view-group"><label class="view-label">Email</label><span id="ov_email" class="form-control hs_span_show"></span></div>
+            <div class="col-md-4 view-group"><label class="view-label">Website</label><span id="ov_website" class="form-control hs_span_show"></span></div>
+            <div class="col-md-6 view-group"><label class="view-label">Address</label><span id="ov_address" class="form-control hs_span_show" style="height:auto;min-height:38px"></span></div>
+            <div class="col-md-2 view-group"><label class="view-label">City</label><span id="ov_city" class="form-control hs_span_show"></span></div>
+            <div class="col-md-2 view-group"><label class="view-label">Country</label><span id="ov_country" class="form-control hs_span_show"></span></div>
+            <div class="col-md-2 view-group"><label class="view-label">Postal</label><span id="ov_postalCode" class="form-control hs_span_show"></span></div>
+            <div class="col-md-4 view-group"><label class="view-label">Tax ID</label><span id="ov_taxId" class="form-control hs_span_show"></span></div>
+            <div class="col-md-4 view-group"><label class="view-label">VAT No.</label><span id="ov_vatNo" class="form-control hs_span_show"></span></div>
+            <div class="col-md-4 view-group"><label class="view-label">BIN No.</label><span id="ov_binNo" class="form-control hs_span_show"></span></div>
+            <div class="col-md-3 view-group"><label class="view-label">Status</label><span id="ov_status" class="form-control hs_span_show" style="min-height:38px"></span></div>
+            <div class="col-md-3 view-group"><label class="view-label">Created At</label><span id="ov_createdAt" class="form-control hs_span_show"></span></div>
+            <div class="col-md-3 view-group"><label class="view-label">Updated At</label><span id="ov_updatedAt" class="form-control hs_span_show"></span></div>
+            <div class="col-md-3 view-group"><label class="view-label">Updated By</label><span id="ov_updatedBy" class="form-control hs_span_show"></span></div>
+          </div></div></div>
+          <div class="modal-footer"><button type="button" class="btn btn-white" data-bs-dismiss="modal"><i class="fa fa-times me-1"></i> Close</button></div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /panel -->
+
+  <script>
+  (function () {
+    'use strict';
+    var dt;
+    document.addEventListener('DOMContentLoaded', function () {
+      dt = $('#orgTable').DataTable({
+        processing: true, serverSide: true, responsive: true, pageLength: 25,
+        ajax: { url: '/organizations/list', type: 'GET' },
+        columns: [
+          { data:'sl', orderable:false, width:'40px' }, { data:'code' }, { data:'name' },
+          { data:'name_bn' }, { data:'email' }, { data:'phone' }, { data:'country' },
+          { data:'status', orderable:false, className:'text-center' },
+          { data:'created_at' }, { data:'actions', orderable:false, className:'text-center' }
+        ],
+        language:{ emptyTable:'No organizations found.', processing:'<span class="spinner-border spinner-border-sm me-2"></span> Loading…' }
+      });
+      window._orgDT = dt;
+      document.getElementById('orgForm').addEventListener('submit', onSubmit);
+    });
+
+    window.orgOpenCreate = function () {
+      resetForm();
+      document.getElementById('orgModalTitle').innerHTML = '<i class="fa fa-plus me-1 text-success"></i> Add Organization';
+      document.getElementById('orgBtnText').textContent = 'Save';
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('orgModal')).show();
+    };
+
+    window.orgShow = function (id) {
+      secureFetch('/organizations/show/' + id).then(function(res){
+        if (!res.success) { Swal.fire('Error', res.message, 'error'); return; }
+        var o = res.obj.defaultData;
+        set('ov_code', o.code); set('ov_name', o.name); set('ov_nameBn', o.nameBn);
+        set('ov_phone', o.phone); set('ov_email', o.email); set('ov_website', o.website);
+        set('ov_address', o.address); set('ov_city', o.city); set('ov_country', o.country);
+        set('ov_postalCode', o.postalCode); set('ov_taxId', o.taxId);
+        set('ov_vatNo', o.vatNo); set('ov_binNo', o.binNo);
+        set('ov_createdAt', o.createdAt); set('ov_updatedAt', o.updatedAt); set('ov_updatedBy', o.updatedBy);
+        document.getElementById('ov_status').innerHTML = o.active
+          ? "<span class='badge bg-success'>Active</span>" : "<span class='badge bg-danger'>Inactive</span>";
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('orgViewModal')).show();
+      });
+    };
+
+    window.orgEdit = function (id) {
+      secureFetch('/organizations/show/' + id).then(function(res){
+        if (!res.success) { Swal.fire('Error', res.message, 'error'); return; }
+        var o = res.obj.defaultData;
+        resetForm();
+        val('orgId', o.id); val('orgCode', o.code); val('orgName', o.name);
+        val('orgNameBn', o.nameBn); val('orgAbout', o.about); val('orgAddress', o.address);
+        val('orgCity', o.city); val('orgState', o.state); val('orgCountry', o.country);
+        val('orgPostalCode', o.postalCode); val('orgPhone', o.phone);
+        val('orgEmail', o.email); val('orgWebsite', o.website);
+        val('orgTaxId', o.taxId); val('orgVatNo', o.vatNo); val('orgBinNo', o.binNo);
+        document.getElementById('orgActive').checked = o.active;
+        document.getElementById('orgModalTitle').innerHTML = '<i class="fa fa-pencil me-1 text-warning"></i> Edit Organization';
+        document.getElementById('orgBtnText').textContent = 'Update';
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('orgModal')).show();
+      });
+    };
+
+    window.orgToggle = function (id) {
+      Swal.fire({ title:'Change Status?', icon:'question', showCancelButton:true, confirmButtonText:'Yes', confirmButtonColor:'#3085d6' })
+        .then(function(r){ if (!r.isConfirmed) return;
+          secureFetch('/organizations/toggle/'+id,{method:'POST'}).then(function(d){
+            d.success ? dt.ajax.reload(null,false) : Swal.fire('Error',d.message,'error');
+          });
+        });
+    };
+
+    window.orgDelete = function (id) {
+      Swal.fire({ title:'Delete?', icon:'warning', showCancelButton:true, confirmButtonColor:'#d33', confirmButtonText:'Yes, delete!' })
+        .then(function(r){ if (!r.isConfirmed) return;
+          secureFetch('/organizations/delete/'+id,{method:'DELETE'}).then(function(d){
+            if (d.success) { Swal.fire({icon:'success',title:'Deleted!',text:d.message,timer:1500,showConfirmButton:false}); dt.ajax.reload(null,false); }
+            else Swal.fire('Error',d.message,'error');
+          });
+        });
+    };
+
+    function onSubmit(e) {
+      e.preventDefault();
+      var sb=document.getElementById('orgSubmitBtn'), sp=document.getElementById('orgSpinner'), bt=document.getElementById('orgBtnText');
+      hsDisableButton(sb,sp,bt);
+      var p={
+        id: g('orgId')||null, code: g('orgCode'), name: g('orgName'), nameBn: g('orgNameBn'),
+        about: g('orgAbout'), address: g('orgAddress'), city: g('orgCity'), state: g('orgState'),
+        country: g('orgCountry'), postalCode: g('orgPostalCode'), phone: g('orgPhone'),
+        email: g('orgEmail'), website: g('orgWebsite'), taxId: g('orgTaxId'),
+        vatNo: g('orgVatNo'), binNo: g('orgBinNo'),
+        active: document.getElementById('orgActive').checked
+      };
+      secureFetch('/organizations/save',{method:'POST',body:JSON.stringify(p)})
+        .then(function(d){
+          if (d.success) {
+            Swal.fire({icon:'success',title:'Saved!',text:d.message,timer:1600,showConfirmButton:false});
+            bootstrap.Modal.getOrCreateInstance(document.getElementById('orgModal')).hide();
+            dt.ajax.reload(null,false);
+          } else Swal.fire('Error',d.message,'error');
+        }).catch(function(err){Swal.fire('Error',err.message||'Failed.','error');})
+         .finally(function(){hsEnableButton(sb,sp,bt);});
+    }
+
+    function resetForm(){document.getElementById('orgForm').reset();document.getElementById('orgId').value='';document.getElementById('orgActive').checked=true;}
+    function g(id){var e=document.getElementById(id);return e?e.value:'';}
+    function val(id,v){var e=document.getElementById(id);if(e)e.value=v||'';}
+    function set(id,v){var e=document.getElementById(id);if(e)e.textContent=v||'—';}
+  })();
+  </script>
+</section>
+</html>

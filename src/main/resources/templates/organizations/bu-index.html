@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<!--  organizations/bu-index.html  |  GET /business-units  -->
+<html th:replace="~{layout/base :: layout('Business Units', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
+<section>
+  <ol class="breadcrumb float-xl-end">
+    <li class="breadcrumb-item"><a th:href="@{/dashboard}">Home</a></li>
+    <li class="breadcrumb-item">Setup</li>
+    <li class="breadcrumb-item active">Business Units</li>
+  </ol>
+  <h1 class="page-header">Business Units <small>manage operational units per organization</small></h1>
+
+  <div class="panel panel-inverse">
+    <div class="panel-heading">
+      <div class="panel-title">
+        <a href="javascript:;" onclick="buOpenCreate()"><span class="badge btn btn-outline-success"><i class="fa fa-plus me-1"></i> Add Business Unit</span></a>
+      </div>
+      <div class="panel-heading-btn">
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-success" data-toggle="panel-reload"><i class="fa fa-redo"></i></a>
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-warning" data-toggle="panel-collapse"><i class="fa fa-minus"></i></a>
+      </div>
+    </div>
+    <div class="panel-body">
+      <table id="buTable" width="100%" class="table table-striped table-bordered align-middle text-nowrap">
+        <thead><tr>
+          <th width="1%">SL</th><th>Code</th><th>Name</th><th>Organization</th>
+          <th>Description</th><th class="text-center" width="7%">Status</th>
+          <th>Created At</th><th class="text-center" width="12%">Actions</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <!-- CREATE / EDIT MODAL -->
+    <div tabindex="-1" id="buModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="buModalTitle"><i class="fa fa-briefcase me-1 text-success"></i> Add Business Unit</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <form id="buForm" novalidate>
+            <div class="modal-body"><div class="hs-box"><div class="row g-2">
+              <input type="hidden" id="buId">
+              <div class="col-md-12 mb-2">
+                <label for="buOrgId" class="view-label">Organization <span class="text-danger">*</span></label>
+                <select id="buOrgId" class="form-select" required></select>
+              </div>
+              <div class="col-md-4 view-group">
+                <input id="buCode" placeholder="e.g. DHAKA" type="text" class="form-control hs_span_view text-uppercase" required maxlength="50">
+                <label for="buCode" class="input-label">Code <span class="text-danger">*</span></label>
+              </div>
+              <div class="col-md-8 view-group">
+                <input id="buName" placeholder="Business Unit Name" type="text" class="form-control hs_span_view" required maxlength="200">
+                <label for="buName" class="input-label">Name <span class="text-danger">*</span></label>
+              </div>
+              <div class="col-md-12 view-group">
+                <textarea id="buDesc" class="form-control hs_span_view" rows="2" placeholder="Optional description" maxlength="1000"></textarea>
+                <label for="buDesc" class="input-label">Description</label>
+              </div>
+              <div class="col-md-12 mt-1">
+                <div class="form-check form-switch">
+                  <input type="checkbox" id="buActive" class="form-check-input" checked>
+                  <label class="form-check-label" for="buActive"><strong>Active</strong></label>
+                </div>
+              </div>
+            </div></div></div>
+            <div class="modal-footer">
+              <button class="btn btn-success" type="submit" id="buSubmitBtn">
+                <span class="spinner-border spinner-border-sm me-2 d-none" id="buSpinner"></span>
+                <span id="buBtnText">Save</span>
+              </button>
+              <button type="button" class="btn btn-white" data-bs-dismiss="modal">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- VIEW MODAL -->
+    <div tabindex="-1" id="buViewModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-md">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title"><i class="fa fa-briefcase me-1 text-primary"></i> Business Unit Details</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body"><div class="hs-box"><div class="row g-2">
+            <div class="col-md-4 view-group"><label class="view-label">Code</label><span id="bv_code" class="form-control hs_span_show"></span></div>
+            <div class="col-md-8 view-group"><label class="view-label">Name</label><span id="bv_name" class="form-control hs_span_show"></span></div>
+            <div class="col-12 view-group"><label class="view-label">Organization</label><span id="bv_org" class="form-control hs_span_show"></span></div>
+            <div class="col-12 view-group"><label class="view-label">Description</label><span id="bv_desc" class="form-control hs_span_show" style="min-height:38px"></span></div>
+            <div class="col-md-4 view-group"><label class="view-label">Status</label><span id="bv_status" class="form-control hs_span_show" style="min-height:38px"></span></div>
+            <div class="col-md-4 view-group"><label class="view-label">Created At</label><span id="bv_createdAt" class="form-control hs_span_show"></span></div>
+            <div class="col-md-4 view-group"><label class="view-label">Updated By</label><span id="bv_updatedBy" class="form-control hs_span_show"></span></div>
+          </div></div></div>
+          <div class="modal-footer"><button type="button" class="btn btn-white" data-bs-dismiss="modal"><i class="fa fa-times me-1"></i> Close</button></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+  (function(){
+    'use strict';
+    var dt;
+    document.addEventListener('DOMContentLoaded', function(){
+      dt = $('#buTable').DataTable({
+        processing:true, serverSide:true, responsive:true, pageLength:25,
+        ajax:{url:'/business-units/list',type:'GET'},
+        columns:[
+          {data:'sl',orderable:false,width:'40px'},{data:'code'},{data:'name'},
+          {data:'organization'},{data:'description'},
+          {data:'status',orderable:false,className:'text-center'},
+          {data:'created_at'},{data:'actions',orderable:false,className:'text-center'}
+        ],
+        language:{emptyTable:'No business units found.',processing:'<span class="spinner-border spinner-border-sm me-2"></span> Loading…'}
+      });
+      window._buDT = dt;
+      loadOrgs();
+      document.getElementById('buForm').addEventListener('submit', onSubmit);
+    });
+
+    function loadOrgs(){
+      secureFetch('/organizations/active').then(function(data){
+        var sel=document.getElementById('buOrgId');
+        while(sel.options.length>1)sel.remove(1);
+        data.forEach(function(o){var op=document.createElement('option');op.value=o.id;op.text=o.name+' ('+o.code+')';sel.appendChild(op);});
+      });
+    }
+
+    window.buOpenCreate=function(){resetForm();document.getElementById('buModalTitle').innerHTML='<i class="fa fa-plus me-1 text-success"></i> Add Business Unit';document.getElementById('buBtnText').textContent='Save';bootstrap.Modal.getOrCreateInstance(document.getElementById('buModal')).show();};
+    window.buShow=function(id){secureFetch('/business-units/show/'+id).then(function(res){if(!res.success){Swal.fire('Error',res.message,'error');return;}var o=res.obj.defaultData;set('bv_code',o.code);set('bv_name',o.name);set('bv_org',o.organizationName);set('bv_desc',o.description);set('bv_createdAt',o.createdAt);set('bv_updatedBy',o.updatedBy);document.getElementById('bv_status').innerHTML=o.active?"<span class='badge bg-success'>Active</span>":"<span class='badge bg-danger'>Inactive</span>";bootstrap.Modal.getOrCreateInstance(document.getElementById('buViewModal')).show();});};
+    window.buEdit=function(id){secureFetch('/business-units/show/'+id).then(function(res){if(!res.success){Swal.fire('Error',res.message,'error');return;}var o=res.obj.defaultData;resetForm();val('buId',o.id);val('buCode',o.code);val('buName',o.name);val('buDesc',o.description||'');document.getElementById('buOrgId').value=o.organizationId;document.getElementById('buActive').checked=o.active;document.getElementById('buModalTitle').innerHTML='<i class="fa fa-pencil me-1 text-warning"></i> Edit Business Unit';document.getElementById('buBtnText').textContent='Update';bootstrap.Modal.getOrCreateInstance(document.getElementById('buModal')).show();});};
+    window.buToggle=function(id){Swal.fire({title:'Change Status?',icon:'question',showCancelButton:true,confirmButtonText:'Yes'}).then(function(r){if(!r.isConfirmed)return;secureFetch('/business-units/toggle/'+id,{method:'POST'}).then(function(d){d.success?dt.ajax.reload(null,false):Swal.fire('Error',d.message,'error');});});};
+    window.buDelete=function(id){Swal.fire({title:'Delete?',icon:'warning',showCancelButton:true,confirmButtonColor:'#d33',confirmButtonText:'Yes, delete!'}).then(function(r){if(!r.isConfirmed)return;secureFetch('/business-units/delete/'+id,{method:'DELETE'}).then(function(d){if(d.success){Swal.fire({icon:'success',title:'Deleted!',text:d.message,timer:1500,showConfirmButton:false});dt.ajax.reload(null,false);}else Swal.fire('Error',d.message,'error');});});};
+
+    function onSubmit(e){
+      e.preventDefault();
+      var sb=document.getElementById('buSubmitBtn'),sp=document.getElementById('buSpinner'),bt=document.getElementById('buBtnText');
+      hsDisableButton(sb,sp,bt);
+      var p={id:g('buId')||null,organizationId:document.getElementById('buOrgId').value,code:g('buCode'),name:g('buName'),description:g('buDesc'),active:document.getElementById('buActive').checked};
+      secureFetch('/business-units/save',{method:'POST',body:JSON.stringify(p)})
+        .then(function(d){if(d.success){Swal.fire({icon:'success',title:'Saved!',text:d.message,timer:1600,showConfirmButton:false});bootstrap.Modal.getOrCreateInstance(document.getElementById('buModal')).hide();dt.ajax.reload(null,false);}else Swal.fire('Error',d.message,'error');})
+        .catch(function(err){Swal.fire('Error',err.message||'Failed.','error');}).finally(function(){hsEnableButton(sb,sp,bt);});
+    }
+    function resetForm(){document.getElementById('buForm').reset();document.getElementById('buId').value='';document.getElementById('buActive').checked=true;}
+    function g(id){var e=document.getElementById(id);return e?e.value:'';}
+    function val(id,v){var e=document.getElementById(id);if(e)e.value=v||'';}
+    function set(id,v){var e=document.getElementById(id);if(e)e.textContent=v||'—';}
+  })();
+  </script>
+</section>
+</html>

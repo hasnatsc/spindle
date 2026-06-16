@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<!--  organizations/dept-index.html  |  GET /departments  -->
+<html th:replace="~{layout/base :: layout('Departments', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
+<section>
+  <ol class="breadcrumb float-xl-end">
+    <li class="breadcrumb-item"><a th:href="@{/dashboard}">Home</a></li>
+    <li class="breadcrumb-item">Setup</li>
+    <li class="breadcrumb-item active">Departments</li>
+  </ol>
+  <h1 class="page-header">Departments <small>organizational structure</small></h1>
+
+  <div class="panel panel-inverse">
+    <div class="panel-heading">
+      <div class="panel-title">
+        <a href="javascript:;" onclick="deptOpenCreate()"><span class="badge btn btn-outline-success"><i class="fa fa-plus me-1"></i> Add Department</span></a>
+      </div>
+      <div class="panel-heading-btn">
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-success" data-toggle="panel-reload"><i class="fa fa-redo"></i></a>
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-warning" data-toggle="panel-collapse"><i class="fa fa-minus"></i></a>
+      </div>
+    </div>
+    <div class="panel-body">
+      <table id="deptTable" width="100%" class="table table-striped table-bordered align-middle text-nowrap">
+        <thead><tr>
+          <th width="1%">SL</th><th>Code</th><th>Name</th><th>Organization</th>
+          <th>Parent Dept.</th><th>Description</th>
+          <th class="text-center" width="7%">Status</th><th>Created At</th>
+          <th class="text-center" width="12%">Actions</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <!-- MODAL -->
+    <div tabindex="-1" id="deptModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="deptModalTitle"><i class="fa fa-sitemap me-1 text-success"></i> Add Department</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <form id="deptForm" novalidate>
+            <div class="modal-body"><div class="hs-box"><div class="row g-2">
+              <input type="hidden" id="deptId">
+              <div class="col-md-12 mb-2">
+                <label for="deptOrgId" class="view-label">Organization <span class="text-danger">*</span></label>
+                <select id="deptOrgId" class="form-select" required></select>
+              </div>
+              <div class="col-md-4 view-group">
+                <input id="deptCode" placeholder="e.g. ACCT" type="text" class="form-control hs_span_view text-uppercase" maxlength="50">
+                <label for="deptCode" class="input-label">Code</label>
+              </div>
+              <div class="col-md-8 view-group">
+                <input id="deptName" placeholder="Department Name" type="text" class="form-control hs_span_view" required maxlength="100">
+                <label for="deptName" class="input-label">Name <span class="text-danger">*</span></label>
+              </div>
+              <div class="col-md-12 mb-2">
+                <label for="deptParentId" class="view-label">Parent Department</label>
+                <select id="deptParentId" class="form-select"><option value="">— None (root) —</option></select>
+              </div>
+              <div class="col-md-12 view-group">
+                <textarea id="deptDesc" class="form-control hs_span_view" rows="2" placeholder="Description" maxlength="500"></textarea>
+                <label for="deptDesc" class="input-label">Description</label>
+              </div>
+              <div class="col-md-12 mt-1">
+                <div class="form-check form-switch">
+                  <input type="checkbox" id="deptActive" class="form-check-input" checked>
+                  <label class="form-check-label" for="deptActive"><strong>Active</strong></label>
+                </div>
+              </div>
+            </div></div></div>
+            <div class="modal-footer">
+              <button class="btn btn-success" type="submit" id="deptSubmitBtn">
+                <span class="spinner-border spinner-border-sm me-2 d-none" id="deptSpinner"></span>
+                <span id="deptBtnText">Save</span>
+              </button>
+              <button type="button" class="btn btn-white" data-bs-dismiss="modal">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- VIEW MODAL -->
+    <div tabindex="-1" id="deptViewModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-md">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title"><i class="fa fa-sitemap me-1 text-primary"></i> Department Details</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body"><div class="hs-box"><div class="row g-2">
+            <div class="col-md-4 view-group"><label class="view-label">Code</label><span id="dv_code" class="form-control hs_span_show"></span></div>
+            <div class="col-md-8 view-group"><label class="view-label">Name</label><span id="dv_name" class="form-control hs_span_show"></span></div>
+            <div class="col-md-6 view-group"><label class="view-label">Organization</label><span id="dv_org" class="form-control hs_span_show"></span></div>
+            <div class="col-md-6 view-group"><label class="view-label">Parent Dept.</label><span id="dv_parent" class="form-control hs_span_show"></span></div>
+            <div class="col-12 view-group"><label class="view-label">Description</label><span id="dv_desc" class="form-control hs_span_show" style="min-height:38px"></span></div>
+            <div class="col-md-4 view-group"><label class="view-label">Status</label><span id="dv_status" class="form-control hs_span_show" style="min-height:38px"></span></div>
+            <div class="col-md-4 view-group"><label class="view-label">Created At</label><span id="dv_createdAt" class="form-control hs_span_show"></span></div>
+            <div class="col-md-4 view-group"><label class="view-label">Updated By</label><span id="dv_updatedBy" class="form-control hs_span_show"></span></div>
+          </div></div></div>
+          <div class="modal-footer"><button type="button" class="btn btn-white" data-bs-dismiss="modal"><i class="fa fa-times me-1"></i> Close</button></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+  (function(){
+    'use strict';
+    var dt;
+    document.addEventListener('DOMContentLoaded', function(){
+      dt=$('#deptTable').DataTable({processing:true,serverSide:true,responsive:true,pageLength:25,ajax:{url:'/departments/list',type:'GET'},columns:[{data:'sl',orderable:false,width:'40px'},{data:'code'},{data:'name'},{data:'organization'},{data:'parent'},{data:'description'},{data:'status',orderable:false,className:'text-center'},{data:'created_at'},{data:'actions',orderable:false,className:'text-center'}],language:{emptyTable:'No departments found.',processing:'<span class="spinner-border spinner-border-sm me-2"></span> Loading…'}});
+      window._deptDT=dt;
+      loadOrgs();
+      document.getElementById('deptForm').addEventListener('submit',onSubmit);
+    });
+
+    function loadOrgs(){secureFetch('/organizations/active').then(function(data){var sel=document.getElementById('deptOrgId');while(sel.options.length>1)sel.remove(1);data.forEach(function(o){var op=document.createElement('option');op.value=o.id;op.text=o.name+' ('+o.code+')';sel.appendChild(op);});});}
+    function loadParents(excludeId){secureFetch('/departments/parents/all?excludeId='+(excludeId||0)).then(function(data){var sel=document.getElementById('deptParentId');while(sel.options.length>1)sel.remove(1);data.forEach(function(d){var op=document.createElement('option');op.value=d.id;op.text=d.name+(d.code?' ('+d.code+')':'');sel.appendChild(op);});});}
+
+    window.deptOpenCreate=function(){resetForm();loadParents(0);document.getElementById('deptModalTitle').innerHTML='<i class="fa fa-plus me-1 text-success"></i> Add Department';document.getElementById('deptBtnText').textContent='Save';bootstrap.Modal.getOrCreateInstance(document.getElementById('deptModal')).show();};
+    window.deptShow=function(id){secureFetch('/departments/show/'+id).then(function(res){if(!res.success){Swal.fire('Error',res.message,'error');return;}var d=res.obj.defaultData;set('dv_code',d.code||'—');set('dv_name',d.name);set('dv_org',d.organizationName);set('dv_parent',d.parentDepartmentName||'—');set('dv_desc',d.description||'—');set('dv_createdAt',d.createdAt);set('dv_updatedBy',d.updatedBy||'—');document.getElementById('dv_status').innerHTML=d.active?"<span class='badge bg-success'>Active</span>":"<span class='badge bg-danger'>Inactive</span>";bootstrap.Modal.getOrCreateInstance(document.getElementById('deptViewModal')).show();});};
+    window.deptEdit=function(id){secureFetch('/departments/show/'+id).then(function(res){if(!res.success){Swal.fire('Error',res.message,'error');return;}var d=res.obj.defaultData;resetForm();loadParents(d.id);val('deptId',d.id);val('deptCode',d.code||'');val('deptName',d.name);val('deptDesc',d.description||'');document.getElementById('deptOrgId').value=d.organizationId;document.getElementById('deptActive').checked=d.active;setTimeout(function(){document.getElementById('deptParentId').value=d.parentDepartmentId||'';},300);document.getElementById('deptModalTitle').innerHTML='<i class="fa fa-pencil me-1 text-warning"></i> Edit Department';document.getElementById('deptBtnText').textContent='Update';bootstrap.Modal.getOrCreateInstance(document.getElementById('deptModal')).show();});};
+    window.deptToggle=function(id){Swal.fire({title:'Change Status?',icon:'question',showCancelButton:true,confirmButtonText:'Yes'}).then(function(r){if(!r.isConfirmed)return;secureFetch('/departments/toggle/'+id,{method:'POST'}).then(function(d){d.success?dt.ajax.reload(null,false):Swal.fire('Error',d.message,'error');});});};
+    window.deptDelete=function(id){Swal.fire({title:'Delete?',icon:'warning',showCancelButton:true,confirmButtonColor:'#d33',confirmButtonText:'Yes, delete!'}).then(function(r){if(!r.isConfirmed)return;secureFetch('/departments/delete/'+id,{method:'DELETE'}).then(function(d){if(d.success){Swal.fire({icon:'success',title:'Deleted!',text:d.message,timer:1500,showConfirmButton:false});dt.ajax.reload(null,false);}else Swal.fire('Error',d.message,'error');});});};
+
+    function onSubmit(e){
+      e.preventDefault();
+      var sb=document.getElementById('deptSubmitBtn'),sp=document.getElementById('deptSpinner'),bt=document.getElementById('deptBtnText');
+      hsDisableButton(sb,sp,bt);
+      var p={id:g('deptId')||null,organizationId:document.getElementById('deptOrgId').value,code:g('deptCode')||null,name:g('deptName'),description:g('deptDesc'),parentDepartmentId:document.getElementById('deptParentId').value||null,active:document.getElementById('deptActive').checked};
+      secureFetch('/departments/save',{method:'POST',body:JSON.stringify(p)})
+        .then(function(d){if(d.success){Swal.fire({icon:'success',title:'Saved!',text:d.message,timer:1600,showConfirmButton:false});bootstrap.Modal.getOrCreateInstance(document.getElementById('deptModal')).hide();dt.ajax.reload(null,false);}else Swal.fire('Error',d.message,'error');})
+        .catch(function(err){Swal.fire('Error',err.message||'Failed.','error');}).finally(function(){hsEnableButton(sb,sp,bt);});
+    }
+    function resetForm(){document.getElementById('deptForm').reset();document.getElementById('deptId').value='';document.getElementById('deptActive').checked=true;}
+    function g(id){var e=document.getElementById(id);return e?e.value:'';}
+    function val(id,v){var e=document.getElementById(id);if(e)e.value=v||'';}
+    function set(id,v){var e=document.getElementById(id);if(e)e.textContent=v||'—';}
+  })();
+  </script>
+</section>
+</html>
