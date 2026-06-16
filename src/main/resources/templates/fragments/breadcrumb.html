@@ -1,59 +1,157 @@
 <!DOCTYPE html>
+<!--
+  ╔══════════════════════════════════════════════════════════════════════╗
+  ║  fragments/breadcrumb.html                                            ║
+  ║  Two breadcrumb variants for every Color Admin CRUD page            ║
+  ║                                                                       ║
+  ║  ── Variant 1 ── pageHeader (most common)                           ║
+  ║    Simple 3-string header: module · page · description              ║
+  ║    Usage:                                                             ║
+  ║      <div th:replace="~{fragments/breadcrumb                         ║
+  ║           :: pageHeader('Security','Users','Manage system users')}"> ║
+  ║      </div>                                                           ║
+  ║                                                                       ║
+  ║  ── Variant 2 ── breadcrumb(items)                                  ║
+  ║    Full dynamic list of BreadcrumbItem objects.                      ║
+  ║    Usage:                                                             ║
+  ║      <div th:replace="~{fragments/breadcrumb                         ║
+  ║           :: breadcrumb(${breadcrumbItems})}">                       ║
+  ║      </div>                                                           ║
+  ║    Controller: model.addAttribute("breadcrumbItems", List.of(        ║
+  ║        BreadcrumbItem.of("Security", "/users"),                      ║
+  ║        BreadcrumbItem.of("Users", null)                              ║
+  ║    ));                                                                ║
+  ╚══════════════════════════════════════════════════════════════════════╝
+-->
 <html xmlns:th="http://www.thymeleaf.org" lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Breadcrumb Fragment</title>
-</head>
 <body>
 
-<!-- Breadcrumb Fragment -->
-<div th:fragment="breadcrumb(items)">
-    <ol class="breadcrumb float-xl-end">
-        <li class="breadcrumb-item">
-            <a th:href="@{/}">
-                <i class="fa fa-home"></i> Home
+<!-- ══════════════════════════════════════════════════════════════════
+     VARIANT 1  —  pageHeader(module, page, description)
+     The most common pattern: three plain strings, no list needed.
+     Renders the Color Admin .page-header block.
+══════════════════════════════════════════════════════════════════ -->
+<div th:fragment="pageHeader(module, page, description)">
+
+  <div class="page-header" th:with="
+      mod=${module != null ? module : ''},
+      pg=${page != null ? page : ''},
+      desc=${description != null ? description : ''}">
+
+    <div class="page-header-content d-flex align-items-center
+                justify-content-between flex-wrap gap-2">
+
+      <!-- Title block -->
+      <div>
+        <h1 class="page-header-title mb-0" th:text="${pg}">Page</h1>
+        <p class="page-header-lead mb-0 text-muted fs-13px"
+           th:if="${desc != ''}"
+           th:text="${desc}">Description</p>
+      </div>
+
+      <!-- Breadcrumb -->
+      <nav aria-label="breadcrumb">
+        <ol class="breadcrumb mb-0">
+          <li class="breadcrumb-item">
+            <a th:href="@{/dashboard}">
+              <i class="fa fa-home me-1"></i>Home
             </a>
-        </li>
-        <th:block th:each="item, iterStat : ${items}">
-            <li class="breadcrumb-item"
-                th:classappend="${iterStat.last} ? 'active' : ''"
-                th:attrappend="aria-current=${iterStat.last} ? 'page' : null">
-                <a th:if="${!iterStat.last and item.url != null}"
-                   th:href="@{${item.url}}"
-                   th:text="${item.label}">Label</a>
-                <span th:if="${iterStat.last or item.url == null}"
-                      th:text="${item.label}">Label</span>
-            </li>
-        </th:block>
-    </ol>
+          </li>
+          <li class="breadcrumb-item"
+              th:if="${mod != ''}"
+              th:text="${mod}">Module</li>
+          <li class="breadcrumb-item active"
+              aria-current="page"
+              th:text="${pg}">Page</li>
+        </ol>
+      </nav>
+
+    </div>
+
+  </div>
+
 </div>
 
-<!-- Alternative: Simple Breadcrumb with Icon Support -->
-<div th:fragment="breadcrumbWithIcons(items)">
-    <ol class="breadcrumb float-xl-end">
-        <li class="breadcrumb-item">
-            <a th:href="@{/}">
-                <i class="fa fa-home"></i> Home
+
+<!-- ══════════════════════════════════════════════════════════════════
+     VARIANT 2  —  breadcrumb(items)
+     Accepts a List<BreadcrumbItem> from the controller model.
+     Each item has: label (String), url (String, nullable).
+     Last item is always rendered as plain text (active).
+══════════════════════════════════════════════════════════════════ -->
+<div th:fragment="breadcrumb(items)">
+
+  <div class="page-header">
+    <div class="page-header-content d-flex align-items-center
+                justify-content-end">
+      <nav aria-label="breadcrumb">
+        <ol class="breadcrumb mb-0">
+          <!-- Home always first -->
+          <li class="breadcrumb-item">
+            <a th:href="@{/dashboard}">
+              <i class="fa fa-home me-1"></i>Home
             </a>
-        </li>
-        <th:block th:each="item, iterStat : ${items}">
+          </li>
+          <!-- Dynamic items -->
+          <th:block th:each="item, stat : ${items}">
             <li class="breadcrumb-item"
-                th:classappend="${iterStat.last} ? 'active' : ''"
-                th:attrappend="aria-current=${iterStat.last} ? 'page' : null">
-                <a th:if="${!iterStat.last and item.url != null}"
-                   th:href="@{${item.url}}">
-                    <i th:if="${item.icon != null}"
-                       th:class="${'fa ' + item.icon + ' me-1'}"></i>
-                    <span th:text="${item.label}">Label</span>
-                </a>
-                <span th:if="${iterStat.last or item.url == null}">
-                    <i th:if="${item.icon != null}"
-                       th:class="${'fa ' + item.icon + ' me-1'}"></i>
-                    <span th:text="${item.label}">Label</span>
-                </span>
+                th:classappend="${stat.last} ? 'active'"
+                th:attrappend="aria-current=${stat.last} ? 'page'">
+              <!-- Linked item (not last and has URL) -->
+              <a th:if="${!stat.last and item.url != null}"
+                 th:href="${item.url}"
+                 th:text="${item.label}">Label</a>
+              <!-- Plain text item (last OR no URL) -->
+              <span th:if="${stat.last or item.url == null}"
+                    th:text="${item.label}">Label</span>
             </li>
-        </th:block>
-    </ol>
+          </th:block>
+        </ol>
+      </nav>
+    </div>
+  </div>
+
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════════════
+     VARIANT 3  —  breadcrumbWithIcons(items)
+     Same as variant 2 but each item may have an icon class string.
+══════════════════════════════════════════════════════════════════ -->
+<div th:fragment="breadcrumbWithIcons(items)">
+
+  <div class="page-header">
+    <div class="page-header-content d-flex align-items-center
+                justify-content-end">
+      <nav aria-label="breadcrumb">
+        <ol class="breadcrumb mb-0">
+          <li class="breadcrumb-item">
+            <a th:href="@{/dashboard}">
+              <i class="fa fa-home me-1"></i>Home
+            </a>
+          </li>
+          <th:block th:each="item, stat : ${items}">
+            <li class="breadcrumb-item"
+                th:classappend="${stat.last} ? 'active'"
+                th:attrappend="aria-current=${stat.last} ? 'page'">
+              <a th:if="${!stat.last and item.url != null}"
+                 th:href="${item.url}">
+                <i th:if="${item.icon != null}"
+                   th:class="'fa ' + ${item.icon} + ' me-1'"></i>
+                <span th:text="${item.label}">Label</span>
+              </a>
+              <span th:if="${stat.last or item.url == null}">
+                <i th:if="${item.icon != null}"
+                   th:class="'fa ' + ${item.icon} + ' me-1'"></i>
+                <span th:text="${item.label}">Label</span>
+              </span>
+            </li>
+          </th:block>
+        </ol>
+      </nav>
+    </div>
+  </div>
+
 </div>
 
 </body>

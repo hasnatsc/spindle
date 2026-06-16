@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<!--
+  ╔══════════════════════════════════════════════════════════════════════╗
+  ║  layout/base.html — Master Layout                                     ║
+  ║                                                                       ║
+  ║  Usage in any page:                                                   ║
+  ║    <html th:replace="~{layout/base :: layout('Page Title',~{::section})}"> ║
+  ║    <section>                                                          ║
+  ║      <!-- page content here -->                                       ║
+  ║    </section>                                                         ║
+  ║    </html>                                                            ║
+  ║                                                                       ║
+  ║  Optional page-level extras (define in the page's <section>):        ║
+  ║    <th:block th:fragment="extraHead">       <!-- extra CSS -->        ║
+  ║    <th:block th:fragment="extraHeadScript"> <!-- extra JS  -->        ║
+  ╚══════════════════════════════════════════════════════════════════════╝
+-->
+<html lang="en"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+
+<html th:fragment="layout(title, content)">
+<head th:replace="~{fragments/head :: commonHead(${title})}"></head>
+<body class="pace-top app-top-nav">
+
+  <!-- ① Top navigation bar (logo + context switchers + user menu) -->
+  <div th:replace="~{fragments/topMenuHeader :: topMenuHeader}"></div>
+
+  <!-- ② Dynamic top menu (Color Admin horizontal nav) -->
+  <div th:replace="~{fragments/topMenu :: topMenu}"></div>
+
+  <!-- ③ Page wrapper -->
+  <div id="content" class="app-content">
+
+    <!-- Page content injected here by each page's <section> -->
+    <th:block th:insert="${content}" />
+
+  </div>
+  <!-- END #content -->
+
+</body>
+</html>
+
+</html>

@@ -1,32 +1,86 @@
+<!DOCTYPE html>
+<!--
+  ╔══════════════════════════════════════════════════════════════════════╗
+  ║  fragments/head.html                                                  ║
+  ║  Global <head> fragment — included by layout/base.html               ║
+  ║                                                                       ║
+  ║  Usage:                                                               ║
+  ║    <head th:replace="~{fragments/head :: commonHead('Page Title')}"> ║
+  ║    </head>                                                            ║
+  ║                                                                       ║
+  ║  Page-level extras:                                                   ║
+  ║    Define a <th:block th:fragment="extraHead"> in your page          ║
+  ║    for page-specific CSS.                                             ║
+  ║    Define a <th:block th:fragment="extraHeadScript"> for page JS.    ║
+  ╚══════════════════════════════════════════════════════════════════════╝
+-->
+<html xmlns:th="http://www.thymeleaf.org">
+
 <head th:fragment="commonHead(title)">
   <meta charset="UTF-8">
-  <title th:text="${title}">App</title>
-  <link rel="icon" type="image/png" th:href="@{/img/favicon.svg}">
-  <meta name="_csrf" th:content="${_csrf.token}">
-  <meta name="_csrf_header" th:content="${_csrf.headerName}">
-  <link th:href="@{/css/app.min.css}" rel="stylesheet"/>
-  <link th:href="@{/css/vendor.min.css}" rel="stylesheet"/>
-  <link th:href="@{/css/application.css}" rel="stylesheet"/>
-  <link th:href="@{/css/dataTables/dataTables.bootstrap5.min.css}" rel="stylesheet"/>
-  <link th:href="@{/css/dataTables/responsive.bootstrap5.min.css}" rel="stylesheet"/>
-  <link th:href="@{/css/plugins/select2.min.css}" rel="stylesheet"/>
-  <link th:href="@{/css/plugins/bootstrap-datepicker.min.css}" rel="stylesheet"/>
-  <link th:href="@{/css/plugins/bootstrap-datetimepicker.min.css}" rel="stylesheet"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
 
-  <script th:src="@{/js/app.min.js}"></script>
+  <!-- Page title -->
+  <title th:text="${title + ' — Optimum ERP'}">Optimum ERP</title>
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/svg+xml" th:href="@{/img/favicon.svg}">
+
+  <!-- CSRF meta tags (read by application.js → secureFetch) -->
+  <meta name="_csrf"        th:content="${_csrf.token}">
+  <meta name="_csrf_header" th:content="${_csrf.headerName}">
+
+  <!-- ── Color Admin core CSS ────────────────────────────────────── -->
+  <link th:href="@{/css/vendor.min.css}"      rel="stylesheet">
+  <link th:href="@{/css/app.min.css}"         rel="stylesheet">
+
+  <!-- ── Application CSS ─────────────────────────────────────────── -->
+  <link th:href="@{/css/application.css}"     rel="stylesheet">
+
+  <!-- ── DataTables ──────────────────────────────────────────────── -->
+  <link th:href="@{/css/dataTables/dataTables.bootstrap5.min.css}"  rel="stylesheet">
+  <link th:href="@{/css/dataTables/responsive.bootstrap5.min.css}"  rel="stylesheet">
+
+  <!-- ── Plugins ─────────────────────────────────────────────────── -->
+  <link th:href="@{/css/plugins/select2.min.css}"                   rel="stylesheet">
+  <link th:href="@{/css/plugins/bootstrap-datepicker.min.css}"      rel="stylesheet">
+  <link th:href="@{/css/plugins/bootstrap-datetimepicker.min.css}"  rel="stylesheet">
+
+  <!-- ── Page-level extra CSS (defined per-page as th:fragment="extraHead") -->
+  <th:block th:insert="~{::extraHead}" />
+
+  <!-- ════════════════════════════════════════════════════════════════
+       SCRIPTS — loaded in <head> per Color Admin convention
+       (app.min.js bundles jQuery + Bootstrap 5)
+  ════════════════════════════════════════════════════════════════ -->
+
+  <!-- Color Admin core -->
   <script th:src="@{/js/vendor.min.js}"></script>
+  <script th:src="@{/js/app.min.js}"></script>
+
+  <!-- DataTables -->
   <script th:src="@{/js/dataTables/dataTables.min.js}"></script>
   <script th:src="@{/js/dataTables/dataTables.bootstrap5.min.js}"></script>
   <script th:src="@{/js/dataTables/dataTables.responsive.min.js}"></script>
   <script th:src="@{/js/dataTables/responsive.bootstrap5.min.js}"></script>
-  <script th:src="@{/js/dataTables/table-manage-default.demo.js}"></script>
   <script th:src="@{/js/dataTables/highlight.min.js}"></script>
   <script th:src="@{/js/dataTables/render.highlight.js}"></script>
+
+  <!-- Plugins -->
   <script th:src="@{/js/plugins/select2.min.js}"></script>
+  <script th:src="@{/js/plugins/moment.min.js}"></script>
   <script th:src="@{/js/plugins/bootstrap-datepicker.js}"></script>
   <script th:src="@{/js/plugins/bootstrap-datetimepicker.min.js}"></script>
-  <script th:src="@{/js/plugins/moment.min.js}"></script>
   <script th:src="@{/js/plugins/sweetalert.js}"></script>
   <script th:src="@{/js/plugins/parsley.min.js}"></script>
+
+  <!-- Optimum application utilities (secureFetch, confirmAndExecute …) -->
   <script th:src="@{/js/application.js}"></script>
+
+  <!-- Page-level extra scripts (defined per-page as th:fragment="extraHeadScript") -->
+  <th:block th:insert="~{::extraHeadScript}" />
+
 </head>
+
+</html>

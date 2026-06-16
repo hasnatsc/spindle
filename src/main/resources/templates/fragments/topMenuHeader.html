@@ -1,364 +1,375 @@
 <!DOCTYPE html>
-<html lang="en" xmlns:th="http://www.thymeleaf.org"
+<!--
+  ╔══════════════════════════════════════════════════════════════════════╗
+  ║  fragments/topMenuHeader.html                                         ║
+  ║  Global top navigation bar (Color Admin app-header)                  ║
+  ║                                                                       ║
+  ║  Fragment : topMenuHeader                                             ║
+  ║  Usage    : <div th:replace="~{fragments/topMenuHeader               ║
+  ║                               :: topMenuHeader}"></div>              ║
+  ║                                                                       ║
+  ║  Provides:                                                            ║
+  ║   • Brand logo + mobile toggler                                      ║
+  ║   • Org / Business Unit / Cost Center / Warehouse context switchers  ║
+  ║   • Global search                                                     ║
+  ║   • Notification dropdown                                             ║
+  ║   • User dropdown (profile, inbox, logout, change-password modal)    ║
+  ║   • Context-switch JS (secureFetch → /user-context/switch/*)         ║
+  ╚══════════════════════════════════════════════════════════════════════╝
+-->
+<html xmlns:th="http://www.thymeleaf.org"
       xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
-<head>
-    <meta charset="UTF-8">
-    <title>Title</title>
-</head>
 <body>
+
 <div th:fragment="topMenuHeader" id="topMenuHeader" class="app-header">
-    <!-- BEGIN navbar-header -->
-    <div class="navbar-header">
-        <a href="/dashboard" class="navbar-brand">
-            <span class="navbar-logo"></span> <b class="me-3px">Spindles</b> ERP
-        </a>
-        <button type="button" class="navbar-mobile-toggler" data-toggle="app-top-menu-mobile">
-            <span class="icon-bar"></span>
-            <span class="icon-bar"></span>
-            <span class="icon-bar"></span>
+
+  <!-- ── Brand ────────────────────────────────────────────────────── -->
+  <div class="navbar-header">
+    <a th:href="@{/dashboard}" class="navbar-brand">
+      <span class="navbar-logo"></span>
+      <b class="me-3px">Optimum</b> ERP
+    </a>
+    <!-- Mobile toggler for top-menu -->
+    <button type="button" class="navbar-mobile-toggler"
+            data-toggle="app-top-menu-mobile">
+      <span class="icon-bar"></span>
+      <span class="icon-bar"></span>
+      <span class="icon-bar"></span>
+    </button>
+  </div>
+
+  <!-- ── Navbar nav ────────────────────────────────────────────────── -->
+  <div class="navbar-nav">
+
+    <!-- ── Context switchers (Org / BU / CC / WH) ────────────────── -->
+    <div class="navbar-item dropdown" id="contextSwitchers">
+
+      <!-- Organization -->
+      <div class="dropdown d-inline-block me-1">
+        <button class="btn btn-sm btn-outline-theme dropdown-toggle"
+                type="button" id="orgDropdown"
+                data-bs-toggle="dropdown" aria-expanded="false">
+          <i class="fa fa-building me-1"></i>
+          <span id="currentOrgName">Organization</span>
         </button>
+        <ul class="dropdown-menu shadow-sm" aria-labelledby="orgDropdown"
+            id="orgList">
+          <li><a class="dropdown-item disabled text-muted">Loading…</a></li>
+        </ul>
+      </div>
+
+      <!-- Business Unit -->
+      <div class="dropdown d-inline-block me-1">
+        <button class="btn btn-sm btn-outline-theme dropdown-toggle"
+                type="button" id="buDropdown"
+                data-bs-toggle="dropdown" aria-expanded="false">
+          <i class="fa fa-briefcase me-1"></i>
+          <span id="currentBuName">Business Unit</span>
+        </button>
+        <ul class="dropdown-menu shadow-sm" aria-labelledby="buDropdown"
+            id="buList">
+          <li><a class="dropdown-item disabled text-muted">Loading…</a></li>
+        </ul>
+      </div>
+
+      <!-- Cost Center -->
+      <div class="dropdown d-inline-block me-1">
+        <button class="btn btn-sm btn-outline-theme dropdown-toggle"
+                type="button" id="ccDropdown"
+                data-bs-toggle="dropdown" aria-expanded="false">
+          <i class="fa fa-chart-pie me-1"></i>
+          <span id="currentCcName">Cost Center</span>
+        </button>
+        <ul class="dropdown-menu shadow-sm" aria-labelledby="ccDropdown"
+            id="ccList">
+          <li><a class="dropdown-item disabled text-muted">Loading…</a></li>
+        </ul>
+      </div>
+
+      <!-- Warehouse -->
+      <div class="dropdown d-inline-block me-2">
+        <button class="btn btn-sm btn-outline-theme dropdown-toggle"
+                type="button" id="whDropdown"
+                data-bs-toggle="dropdown" aria-expanded="false">
+          <i class="fa fa-warehouse me-1"></i>
+          <span id="currentWhName">Warehouse</span>
+        </button>
+        <ul class="dropdown-menu shadow-sm" aria-labelledby="whDropdown"
+            id="whList">
+          <li><a class="dropdown-item disabled text-muted">Loading…</a></li>
+        </ul>
+      </div>
+
     </div>
-    <!-- END navbar-header -->
+    <!-- END context switchers -->
 
-    <!-- BEGIN header-nav -->
-    <div class="navbar-nav">
-        
-        <!-- BEGIN Context Switchers -->
-        <div class="navbar-item dropdown" id="contextSwitchers">
-            <!-- Organization Switcher -->
-            <div class="dropdown d-inline-block me-2">
-                <button class="btn btn-sm btn-outline-theme dropdown-toggle" type="button" 
-                        id="orgDropdown" data-bs-toggle="dropdown" aria-expanded="false">
-                    <i class="fa fa-building"></i> 
-                    <span id="currentOrgName">Select Organization</span>
-                </button>
-                <ul class="dropdown-menu" aria-labelledby="orgDropdown" id="orgList">
-                    <li><a class="dropdown-item disabled">Loading...</a></li>
-                </ul>
-            </div>
-
-            <!-- Business Unit Switcher -->
-            <div class="dropdown d-inline-block me-2">
-                <button class="btn btn-sm btn-outline-theme dropdown-toggle" type="button" 
-                        id="buDropdown" data-bs-toggle="dropdown" aria-expanded="false">
-                    <i class="fa fa-briefcase"></i> 
-                    <span id="currentBuName">Select Business Unit</span>
-                </button>
-                <ul class="dropdown-menu" aria-labelledby="buDropdown" id="buList">
-                    <li><a class="dropdown-item disabled">Loading...</a></li>
-                </ul>
-            </div>
-
-            <!-- Cost Center Switcher -->
-            <div class="dropdown d-inline-block me-2">
-                <button class="btn btn-sm btn-outline-theme dropdown-toggle" type="button" 
-                        id="ccDropdown" data-bs-toggle="dropdown" aria-expanded="false">
-                    <i class="fa fa-chart-pie"></i> 
-                    <span id="currentCcName">Select Cost Center</span>
-                </button>
-                <ul class="dropdown-menu" aria-labelledby="ccDropdown" id="ccList">
-                    <li><a class="dropdown-item disabled">Loading...</a></li>
-                </ul>
-            </div>
-
-            <!-- Warehouse Switcher -->
-            <div class="dropdown d-inline-block me-2">
-                <button class="btn btn-sm btn-outline-theme dropdown-toggle" type="button" 
-                        id="whDropdown" data-bs-toggle="dropdown" aria-expanded="false">
-                    <i class="fa fa-warehouse"></i> 
-                    <span id="currentWhName">Select Warehouse</span>
-                </button>
-                <ul class="dropdown-menu" aria-labelledby="whDropdown" id="whList">
-                    <li><a class="dropdown-item disabled">Loading...</a></li>
-                </ul>
-            </div>
+    <!-- ── Global search ─────────────────────────────────────────── -->
+    <div class="navbar-item navbar-form d-none d-sm-block">
+      <form action="" method="GET" name="search" role="search">
+        <div class="form-group mb-0">
+          <input type="text" class="form-control"
+                 placeholder="Search…" aria-label="Search">
+          <button type="submit" class="btn btn-search">
+            <i class="fa fa-search"></i>
+          </button>
         </div>
-        <!-- END Context Switchers -->
-
-        <div class="navbar-item navbar-form">
-            <form action="" method="POST" name="search">
-                <div class="form-group">
-                    <input type="text" class="form-control" placeholder="Enter keyword" />
-                    <button type="submit" class="btn btn-search"><i class="fa fa-search"></i></button>
-                </div>
-            </form>
-        </div>
-
-        <div class="navbar-item dropdown">
-            <a href="#" data-bs-toggle="dropdown" class="navbar-link dropdown-toggle icon">
-                <i class="fa fa-bell"></i>
-                <span class="badge">5</span>
-            </a>
-            <div class="dropdown-menu media-list dropdown-menu-end">
-                <div class="dropdown-header">NOTIFICATIONS (5)</div>
-                <a href="javascript:;" class="dropdown-item media">
-                    <div class="media-left">
-                        <i class="fa fa-bug media-object bg-gray-500"></i>
-                    </div>
-                    <div class="media-body">
-                        <h6 class="media-heading">Server Error Reports <i class="fa fa-exclamation-circle text-danger"></i></h6>
-                        <div class="text-muted fs-10px">3 minutes ago</div>
-                    </div>
-                </a>
-                <a href="javascript:;" class="dropdown-item media">
-                    <div class="media-left">
-                        <img th:src="@{/img/user/user-1.jpg}" class="media-object" alt="User Image" />
-                        <i class="fab fa-facebook-messenger text-blue media-object-icon"></i>
-                    </div>
-                    <div class="media-body">
-                        <h6 class="media-heading">John Smith</h6>
-                        <p>Quisque pulvinar tellus sit amet sem scelerisque tincidunt.</p>
-                        <div class="text-muted fs-10px">25 minutes ago</div>
-                    </div>
-                </a>
-                <a href="javascript:;" class="dropdown-item media">
-                    <div class="media-left">
-                        <i class="fa fa-plus media-object bg-gray-500"></i>
-                    </div>
-                    <div class="media-body">
-                        <h6 class="media-heading"> New User Registered</h6>
-                        <div class="text-muted fs-10px">1 hour ago</div>
-                    </div>
-                </a>
-                <a href="javascript:;" class="dropdown-item media">
-                    <div class="media-left">
-                        <i class="fa fa-envelope media-object bg-gray-500"></i>
-                        <i class="fab fa-google text-warning media-object-icon fs-14px"></i>
-                    </div>
-                    <div class="media-body">
-                        <h6 class="media-heading"> New Email From John</h6>
-                        <div class="text-muted fs-10px">2 hour ago</div>
-                    </div>
-                </a>
-                <div class="dropdown-footer text-center">
-                    <a href="javascript:;" class="text-decoration-none">View more</a>
-                </div>
-            </div>
-        </div>
-
-        <div class="navbar-item navbar-user dropdown" sec:authorize="isAuthenticated()">
-            <a href="#" class="navbar-link dropdown-toggle d-flex align-items-center" data-bs-toggle="dropdown">
-                <img th:src="@{/img/user/user-13.jpg}" alt="User">
-                <span>
-                    <span class="d-none d-md-inline" sec:authentication="name">Username</span>
-                    <b class="caret"></b>
-                </span>
-            </a>
-            <div class="dropdown-menu dropdown-menu-end me-1">
-                <a href="/profile" class="dropdown-item">Edit Profile</a>
-                <a href="/inbox" class="dropdown-item d-flex align-items-center">Inbox<span class="badge bg-danger rounded-pill ms-auto pb-4px">2</span></a>
-                <a href="/calendar" class="dropdown-item">Calendar</a>
-                <a href="javascript:;" class="dropdown-item" id="changePasswordBtn">Change Password</a>
-
-                <div class="dropdown-divider"></div>
-                <form action="/logout" method="post" style="display:inline;">
-                    <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
-                    <button type="submit" class="dropdown-item">Log Out</button>
-                </form>
-            </div>
-        </div>
+      </form>
     </div>
-    <!-- END header-nav -->
 
-
-    <script>
-        document.getElementById('changePasswordBtn').addEventListener('click', () => {
-
-            const csrfToken  = document.querySelector('meta[name="_csrf"]').content;
-            const csrfHeader = document.querySelector('meta[name="_csrf_header"]').content;
-
-            Swal.fire({
-                title: 'Change Password',
-                html: `
-            <div style="display:flex; flex-direction:column; gap:12px; margin-top:10px;">
-                <div style="position:relative;">
-                    <input type="password" id="newPassword" placeholder="New Password"
-                        style="
-                            width: 100%;
-                            padding: 12px 15px;
-                            border-radius: 8px;
-                            border: 1px solid #ccc;
-                            font-size: 14px;
-                        ">
-                    <i class="fa fa-eye" id="toggleNew"
-                        style="position:absolute; right:12px; top:50%; transform:translateY(-50%); cursor:pointer; color:#666;"></i>
-                </div>
-                <div style="position:relative;">
-                    <input type="password" id="confirmPassword" placeholder="Confirm Password"
-                        style="
-                            width: 100%;
-                            padding: 12px 15px;
-                            border-radius: 8px;
-                            border: 1px solid #ccc;
-                            font-size: 14px;
-                        ">
-                    <i class="fa fa-eye" id="toggleConfirm"
-                        style="position:absolute; right:12px; top:50%; transform:translateY(-50%); cursor:pointer; color:#666;"></i>
-                </div>
+    <!-- ── Notifications ─────────────────────────────────────────── -->
+    <div class="navbar-item dropdown">
+      <a href="#" data-bs-toggle="dropdown"
+         class="navbar-link dropdown-toggle icon" aria-label="Notifications">
+        <i class="fa fa-bell"></i>
+        <span class="badge" id="notifBadge">0</span>
+      </a>
+      <div class="dropdown-menu media-list dropdown-menu-end shadow">
+        <div class="dropdown-header d-flex align-items-center justify-content-between">
+          <span>NOTIFICATIONS</span>
+          <a href="#" class="text-decoration-none fs-10px">Mark all read</a>
+        </div>
+        <div id="notifList">
+          <a href="javascript:;" class="dropdown-item media">
+            <div class="media-left">
+              <i class="fa fa-bell media-object bg-theme"></i>
             </div>
-        `,
-                showCancelButton: true,
-                confirmButtonText: 'Update',
-                focusConfirm: false,
-                didOpen: () => {
-                    // Toggle password visibility
-                    document.getElementById('toggleNew').addEventListener('click', () => {
-                        const input = document.getElementById('newPassword');
-                        input.type = input.type === 'password' ? 'text' : 'password';
-                    });
-                    document.getElementById('toggleConfirm').addEventListener('click', () => {
-                        const input = document.getElementById('confirmPassword');
-                        input.type = input.type === 'password' ? 'text' : 'password';
-                    });
-                },
-                preConfirm: () => {
-                    const p1 = document.getElementById('newPassword').value;
-                    const p2 = document.getElementById('confirmPassword').value;
+            <div class="media-body">
+              <h6 class="media-heading">Welcome to Optimum ERP</h6>
+              <div class="text-muted fs-10px">Just now</div>
+            </div>
+          </a>
+        </div>
+        <div class="dropdown-footer text-center">
+          <a href="/notifications" class="text-decoration-none">View all</a>
+        </div>
+      </div>
+    </div>
 
-                    if (!p1 || !p2) {
-                        Swal.showValidationMessage('All fields required');
-                        return false;
-                    }
-                    if (p1.length < 6) {
-                        Swal.showValidationMessage('Minimum 6 characters');
-                        return false;
-                    }
-                    if (p1 !== p2) {
-                        Swal.showValidationMessage('Passwords do not match');
-                        return false;
-                    }
-                    return p1;
-                }
-            }).then(r => {
-                if (!r.isConfirmed) return;
+    <!-- ── User menu ─────────────────────────────────────────────── -->
+    <div class="navbar-item navbar-user dropdown"
+         sec:authorize="isAuthenticated()">
+      <a href="#"
+         class="navbar-link dropdown-toggle d-flex align-items-center"
+         data-bs-toggle="dropdown" aria-label="User menu">
+        <img th:src="@{/img/user/user-13.jpg}" alt="User"
+             class="rounded-circle" width="32" height="32"
+             style="object-fit:cover">
+        <span class="ms-2">
+          <span class="d-none d-md-inline fw-600"
+                sec:authentication="name">User</span>
+          <b class="caret ms-1"></b>
+        </span>
+      </a>
+      <div class="dropdown-menu dropdown-menu-end me-1 shadow">
+        <div class="dropdown-header d-flex align-items-center gap-2 py-2">
+          <div class="bg-theme text-white rounded-circle d-flex align-items-center justify-content-center"
+               style="width:32px;height:32px;font-size:12px;font-weight:700;"
+               sec:authentication="name"
+               th:text="${#strings.substring(#authentication.name, 0, 2).toUpperCase()}">SA</div>
+          <div>
+            <div class="fw-600 fs-13px" sec:authentication="name">User</div>
+            <div class="text-muted fs-10px">System Administrator</div>
+          </div>
+        </div>
+        <div class="dropdown-divider m-0"></div>
+        <a th:href="@{/profile}"  class="dropdown-item">
+          <i class="fa fa-user me-2 text-muted"></i>Edit Profile
+        </a>
+        <a th:href="@{/inbox}"    class="dropdown-item d-flex align-items-center">
+          <i class="fa fa-envelope me-2 text-muted"></i>
+          Inbox
+          <span class="badge bg-danger rounded-pill ms-auto">2</span>
+        </a>
+        <a href="javascript:;"   class="dropdown-item" id="changePasswordBtn">
+          <i class="fa fa-key me-2 text-muted"></i>Change Password
+        </a>
+        <div class="dropdown-divider"></div>
+        <form th:action="@{/logout}" method="post" class="d-inline">
+          <input type="hidden" th:name="${_csrf.parameterName}"
+                               th:value="${_csrf.token}">
+          <button type="submit" class="dropdown-item text-danger">
+            <i class="fa fa-sign-out-alt me-2"></i>Log Out
+          </button>
+        </form>
+      </div>
+    </div>
+    <!-- END user menu -->
 
-                fetch('/openApi/menus/change-password', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        [csrfHeader]: csrfToken
-                    },
-                    body: JSON.stringify({ password: r.value })
-                })
-                    .then(res => {
-                        if (!res.ok) throw new Error(res.status);
-                        return res.json();
-                    })
-                    .then(() => Swal.fire('Success', 'Password updated', 'success'))
-                    .catch(() => Swal.fire('Error', 'Update failed', 'error'));
-            });
+  </div>
+  <!-- END navbar-nav -->
+
+
+  <!-- ════════════════════════════════════════════════════════════════
+       SCRIPTS — Context switcher + Change-password modal
+  ════════════════════════════════════════════════════════════════ -->
+  <script>
+  /* ── Change-password via SweetAlert2 inline form ───────────────── */
+  (function () {
+    var btn = document.getElementById('changePasswordBtn');
+    if (!btn) return;
+
+    btn.addEventListener('click', function () {
+      Swal.fire({
+        title: 'Change Password',
+        html: `
+          <div style="display:flex;flex-direction:column;gap:12px;margin-top:10px;text-align:left;">
+            <div style="position:relative;">
+              <input type="password" id="swalNewPwd"
+                placeholder="New Password (min 8 chars)"
+                style="width:100%;padding:10px 36px 10px 12px;border-radius:8px;border:1px solid #ccc;font-size:14px;">
+              <i class="fa fa-eye" id="swalToggleNew"
+                style="position:absolute;right:12px;top:50%;transform:translateY(-50%);cursor:pointer;color:#999;"></i>
+            </div>
+            <div style="position:relative;">
+              <input type="password" id="swalConfirmPwd"
+                placeholder="Confirm New Password"
+                style="width:100%;padding:10px 36px 10px 12px;border-radius:8px;border:1px solid #ccc;font-size:14px;">
+              <i class="fa fa-eye" id="swalToggleConfirm"
+                style="position:absolute;right:12px;top:50%;transform:translateY(-50%);cursor:pointer;color:#999;"></i>
+            </div>
+          </div>`,
+        showCancelButton: true,
+        confirmButtonText: 'Update Password',
+        cancelButtonText:  'Cancel',
+        focusConfirm: false,
+        didOpen: function () {
+          document.getElementById('swalToggleNew').addEventListener('click', function () {
+            var inp = document.getElementById('swalNewPwd');
+            inp.type = inp.type === 'password' ? 'text' : 'password';
+          });
+          document.getElementById('swalToggleConfirm').addEventListener('click', function () {
+            var inp = document.getElementById('swalConfirmPwd');
+            inp.type = inp.type === 'password' ? 'text' : 'password';
+          });
+        },
+        preConfirm: function () {
+          var p1 = document.getElementById('swalNewPwd').value.trim();
+          var p2 = document.getElementById('swalConfirmPwd').value.trim();
+          if (!p1 || !p2) { Swal.showValidationMessage('Both fields are required.'); return false; }
+          if (p1.length < 8) { Swal.showValidationMessage('Password must be at least 8 characters.'); return false; }
+          if (p1 !== p2)  { Swal.showValidationMessage('Passwords do not match.'); return false; }
+          return p1;
+        }
+      }).then(function (result) {
+        if (!result.isConfirmed) return;
+        secureFetch('/openApi/menus/change-password', {
+          method: 'POST',
+          body: JSON.stringify({ password: result.value })
+        })
+        .then(function (data) {
+          if (data.success !== false) {
+            Swal.fire({ icon: 'success', title: 'Done!', text: 'Password updated successfully.', timer: 2000, showConfirmButton: false });
+          } else {
+            Swal.fire({ icon: 'error', title: 'Error', text: data.message || 'Update failed.' });
+          }
+        })
+        .catch(function () {
+          Swal.fire({ icon: 'error', title: 'Error', text: 'Request failed. Please try again.' });
         });
+      });
+    });
+  })();
+  </script>
 
+  <script th:inline="javascript">
+  /* ── Context switcher (Org / BU / Cost Center / Warehouse) ────── */
+  /*<![CDATA[*/
+  (function () {
+    var ctx = {};
 
-    </script>
+    /* ── Load allowed context from server ────── */
+    function loadContext() {
+      secureFetch('/user-context/allowed/context')
+        .then(function (data) {
+          ctx = data.current || {};
+          renderContext(ctx);
+          renderDropdown('orgList', data.organizations, ctx.organizationId,   switchOrg);
+          renderDropdown('buList',  data.businessUnits, ctx.businessUnitId,   switchBU);
+          renderDropdown('ccList',  data.costCenters,   ctx.costCenterId,     switchCC);
+          renderDropdown('whList',  data.warehouses,    ctx.warehouseId,      switchWH);
+        })
+        .catch(function (e) { console.error('Context load failed:', e); });
+    }
 
+    /* ── Render button labels ────────────────── */
+    function renderContext(c) {
+      setText('currentOrgName', c.organizationName  || 'Organization');
+      setText('currentBuName',  c.businessUnitName  || 'Business Unit');
+      setText('currentCcName',  c.costCenterName    || 'Cost Center');
+      setText('currentWhName',  c.warehouseName     || 'Warehouse');
+    }
 
-    <script th:inline="javascript">
-        document.addEventListener('DOMContentLoaded', () => {
+    /* ── Build dropdown items ────────────────── */
+    function renderDropdown(listId, items, selectedId, handler) {
+      var ul = document.getElementById(listId);
+      if (!ul) return;
+      ul.innerHTML = '';
+      if (!items || items.length === 0) {
+        ul.innerHTML = '<li><a class="dropdown-item disabled text-muted">None assigned</a></li>';
+        return;
+      }
+      items.forEach(function (item) {
+        var li  = document.createElement('li');
+        var a   = document.createElement('a');
+        a.className = 'dropdown-item d-flex align-items-center justify-content-between';
+        a.href = '#';
+        a.innerHTML = '<span>' + esc(item.code) + ' — ' + esc(item.name) + '</span>'
+          + (item.id === selectedId ? '<i class="fa fa-check text-theme ms-2"></i>' : '');
+        a.addEventListener('click', function (e) { e.preventDefault(); handler(item.id); });
+        li.appendChild(a);
+        ul.appendChild(li);
+      });
+    }
 
-            const csrfToken = document.querySelector('meta[name="_csrf"]').content;
-            const csrfHeader = document.querySelector('meta[name="_csrf_header"]').content;
+    /* ── Switch handlers ─────────────────────── */
+    function switchOrg(id) { doSwitch('/user-context/switch/organization/'  + id); }
+    function switchBU(id)  { doSwitch('/user-context/switch/business-unit/' + id); }
+    function switchCC(id)  { doSwitch('/user-context/switch/cost-center/'   + id); }
+    function switchWH(id)  { doSwitch('/user-context/switch/warehouse/'     + id); }
 
-            let ctx = {};
-
-            /* ---------- Core loader ---------- */
-
-            function loadContext() {
-                secureFetch('/user-context/allowed/context')
-                    .then(data => {
-                        ctx = data.current || {};
-                        renderContext(ctx);
-                        renderAllDropdowns(data);
-                    })
-                    .catch(e => console.error('Context load failed', e));
-            }
-
-            /* ---------- Renderers ---------- */
-
-            function renderContext(c) {
-                setText('currentOrgName', c.organizationName || 'Select Organization');
-                setText('currentBuName',  c.businessUnitName || 'Select Business Unit');
-                setText('currentCcName',  c.costCenterName || 'Select Cost Center');
-                setText('currentWhName',  c.warehouseName || 'Select Warehouse');
-            }
-
-            function renderAllDropdowns(data) {
-                renderDropdown('orgList', data.organizations, ctx.organizationId, switchOrg);
-                renderDropdown('buList',  data.businessUnits, ctx.businessUnitId, switchBU);
-                renderDropdown('ccList',  data.costCenters, ctx.costCenterId, switchCC);
-                renderDropdown('whList',  data.warehouses, ctx.warehouseId, switchWH);
-            }
-
-            function renderDropdown(listId, items, selectedId, handler) {
-                const ul = document.getElementById(listId);
-                ul.innerHTML = '';
-
-                if (!items || items.length === 0) {
-                    ul.innerHTML = `<li><a class="dropdown-item disabled">None</a></li>`;
-                    return;
-                }
-
-                items.forEach(i => {
-                    const a = document.createElement('a');
-                    a.className = 'dropdown-item';
-                    a.href = '#';
-                    a.innerHTML = `${i.code} - ${i.name}` + (i.id === selectedId ? ' <i class="fa fa-check text-success"></i>' : '');
-                    a.onclick = () => handler(i.id);
-
-                    const li = document.createElement('li');
-                    li.appendChild(a);
-                    ul.appendChild(li);
-                });
-            }
-
-            /* ---------- Switch handlers ---------- */
-
-            function switchOrg(id) {
-                doSwitch(`/user-context/switch/organization/${id}`);
-            }
-            function switchBU(id) {
-                doSwitch(`/user-context/switch/business-unit/${id}`);
-            }
-            function switchCC(id) {
-                doSwitch(`/user-context/switch/cost-center/${id}`);
-            }
-            function switchWH(id) {
-                doSwitch(`/user-context/switch/warehouse/${id}`);
-            }
-
-            function doSwitch(url) {
-                secureFetch(url, {
-                    method: 'POST',
-                    headers: { [csrfHeader]: csrfToken }
-                })
-                    .then(res => {
-                        if (res.success) {
-                            toast('Success', res.message, 'success');
-                            loadContext();
-                        } else {
-                            toast('Error', res.message, 'error');
-                        }
-                    })
-                    .catch(() => toast('Error', 'Request failed', 'error'));
-            }
-
-            /* ---------- Helpers ---------- */
-
-            function setText(id, txt) {
-                document.getElementById(id).textContent = txt;
-            }
-
-            function toast(title, msg, type) {
-                if (window.Swal) {
-                    Swal.fire({ icon: type, title, text: msg, toast: true, position: 'top-end', timer: 2500, showConfirmButton: false });
-                } else alert(msg);
-            }
-
-            /* ---------- Init ---------- */
+    function doSwitch(url) {
+      secureFetch(url, { method: 'POST' })
+        .then(function (res) {
+          if (res.success) {
+            toast('Switched', res.message, 'success');
             loadContext();
-        });
-    </script>
+          } else {
+            toast('Error', res.message || 'Switch failed.', 'error');
+          }
+        })
+        .catch(function () { toast('Error', 'Request failed.', 'error'); });
+    }
+
+    /* ── Helpers ─────────────────────────────── */
+    function setText(id, txt) {
+      var el = document.getElementById(id);
+      if (el) el.textContent = txt;
+    }
+
+    function toast(title, msg, type) {
+      if (window.Swal) {
+        Swal.fire({ icon: type, title: title, text: msg, toast: true,
+                    position: 'top-end', timer: 2500, showConfirmButton: false });
+      }
+    }
+
+    function esc(s) {
+      return s ? s.replace(/[&<>"']/g, function (c) {
+        return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#039;' }[c];
+      }) : '';
+    }
+
+    /* ── Init on DOM ready ───────────────────── */
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', loadContext);
+    } else {
+      loadContext();
+    }
+  })();
+  /*]]>*/
+  </script>
 
 </div>
+
 </body>
 </html>

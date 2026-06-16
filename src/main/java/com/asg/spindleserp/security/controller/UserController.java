@@ -44,7 +44,7 @@ public class UserController {
     @GetMapping
     public String index(Model model) {
         model.addAttribute("activePage", "users");
-        return "commercial/fabric-precosting-dashboard";
+        return "security/users-index";
     }
 
     // ── DataTable list ────────────────────────────────────────────────────────

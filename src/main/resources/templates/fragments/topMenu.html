@@ -1,219 +1,291 @@
 <!DOCTYPE html>
+<!--
+  ╔══════════════════════════════════════════════════════════════════════╗
+  ║  fragments/topMenu.html                                               ║
+  ║  Color Admin dynamic top-menu populated via secureFetch             ║
+  ║                                                                       ║
+  ║  Fragment : topMenu                                                   ║
+  ║  Usage    : <div th:replace="~{fragments/topMenu :: topMenu}"></div> ║
+  ║                                                                       ║
+  ║  API      : GET /openApi/menus/user-menu                             ║
+  ║  Response : { success, menus: { items: [ FlatMenuItem… ] } }        ║
+  ║                                                                       ║
+  ║  Color Admin fix:                                                     ║
+  ║    App.initTopMenu() fires on DOMContentLoaded before our fetch     ║
+  ║    resolves → null-pointer crash. We monkey-patch it to a no-op     ║
+  ║    in the capture phase, then call the real implementation after     ║
+  ║    rendering is complete.                                             ║
+  ╚══════════════════════════════════════════════════════════════════════╝
+-->
 <html xmlns:th="http://www.thymeleaf.org">
 <body>
 
-<div th:fragment="topMenu" id="top-menu" class="app-top-menu" data-bs-theme="dark">
-    <!-- BEGIN menu -->
-    <div class="menu" id="dynamic-top-menu">
-        <!-- Dynamic menu loading placeholder -->
-        <div class="menu-loading text-center py-4" id="menuLoader">
-            <div class="spinner-border text-light" role="status">
-                <span class="visually-hidden">Loading...</span>
-            </div>
-            <div class="text-light mt-2">Loading top menu...</div>
-        </div>
+<div th:fragment="topMenu" id="top-menu"
+     class="app-top-menu" data-bs-theme="dark">
 
-        <!-- BEGIN navigation controls -->
-        <div class="menu-item menu-control menu-control-start">
-            <a href="javascript:;" class="menu-link" data-toggle="app-top-menu-prev">
-                <i class="fa fa-angle-left"></i>
-            </a>
-        </div>
-        <div class="menu-item menu-control menu-control-end">
-            <a href="javascript:;" class="menu-link" data-toggle="app-top-menu-next">
-                <i class="fa fa-angle-right"></i>
-            </a>
-        </div>
-        <!-- END navigation controls -->
+  <div class="menu" id="dynamicTopMenu">
+
+    <!-- Spinner shown while loading -->
+    <div id="menuLoader" class="d-flex align-items-center gap-2 px-3 py-2">
+      <div class="spinner-border spinner-border-sm text-white" role="status">
+        <span class="visually-hidden">Loading…</span>
+      </div>
+      <span class="text-white fs-12px">Loading menu…</span>
     </div>
-    <!-- END menu -->
 
-    <script th:inline="javascript">
-        /*
-         * Color Admin's app.min.js calls App.initTopMenu() on DOMContentLoaded.
-         * At that moment our dynamic items don't exist yet (fetch hasn't resolved)
-         * so querySelector('.menu-item:not(.menu-control)') returns null → crash.
-         *
-         * Strategy:
-         *   1. Monkey-patch App.initTopMenu to a no-op before the framework fires it.
-         *   2. After our fetch+render completes, call the real initTopMenu ourselves.
-         */
-        (function () {
-            function patchApp() {
-                if (typeof App !== 'undefined' && typeof App.initTopMenu === 'function') {
-                    window.__realInitTopMenu = App.initTopMenu.bind(App);
-                    App.initTopMenu = function () { /* suppressed – called after dynamic render */ };
-                    return true;
-                }
-                return false;
-            }
+    <!-- Color Admin scroll controls (must be last children) -->
+    <div class="menu-item menu-control menu-control-start">
+      <a href="javascript:;" class="menu-link"
+         data-toggle="app-top-menu-prev">
+        <i class="fa fa-angle-left"></i>
+      </a>
+    </div>
+    <div class="menu-item menu-control menu-control-end">
+      <a href="javascript:;" class="menu-link"
+         data-toggle="app-top-menu-next">
+        <i class="fa fa-angle-right"></i>
+      </a>
+    </div>
 
-            // Try immediately (inline script – App may already be defined)
-            if (!patchApp()) {
-                // App not ready; patch on DOMContentLoaded before the framework's own listener fires
-                document.addEventListener('DOMContentLoaded', patchApp, true); // capture phase = runs first
-            }
+  </div>
 
-            document.addEventListener('DOMContentLoaded', function () {
-                loadDynamicTopMenu();
-            });
-        })();
+  <script th:inline="javascript">
+  /*<![CDATA[*/
+  (function () {
+    'use strict';
 
-        /* =========================
-           LOAD MENU
-        ========================= */
-        function loadDynamicTopMenu() {
-            secureFetch('/openApi/menus/user-menu')
-                .then(function (data) {
-                    if (data.success) {
-                        var flatMenus = (data.menus && data.menus.items) ? data.menus.items : [];
-                        var tree = buildMenuTree(flatMenus);
-                        sortMenus(tree);
-                        renderTopMenu(tree);
-                        expandActiveMenu();
+    /* ═══════════════════════════════════════════════════════════════
+       PATCH Color Admin's App.initTopMenu()
+       Runs in the CAPTURE phase so it executes before Color Admin's
+       own DOMContentLoaded listener (which would crash on empty menu).
+    ═══════════════════════════════════════════════════════════════ */
+    var _realInit = null;
 
-                        // Hand control back to Color Admin framework for hover/scroll/click
-                        var init = window.__realInitTopMenu ||
-                            (typeof App !== 'undefined' && App.initTopMenu);
-                        if (typeof init === 'function') {
-                            init();
-                        }
-                    } else {
-                        showTopMenuError(data.message || 'Failed to load menu');
-                    }
-                })
-                .catch(function (err) {
-                    console.error('Error loading top menu:', err);
-                    showTopMenuError('Failed to load top menu.');
-                });
+    function patchApp() {
+      if (typeof App !== 'undefined' && typeof App.initTopMenu === 'function') {
+        _realInit      = App.initTopMenu.bind(App);
+        App.initTopMenu = function () { /* suppressed — called after dynamic render */ };
+        return true;
+      }
+      return false;
+    }
+
+    // Try immediately (script is inline, App may already be defined)
+    if (!patchApp()) {
+      // Capture phase (true) fires before all bubble-phase listeners
+      document.addEventListener('DOMContentLoaded', patchApp, true);
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       LOAD MENU FROM API
+    ═══════════════════════════════════════════════════════════════ */
+    function loadMenu() {
+      secureFetch('/openApi/menus/user-menu')
+        .then(function (data) {
+          if (data.success && data.menus && data.menus.items) {
+            var tree = buildTree(data.menus.items);
+            sortTree(tree);
+            renderMenu(tree);
+            highlightActive();
+          } else {
+            showError(data.message || 'Menu data unavailable.');
+          }
+        })
+        .catch(function (err) {
+          console.error('[TopMenu] load failed:', err);
+          showError('Unable to load navigation menu.');
+        });
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       BUILD TREE (flat → nested)
+    ═══════════════════════════════════════════════════════════════ */
+    function buildTree(flat) {
+      var map = {}, roots = [];
+      flat.forEach(function (m) { m._children = []; map[m.id] = m; });
+      flat.forEach(function (m) {
+        if (m.parentMenuId && map[m.parentMenuId]) {
+          map[m.parentMenuId]._children.push(m);
+        } else {
+          roots.push(m);
         }
+      });
+      return roots;
+    }
 
-        /* =========================
-           BUILD TREE (flat to nested)
-        ========================= */
-        function buildMenuTree(flatMenus) {
-            var map = {}, roots = [];
-            flatMenus.forEach(function (m) { m.subMenus = []; map[m.id] = m; });
-            flatMenus.forEach(function (m) {
-                if (m.parentMenuId && map[m.parentMenuId]) {
-                    map[m.parentMenuId].subMenus.push(m);
-                } else {
-                    roots.push(m);
-                }
-            });
-            return roots;
+    /* ═══════════════════════════════════════════════════════════════
+       SORT BY displayOrder
+    ═══════════════════════════════════════════════════════════════ */
+    function sortTree(nodes) {
+      nodes.sort(function (a, b) {
+        return (a.displayOrder || 0) - (b.displayOrder || 0);
+      });
+      nodes.forEach(function (n) {
+        if (n._children.length) sortTree(n._children);
+      });
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       RENDER INTO DOM
+    ═══════════════════════════════════════════════════════════════ */
+    function renderMenu(modules) {
+      var container = document.getElementById('dynamicTopMenu');
+      if (!container) return;
+
+      // Remove loader
+      var loader = document.getElementById('menuLoader');
+      if (loader) loader.remove();
+
+      // Remove old menu items (keep scroll controls)
+      Array.from(container.querySelectorAll(
+        '.menu-item:not(.menu-control)'
+      )).forEach(function (el) { el.remove(); });
+
+      // Insert anchor = first scroll control
+      var anchor = container.querySelector('.menu-control-start');
+
+      modules.forEach(function (mod) {
+        var el = createModuleItem(mod);
+        anchor
+          ? container.insertBefore(el, anchor)
+          : container.appendChild(el);
+      });
+    }
+
+    /* ── MODULE (top-bar level — has submenu) ── */
+    function createModuleItem(mod) {
+      var div = document.createElement('div');
+      div.className = 'menu-item has-sub';
+
+      var a = document.createElement('a');
+      a.href      = 'javascript:;';
+      a.className = 'menu-link';
+      a.innerHTML =
+        '<div class="menu-icon"><i class="' +
+          esc(mod.icon || 'fa fa-th-large') +
+        '"></i></div>' +
+        '<div class="menu-text">' + esc(mod.menuName) + '</div>' +
+        '<div class="menu-caret"></div>';
+      div.appendChild(a);
+
+      if (mod._children.length) {
+        var sub = document.createElement('div');
+        sub.className = 'menu-submenu';
+        mod._children.forEach(function (child) {
+          sub.appendChild(
+            child._children.length
+              ? createGroupItem(child)
+              : createLeafItem(child)
+          );
+        });
+        div.appendChild(sub);
+      }
+
+      return div;
+    }
+
+    /* ── GROUP (submenu header — has further children) ── */
+    function createGroupItem(group) {
+      var div = document.createElement('div');
+      div.className = 'menu-item has-sub';
+
+      var a = document.createElement('a');
+      a.href      = 'javascript:;';
+      a.className = 'menu-link';
+      a.innerHTML =
+        '<div class="menu-icon"><i class="' +
+          esc(group.icon || 'fa fa-folder') +
+        '"></i></div>' +
+        '<div class="menu-text">' + esc(group.menuName) + '</div>' +
+        '<div class="menu-caret"></div>';
+      div.appendChild(a);
+
+      var sub = document.createElement('div');
+      sub.className = 'menu-submenu';
+      group._children.forEach(function (leaf) {
+        sub.appendChild(createLeafItem(leaf));
+      });
+      div.appendChild(sub);
+
+      return div;
+    }
+
+    /* ── LEAF (clickable link) ── */
+    function createLeafItem(menu) {
+      var path    = window.location.pathname;
+      var isActive = menu.menuUrl && (path === menu.menuUrl
+                     || path.startsWith(menu.menuUrl + '/'));
+
+      var div = document.createElement('div');
+      div.className = 'menu-item' + (isActive ? ' active' : '');
+
+      var a = document.createElement('a');
+      a.href      = esc(menu.menuUrl || '#');
+      a.className = 'menu-link';
+      a.target    = menu.target || '_self';
+      a.innerHTML = '<div class="menu-text">' + esc(menu.menuName) + '</div>';
+      div.appendChild(a);
+
+      return div;
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       AUTO-EXPAND path to active leaf
+    ═══════════════════════════════════════════════════════════════ */
+    function highlightActive() {
+      var active = document.querySelector('#dynamicTopMenu .menu-item.active');
+      if (!active) return;
+      var p = active.parentElement;
+      while (p && p.id !== 'dynamicTopMenu') {
+        if (p.classList && p.classList.contains('menu-item')) {
+          p.classList.add('active', 'open');
         }
+        p = p.parentElement;
+      }
 
-        /* =========================
-           SORT by displayOrder
-        ========================= */
-        function sortMenus(menus) {
-            menus.sort(function (a, b) { return (a.displayOrder || 0) - (b.displayOrder || 0); });
-            menus.forEach(function (m) { if (m.subMenus && m.subMenus.length) sortMenus(m.subMenus); });
-        }
+      // Hand off to Color Admin for hover / scroll / overflow handling
+      var init = _realInit ||
+        (typeof App !== 'undefined' && App.initTopMenu);
+      if (typeof init === 'function') {
+        try { init(); } catch (e) { /* ignore */ }
+      }
+    }
 
-        /* =========================
-           RENDER
-        ========================= */
-        function renderTopMenu(modules) {
-            var container = document.getElementById('dynamic-top-menu');
-            if (!container) return;
+    /* ═══════════════════════════════════════════════════════════════
+       ERROR STATE
+    ═══════════════════════════════════════════════════════════════ */
+    function showError(msg) {
+      var loader = document.getElementById('menuLoader');
+      if (loader) {
+        loader.innerHTML =
+          '<span class="text-danger">' +
+          '<i class="fa fa-exclamation-triangle me-1"></i>' +
+          esc(msg) + '</span>';
+      }
+    }
 
-            var loader = document.getElementById('menuLoader');
-            if (loader) loader.remove();
+    /* ═══════════════════════════════════════════════════════════════
+       HTML ESCAPE
+    ═══════════════════════════════════════════════════════════════ */
+    function esc(s) {
+      if (!s) return '';
+      return String(s).replace(/[&<>"']/g, function (c) {
+        return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;' }[c];
+      });
+    }
 
-            container.querySelectorAll('.menu-item:not(.menu-control)').forEach(function (el) { el.remove(); });
+    /* ═══════════════════════════════════════════════════════════════
+       INIT — run after DOM is ready
+    ═══════════════════════════════════════════════════════════════ */
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', loadMenu);
+    } else {
+      loadMenu();
+    }
 
-            var anchor = container.querySelector('.menu-control-start');
-            modules.forEach(function (module) {
-                var el = createModuleMenu(module);
-                anchor ? container.insertBefore(el, anchor) : container.appendChild(el);
-            });
-        }
-
-        /* =========================
-           MODULE (top-bar item)
-        ========================= */
-        function createModuleMenu(module) {
-            var item = document.createElement('div');
-            item.className = 'menu-item has-sub';
-            item.innerHTML =
-                '<a href="javascript:;" class="menu-link">' +
-                '<div class="menu-icon"><i class="' + (module.icon || 'fa fa-layer-group') + '"></i></div>' +
-                '<div class="menu-text">' + escapeHtml(module.menuName) + '</div>' +
-                '<div class="menu-caret"></div>' +
-                '</a><div class="menu-submenu"></div>';
-            var sub = item.querySelector('.menu-submenu');
-            (module.subMenus || []).forEach(function (g) { sub.appendChild(createGroupMenu(g)); });
-            return item;
-        }
-
-        /* =========================
-           GROUP (non-clickable header)
-        ========================= */
-        function createGroupMenu(group) {
-            var item = document.createElement('div');
-            item.className = 'menu-item has-sub';
-            item.innerHTML =
-                '<a href="javascript:;" class="menu-link">' +
-                '<div class="menu-text">' + escapeHtml(group.menuName) + '</div>' +
-                '<div class="menu-caret"></div>' +
-                '</a><div class="menu-submenu"></div>';
-            var sub = item.querySelector('.menu-submenu');
-            (group.subMenus || []).forEach(function (m) { sub.appendChild(createLeafMenu(m)); });
-            return item;
-        }
-
-        /* =========================
-           LEAF (clickable link)
-        ========================= */
-        function createLeafMenu(menu) {
-            var item = document.createElement('div');
-            var isActive = menu.menuUrl && window.location.pathname === menu.menuUrl;
-            item.className = 'menu-item' + (isActive ? ' active' : '');
-            item.innerHTML =
-                '<a href="' + (menu.menuUrl || '#') + '" class="menu-link" target="' + (menu.target || '_self') + '">' +
-                '<div class="menu-text">' + escapeHtml(menu.menuName) + '</div>' +
-                '</a>';
-            return item;
-        }
-
-        /* =========================
-           AUTO-EXPAND ACTIVE PATH
-        ========================= */
-        function expandActiveMenu() {
-            var active = document.querySelector('#dynamic-top-menu .menu-item.active');
-            if (!active) return;
-            var parent = active.parentElement;
-            while (parent && parent.id !== 'dynamic-top-menu') {
-                if (parent.classList && parent.classList.contains('menu-item')) {
-                    parent.classList.add('open');
-                }
-                parent = parent.parentElement;
-            }
-        }
-
-        /* =========================
-           ERROR
-        ========================= */
-        function showTopMenuError(message) {
-            var loader = document.getElementById('menuLoader');
-            if (loader) {
-                loader.innerHTML =
-                    '<div class="alert alert-danger m-3">' +
-                    '<i class="fa fa-exclamation-triangle"></i> ' + escapeHtml(message) +
-                    '</div>';
-            }
-        }
-
-        /* =========================
-           ESCAPE HTML
-        ========================= */
-        function escapeHtml(text) {
-            var map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
-            return text ? text.replace(/[&<>"']/g, function (m) { return map[m]; }) : '';
-        }
-    </script>
+  })();
+  /*]]>*/
+  </script>
 
 </div>
 
