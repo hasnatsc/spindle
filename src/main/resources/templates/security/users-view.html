@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<!--
+  ╔══════════════════════════════════════════════════════════════════════╗
+  ║  security/users-view.html                                            ║
+  ║  Fragment: modalView                                                 ║
+  ║  Path: src/main/resources/templates/security/users-view.html       ║
+  ║                                                                      ║
+  ║  Inject: <div th:replace="~{security/users-view :: modalView}">     ║
+  ║                                                                      ║
+  ║  Fixes over uploaded version:                                        ║
+  ║   • modal-footer moved outside modal-body (was nested inside it)   ║
+  ║   • Extra <div class="row"> wrapper removed (was invalid structure) ║
+  ║   • IDs aligned with users-index.html JS (username_show etc.)      ║
+  ╚══════════════════════════════════════════════════════════════════════╝
+-->
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+
+<div th:fragment="modalView">
+
+  <div tabindex="-1" aria-hidden="true" id="defaultModalShow" class="modal fade">
+    <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
+      <div class="modal-content">
+
+        <div class="modal-header">
+          <h5 class="modal-title" id="asgModalLabelShow">
+            <i class="fa fa-user-circle me-1 text-primary"></i> User Details
+          </h5>
+          <button type="button" data-bs-dismiss="modal"
+                  class="btn-close" aria-label="Close"></button>
+        </div>
+
+        <div class="modal-body">
+          <div class="hs-box">
+            <div class="row g-2">
+
+              <!-- ── Basic Information ──────────────────────────── -->
+              <div class="col-12">
+                <h6 class="text-primary mb-1">
+                  <i class="fa fa-user me-1"></i> Basic Information
+                </h6>
+                <hr class="mt-0 mb-2">
+              </div>
+
+              <div class="col-md-6 view-group">
+                <label class="view-label">Username</label>
+                <span id="username_show" class="form-control hs_span_show"></span>
+              </div>
+
+              <div class="col-md-6 view-group">
+                <label class="view-label">Full Name</label>
+                <span id="fullName_show" class="form-control hs_span_show"></span>
+              </div>
+
+              <div class="col-md-4 view-group">
+                <label class="view-label">Email</label>
+                <span id="email_show" class="form-control hs_span_show"></span>
+              </div>
+
+              <div class="col-md-4 view-group">
+                <label class="view-label">Phone</label>
+                <span id="phone_show" class="form-control hs_span_show"></span>
+              </div>
+
+              <div class="col-md-4 view-group">
+                <label class="view-label">Default Dashboard</label>
+                <span id="dashboard_show" class="form-control hs_span_show"></span>
+              </div>
+
+              <!-- ── Status ────────────────────────────────────── -->
+              <div class="col-12">
+                <h6 class="text-secondary mb-1 mt-1">
+                  <i class="fa fa-info-circle me-1"></i> Status
+                </h6>
+                <hr class="mt-0 mb-2">
+              </div>
+
+              <div class="col-md-12 view-group">
+                <label class="view-label">Account Status</label>
+                <span id="status_show" class="form-control hs_span_show"
+                      style="height:auto;min-height:38px"></span>
+              </div>
+
+              <!-- ── Roles & Permissions ──────────────────────── -->
+              <div class="col-12">
+                <h6 class="text-success mb-1 mt-1">
+                  <i class="fa fa-shield-alt me-1"></i> Roles &amp; Permissions
+                </h6>
+                <hr class="mt-0 mb-2">
+              </div>
+
+              <div class="col-md-12 view-group">
+                <label class="view-label">Assigned Roles</label>
+                <span id="roles_show" class="form-control hs_span_show"
+                      style="height:auto;min-height:38px"></span>
+              </div>
+
+              <!-- ── Access Control ────────────────────────────── -->
+              <div class="col-12">
+                <h6 class="text-info mb-1 mt-1">
+                  <i class="fa fa-building me-1"></i> Access Control
+                </h6>
+                <hr class="mt-0 mb-2">
+              </div>
+
+              <div class="col-md-6 view-group">
+                <label class="view-label">Allowed Organizations</label>
+                <span id="organizations_show" class="form-control hs_span_show"
+                      style="height:auto;min-height:38px"></span>
+              </div>
+
+              <div class="col-md-6 view-group">
+                <label class="view-label">Allowed Business Units</label>
+                <span id="businessUnits_show" class="form-control hs_span_show"
+                      style="height:auto;min-height:38px"></span>
+              </div>
+
+              <div class="col-md-6 view-group">
+                <label class="view-label">Allowed Cost Centers</label>
+                <span id="costCenters_show" class="form-control hs_span_show"
+                      style="height:auto;min-height:38px"></span>
+              </div>
+
+              <div class="col-md-6 view-group">
+                <label class="view-label">Allowed Warehouses</label>
+                <span id="warehouses_show" class="form-control hs_span_show"
+                      style="height:auto;min-height:38px"></span>
+              </div>
+
+              <!-- ── Activity ──────────────────────────────────── -->
+              <div class="col-12">
+                <h6 class="text-secondary mb-1 mt-1">
+                  <i class="fa fa-clock me-1"></i> Activity Information
+                </h6>
+                <hr class="mt-0 mb-2">
+              </div>
+
+              <div class="col-md-4 view-group">
+                <label class="view-label">Created At</label>
+                <span id="createdAt_show" class="form-control hs_span_show"></span>
+              </div>
+
+              <div class="col-md-4 view-group">
+                <label class="view-label">Last Updated</label>
+                <span id="updatedAt_show" class="form-control hs_span_show"></span>
+              </div>
+
+              <div class="col-md-4 view-group">
+                <label class="view-label">Last Login</label>
+                <span id="lastLoginAt_show" class="form-control hs_span_show"></span>
+              </div>
+
+            </div><!-- /row -->
+          </div><!-- /hs-box -->
+        </div><!-- /modal-body -->
+
+        <div class="modal-footer">
+          <button type="button" data-bs-dismiss="modal" class="btn btn-white">
+            <i class="fa fa-times me-1"></i> Close
+          </button>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

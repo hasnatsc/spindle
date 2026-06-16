@@ -1,1325 +1,282 @@
 <!DOCTYPE html>
 <!--
   ╔══════════════════════════════════════════════════════════════════════╗
-  ║  security/users-index.html                                            ║
-  ║  Extends : layout/base                                               ║
-  ║  Fragments used:                                                      ║
-  ║    fragments/head          :: commonHead                             ║
-  ║    fragments/topMenuHeader :: topMenuHeader                          ║
-  ║    fragments/topMenu       :: topMenu                                ║
-  ║    fragments/breadcrumb    :: pageHeader                             ║
-  ║  Controller : UserController  GET /users                            ║
-  ║  Permission : PERM_USER_VIEW                                        ║
+  ║  security/users-index.html                                           ║
+  ║  Path  : src/main/resources/templates/security/users-index.html    ║
+  ║  Extends: layout/base                                               ║
+  ║  URL   : GET /users                                                 ║
+  ║                                                                      ║
+  ║  Fixes over uploaded version:                                        ║
+  ║   • Removed raw <head>/<body> — now extends layout/base            ║
+  ║   • Removed duplicate "Email" column in DataTable header/columns   ║
+  ║   • dataEdit/dataShow/changePassword: uses                          ║
+  ║     bootstrap.Modal.getOrCreateInstance() (not new bootstrap.Modal) ║
+  ║   • confirmAndExecute calls now pass the DT instance (dataTables)  ║
+  ║     not the raw DOM element (dataTable)                              ║
+  ║   • dataShow: removed console.log, used template literals          ║
+  ║   • changePassword: uses getOrCreateInstance                        ║
   ╚══════════════════════════════════════════════════════════════════════╝
 -->
-<html th:replace="~{layout/base :: layout('User Management', ~{::section})}"
+<html th:replace="~{layout/base :: layout('Users Management', ~{::section})}"
       xmlns:th="http://www.thymeleaf.org"
       xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 
-<!-- ── Page-level extra CSS ──────────────────────────────────────────── -->
-<th:block th:fragment="extraHead">
-  <style>
-    /* ════════════════════════════════════════════════════════════════
-       USER MANAGEMENT — page-scoped styles
-       All selectors prefixed with .um- to avoid conflicts with
-       Color Admin and application.css
-    ════════════════════════════════════════════════════════════════ */
-
-    /* ── Stat summary bar ─────────────────────────────────────────── */
-    .um-stats {
-      display: flex;
-      gap: 12px;
-      flex-wrap: wrap;
-      margin-bottom: 18px;
-    }
-
-    .um-stat {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      background: var(--bs-body-bg, #fff);
-      border: 1px solid rgba(0,0,0,.08);
-      border-radius: 8px;
-      padding: 10px 16px;
-      min-width: 130px;
-      box-shadow: 0 1px 4px rgba(0,0,0,.06);
-    }
-
-    .um-stat-icon {
-      width: 36px;
-      height: 36px;
-      border-radius: 8px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 16px;
-      flex-shrink: 0;
-    }
-
-    .um-stat-body {}
-
-    .um-stat-num {
-      font-size: 1.25rem;
-      font-weight: 700;
-      line-height: 1.1;
-    }
-
-    .um-stat-lbl {
-      font-size: 10.5px;
-      color: #6c757d;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-    }
-
-    /* ── User-cell in DataTable ───────────────────────────────────── */
-    .um-user-cell {
-      display: flex;
-      align-items: center;
-      gap: 9px;
-    }
-
-    .um-avatar {
-      width: 32px;
-      height: 32px;
-      border-radius: 50%;
-      background: linear-gradient(135deg, #0dcaf0, #6610f2);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 11px;
-      font-weight: 800;
-      color: #fff;
-      flex-shrink: 0;
-      text-transform: uppercase;
-    }
-
-    .um-username {
-      font-weight: 700;
-      font-size: 13px;
-      line-height: 1.2;
-    }
-
-    .um-fullname {
-      font-size: 11px;
-      color: #6c757d;
-    }
-
-    /* ── Badges ───────────────────────────────────────────────────── */
-    .um-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      padding: 3px 10px;
-      border-radius: 99px;
-      font-size: 11px;
-      font-weight: 700;
-      white-space: nowrap;
-    }
-
-    .um-badge-active   { background: rgba(25,135,84,.12);  color: #198754; border: 1px solid rgba(25,135,84,.2); }
-    .um-badge-disabled { background: rgba(220,53,69,.10);  color: #dc3545; border: 1px solid rgba(220,53,69,.18); }
-    .um-badge-role     { background: rgba(13,110,253,.10); color: #0d6efd; border: 1px solid rgba(13,110,253,.18); font-size: 10px; padding: 2px 7px; margin: 1px 2px; }
-    .um-badge-norole   { background: rgba(108,117,125,.1); color: #6c757d; font-size: 10px; padding: 2px 7px; }
-
-    /* ── Action button row ────────────────────────────────────────── */
-    .um-actions {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 4px;
-      flex-wrap: nowrap;
-    }
-
-    .um-btn {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      width: 30px;
-      height: 30px;
-      border-radius: 6px;
-      border: 1px solid #dee2e6;
-      background: transparent;
-      cursor: pointer;
-      font-size: 12px;
-      color: #6c757d;
-      transition: all .16s;
-      text-decoration: none;
-      padding: 0;
-    }
-
-    .um-btn:hover { text-decoration: none; }
-
-    .um-btn-view:hover  { border-color: #0dcaf0; color: #0dcaf0; background: rgba(13,202,240,.08); }
-    .um-btn-edit:hover  { border-color: #ffc107; color: #b07800; background: rgba(255,193,7,.10); }
-    .um-btn-tog:hover   { border-color: #20c997; color: #0a7a5c; background: rgba(32,201,151,.10); }
-    .um-btn-pwd:hover   { border-color: #6f42c1; color: #6f42c1; background: rgba(111,66,193,.10); }
-    .um-btn-del:hover   { border-color: #dc3545; color: #dc3545; background: rgba(220,53,69,.08); }
-
-    /* ── Modal section dividers ───────────────────────────────────── */
-    .um-section {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 10.5px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: .1em;
-      margin: 16px 0 12px;
-    }
-
-    .um-section::after {
-      content: '';
-      flex: 1;
-      height: 1px;
-      background: #dee2e6;
-    }
-
-    /* ── Float-label inputs ───────────────────────────────────────── */
-    .um-field { margin-bottom: 14px; }
-
-    .um-label {
-      font-size: 10.5px;
-      font-weight: 700;
-      color: #6c757d;
-      text-transform: uppercase;
-      letter-spacing: .07em;
-      display: block;
-      margin-bottom: 4px;
-    }
-
-    .um-required { color: #dc3545; margin-left: 2px; }
-
-    /* ── Flag toggle cards ────────────────────────────────────────── */
-    .um-flags {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 10px;
-    }
-
-    @media (min-width: 576px) {
-      .um-flags { grid-template-columns: repeat(4, 1fr); }
-    }
-
-    .um-flag-card {
-      position: relative;
-      background: #f8f9fa;
-      border: 1.5px solid #dee2e6;
-      border-radius: 8px;
-      padding: 10px 12px;
-      cursor: pointer;
-      transition: border-color .18s, background .18s;
-      user-select: none;
-    }
-
-    .um-flag-card input { display: none; }
-
-    .um-flag-card.on {
-      border-color: #198754;
-      background: rgba(25,135,84,.05);
-    }
-
-    .um-flag-icon { font-size: 16px; margin-bottom: 3px; }
-    .um-flag-name { font-size: 11.5px; font-weight: 700; color: #212529; }
-    .um-flag-hint { font-size: 10px; color: #6c757d; }
-    .um-flag-chk  {
-      position: absolute;
-      top: 8px; right: 8px;
-      width: 16px; height: 16px;
-      border-radius: 50%;
-      border: 2px solid #dee2e6;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 8px; color: #fff;
-      transition: all .18s;
-    }
-    .um-flag-card.on .um-flag-chk {
-      background: #198754;
-      border-color: #198754;
-    }
-
-    /* ── View modal read-only field ───────────────────────────────── */
-    .um-show {
-      display: block;
-      padding: 8px 12px;
-      background: #f8f9fa;
-      border: 1px solid #dee2e6;
-      border-radius: 6px;
-      font-size: 13px;
-      min-height: 38px;
-      word-break: break-all;
-    }
-
-    .um-show.auto { height: auto; min-height: 38px; }
-
-    /* ── Password strength bar ────────────────────────────────────── */
-    .um-strength-bars {
-      display: flex;
-      gap: 4px;
-      margin-top: 6px;
-    }
-
-    .um-sbar {
-      flex: 1;
-      height: 3px;
-      border-radius: 2px;
-      background: #dee2e6;
-      transition: background .3s;
-    }
-
-    /* ── View modal avatar header ─────────────────────────────────── */
-    .um-view-header {
-      display: flex;
-      align-items: center;
-      gap: 14px;
-      background: #f8f9fa;
-      border: 1px solid #dee2e6;
-      border-radius: 10px;
-      padding: 16px 18px;
-      margin-bottom: 16px;
-    }
-
-    .um-view-av {
-      width: 50px;
-      height: 50px;
-      border-radius: 50%;
-      background: linear-gradient(135deg, #0dcaf0, #6610f2);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 18px;
-      font-weight: 800;
-      color: #fff;
-      flex-shrink: 0;
-      text-transform: uppercase;
-    }
-
-    .um-view-name  { font-size: 16px; font-weight: 700; }
-    .um-view-uname { font-size: 12px; color: #6c757d; }
-
-    /* ── Info alert box ───────────────────────────────────────────── */
-    .um-info-box {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      background: rgba(13,202,240,.08);
-      border: 1px solid rgba(13,202,240,.25);
-      border-radius: 7px;
-      padding: 10px 14px;
-      font-size: 12.5px;
-      color: #0a6075;
-      margin-bottom: 16px;
-    }
-  </style>
-</th:block>
-
-<!-- ── Main section (injected into layout/base) ──────────────────────── -->
 <section>
 
-  <!-- ── Breadcrumb ─────────────────────────────────────────────────── -->
-  <div th:replace="~{fragments/breadcrumb
-       :: pageHeader('Security', 'User Management',
-          'Create users, assign roles and manage system access')}">
-  </div>
+  <!-- Breadcrumb -->
+  <ol class="breadcrumb float-xl-end">
+    <li class="breadcrumb-item"><a th:href="@{/dashboard}">Home</a></li>
+    <li class="breadcrumb-item">Security</li>
+    <li class="breadcrumb-item active">Users</li>
+  </ol>
+  <h1 class="page-header">Users Management <small>manage system users and access</small></h1>
 
-  <!-- ── Stat summary ───────────────────────────────────────────────── -->
-  <div class="um-stats">
-    <div class="um-stat">
-      <div class="um-stat-icon bg-primary bg-opacity-10">
-        <i class="fa fa-users text-primary"></i>
-      </div>
-      <div class="um-stat-body">
-        <div class="um-stat-num text-primary" id="statTotal">—</div>
-        <div class="um-stat-lbl">Total Users</div>
-      </div>
-    </div>
-    <div class="um-stat">
-      <div class="um-stat-icon bg-success bg-opacity-10">
-        <i class="fa fa-check-circle text-success"></i>
-      </div>
-      <div class="um-stat-body">
-        <div class="um-stat-num text-success" id="statActive">—</div>
-        <div class="um-stat-lbl">Active</div>
-      </div>
-    </div>
-    <div class="um-stat">
-      <div class="um-stat-icon bg-danger bg-opacity-10">
-        <i class="fa fa-ban text-danger"></i>
-      </div>
-      <div class="um-stat-body">
-        <div class="um-stat-num text-danger" id="statDisabled">—</div>
-        <div class="um-stat-lbl">Disabled</div>
-      </div>
-    </div>
-    <div class="um-stat">
-      <div class="um-stat-icon bg-info bg-opacity-10">
-        <i class="fa fa-shield-alt text-info"></i>
-      </div>
-      <div class="um-stat-body">
-        <div class="um-stat-num text-info" id="statWithRoles">—</div>
-        <div class="um-stat-lbl">With Roles</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ── Panel ─────────────────────────────────────────────────────── -->
   <div class="panel panel-inverse">
+
+    <!-- Panel heading -->
     <div class="panel-heading">
-      <div class="panel-title d-flex align-items-center gap-2">
-        <i class="fa fa-users me-1"></i> All System Users
+      <div class="panel-title">
+        <a href="javascript:;" onclick="userOpenCreate()">
+          <span class="badge btn btn-outline-success">
+            <i class="fa fa-user-plus me-1"></i> Create User
+          </span>
+        </a>
       </div>
-      <div class="panel-heading-btn d-flex align-items-center gap-2">
-        <!-- NEW USER button — permission-guarded -->
-        <button type="button" class="btn btn-sm btn-success"
-                onclick="userOpenCreate()"
-                sec:authorize="hasAuthority('PERM_USER_CREATE')"
-                title="Create new user">
-          <i class="fa fa-user-plus me-1"></i> New User
-        </button>
-        <!-- Color Admin panel controls -->
-        <a href="javascript:;" class="btn btn-sm btn-icon btn-default"
-           data-toggle="panel-expand" title="Expand">
+      <div class="panel-heading-btn">
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-default" data-toggle="panel-expand">
           <i class="fa fa-expand"></i>
         </a>
-        <a href="javascript:;" class="btn btn-sm btn-icon btn-success"
-           data-toggle="panel-reload" title="Reload">
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-success" data-toggle="panel-reload">
           <i class="fa fa-redo"></i>
         </a>
-        <a href="javascript:;" class="btn btn-sm btn-icon btn-warning"
-           data-toggle="panel-collapse" title="Collapse">
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-warning" data-toggle="panel-collapse">
           <i class="fa fa-minus"></i>
         </a>
       </div>
-    </div><!-- /panel-heading -->
+    </div>
 
+    <!-- Panel body — DataTable -->
     <div class="panel-body">
-      <table id="userTable" class="table table-striped table-bordered
-             align-middle text-nowrap" style="width:100%">
+      <table id="defaultTable" width="100%"
+             class="table table-striped table-bordered align-middle text-nowrap">
         <thead>
           <tr>
-            <th style="width:44px" class="text-center">#</th>
-            <th>User</th>
+            <th width="1%">SL</th>
+            <th>Username</th>
+            <th>Full Name</th>
             <th>Email</th>
             <th>Phone</th>
             <th>Roles</th>
-            <th class="text-center" style="width:100px">Status</th>
-            <th style="width:110px">Created</th>
-            <th class="text-center" style="width:170px">Actions</th>
+            <th class="text-center" width="8%">Status</th>
+            <th>Created At</th>
+            <th class="text-center" width="10%">Actions</th>
           </tr>
         </thead>
         <tbody></tbody>
       </table>
-    </div><!-- /panel-body -->
+    </div>
+
+    <!-- Modal fragments -->
+    <div th:replace="~{security/users-form     :: modalForm}"></div>
+    <div th:replace="~{security/users-view     :: modalView}"></div>
+    <div th:replace="~{security/users-password :: passwordModal}"></div>
+
   </div><!-- /panel -->
 
-
-  <!-- ════════════════════════════════════════════════════════════════
-       MODAL 1 — CREATE / EDIT USER
-  ════════════════════════════════════════════════════════════════ -->
-  <div class="modal fade" id="userModal" tabindex="-1" aria-modal="true">
-    <div class="modal-dialog modal-dialog-centered modal-lg
-                modal-dialog-scrollable">
-      <div class="modal-content">
-
-        <div class="modal-header">
-          <h5 class="modal-title" id="uModalLabel">
-            <i class="fa fa-user-plus me-2 text-success"></i>Create User
-          </h5>
-          <button type="button" class="btn-close"
-                  data-bs-dismiss="modal"></button>
-        </div>
-
-        <form id="userForm" novalidate autocomplete="off">
-          <div class="modal-body px-4 py-3">
-            <input type="hidden" id="uId">
-
-            <!-- §1 Basic Information -->
-            <div class="um-section" style="color:#0dcaf0">
-              <i class="fa fa-user"></i> Basic Information
-            </div>
-
-            <div class="row g-3">
-              <div class="col-md-6">
-                <div class="um-field">
-                  <label class="um-label">
-                    Username <span class="um-required">*</span>
-                  </label>
-                  <input id="uUsername" type="text"
-                         class="form-control form-control-sm"
-                         placeholder="e.g. john.doe" required>
-                </div>
-              </div>
-              <div class="col-md-6">
-                <div class="um-field">
-                  <label class="um-label">Full Name</label>
-                  <input id="uFullName" type="text"
-                         class="form-control form-control-sm"
-                         placeholder="Full display name">
-                </div>
-              </div>
-              <div class="col-md-5">
-                <div class="um-field">
-                  <label class="um-label">
-                    Email <span class="um-required">*</span>
-                  </label>
-                  <input id="uEmail" type="email"
-                         class="form-control form-control-sm"
-                         placeholder="user@company.com" required>
-                </div>
-              </div>
-              <div class="col-md-4">
-                <div class="um-field">
-                  <label class="um-label">Phone</label>
-                  <input id="uPhone" type="text"
-                         class="form-control form-control-sm"
-                         placeholder="01XXXXXXXXX">
-                </div>
-              </div>
-              <div class="col-md-3">
-                <div class="um-field">
-                  <label class="um-label">Default Dashboard</label>
-                  <select id="uDefaultDashboard"
-                          class="form-select form-select-sm">
-                    <option value="DEFAULT">Default</option>
-                    <option value="ACCOUNTS">Accounts</option>
-                    <option value="INVENTORY">Inventory</option>
-                    <option value="PRODUCTION">Production</option>
-                    <option value="SALES">Sales</option>
-                    <option value="PURCHASE">Purchase</option>
-                    <option value="HRM">HRM</option>
-                    <option value="COMMERCIAL">Commercial</option>
-                    <option value="FINANCE">Finance</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-
-            <!-- §2 Password (visible on create, hidden on edit) -->
-            <div id="uPasswordSection">
-              <div class="um-section" style="color:#ffc107">
-                <i class="fa fa-lock"></i> Password
-              </div>
-              <div class="row g-3">
-                <div class="col-md-6">
-                  <div class="um-field">
-                    <label class="um-label">
-                      Password <span class="um-required">*</span>
-                    </label>
-                    <input id="uPassword" type="password"
-                           class="form-control form-control-sm"
-                           placeholder="Min. 8 characters"
-                           autocomplete="new-password">
-                  </div>
-                </div>
-                <div class="col-md-6">
-                  <div class="um-field">
-                    <label class="um-label">
-                      Confirm Password <span class="um-required">*</span>
-                    </label>
-                    <input id="uConfirmPassword" type="password"
-                           class="form-control form-control-sm"
-                           placeholder="Repeat password"
-                           autocomplete="new-password">
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- §3 Roles -->
-            <div class="um-section" style="color:#198754">
-              <i class="fa fa-shield-alt"></i> Roles &amp; Permissions
-            </div>
-            <div class="um-field">
-              <label class="um-label">Assign Roles</label>
-              <select id="uRoleIds" class="form-control form-control-sm"
-                      multiple style="width:100%"></select>
-              <div class="form-text mt-1">
-                Roles determine which modules and actions this user
-                can access.
-              </div>
-            </div>
-
-            <!-- §4 Account Flags -->
-            <div class="um-section" style="color:#6c757d">
-              <i class="fa fa-sliders-h"></i> Account Flags
-            </div>
-            <div class="um-flags">
-
-              <label class="um-flag-card on" id="fcEnabled"
-                     for="uEnabled">
-                <div class="um-flag-chk" id="fcEnabledChk">✓</div>
-                <div class="um-flag-icon">✅</div>
-                <div class="um-flag-name">Active</div>
-                <div class="um-flag-hint">User can log in</div>
-                <input type="checkbox" id="uEnabled" checked>
-              </label>
-
-              <label class="um-flag-card on" id="fcLocked"
-                     for="uAccountNonLocked">
-                <div class="um-flag-chk" id="fcLockedChk">✓</div>
-                <div class="um-flag-icon">🔓</div>
-                <div class="um-flag-name">Not Locked</div>
-                <div class="um-flag-hint">Account unlocked</div>
-                <input type="checkbox" id="uAccountNonLocked" checked>
-              </label>
-
-              <label class="um-flag-card on" id="fcExpired"
-                     for="uAccountNonExpired">
-                <div class="um-flag-chk" id="fcExpiredChk">✓</div>
-                <div class="um-flag-icon">📅</div>
-                <div class="um-flag-name">Not Expired</div>
-                <div class="um-flag-hint">Account is valid</div>
-                <input type="checkbox" id="uAccountNonExpired" checked>
-              </label>
-
-              <label class="um-flag-card on" id="fcCreds"
-                     for="uCredentialsNonExpired">
-                <div class="um-flag-chk" id="fcCredsChk">✓</div>
-                <div class="um-flag-icon">🔑</div>
-                <div class="um-flag-name">Creds Valid</div>
-                <div class="um-flag-hint">Password not expired</div>
-                <input type="checkbox" id="uCredentialsNonExpired" checked>
-              </label>
-
-            </div><!-- /um-flags -->
-
-          </div><!-- /modal-body -->
-
-          <div class="modal-footer">
-            <button type="button" class="btn btn-white"
-                    data-bs-dismiss="modal">
-              <i class="fa fa-times me-1"></i>Cancel
-            </button>
-            <button type="submit" class="btn btn-success"
-                    id="uSubmitBtn">
-              <span class="spinner-border spinner-border-sm me-2 d-none"
-                    id="uSpinner"></span>
-              <i class="fa fa-save me-1" id="uSubmitIcon"></i>
-              <span id="uBtnText">Save User</span>
-            </button>
-          </div>
-        </form>
-
-      </div>
-    </div>
-  </div>
-  <!-- END modal 1 -->
-
-
-  <!-- ════════════════════════════════════════════════════════════════
-       MODAL 2 — VIEW USER DETAILS
-  ════════════════════════════════════════════════════════════════ -->
-  <div class="modal fade" id="userViewModal" tabindex="-1" aria-modal="true">
-    <div class="modal-dialog modal-dialog-centered modal-lg
-                modal-dialog-scrollable">
-      <div class="modal-content">
-
-        <div class="modal-header">
-          <h5 class="modal-title">
-            <i class="fa fa-user-circle me-2 text-primary"></i>
-            User Details
-          </h5>
-          <button type="button" class="btn-close"
-                  data-bs-dismiss="modal"></button>
-        </div>
-
-        <div class="modal-body px-4 py-3">
-
-          <!-- Avatar card -->
-          <div class="um-view-header">
-            <div class="um-view-av" id="uvAvatar">??</div>
-            <div>
-              <div class="um-view-name"  id="uvFullNameH">—</div>
-              <div class="um-view-uname" id="uvUsernameH">@—</div>
-            </div>
-            <div class="ms-auto" id="uvStatusBadge"></div>
-          </div>
-
-          <!-- Basic -->
-          <div class="um-section" style="color:#0dcaf0">
-            <i class="fa fa-user"></i> Basic Information
-          </div>
-          <div class="row g-3">
-            <div class="col-md-6 um-field">
-              <label class="um-label">Username</label>
-              <span class="um-show" id="uv_username">—</span>
-            </div>
-            <div class="col-md-6 um-field">
-              <label class="um-label">Full Name</label>
-              <span class="um-show" id="uv_fullName">—</span>
-            </div>
-            <div class="col-md-5 um-field">
-              <label class="um-label">Email</label>
-              <span class="um-show" id="uv_email">—</span>
-            </div>
-            <div class="col-md-4 um-field">
-              <label class="um-label">Phone</label>
-              <span class="um-show" id="uv_phone">—</span>
-            </div>
-            <div class="col-md-3 um-field">
-              <label class="um-label">Default Dashboard</label>
-              <span class="um-show" id="uv_dashboard">—</span>
-            </div>
-          </div>
-
-          <!-- Roles -->
-          <div class="um-section" style="color:#198754">
-            <i class="fa fa-shield-alt"></i> Assigned Roles
-          </div>
-          <div class="um-field">
-            <span class="um-show auto" id="uv_roles">—</span>
-          </div>
-
-          <!-- Activity -->
-          <div class="um-section" style="color:#0dcaf0">
-            <i class="fa fa-clock"></i> Activity
-          </div>
-          <div class="row g-3">
-            <div class="col-md-4 um-field">
-              <label class="um-label">Created At</label>
-              <span class="um-show" id="uv_createdAt">—</span>
-            </div>
-            <div class="col-md-4 um-field">
-              <label class="um-label">Last Updated</label>
-              <span class="um-show" id="uv_updatedAt">—</span>
-            </div>
-            <div class="col-md-4 um-field">
-              <label class="um-label">Last Login</label>
-              <span class="um-show" id="uv_lastLogin">—</span>
-            </div>
-          </div>
-
-        </div><!-- /modal-body -->
-
-        <div class="modal-footer">
-          <button type="button" class="btn btn-white"
-                  data-bs-dismiss="modal">
-            <i class="fa fa-times me-1"></i>Close
-          </button>
-          <button type="button" class="btn btn-warning"
-                  id="uvEditBtn"
-                  onclick="$('#userViewModal').modal('hide');
-                           setTimeout(()=>userEdit(_viewId),250)">
-            <i class="fa fa-pencil-alt me-1"></i>Edit User
-          </button>
-        </div>
-
-      </div>
-    </div>
-  </div>
-  <!-- END modal 2 -->
-
-
-  <!-- ════════════════════════════════════════════════════════════════
-       MODAL 3 — CHANGE PASSWORD
-  ════════════════════════════════════════════════════════════════ -->
-  <div class="modal fade" id="passwordModal" tabindex="-1" aria-modal="true">
-    <div class="modal-dialog modal-dialog-centered"
-         style="max-width:420px">
-      <div class="modal-content">
-
-        <div class="modal-header">
-          <h5 class="modal-title">
-            <i class="fa fa-key me-2 text-purple"></i>
-            Change Password
-          </h5>
-          <button type="button" class="btn-close"
-                  data-bs-dismiss="modal"></button>
-        </div>
-
-        <form id="passwordForm" novalidate autocomplete="off">
-          <div class="modal-body px-4 py-3">
-            <input type="hidden" id="pwdUserId">
-
-            <div class="um-info-box mb-3">
-              <i class="fa fa-info-circle"></i>
-              Password must be at least <strong>8 characters</strong>.
-            </div>
-
-            <div class="um-field">
-              <label class="um-label">
-                New Password <span class="um-required">*</span>
-              </label>
-              <input type="password" id="pwdNewPassword"
-                     class="form-control form-control-sm"
-                     placeholder="Enter new password"
-                     autocomplete="new-password">
-              <!-- Strength bars -->
-              <div class="um-strength-bars mt-2">
-                <div class="um-sbar" id="sb1"></div>
-                <div class="um-sbar" id="sb2"></div>
-                <div class="um-sbar" id="sb3"></div>
-                <div class="um-sbar" id="sb4"></div>
-              </div>
-              <div class="form-text mt-1" id="pwdStrengthLbl">
-                Enter a password to check its strength.
-              </div>
-            </div>
-
-            <div class="um-field">
-              <label class="um-label">
-                Confirm Password <span class="um-required">*</span>
-              </label>
-              <input type="password" id="pwdConfirmPassword"
-                     class="form-control form-control-sm"
-                     placeholder="Repeat new password"
-                     autocomplete="new-password">
-            </div>
-
-          </div><!-- /modal-body -->
-
-          <div class="modal-footer">
-            <button type="button" class="btn btn-white"
-                    data-bs-dismiss="modal">
-              <i class="fa fa-times me-1"></i>Cancel
-            </button>
-            <button type="submit" class="btn btn-theme"
-                    id="pwdSubmitBtn">
-              <span class="spinner-border spinner-border-sm me-2 d-none"
-                    id="pwdSpinner"></span>
-              <i class="fa fa-key me-1"></i>
-              <span id="pwdBtnText">Change Password</span>
-            </button>
-          </div>
-        </form>
-
-      </div>
-    </div>
-  </div>
-  <!-- END modal 3 -->
-
-
-  <!-- ════════════════════════════════════════════════════════════════
-       PAGE JAVASCRIPT
-  ════════════════════════════════════════════════════════════════ -->
+  <!-- ══ PAGE SCRIPT ══════════════════════════════════════════════════ -->
   <script>
-  /* ═══════════════════════════════════════════════════════════════
-     USER MANAGEMENT — page script
-     Dependencies (loaded by fragments/head):
-       • jQuery, Bootstrap 5, DataTables, Select2, SweetAlert2
-       • application.js  (secureFetch, confirmAndExecute,
-                          submitWithSecureFetch, hsDisableButton,
-                          hsEnableButton, hsAfterSaveMessages)
-  ═══════════════════════════════════════════════════════════════ */
-  'use strict';
+  (function () {
+    'use strict';
 
-  /* ── Module state ──────────────────────────────────────────── */
-  var userDT  = null;
-  var _viewId = null;
+    /* ── State ──────────────────────────────────────────────────────── */
+    var dataTables; // DataTable API instance — used by form fragment too
 
-  /* ══════════════════════════════════════════════════════════════
-     DATATABLE INIT
-  ══════════════════════════════════════════════════════════════ */
-  $(document).ready(function () {
+    /* ── DataTable init ─────────────────────────────────────────────── */
+    document.addEventListener('DOMContentLoaded', function () {
 
-    userDT = $('#userTable').DataTable({
-      processing : true,
-      serverSide : true,
-      responsive : false,
-      pageLength : 25,
-      lengthMenu : [[10, 25, 50, 100], [10, 25, 50, 100]],
-      order      : [[0, 'asc']],
-
-      ajax: {
-        url : '/users/list',
-        type: 'GET',
-        dataSrc: function (json) {
-          /* update stat pills from DataTables totals */
-          setEl('statTotal', json.recordsTotal || 0);
-          return json.data || [];
+      dataTables = $('#defaultTable').DataTable({
+        processing : true,
+        serverSide : true,
+        responsive : true,
+        pageLength : 25,
+        ajax: { url: '/users/list', type: 'GET' },
+        columns: [
+          { data: 'sl',         orderable: false, width: '40px' },
+          { data: 'username'   },
+          { data: 'full_name'  },
+          { data: 'email'      },
+          { data: 'phone'      },
+          { data: 'roles',     orderable: false },
+          { data: 'status',    orderable: false, className: 'text-center' },
+          { data: 'created_at'},
+          { data: 'actions',   orderable: false, className: 'text-center' }
+        ],
+        language: {
+          emptyTable : 'No users found.',
+          zeroRecords: 'No users matched the search.',
+          processing : '<span class="spinner-border spinner-border-sm me-2"></span> Loading…'
         }
-      },
-
-      columns: [
-        /* # */
-        {
-          data: 'sl', orderable: false,
-          className: 'text-center',
-          render: function (d) {
-            return '<span class="text-muted fs-11px">' + d + '</span>';
-          }
-        },
-        /* User (avatar + username + full name) */
-        {
-          data: 'username',
-          render: function (d, type, row) {
-            var init = d ? d.substring(0, 2).toUpperCase() : '??';
-            var fn   = (row.full_name && row.full_name !== '—')
-                       ? row.full_name : '';
-            return '<div class="um-user-cell">'
-              + '<div class="um-avatar">' + esc(init) + '</div>'
-              + '<div>'
-              +   '<div class="um-username">' + esc(d) + '</div>'
-              +   (fn ? '<div class="um-fullname">' + esc(fn) + '</div>' : '')
-              + '</div></div>';
-          }
-        },
-        /* Email */
-        {
-          data: 'email',
-          render: function (d) {
-            return '<span class="text-muted fs-12px">' + esc(d || '—') + '</span>';
-          }
-        },
-        /* Phone */
-        {
-          data: 'phone',
-          render: function (d) {
-            return '<span class="text-muted fs-12px">' + esc(d || '—') + '</span>';
-          }
-        },
-        /* Roles */
-        {
-          data: 'roles', orderable: false,
-          render: function (d) {
-            if (!d || d.indexOf('No Role') !== -1) {
-              return '<span class="um-badge um-badge-norole">No Roles</span>';
-            }
-            /* strip server-rendered HTML, rebuild with um-badge-role */
-            var tmp = document.createElement('div');
-            tmp.innerHTML = d;
-            var texts = Array.from(tmp.querySelectorAll('span'))
-                             .map(function (s) {
-                               return s.textContent.replace('ROLE_', '').trim();
-                             })
-                             .filter(Boolean);
-            if (!texts.length) {
-              return '<span class="um-badge um-badge-norole">No Roles</span>';
-            }
-            return texts.map(function (t) {
-              return '<span class="um-badge um-badge-role">' + esc(t) + '</span>';
-            }).join('');
-          }
-        },
-        /* Status */
-        {
-          data: 'status', orderable: false,
-          className: 'text-center',
-          render: function (d) {
-            var active = d && d.indexOf('Active') !== -1;
-            return active
-              ? '<span class="um-badge um-badge-active">'
-                  + '<i class="fa fa-circle" style="font-size:6px"></i> Active</span>'
-              : '<span class="um-badge um-badge-disabled">'
-                  + '<i class="fa fa-circle" style="font-size:6px"></i> Disabled</span>';
-          }
-        },
-        /* Created */
-        {
-          data: 'created_at',
-          render: function (d) {
-            return '<span class="text-muted fs-11px">' + esc(d || '—') + '</span>';
-          }
-        },
-        /* Actions */
-        {
-          data: 'actions', orderable: false,
-          className: 'text-center',
-          render: function (d) {
-            /* Extract ID from server-rendered HTML */
-            var m  = d ? d.match(/userShow\((\d+)\)/) : null;
-            var id = m ? m[1] : null;
-            if (!id) return d; /* fallback: return raw server HTML */
-
-            return '<div class="um-actions">'
-
-              /* View */
-              + '<button class="um-btn um-btn-view" title="View details"'
-              +   ' onclick="userShow(' + id + ')">'
-              +   '<i class="fa fa-eye"></i></button>'
-
-              /* Edit */
-              + '<button class="um-btn um-btn-edit" title="Edit user"'
-              +   ' onclick="userEdit(' + id + ')">'
-              +   '<i class="fa fa-pencil-alt"></i></button>'
-
-              /* Toggle status */
-              + '<button class="um-btn um-btn-tog" title="Toggle status"'
-              +   ' onclick="userToggle(' + id + ')">'
-              +   '<i class="fa fa-power-off"></i></button>'
-
-              /* Change password */
-              + '<button class="um-btn um-btn-pwd" title="Change password"'
-              +   ' onclick="userPwd(' + id + ')">'
-              +   '<i class="fa fa-key"></i></button>'
-
-              /* Delete */
-              + '<button class="um-btn um-btn-del" title="Delete user"'
-              +   ' onclick="userDelete(' + id + ')">'
-              +   '<i class="fa fa-trash"></i></button>'
-
-              + '</div>';
-          }
-        }
-      ],
-
-      language: {
-        processing  : '<div class="text-center py-2"><div class="spinner-border spinner-border-sm text-theme"></div> Loading…</div>',
-        search      : '',
-        searchPlaceholder: 'Search users…',
-        emptyTable  : 'No users found.',
-        zeroRecords : 'No users matched the search.',
-        info        : 'Showing _START_–_END_ of _TOTAL_ users',
-        infoEmpty   : 'No users',
-        lengthMenu  : 'Show _MENU_ users',
-        paginate    : { first: '«', previous: '‹', next: '›', last: '»' }
-      }
-    });
-
-    /* ── Load roles for Select2 on modal show ─────────────────── */
-    $('#userModal').on('show.bs.modal', function () {
-      if ($('#uRoleIds option').length > 0) return; // already loaded
-      secureFetch('/users/roles/all')
-        .then(function (roles) {
-          var sel = $('#uRoleIds');
-          sel.empty();
-          roles.forEach(function (r) {
-            var label = r.name.replace('ROLE_', '')
-              + (r.description ? ' — ' + r.description : '');
-            sel.append(new Option(label, r.id));
-          });
-          sel.select2({
-            dropdownParent: $('#userModal'),
-            width: '100%',
-            placeholder: 'Search and assign roles…',
-            allowClear: true
-          });
-        })
-        .catch(function () { console.warn('Could not load roles.'); });
-    });
-
-    /* ── Flag card toggle UX ─────────────────────────────────── */
-    bindFlag('uEnabled',               'fcEnabled',  'fcEnabledChk');
-    bindFlag('uAccountNonLocked',      'fcLocked',   'fcLockedChk');
-    bindFlag('uAccountNonExpired',     'fcExpired',  'fcExpiredChk');
-    bindFlag('uCredentialsNonExpired', 'fcCreds',    'fcCredsChk');
-
-    /* ── Password strength meter ─────────────────────────────── */
-    document.getElementById('pwdNewPassword')
-      .addEventListener('input', updateStrength);
-
-    /* ── Password form submit ────────────────────────────────── */
-    document.getElementById('passwordForm')
-      .addEventListener('submit', function (e) {
-        e.preventDefault();
-        var id  = document.getElementById('pwdUserId').value;
-        var pw  = document.getElementById('pwdNewPassword').value;
-        var cpw = document.getElementById('pwdConfirmPassword').value;
-        if (!pw || pw.length < 8) {
-          return Swal.fire({ icon:'warning', title:'Too Short',
-                             text:'Password must be at least 8 characters.' });
-        }
-        if (pw !== cpw) {
-          return Swal.fire({ icon:'error', title:'Mismatch',
-                             text:'Passwords do not match.' });
-        }
-        submitWithSecureFetch({
-          url: '/users/change-password/' + id,
-          method: 'POST',
-          body: { newPassword: pw, confirmPassword: cpw },
-          submitBtn:   document.getElementById('pwdSubmitBtn'),
-          spinner:     document.getElementById('pwdSpinner'),
-          btnText:     document.getElementById('pwdBtnText'),
-          loadingText: 'Changing…',
-          successTitle:'Password Changed!',
-          onSuccess: function () {
-            bootstrap.Modal.getInstance(
-              document.getElementById('passwordModal')
-            ).hide();
-            document.getElementById('passwordForm').reset();
-            resetStrength();
-          }
-        });
       });
 
-    /* ── User form submit ────────────────────────────────────── */
-    document.getElementById('userForm')
-      .addEventListener('submit', function (e) {
-        e.preventDefault();
-        var isEdit = !!document.getElementById('uId').value;
-        var pw  = document.getElementById('uPassword').value;
-        var cpw = document.getElementById('uConfirmPassword').value;
+      // Expose instance globally so form fragment can call dataTables.ajax.reload()
+      window._userDT = dataTables;
 
-        if (!isEdit) {
-          if (!pw || pw.length < 8) {
-            return Swal.fire({ icon:'warning', title:'Password Required',
-                               text:'Password must be at least 8 characters.' });
-          }
-          if (pw !== cpw) {
-            return Swal.fire({ icon:'error', title:'Mismatch',
-                               text:'Passwords do not match.' });
-          }
-        }
+    }); // end DOMContentLoaded
 
-        var rawId = document.getElementById('uId').value;
-        var payload = {
-          id:                    rawId ? Number(rawId) : null,
-          username:              document.getElementById('uUsername').value.trim(),
-          fullName:              document.getElementById('uFullName').value.trim(),
-          email:                 document.getElementById('uEmail').value.trim(),
-          phone:                 document.getElementById('uPhone').value.trim() || null,
-          password:              isEdit ? (pw || null) : pw,
-          defaultDashboard:      document.getElementById('uDefaultDashboard').value,
-          enabled:               document.getElementById('uEnabled').checked,
-          accountNonLocked:      document.getElementById('uAccountNonLocked').checked,
-          accountNonExpired:     document.getElementById('uAccountNonExpired').checked,
-          credentialsNonExpired: document.getElementById('uCredentialsNonExpired').checked,
-          roleIds: $('#uRoleIds').val()
-                    ? $('#uRoleIds').val().map(Number)
-                    : []
-        };
+    /* ── Open CREATE modal ──────────────────────────────────────────── */
+    window.userOpenCreate = function () {
+      // Reset form first, then show modal
+      if (typeof resetUserForm === 'function') resetUserForm();
+      bootstrap.Modal.getOrCreateInstance(
+        document.getElementById('defaultModal')
+      ).show();
+    };
 
-        submitWithSecureFetch({
-          url: '/users/save',
-          method: 'POST',
-          body: payload,
-          submitBtn:    document.getElementById('uSubmitBtn'),
-          spinner:      document.getElementById('uSpinner'),
-          btnText:      document.getElementById('uBtnText'),
-          loadingText:  isEdit ? 'Updating…' : 'Creating…',
-          successTitle: isEdit ? 'User Updated!' : 'User Created!',
-          onSuccess: function () {
-            bootstrap.Modal.getInstance(
-              document.getElementById('userModal')
-            ).hide();
-            userResetForm();
-            if (userDT) userDT.ajax.reload(null, false);
-          }
-        });
+    /* ── VIEW ───────────────────────────────────────────────────────── */
+    window.dataShow = function (id) {
+      secureFetch('/users/show/' + id).then(function (res) {
+        var u = res.obj.defaultData;
+
+        document.getElementById('username_show').textContent  = u.username  || '—';
+        document.getElementById('fullName_show').textContent  = u.fullName  || '—';
+        document.getElementById('email_show').textContent     = u.email     || '—';
+        document.getElementById('phone_show').textContent     = u.phone     || '—';
+        document.getElementById('dashboard_show').textContent = u.defaultDashboard || '—';
+
+        document.getElementById('status_show').innerHTML = u.enabled
+          ? "<span class='badge bg-success'>Active</span>"
+          : "<span class='badge bg-danger'>Disabled</span>";
+
+        document.getElementById('roles_show').innerHTML = buildBadges(u.roleNames, 'bg-primary', 'No Roles', function (n) { return n.replace('ROLE_', ''); });
+        document.getElementById('organizations_show').innerHTML = buildBadges(u.organizationNames, 'bg-info');
+        document.getElementById('businessUnits_show').innerHTML = buildBadges(u.businessUnitNames, 'bg-success');
+        document.getElementById('costCenters_show').innerHTML   = buildBadges(u.costCenterNames,   'bg-warning');
+        document.getElementById('warehouses_show').innerHTML    = buildBadges(u.warehouseNames,    'bg-purple');
+
+        document.getElementById('createdAt_show').textContent  = u.createdAt   || '—';
+        document.getElementById('updatedAt_show').textContent  = u.updatedAt   || '—';
+        document.getElementById('lastLoginAt_show').textContent = u.lastLoginAt || 'Never';
+
+        bootstrap.Modal.getOrCreateInstance(
+          document.getElementById('defaultModalShow')
+        ).show();
+      }).catch(function (err) {
+        Swal.fire('Error', err.message, 'error');
       });
+    };
 
-  }); /* end $(document).ready */
+    /* ── EDIT ───────────────────────────────────────────────────────── */
+    window.dataEdit = function (id) {
+      secureFetch('/users/show/' + id).then(function (res) {
+        var u = res.obj.defaultData;
 
+        // Reset form state first
+        if (typeof resetUserForm === 'function') resetUserForm();
 
-  /* ══════════════════════════════════════════════════════════════
-     CRUD FUNCTIONS
-  ══════════════════════════════════════════════════════════════ */
+        // Populate fields
+        setVal('id',               u.id       || '');
+        setVal('username',         u.username  || '');
+        setVal('email',            u.email     || '');
+        setVal('fullName',         u.fullName  || '');
+        setVal('phone',            u.phone     || '');
+        setVal('defaultDashboard', u.defaultDashboard || '');
 
-  function userOpenCreate() {
-    userResetForm();
-    document.getElementById('uModalLabel').innerHTML =
-      '<i class="fa fa-user-plus me-2 text-success"></i>Create New User';
-    document.getElementById('uPasswordSection').style.display = '';
-    bootstrap.Modal.getOrCreateInstance(
-      document.getElementById('userModal')
-    ).show();
-  }
+        document.getElementById('enabled').checked = !!u.enabled;
 
-  function userShow(id) {
-    _viewId = id;
-    secureFetch('/users/show/' + id).then(function (res) {
-      if (!res.success) {
-        return Swal.fire('Error', res.message, 'error');
-      }
-      var u = res.obj.defaultData;
+        setSelect2('roleIds',         u.roleIds);
+        setSelect2('organizationIds', u.organizationIds);
+        setSelect2('businessUnitIds', u.businessUnitIds);
+        setSelect2('costCenterIds',   u.costCenterIds);
+        setSelect2('warehouseIds',    u.warehouseIds);
 
-      var init = (u.username || 'U').substring(0, 2).toUpperCase();
-      setEl('uvAvatar',    init);
-      setEl('uvFullNameH', u.fullName || u.username || '—');
-      setEl('uvUsernameH', '@' + (u.username || '—'));
-      document.getElementById('uvStatusBadge').innerHTML = u.enabled
-        ? '<span class="um-badge um-badge-active">Active</span>'
-        : '<span class="um-badge um-badge-disabled">Disabled</span>';
+        // Hide password fields on edit
+        document.getElementById('passwordSection').style.display         = 'none';
+        document.getElementById('passwordFieldWrapper').style.display    = 'none';
+        document.getElementById('confirmPasswordFieldWrapper').style.display = 'none';
+        document.getElementById('password').removeAttribute('required');
+        document.getElementById('confirmPassword').removeAttribute('required');
 
-      setEl('uv_username',  u.username              || '—');
-      setEl('uv_fullName',  u.fullName              || '—');
-      setEl('uv_email',     u.email                 || '—');
-      setEl('uv_phone',     u.phone                 || '—');
-      setEl('uv_dashboard', u.defaultDashboardLabel || '—');
-      setHTML('uv_roles',   rolesHtml(u.roleNames));
-      setEl('uv_createdAt', u.createdAt             || '—');
-      setEl('uv_updatedAt', u.updatedAt             || '—');
-      setEl('uv_lastLogin', u.lastLoginAt           || 'Never');
+        document.getElementById('asgModalLabel').textContent = 'Edit User';
 
-      bootstrap.Modal.getOrCreateInstance(
-        document.getElementById('userViewModal')
+        bootstrap.Modal.getOrCreateInstance(
+          document.getElementById('defaultModal')
+        ).show();
+
+      }).catch(function (err) {
+        Swal.fire('Error', err.message, 'error');
+      });
+    };
+
+    /* ── DELETE ─────────────────────────────────────────────────────── */
+    window.dataDelete = function (id) {
+      confirmAndExecute({
+        title:        'Delete User?',
+        text:         "This user will be soft-deleted and cannot log in.",
+        icon:         'warning',
+        confirmText:  'Yes, delete!',
+        confirmColor: '#d33',
+        url:          '/users/delete/' + id,
+        method:       'DELETE',
+        successTitle: 'Deleted!',
+        reloadTable:  true,
+        dataTable:    dataTables      // ✅ pass DT instance, not raw DOM element
+      });
+    };
+
+    /* ── TOGGLE STATUS ──────────────────────────────────────────────── */
+    window.dataChangeStatus = function (id) {
+      confirmAndExecute({
+        title:        'Change Status?',
+        text:         "This will toggle the user's active status.",
+        icon:         'question',
+        url:          '/users/toggle-status/' + id,
+        method:       'POST',
+        successTitle: 'Status Changed!',
+        reloadTable:  true,
+        dataTable:    dataTables      // ✅ pass DT instance
+      });
+    };
+
+    /* ── CHANGE PASSWORD ────────────────────────────────────────────── */
+    window.changePassword = function (id) {
+      document.getElementById('userId').value = id;
+      document.getElementById('newPassword').value = '';
+      document.getElementById('confirmPasswordChange').value = '';
+      bootstrap.Modal.getOrCreateInstance(         // ✅ getOrCreateInstance
+        document.getElementById('passwordModal')
       ).show();
-    });
-  }
+    };
 
-  function userEdit(id) {
-    secureFetch('/users/show/' + id).then(function (res) {
-      if (!res.success) {
-        return Swal.fire('Error', res.message, 'error');
-      }
-      var u = res.obj.defaultData;
-      userResetForm();
-
-      document.getElementById('uId').value           = u.id;
-      document.getElementById('uUsername').value     = u.username      || '';
-      document.getElementById('uFullName').value     = u.fullName      || '';
-      document.getElementById('uEmail').value        = u.email         || '';
-      document.getElementById('uPhone').value        = u.phone         || '';
-      document.getElementById('uDefaultDashboard').value = u.defaultDashboard || 'DEFAULT';
-
-      setFlag('uEnabled',               'fcEnabled',  'fcEnabledChk',
-               u.enabled               !== false);
-      setFlag('uAccountNonLocked',      'fcLocked',   'fcLockedChk',
-               u.accountNonLocked      !== false);
-      setFlag('uAccountNonExpired',     'fcExpired',  'fcExpiredChk',
-               u.accountNonExpired     !== false);
-      setFlag('uCredentialsNonExpired', 'fcCreds',    'fcCredsChk',
-               u.credentialsNonExpired !== false);
-
-      if ($('#uRoleIds').data('select2')) {
-        $('#uRoleIds').val(u.roleIds || []).trigger('change');
-      }
-
-      document.getElementById('uPasswordSection').style.display = 'none';
-      document.getElementById('uModalLabel').innerHTML =
-        '<i class="fa fa-pencil-alt me-2 text-warning"></i>Edit User — '
-        + '<span class="text-theme">' + esc(u.username) + '</span>';
-
-      bootstrap.Modal.getOrCreateInstance(
-        document.getElementById('userModal')
-      ).show();
-    });
-  }
-
-  function userToggle(id) {
-    confirmAndExecute({
-      title:        'Toggle Status?',
-      text:         "This will activate or disable the user's account.",
-      icon:         'question',
-      confirmText:  'Yes, toggle',
-      url:          '/users/toggle/' + id,
-      method:       'POST',
-      successTitle: 'Status Updated!',
-      reloadTable:  true,
-      dataTable:    userDT
-    });
-  }
-
-  function userDelete(id) {
-    confirmAndExecute({
-      title:        'Delete User?',
-      text:         'User will be soft-deleted and cannot log in.',
-      icon:         'warning',
-      confirmText:  'Yes, delete',
-      confirmColor: '#dc3545',
-      url:          '/users/delete/' + id,
-      method:       'DELETE',
-      successTitle: 'Deleted!',
-      reloadTable:  true,
-      dataTable:    userDT
-    });
-  }
-
-  function userPwd(id) {
-    document.getElementById('pwdUserId').value          = id;
-    document.getElementById('pwdNewPassword').value     = '';
-    document.getElementById('pwdConfirmPassword').value = '';
-    resetStrength();
-    bootstrap.Modal.getOrCreateInstance(
-      document.getElementById('passwordModal')
-    ).show();
-  }
-
-
-  /* ══════════════════════════════════════════════════════════════
-     HELPERS
-  ══════════════════════════════════════════════════════════════ */
-
-  /* ── Reset the create/edit form ──────────────────────────────── */
-  function userResetForm() {
-    ['uId','uUsername','uFullName','uEmail','uPhone',
-     'uPassword','uConfirmPassword'].forEach(function (id) {
+    /* ── HELPERS ────────────────────────────────────────────────────── */
+    function setVal(id, val) {
       var el = document.getElementById(id);
-      if (el) el.value = '';
-    });
-    document.getElementById('uDefaultDashboard').value = 'DEFAULT';
-    setFlag('uEnabled',               'fcEnabled',  'fcEnabledChk',  true);
-    setFlag('uAccountNonLocked',      'fcLocked',   'fcLockedChk',   true);
-    setFlag('uAccountNonExpired',     'fcExpired',  'fcExpiredChk',  true);
-    setFlag('uCredentialsNonExpired', 'fcCreds',    'fcCredsChk',    true);
-    if ($('#uRoleIds').data('select2')) {
-      $('#uRoleIds').val(null).trigger('change');
+      if (el) el.value = val;
     }
-  }
 
-  /* ── Bind flag card checkbox → visual toggle ─────────────────── */
-  function bindFlag(cbId, cardId, chkId) {
-    var cb = document.getElementById(cbId);
-    if (!cb) return;
-    cb.addEventListener('change', function () {
-      setFlag(cbId, cardId, chkId, this.checked);
-    });
-  }
+    function setSelect2(id, ids) {
+      var $el = $('#' + id);
+      $el.val(null).trigger('change');
+      if (ids && ids.length) $el.val(ids).trigger('change');
+    }
 
-  function setFlag(cbId, cardId, chkId, val) {
-    var cb   = document.getElementById(cbId);
-    var card = document.getElementById(cardId);
-    var chk  = document.getElementById(chkId);
-    if (cb)   cb.checked = val;
-    if (card) card.classList.toggle('on', val);
-    if (chk)  chk.textContent = val ? '✓' : '';
-  }
-
-  /* ── Password strength meter ─────────────────────────────────── */
-  var _STRENGTH_COLORS = ['#dc3545','#fd7e14','#ffc107','#198754'];
-  var _STRENGTH_LABELS = ['Weak','Fair','Good','Strong'];
-
-  function updateStrength() {
-    var val = document.getElementById('pwdNewPassword').value;
-    var s = 0;
-    if (val.length >= 8)           s++;
-    if (/[A-Z]/.test(val))         s++;
-    if (/[0-9]/.test(val))         s++;
-    if (/[^A-Za-z0-9]/.test(val)) s++;
-
-    for (var i = 1; i <= 4; i++) {
-      var bar = document.getElementById('sb' + i);
-      if (bar) {
-        bar.style.background = i <= s
-          ? _STRENGTH_COLORS[s - 1]
-          : '#dee2e6';
+    function buildBadges(arr, cssClass, emptyLabel, transformFn) {
+      emptyLabel = emptyLabel || 'None';
+      if (!arr || !arr.length) {
+        return "<span class='badge bg-secondary'>" + emptyLabel + "</span>";
       }
+      return arr.map(function (item) {
+        var label = transformFn ? transformFn(item) : item;
+        return "<span class='badge " + cssClass + " me-1'>" + escHtml(label) + "</span>";
+      }).join('');
     }
-    var lbl = document.getElementById('pwdStrengthLbl');
-    if (lbl) {
-      lbl.textContent = val
-        ? 'Strength: ' + (_STRENGTH_LABELS[s - 1] || 'Too short')
-        : 'Enter a password to check its strength.';
-      lbl.style.color = val && s > 0 ? _STRENGTH_COLORS[s - 1] : '#6c757d';
+
+    function escHtml(str) {
+      return String(str)
+        .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+        .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
     }
-  }
 
-  function resetStrength() {
-    for (var i = 1; i <= 4; i++) {
-      var b = document.getElementById('sb' + i);
-      if (b) b.style.background = '#dee2e6';
-    }
-    var lbl = document.getElementById('pwdStrengthLbl');
-    if (lbl) { lbl.textContent = 'Enter a password to check its strength.'; lbl.style.color = ''; }
-  }
-
-  /* ── Roles badge HTML ────────────────────────────────────────── */
-  function rolesHtml(names) {
-    if (!names || !names.length) {
-      return '<span class="um-badge um-badge-norole">No Roles Assigned</span>';
-    }
-    return names.map(function (n) {
-      return '<span class="um-badge um-badge-role">'
-             + esc(n.replace('ROLE_', '')) + '</span>';
-    }).join(' ');
-  }
-
-  /* ── DOM helpers ─────────────────────────────────────────────── */
-  function setEl(id, text) {
-    var el = document.getElementById(id);
-    if (el) el.textContent = text;
-  }
-
-  function setHTML(id, html) {
-    var el = document.getElementById(id);
-    if (el) el.innerHTML = html;
-  }
-
-  function esc(s) {
-    if (!s) return '';
-    return String(s).replace(/[&<>"']/g, function (c) {
-      return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;' }[c];
-    });
-  }
-
+  })();
   </script>
 
 </section>

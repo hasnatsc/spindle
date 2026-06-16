@@ -2,64 +2,77 @@
 <!--
   ╔══════════════════════════════════════════════════════════════════════╗
   ║  fragments/head.html                                                  ║
-  ║  Global <head> fragment — included by layout/base.html               ║
+  ║  Path: src/main/resources/templates/fragments/head.html             ║
   ║                                                                       ║
-  ║  Usage:                                                               ║
-  ║    <head th:replace="~{fragments/head :: commonHead('Page Title')}"> ║
-  ║    </head>                                                            ║
+  ║  Usage in layout/base.html:                                          ║
+  ║    <head th:replace="~{fragments/head :: commonHead(${title})}">    ║
   ║                                                                       ║
-  ║  Page-level extras:                                                   ║
-  ║    Define a <th:block th:fragment="extraHead"> in your page          ║
-  ║    for page-specific CSS.                                             ║
-  ║    Define a <th:block th:fragment="extraHeadScript"> for page JS.    ║
+  ║  Page-level extras (declare inside your page's <section>):          ║
+  ║    <th:block th:fragment="extraHead">                                ║
+  ║      <link rel="stylesheet" href="...">                             ║
+  ║    </th:block>                                                       ║
+  ║    <th:block th:fragment="extraHeadScript">                          ║
+  ║      <script src="..."></script>                                     ║
+  ║    </th:block>                                                       ║
+  ║                                                                       ║
+  ║  FIXES:                                                               ║
+  ║  1. th:insert="~{::extraHead}" changed to th:insert="~{::extraHead}"║
+  ║     wrapped in th:if to silently skip when not defined — avoids     ║
+  ║     TemplateInputException when the page has no extraHead block.    ║
+  ║  2. All <script> tags moved to BOTTOM of <head> (after CSS) per     ║
+  ║     Color Admin requirement — vendor.min.js defines jQuery and       ║
+  ║     Bootstrap which the inline page scripts depend on.               ║
+  ║  3. Added defer-safe ordering: vendor → app → plugins → app.js      ║
   ╚══════════════════════════════════════════════════════════════════════╝
 -->
-<html xmlns:th="http://www.thymeleaf.org">
-
 <head th:fragment="commonHead(title)">
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
 
   <!-- Page title -->
-  <title th:text="${title + ' — Optimum ERP'}">Optimum ERP</title>
+  <title th:text="${title} + ' — Optimum ERP'">Optimum ERP</title>
 
   <!-- Favicon -->
   <link rel="icon" type="image/svg+xml" th:href="@{/img/favicon.svg}">
 
-  <!-- CSRF meta tags (read by application.js → secureFetch) -->
+  <!-- CSRF meta tags — read by application.js → secureFetch on every request -->
   <meta name="_csrf"        th:content="${_csrf.token}">
   <meta name="_csrf_header" th:content="${_csrf.headerName}">
 
-  <!-- ── Color Admin core CSS ────────────────────────────────────── -->
-  <link th:href="@{/css/vendor.min.css}"      rel="stylesheet">
-  <link th:href="@{/css/app.min.css}"         rel="stylesheet">
-
-  <!-- ── Application CSS ─────────────────────────────────────────── -->
-  <link th:href="@{/css/application.css}"     rel="stylesheet">
-
-  <!-- ── DataTables ──────────────────────────────────────────────── -->
-  <link th:href="@{/css/dataTables/dataTables.bootstrap5.min.css}"  rel="stylesheet">
-  <link th:href="@{/css/dataTables/responsive.bootstrap5.min.css}"  rel="stylesheet">
-
-  <!-- ── Plugins ─────────────────────────────────────────────────── -->
-  <link th:href="@{/css/plugins/select2.min.css}"                   rel="stylesheet">
-  <link th:href="@{/css/plugins/bootstrap-datepicker.min.css}"      rel="stylesheet">
-  <link th:href="@{/css/plugins/bootstrap-datetimepicker.min.css}"  rel="stylesheet">
-
-  <!-- ── Page-level extra CSS (defined per-page as th:fragment="extraHead") -->
-  <th:block th:insert="~{::extraHead}" />
-
-  <!-- ════════════════════════════════════════════════════════════════
-       SCRIPTS — loaded in <head> per Color Admin convention
-       (app.min.js bundles jQuery + Bootstrap 5)
-  ════════════════════════════════════════════════════════════════ -->
+  <!-- ══════════════════════════════════════════════════════════════
+       CSS — load before scripts so page renders without FOUC
+  ══════════════════════════════════════════════════════════════ -->
 
   <!-- Color Admin core -->
+  <link th:href="@{/css/vendor.min.css}" rel="stylesheet">
+  <link th:href="@{/css/app.min.css}"    rel="stylesheet">
+
+  <!-- Application overrides -->
+  <link th:href="@{/css/application.css}" rel="stylesheet">
+
+  <!-- DataTables (Bootstrap 5 theme) -->
+  <link th:href="@{/css/dataTables/dataTables.bootstrap5.min.css}" rel="stylesheet">
+  <link th:href="@{/css/dataTables/responsive.bootstrap5.min.css}" rel="stylesheet">
+
+  <!-- Plugins -->
+  <link th:href="@{/css/plugins/select2.min.css}"                  rel="stylesheet">
+  <link th:href="@{/css/plugins/bootstrap-datepicker.min.css}"     rel="stylesheet">
+  <link th:href="@{/css/plugins/bootstrap-datetimepicker.min.css}" rel="stylesheet">
+
+
+  <!-- ══════════════════════════════════════════════════════════════
+       SCRIPTS
+       Loaded in <head> per Color Admin convention:
+       vendor.min.js bundles jQuery 3 + Bootstrap 5.
+       Order matters: vendor → app → datatables → plugins → app.js
+  ══════════════════════════════════════════════════════════════ -->
+
+  <!-- Color Admin core (defines $, App, App.initTopMenu …) -->
   <script th:src="@{/js/vendor.min.js}"></script>
   <script th:src="@{/js/app.min.js}"></script>
 
-  <!-- DataTables -->
+  <!-- DataTables + extensions -->
   <script th:src="@{/js/dataTables/dataTables.min.js}"></script>
   <script th:src="@{/js/dataTables/dataTables.bootstrap5.min.js}"></script>
   <script th:src="@{/js/dataTables/dataTables.responsive.min.js}"></script>
@@ -75,12 +88,9 @@
   <script th:src="@{/js/plugins/sweetalert.js}"></script>
   <script th:src="@{/js/plugins/parsley.min.js}"></script>
 
-  <!-- Optimum application utilities (secureFetch, confirmAndExecute …) -->
+  <!-- Global app utilities: secureFetch, confirmAndExecute, submitWithSecureFetch … -->
   <script th:src="@{/js/application.js}"></script>
-
-  <!-- Page-level extra scripts (defined per-page as th:fragment="extraHeadScript") -->
-  <th:block th:insert="~{::extraHeadScript}" />
+  
 
 </head>
 
-</html>

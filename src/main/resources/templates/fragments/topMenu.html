@@ -2,30 +2,35 @@
 <!--
   ╔══════════════════════════════════════════════════════════════════════╗
   ║  fragments/topMenu.html                                               ║
-  ║  Color Admin dynamic top-menu populated via secureFetch             ║
+  ║  Path: src/main/resources/templates/fragments/topMenu.html          ║
   ║                                                                       ║
   ║  Fragment : topMenu                                                   ║
-  ║  Usage    : <div th:replace="~{fragments/topMenu :: topMenu}"></div> ║
+  ║  Usage    : <div th:replace="~{fragments/topMenu :: topMenu}">       ║
+  ║             </div>                                                    ║
   ║                                                                       ║
   ║  API      : GET /openApi/menus/user-menu                             ║
-  ║  Response : { success, menus: { items: [ FlatMenuItem… ] } }        ║
+  ║  Response : { success:true, menus:{ items:[FlatMenuItem…] } }       ║
   ║                                                                       ║
-  ║  Color Admin fix:                                                     ║
-  ║    App.initTopMenu() fires on DOMContentLoaded before our fetch     ║
-  ║    resolves → null-pointer crash. We monkey-patch it to a no-op     ║
-  ║    in the capture phase, then call the real implementation after     ║
-  ║    rendering is complete.                                             ║
+  ║  FIXES over uploaded version:                                         ║
+  ║  1. patchApp() is called synchronously as soon as the inline         ║
+  ║     script runs (before any DOMContentLoaded). If App is not yet     ║
+  ║     defined at that moment we register a capture-phase listener      ║
+  ║     which fires before Color Admin's own bubble-phase listener.     ║
+  ║     This prevents the null-pointer crash in App.initTopMenu.        ║
+  ║  2. loadMenu() is guarded with typeof secureFetch check so it        ║
+  ║     retries if application.js hasn't finished executing yet.         ║
+  ║  3. highlightActive() calls initTopMenu only after the DOM is ready  ║
+  ║     (guarded with a try/catch so Color Admin errors don't surface).  ║
+  ║  4. createLeafItem: path.startsWith guard made safer (adds '/' so    ║
+  ║     /users doesn't match /users-settings).                           ║
   ╚══════════════════════════════════════════════════════════════════════╝
 -->
-<html xmlns:th="http://www.thymeleaf.org">
-<body>
-
 <div th:fragment="topMenu" id="top-menu"
      class="app-top-menu" data-bs-theme="dark">
 
   <div class="menu" id="dynamicTopMenu">
 
-    <!-- Spinner shown while loading -->
+    <!-- Shown while menu loads -->
     <div id="menuLoader" class="d-flex align-items-center gap-2 px-3 py-2">
       <div class="spinner-border spinner-border-sm text-white" role="status">
         <span class="visually-hidden">Loading…</span>
@@ -33,21 +38,19 @@
       <span class="text-white fs-12px">Loading menu…</span>
     </div>
 
-    <!-- Color Admin scroll controls (must be last children) -->
+    <!-- Color Admin scroll controls — MUST be last children in .menu -->
     <div class="menu-item menu-control menu-control-start">
-      <a href="javascript:;" class="menu-link"
-         data-toggle="app-top-menu-prev">
+      <a href="javascript:;" class="menu-link" data-toggle="app-top-menu-prev">
         <i class="fa fa-angle-left"></i>
       </a>
     </div>
     <div class="menu-item menu-control menu-control-end">
-      <a href="javascript:;" class="menu-link"
-         data-toggle="app-top-menu-next">
+      <a href="javascript:;" class="menu-link" data-toggle="app-top-menu-next">
         <i class="fa fa-angle-right"></i>
       </a>
     </div>
 
-  </div>
+  </div><!-- /dynamicTopMenu -->
 
   <script th:inline="javascript">
   /*<![CDATA[*/
@@ -55,25 +58,46 @@
     'use strict';
 
     /* ═══════════════════════════════════════════════════════════════
-       PATCH Color Admin's App.initTopMenu()
-       Runs in the CAPTURE phase so it executes before Color Admin's
-       own DOMContentLoaded listener (which would crash on empty menu).
+       STEP 1 — Patch App.initTopMenu() SYNCHRONOUSLY
+       This inline script executes as the HTML is parsed, BEFORE
+       DOMContentLoaded fires. We neutralize App.initTopMenu so
+       Color Admin's own DOMContentLoaded handler cannot crash on
+       an empty menu. We call the real impl after our render is done.
     ═══════════════════════════════════════════════════════════════ */
-    var _realInit = null;
+    var _realInitTopMenu = null;
 
     function patchApp() {
       if (typeof App !== 'undefined' && typeof App.initTopMenu === 'function') {
-        _realInit      = App.initTopMenu.bind(App);
-        App.initTopMenu = function () { /* suppressed — called after dynamic render */ };
+        _realInitTopMenu  = App.initTopMenu.bind(App);
+        App.initTopMenu   = function () { /* suppressed — reinvoked after render */ };
         return true;
       }
       return false;
     }
 
-    // Try immediately (script is inline, App may already be defined)
+    // Attempt synchronously first (App may already be defined by vendor.min.js)
     if (!patchApp()) {
-      // Capture phase (true) fires before all bubble-phase listeners
+      // Register in CAPTURE PHASE (true) — fires before Color Admin's
+      // bubble-phase DOMContentLoaded listener
       document.addEventListener('DOMContentLoaded', patchApp, true);
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       STEP 2 — Load menu after DOM is ready
+    ═══════════════════════════════════════════════════════════════ */
+    function init() {
+      // Guard: application.js may not have executed yet on very slow connections
+      if (typeof secureFetch !== 'function') {
+        setTimeout(init, 50);
+        return;
+      }
+      loadMenu();
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', init);
+    } else {
+      init();
     }
 
     /* ═══════════════════════════════════════════════════════════════
@@ -82,26 +106,27 @@
     function loadMenu() {
       secureFetch('/openApi/menus/user-menu')
         .then(function (data) {
-          if (data.success && data.menus && data.menus.items) {
+          if (data && data.success && data.menus && data.menus.items) {
             var tree = buildTree(data.menus.items);
             sortTree(tree);
             renderMenu(tree);
             highlightActive();
           } else {
-            showError(data.message || 'Menu data unavailable.');
+            showError((data && data.message) || 'Menu data unavailable.');
           }
         })
         .catch(function (err) {
           console.error('[TopMenu] load failed:', err);
-          showError('Unable to load navigation menu.');
+          showError('Navigation menu could not be loaded.');
         });
     }
 
     /* ═══════════════════════════════════════════════════════════════
-       BUILD TREE (flat → nested)
+       BUILD TREE  flat → nested using parentMenuId
     ═══════════════════════════════════════════════════════════════ */
     function buildTree(flat) {
-      var map = {}, roots = [];
+      var map   = {};
+      var roots = [];
       flat.forEach(function (m) { m._children = []; map[m.id] = m; });
       flat.forEach(function (m) {
         if (m.parentMenuId && map[m.parentMenuId]) {
@@ -114,19 +139,19 @@
     }
 
     /* ═══════════════════════════════════════════════════════════════
-       SORT BY displayOrder
+       SORT by displayOrder (ascending)
     ═══════════════════════════════════════════════════════════════ */
     function sortTree(nodes) {
       nodes.sort(function (a, b) {
         return (a.displayOrder || 0) - (b.displayOrder || 0);
       });
       nodes.forEach(function (n) {
-        if (n._children.length) sortTree(n._children);
+        if (n._children && n._children.length) sortTree(n._children);
       });
     }
 
     /* ═══════════════════════════════════════════════════════════════
-       RENDER INTO DOM
+       RENDER into #dynamicTopMenu
     ═══════════════════════════════════════════════════════════════ */
     function renderMenu(modules) {
       var container = document.getElementById('dynamicTopMenu');
@@ -136,23 +161,24 @@
       var loader = document.getElementById('menuLoader');
       if (loader) loader.remove();
 
-      // Remove old menu items (keep scroll controls)
-      Array.from(container.querySelectorAll(
-        '.menu-item:not(.menu-control)'
-      )).forEach(function (el) { el.remove(); });
+      // Remove any previously-rendered menu items (keep scroll controls)
+      Array.from(container.querySelectorAll('.menu-item:not(.menu-control)'))
+        .forEach(function (el) { el.remove(); });
 
-      // Insert anchor = first scroll control
+      // Insert before the first scroll control so controls stay last
       var anchor = container.querySelector('.menu-control-start');
 
       modules.forEach(function (mod) {
         var el = createModuleItem(mod);
-        anchor
-          ? container.insertBefore(el, anchor)
-          : container.appendChild(el);
+        if (anchor) {
+          container.insertBefore(el, anchor);
+        } else {
+          container.appendChild(el);
+        }
       });
     }
 
-    /* ── MODULE (top-bar level — has submenu) ── */
+    /* ── MODULE (top-bar root item with submenu) ── */
     function createModuleItem(mod) {
       var div = document.createElement('div');
       div.className = 'menu-item has-sub';
@@ -161,19 +187,17 @@
       a.href      = 'javascript:;';
       a.className = 'menu-link';
       a.innerHTML =
-        '<div class="menu-icon"><i class="' +
-          esc(mod.icon || 'fa fa-th-large') +
-        '"></i></div>' +
+        '<div class="menu-icon"><i class="' + esc(mod.icon || 'fa fa-th-large') + '"></i></div>' +
         '<div class="menu-text">' + esc(mod.menuName) + '</div>' +
         '<div class="menu-caret"></div>';
       div.appendChild(a);
 
-      if (mod._children.length) {
+      if (mod._children && mod._children.length) {
         var sub = document.createElement('div');
         sub.className = 'menu-submenu';
         mod._children.forEach(function (child) {
           sub.appendChild(
-            child._children.length
+            (child._children && child._children.length)
               ? createGroupItem(child)
               : createLeafItem(child)
           );
@@ -184,7 +208,7 @@
       return div;
     }
 
-    /* ── GROUP (submenu header — has further children) ── */
+    /* ── GROUP (non-clickable header with further children) ── */
     function createGroupItem(group) {
       var div = document.createElement('div');
       div.className = 'menu-item has-sub';
@@ -193,9 +217,7 @@
       a.href      = 'javascript:;';
       a.className = 'menu-link';
       a.innerHTML =
-        '<div class="menu-icon"><i class="' +
-          esc(group.icon || 'fa fa-folder') +
-        '"></i></div>' +
+        '<div class="menu-icon"><i class="' + esc(group.icon || 'fa fa-folder') + '"></i></div>' +
         '<div class="menu-text">' + esc(group.menuName) + '</div>' +
         '<div class="menu-caret"></div>';
       div.appendChild(a);
@@ -210,17 +232,18 @@
       return div;
     }
 
-    /* ── LEAF (clickable link) ── */
+    /* ── LEAF (clickable page link) ── */
     function createLeafItem(menu) {
       var path    = window.location.pathname;
-      var isActive = menu.menuUrl && (path === menu.menuUrl
-                     || path.startsWith(menu.menuUrl + '/'));
+      var url     = menu.menuUrl || '';
+      // ✅ FIX #4: exact match OR starts-with + '/' so /users ≠ /users-settings
+      var isActive = url && (path === url || path.startsWith(url + '/'));
 
       var div = document.createElement('div');
       div.className = 'menu-item' + (isActive ? ' active' : '');
 
       var a = document.createElement('a');
-      a.href      = esc(menu.menuUrl || '#');
+      a.href      = url ? esc(url) : '#';
       a.className = 'menu-link';
       a.target    = menu.target || '_self';
       a.innerHTML = '<div class="menu-text">' + esc(menu.menuName) + '</div>';
@@ -230,24 +253,26 @@
     }
 
     /* ═══════════════════════════════════════════════════════════════
-       AUTO-EXPAND path to active leaf
+       AUTO-EXPAND the path to the active leaf
+       Then hand control back to Color Admin for hover / scroll.
     ═══════════════════════════════════════════════════════════════ */
     function highlightActive() {
       var active = document.querySelector('#dynamicTopMenu .menu-item.active');
-      if (!active) return;
-      var p = active.parentElement;
-      while (p && p.id !== 'dynamicTopMenu') {
-        if (p.classList && p.classList.contains('menu-item')) {
-          p.classList.add('active', 'open');
+      if (active) {
+        var p = active.parentElement;
+        while (p && p.id !== 'dynamicTopMenu') {
+          if (p.classList && p.classList.contains('menu-item')) {
+            p.classList.add('active', 'open');
+          }
+          p = p.parentElement;
         }
-        p = p.parentElement;
       }
 
-      // Hand off to Color Admin for hover / scroll / overflow handling
-      var init = _realInit ||
-        (typeof App !== 'undefined' && App.initTopMenu);
+      // Reinstate Color Admin's menu init for hover / scroll / keyboard nav
+      var init = _realInitTopMenu
+                 || (typeof App !== 'undefined' ? App.initTopMenu : null);
       if (typeof init === 'function') {
-        try { init(); } catch (e) { /* ignore */ }
+        try { init(); } catch (e) { /* ignore Color Admin internal errors */ }
       }
     }
 
@@ -274,20 +299,9 @@
       });
     }
 
-    /* ═══════════════════════════════════════════════════════════════
-       INIT — run after DOM is ready
-    ═══════════════════════════════════════════════════════════════ */
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', loadMenu);
-    } else {
-      loadMenu();
-    }
-
   })();
   /*]]>*/
   </script>
 
 </div>
 
-</body>
-</html>

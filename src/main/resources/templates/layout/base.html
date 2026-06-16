@@ -1,44 +1,47 @@
 <!DOCTYPE html>
-<!--
-  ╔══════════════════════════════════════════════════════════════════════╗
-  ║  layout/base.html — Master Layout                                     ║
-  ║                                                                       ║
-  ║  Usage in any page:                                                   ║
-  ║    <html th:replace="~{layout/base :: layout('Page Title',~{::section})}"> ║
-  ║    <section>                                                          ║
-  ║      <!-- page content here -->                                       ║
-  ║    </section>                                                         ║
-  ║    </html>                                                            ║
-  ║                                                                       ║
-  ║  Optional page-level extras (define in the page's <section>):        ║
-  ║    <th:block th:fragment="extraHead">       <!-- extra CSS -->        ║
-  ║    <th:block th:fragment="extraHeadScript"> <!-- extra JS  -->        ║
-  ╚══════════════════════════════════════════════════════════════════════╝
--->
-<html lang="en"
+
+<html th:fragment="layout(title, content)"
+      lang="en"
       xmlns:th="http://www.thymeleaf.org"
       xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 
-<html th:fragment="layout(title, content)">
-<head th:replace="~{fragments/head :: commonHead(${title})}"></head>
-<body class="pace-top app-top-nav">
+  <head th:replace="~{fragments/head :: commonHead(${title})}"></head>
 
-  <!-- ① Top navigation bar (logo + context switchers + user menu) -->
-  <div th:replace="~{fragments/topMenuHeader :: topMenuHeader}"></div>
+  <body class="pace-top app-top-nav">
 
-  <!-- ② Dynamic top menu (Color Admin horizontal nav) -->
-  <div th:replace="~{fragments/topMenu :: topMenu}"></div>
+    <!-- Page-load spinner (Color Admin Pace.js) -->
+    <div id="loader" class="app-loader">
+      <span class="spinner"></span>
+    </div>
 
-  <!-- ③ Page wrapper -->
-  <div id="content" class="app-content">
+    <!--
+      Color Admin app shell.
+      Classes required for top-menu layout (no left sidebar):
+        app-header-fixed     → header sticks to top
+        app-without-sidebar  → no left sidebar column
+        app-with-top-menu    → horizontal top navigation enabled
+    -->
+    <div id="app"
+         class="app app-header-fixed app-without-sidebar app-with-top-menu">
 
-    <!-- Page content injected here by each page's <section> -->
-    <th:block th:insert="${content}" />
+      <!-- ① Top navigation bar: logo, context switchers, user menu -->
+      <div th:replace="~{fragments/topMenuHeader :: topMenuHeader}"></div>
 
-  </div>
-  <!-- END #content -->
+      <!-- ② Horizontal dynamic top-menu (populated via secureFetch) -->
+      <div th:replace="~{fragments/topMenu :: topMenu}"></div>
 
-</body>
-</html>
+      <!-- Mobile sidebar backdrop (required by Color Admin JS) -->
+      <div class="app-sidebar-mobile-backdrop">
+        <a href="#" data-dismiss="app-sidebar-mobile"
+           class="stretched-link"></a>
+      </div>
 
+      <!-- ③ Page content — each page's <section> is injected here -->
+      <div id="content" class="app-content">
+        <th:block th:insert="${content}" />
+      </div>
+
+    </div><!-- /app -->
+
+  </body>
 </html>

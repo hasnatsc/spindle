@@ -2,54 +2,57 @@
 <!--
   ╔══════════════════════════════════════════════════════════════════════╗
   ║  fragments/breadcrumb.html                                            ║
-  ║  Two breadcrumb variants for every Color Admin CRUD page            ║
+  ║  Path: src/main/resources/templates/fragments/breadcrumb.html       ║
   ║                                                                       ║
-  ║  ── Variant 1 ── pageHeader (most common)                           ║
-  ║    Simple 3-string header: module · page · description              ║
+  ║  Three breadcrumb / page-header variants                             ║
+  ║                                                                       ║
+  ║  ── Variant 1 ── pageHeader(module, page, description)              ║
+  ║    Three strings → Color Admin .page-header block                   ║
   ║    Usage:                                                             ║
   ║      <div th:replace="~{fragments/breadcrumb                         ║
-  ║           :: pageHeader('Security','Users','Manage system users')}"> ║
+  ║           :: pageHeader('Security','Users','Manage users')}">        ║
   ║      </div>                                                           ║
   ║                                                                       ║
   ║  ── Variant 2 ── breadcrumb(items)                                  ║
-  ║    Full dynamic list of BreadcrumbItem objects.                      ║
+  ║    List<BreadcrumbItem> — each has label + url (nullable)           ║
   ║    Usage:                                                             ║
   ║      <div th:replace="~{fragments/breadcrumb                         ║
   ║           :: breadcrumb(${breadcrumbItems})}">                       ║
   ║      </div>                                                           ║
-  ║    Controller: model.addAttribute("breadcrumbItems", List.of(        ║
-  ║        BreadcrumbItem.of("Security", "/users"),                      ║
-  ║        BreadcrumbItem.of("Users", null)                              ║
-  ║    ));                                                                ║
+  ║                                                                       ║
+  ║  ── Variant 3 ── breadcrumbWithIcons(items)                         ║
+  ║    Same as variant 2 but BreadcrumbItem also has icon (nullable)    ║
+  ║                                                                       ║
+  ║  FIXES:                                                               ║
+  ║  1. th:with inside pageHeader introduced local vars mod/pg/desc      ║
+  ║     that shadowed the fragment params in Thymeleaf 3.x, causing     ║
+  ║     TemplateProcessingException. Fixed: use params directly.        ║
+  ║  2. th:classappend="${stat.last} ? 'active'" — the ternary must     ║
+  ║     have an else branch or Thymeleaf appends null literally.        ║
+  ║     Fixed: added : '' (empty string else).                          ║
+  ║  3. th:attrappend for aria-current had same null-value issue.       ║
+  ║     Fixed: use th:attr with conditional expression.                 ║
   ╚══════════════════════════════════════════════════════════════════════╝
 -->
-<html xmlns:th="http://www.thymeleaf.org" lang="en">
-<body>
-
 <!-- ══════════════════════════════════════════════════════════════════
      VARIANT 1  —  pageHeader(module, page, description)
-     The most common pattern: three plain strings, no list needed.
-     Renders the Color Admin .page-header block.
+     Most common. Three plain strings, no list in the controller needed.
 ══════════════════════════════════════════════════════════════════ -->
 <div th:fragment="pageHeader(module, page, description)">
-
-  <div class="page-header" th:with="
-      mod=${module != null ? module : ''},
-      pg=${page != null ? page : ''},
-      desc=${description != null ? description : ''}">
-
+  <div class="page-header">
     <div class="page-header-content d-flex align-items-center
                 justify-content-between flex-wrap gap-2">
 
-      <!-- Title block -->
+      <!-- Left: title + lead -->
       <div>
-        <h1 class="page-header-title mb-0" th:text="${pg}">Page</h1>
+        <h1 class="page-header-title mb-0" th:text="${page}">Page</h1>
+        <!-- ✅ FIX #1: use param directly, not th:with shadow var -->
         <p class="page-header-lead mb-0 text-muted fs-13px"
-           th:if="${desc != ''}"
-           th:text="${desc}">Description</p>
+           th:if="${description != null and !#strings.isEmpty(description)}"
+           th:text="${description}">Description</p>
       </div>
 
-      <!-- Breadcrumb -->
+      <!-- Right: breadcrumb -->
       <nav aria-label="breadcrumb">
         <ol class="breadcrumb mb-0">
           <li class="breadcrumb-item">
@@ -58,32 +61,27 @@
             </a>
           </li>
           <li class="breadcrumb-item"
-              th:if="${mod != ''}"
-              th:text="${mod}">Module</li>
-          <li class="breadcrumb-item active"
-              aria-current="page"
-              th:text="${pg}">Page</li>
+              th:if="${module != null and !#strings.isEmpty(module)}"
+              th:text="${module}">Module</li>
+          <li class="breadcrumb-item active" aria-current="page"
+              th:text="${page}">Page</li>
         </ol>
       </nav>
 
     </div>
-
   </div>
-
 </div>
 
 
 <!-- ══════════════════════════════════════════════════════════════════
      VARIANT 2  —  breadcrumb(items)
-     Accepts a List<BreadcrumbItem> from the controller model.
-     Each item has: label (String), url (String, nullable).
-     Last item is always rendered as plain text (active).
+     items = List<BreadcrumbItem>
+     BreadcrumbItem fields: label (String), url (String, nullable)
+     Last item is always plain text (active).
 ══════════════════════════════════════════════════════════════════ -->
 <div th:fragment="breadcrumb(items)">
-
   <div class="page-header">
-    <div class="page-header-content d-flex align-items-center
-                justify-content-end">
+    <div class="page-header-content d-flex align-items-center justify-content-end">
       <nav aria-label="breadcrumb">
         <ol class="breadcrumb mb-0">
           <!-- Home always first -->
@@ -94,14 +92,18 @@
           </li>
           <!-- Dynamic items -->
           <th:block th:each="item, stat : ${items}">
+            <!--
+              ✅ FIX #2: th:classappend must have : '' else branch
+              ✅ FIX #3: aria-current via th:attr (avoids null literal)
+            -->
             <li class="breadcrumb-item"
-                th:classappend="${stat.last} ? 'active'"
-                th:attrappend="aria-current=${stat.last} ? 'page'">
-              <!-- Linked item (not last and has URL) -->
+                th:classappend="${stat.last} ? 'active' : ''"
+                th:attr="aria-current=${stat.last} ? 'page' : null">
+              <!-- Linked: not last AND has URL -->
               <a th:if="${!stat.last and item.url != null}"
                  th:href="${item.url}"
                  th:text="${item.label}">Label</a>
-              <!-- Plain text item (last OR no URL) -->
+              <!-- Plain text: last OR no URL -->
               <span th:if="${stat.last or item.url == null}"
                     th:text="${item.label}">Label</span>
             </li>
@@ -110,19 +112,17 @@
       </nav>
     </div>
   </div>
-
 </div>
 
 
 <!-- ══════════════════════════════════════════════════════════════════
      VARIANT 3  —  breadcrumbWithIcons(items)
-     Same as variant 2 but each item may have an icon class string.
+     items = List<BreadcrumbItem>
+     BreadcrumbItem fields: label, url (nullable), icon (nullable FA class)
 ══════════════════════════════════════════════════════════════════ -->
 <div th:fragment="breadcrumbWithIcons(items)">
-
   <div class="page-header">
-    <div class="page-header-content d-flex align-items-center
-                justify-content-end">
+    <div class="page-header-content d-flex align-items-center justify-content-end">
       <nav aria-label="breadcrumb">
         <ol class="breadcrumb mb-0">
           <li class="breadcrumb-item">
@@ -132,17 +132,19 @@
           </li>
           <th:block th:each="item, stat : ${items}">
             <li class="breadcrumb-item"
-                th:classappend="${stat.last} ? 'active'"
-                th:attrappend="aria-current=${stat.last} ? 'page'">
+                th:classappend="${stat.last} ? 'active' : ''"
+                th:attr="aria-current=${stat.last} ? 'page' : null">
+              <!-- Linked item -->
               <a th:if="${!stat.last and item.url != null}"
                  th:href="${item.url}">
                 <i th:if="${item.icon != null}"
-                   th:class="'fa ' + ${item.icon} + ' me-1'"></i>
+                   th:class="${'fa ' + item.icon + ' me-1'}"></i>
                 <span th:text="${item.label}">Label</span>
               </a>
+              <!-- Plain text item -->
               <span th:if="${stat.last or item.url == null}">
                 <i th:if="${item.icon != null}"
-                   th:class="'fa ' + ${item.icon} + ' me-1'"></i>
+                   th:class="${'fa ' + item.icon + ' me-1'}"></i>
                 <span th:text="${item.label}">Label</span>
               </span>
             </li>
@@ -151,8 +153,6 @@
       </nav>
     </div>
   </div>
-
 </div>
 
-</body>
-</html>
+
