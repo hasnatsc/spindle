@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<!--
+  ╔══════════════════════════════════════════════════════════════════════╗
+  ║  commercial/fabric-precosting-dashboard.html                         ║
+  ║  Thymeleaf page  —  extends layout/base                             ║
+  ║  Controller : FabricPrecostingController                            ║
+  ║  URL        : GET /commercial/fabric-precosting                     ║
+  ║  Permission : PERM_COMMERCIAL_VIEW                                  ║
+  ╚══════════════════════════════════════════════════════════════════════╝
+-->
+<html th:replace="~{layout/base :: layout('Fabric Pre-Costing', ~{::section})}"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+
+<section>
+<div id="content" class="app-content p-0" th:attr="data-theme='dark'">
+
+  <!-- ══ CSS ════════════════════════════════════════════════════════════ -->
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=IBM+Plex+Sans:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+  <link th:href="@{/css/commercial/fabric-precosting-v3.css}" rel="stylesheet"/>
+
+  <!-- ══ SIDEBAR FRAGMENT ═══════════════════════════════════════════════ -->
+  <div th:replace="~{fragments/commercial/fpc-sidebar :: fpcSidebar}"></div>
+
+  <!-- ══ HEADER FRAGMENT ════════════════════════════════════════════════ -->
+  <div th:replace="~{fragments/commercial/fpc-topbar :: fpcTopbar(${dash})}"></div>
+
+  <!-- ══ MAIN CONTENT ═══════════════════════════════════════════════════ -->
+  <main class="main">
+    <div class="content">
+
+      <!-- KPI Strip -->
+      <div th:replace="~{fragments/commercial/fpc-kpi :: fpcKpi(${dash?.kpi}, ${dash?.selectedPeriod})}"></div>
+
+      <!-- Row 1: Who Is Performing -->
+      <div th:replace="~{fragments/commercial/fpc-who :: fpcWho(${dash})}"></div>
+
+      <!-- Row 2: Where Is Work Stuck -->
+      <div th:replace="~{fragments/commercial/fpc-stuck :: fpcStuck(${dash})}"></div>
+
+      <!-- Row 3: Trends & Growth -->
+      <div th:replace="~{fragments/commercial/fpc-trends :: fpcTrends(${dash})}"></div>
+
+      <!-- Row 4: Executive Snapshot -->
+      <div th:replace="~{fragments/commercial/fpc-snapshot :: fpcSnapshot(${dash})}"></div>
+
+      <!-- Row 5: Management Action -->
+      <div th:replace="~{fragments/commercial/fpc-actions :: fpcActions(${dash})}"></div>
+
+      <!-- Footer: Legend + Refresh -->
+      <div th:replace="~{fragments/commercial/fpc-footer :: fpcFooter}"></div>
+
+    </div>
+  </main>
+
+  <!-- ══ CHART DATA (server-side injection) ═════════════════════════════ -->
+  <script th:inline="javascript">
+    /*<![CDATA[*/
+    window.FPC = {
+      teamLabels:      /*[[${dash?.chartData.teamLabels}]]*/      [],
+      teamTargets:     /*[[${dash?.chartData.teamTargets}]]*/     [],
+      teamProjections: /*[[${dash?.chartData.teamProjections}]]*/ [],
+      donutLabels:     /*[[${dash?.chartData.donutLabels}]]*/     [],
+      donutData:       /*[[${dash?.chartData.donutData}]]*/       [],
+      trendMonths:     /*[[${dash?.chartData.trendMonths}]]*/     [],
+      trendTargets:    /*[[${dash?.chartData.trendTargets}]]*/    [],
+      trendProjections:/*[[${dash?.chartData.trendProjections}]]*/[],
+      profitData:      /*[[${dash?.chartData.profitData}]]*/      [],
+      growthProj:      /*[[${dash?.chartData.growthProj}]]*/      [],
+      growthApproved:  /*[[${dash?.chartData.growthApproved}]]*/  []
+    };
+    /*]]>*/
+  </script>
+  <script th:src="@{/js/commercial/fabric-precosting-v3.js}"></script>
+
+</div>
+</section>
+</html>

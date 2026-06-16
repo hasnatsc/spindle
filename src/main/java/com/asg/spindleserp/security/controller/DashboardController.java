@@ -13,7 +13,7 @@ public class DashboardController {
 
     @GetMapping
     public String dashboard() {
-        return "dashboard/accounts-dashboard"; // templates/dashboard.html
+        return "dashboard/fabric-precosting-dashboard"; // templates/dashboard.html
     }
 
     @GetMapping("/accounts-dashboard")
