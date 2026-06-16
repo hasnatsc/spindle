@@ -27,7 +27,7 @@ public class DocumentSequence {
     @Column(nullable = false, length = 20)
     private String prefix;
 
-    @Column(nullable = false, length = 6)
+    @Column(nullable = false, length = 7)
     private String yearCode;
 
     @Builder.Default
