@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<!--
+  security/permissions-index.html
+  URL: GET /permissions
+  JS fns: permShow / permEdit / permToggle / permDelete / permOpenCreate
+-->
+<html th:replace="~{layout/base :: layout('Permissions Management', ~{::section})}"
+      xmlns:th="http://www.thymeleaf.org">
+<section>
+
+  <ol class="breadcrumb float-xl-end">
+    <li class="breadcrumb-item"><a th:href="@{/dashboard}">Home</a></li>
+    <li class="breadcrumb-item">Security</li>
+    <li class="breadcrumb-item active">Permissions</li>
+  </ol>
+  <h1 class="page-header">Permissions <small>API-level permission registry</small></h1>
+
+  <div class="panel panel-inverse">
+    <div class="panel-heading">
+      <div class="panel-title">
+        <a href="javascript:;" onclick="permOpenCreate()">
+          <span class="badge btn btn-outline-success">
+            <i class="fa fa-plus me-1"></i> Create Permission
+          </span>
+        </a>
+      </div>
+      <div class="panel-heading-btn">
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-success" data-toggle="panel-reload"><i class="fa fa-redo"></i></a>
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-warning" data-toggle="panel-collapse"><i class="fa fa-minus"></i></a>
+      </div>
+    </div>
+
+    <div class="panel-body">
+      <table id="permTable" width="100%"
+             class="table table-striped table-bordered align-middle">
+        <thead>
+          <tr>
+            <th width="1%">SL</th>
+            <th>Permission Name</th>
+            <th>Module</th>
+            <th>Category</th>
+            <th>URL Pattern</th>
+            <th>Method</th>
+            <th>Description</th>
+            <th class="text-center" width="7%">Status</th>
+            <th>Created At</th>
+            <th class="text-center" width="12%">Actions</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <!-- ══ CREATE / EDIT MODAL ═════════════════════════════════════════════ -->
+    <div tabindex="-1" id="permModal" class="modal fade" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="permModalTitle">
+              <i class="fa fa-key me-1 text-success"></i> Create Permission
+            </h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <form id="permForm" novalidate>
+            <div class="modal-body">
+              <div class="hs-box">
+                <div class="row g-2">
+                  <input type="hidden" id="permId">
+
+                  <div class="col-12">
+                    <h6 class="text-primary mb-1"><i class="fa fa-key me-1"></i> Permission Details</h6>
+                    <hr class="mt-0 mb-2">
+                  </div>
+
+                  <div class="col-md-12 view-group">
+                    <input id="permName" placeholder="e.g. INV.ITEM.VIEW"
+                           type="text" class="form-control hs_span_view text-uppercase"
+                           required maxlength="100"
+                           style="font-family:monospace">
+                    <label for="permName" class="input-label">
+                      Permission Name <span class="text-danger">*</span>
+                      <small class="text-muted">(MODULE.ENTITY.ACTION format)</small>
+                    </label>
+                  </div>
+
+                  <div class="col-md-6 view-group">
+                    <input id="permUrlPattern" placeholder="e.g. /inventory/items/**"
+                           type="text" class="form-control hs_span_view" maxlength="255">
+                    <label for="permUrlPattern" class="input-label">URL Pattern</label>
+                  </div>
+
+                  <div class="col-md-3 mb-2">
+                    <label for="permHttpMethod" class="view-label">HTTP Method</label>
+                    <select id="permHttpMethod" class="form-select">
+                      <option value="">ANY</option>
+                      <option value="GET">GET</option>
+                      <option value="POST">POST</option>
+                      <option value="PUT">PUT</option>
+                      <option value="DELETE">DELETE</option>
+                      <option value="PATCH">PATCH</option>
+                    </select>
+                  </div>
+
+                  <div class="col-md-3 mb-2">
+                    <label for="permModule" class="view-label">Module</label>
+                    <select id="permModule" class="form-select">
+                      <option value="">— Select —</option>
+                    </select>
+                  </div>
+
+                  <div class="col-md-6 view-group">
+                    <input id="permCategory" placeholder="e.g. INVENTORY"
+                           type="text" class="form-control hs_span_view" maxlength="50">
+                    <label for="permCategory" class="input-label">Category</label>
+                  </div>
+
+                  <div class="col-md-6 view-group">
+                    <input id="permDescription" placeholder="Brief description"
+                           type="text" class="form-control hs_span_view" maxlength="255">
+                    <label for="permDescription" class="input-label">Description</label>
+                  </div>
+
+                  <div class="col-md-12">
+                    <div class="form-check form-switch mt-1">
+                      <input type="checkbox" id="permActive" class="form-check-input" checked>
+                      <label class="form-check-label" for="permActive"><strong>Active</strong></label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-success" type="submit" id="permSubmitBtn">
+                <span class="spinner-border spinner-border-sm me-2 d-none" id="permSpinner"></span>
+                <span id="permBtnText">Save Permission</span>
+              </button>
+              <button type="button" class="btn btn-white" data-bs-dismiss="modal">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ VIEW MODAL ════════════════════════════════════════════════════════ -->
+    <div tabindex="-1" id="permViewModal" class="modal fade" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered modal-md">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title"><i class="fa fa-key me-1 text-primary"></i> Permission Details</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <div class="hs-box">
+              <div class="row g-2">
+                <div class="col-12 view-group"><label class="view-label">Name</label>
+                  <span id="pv_name" class="form-control hs_span_show" style="font-family:monospace"></span></div>
+                <div class="col-6 view-group"><label class="view-label">Module</label>
+                  <span id="pv_module" class="form-control hs_span_show"></span></div>
+                <div class="col-6 view-group"><label class="view-label">Category</label>
+                  <span id="pv_category" class="form-control hs_span_show"></span></div>
+                <div class="col-8 view-group"><label class="view-label">URL Pattern</label>
+                  <span id="pv_urlPattern" class="form-control hs_span_show" style="font-family:monospace"></span></div>
+                <div class="col-4 view-group"><label class="view-label">HTTP Method</label>
+                  <span id="pv_httpMethod" class="form-control hs_span_show"></span></div>
+                <div class="col-12 view-group"><label class="view-label">Description</label>
+                  <span id="pv_description" class="form-control hs_span_show"></span></div>
+                <div class="col-6 view-group"><label class="view-label">Status</label>
+                  <span id="pv_status" class="form-control hs_span_show" style="min-height:38px"></span></div>
+                <div class="col-6 view-group"><label class="view-label">Created At</label>
+                  <span id="pv_createdAt" class="form-control hs_span_show"></span></div>
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-white" data-bs-dismiss="modal"><i class="fa fa-times me-1"></i> Close</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /panel -->
+
+  <script>
+  (function () {
+    'use strict';
+    var dt;
+
+    document.addEventListener('DOMContentLoaded', function () {
+      dt = $('#permTable').DataTable({
+        processing: true, serverSide: true, responsive: true, pageLength: 25,
+        ajax: { url: '/permissions/list', type: 'GET' },
+        columns: [
+          { data: 'sl',          orderable: false, width: '40px' },
+          { data: 'name' },
+          { data: 'module' },
+          { data: 'category' },
+          { data: 'url_pattern', orderable: false },
+          { data: 'http_method', orderable: false, className: 'text-center' },
+          { data: 'description' },
+          { data: 'status',      orderable: false, className: 'text-center' },
+          { data: 'created_at' },
+          { data: 'actions',     orderable: false, className: 'text-center' }
+        ],
+        language: { emptyTable: 'No permissions found.', processing: '<span class="spinner-border spinner-border-sm me-2"></span> Loading…' }
+      });
+      window._permDT = dt;
+      loadModules();
+      document.getElementById('permForm').addEventListener('submit', onSubmit);
+    });
+
+    window.permOpenCreate = function () {
+      resetForm();
+      document.getElementById('permModalTitle').innerHTML = '<i class="fa fa-plus me-1 text-success"></i> Create Permission';
+      document.getElementById('permBtnText').textContent = 'Save Permission';
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('permModal')).show();
+    };
+
+    window.permShow = function (id) {
+      secureFetch('/permissions/show/' + id).then(function (res) {
+        if (!res.success) { Swal.fire('Error', res.message, 'error'); return; }
+        var p = res.obj.defaultData;
+        setText('pv_name',        p.name);
+        setText('pv_module',      p.module || '—');
+        setText('pv_category',    p.category || '—');
+        setText('pv_urlPattern',  p.urlPattern || '—');
+        setText('pv_httpMethod',  p.httpMethod || 'ANY');
+        setText('pv_description', p.description || '—');
+        setText('pv_createdAt',   p.createdAt || '—');
+        document.getElementById('pv_status').innerHTML = p.active
+          ? "<span class='badge bg-success'>Active</span>"
+          : "<span class='badge bg-danger'>Inactive</span>";
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('permViewModal')).show();
+      });
+    };
+
+    window.permEdit = function (id) {
+      secureFetch('/permissions/show/' + id).then(function (res) {
+        if (!res.success) { Swal.fire('Error', res.message, 'error'); return; }
+        var p = res.obj.defaultData;
+        resetForm();
+        document.getElementById('permId').value          = p.id;
+        document.getElementById('permName').value        = p.name;
+        document.getElementById('permUrlPattern').value  = p.urlPattern || '';
+        document.getElementById('permHttpMethod').value  = p.httpMethod || '';
+        document.getElementById('permModule').value      = p.module || '';
+        document.getElementById('permCategory').value    = p.category || '';
+        document.getElementById('permDescription').value = p.description || '';
+        document.getElementById('permActive').checked    = p.active;
+        document.getElementById('permModalTitle').innerHTML = '<i class="fa fa-pencil me-1 text-warning"></i> Edit Permission';
+        document.getElementById('permBtnText').textContent = 'Update Permission';
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('permModal')).show();
+      });
+    };
+
+    window.permToggle = function (id) {
+      Swal.fire({ title:'Change Status?', icon:'question', showCancelButton:true,
+        confirmButtonText:'Toggle', confirmButtonColor:'#3085d6' }).then(function(r){
+        if (!r.isConfirmed) return;
+        secureFetch('/permissions/toggle/' + id, { method:'POST' }).then(function(data){
+          data.success ? dt.ajax.reload(null,false) : Swal.fire('Error', data.message, 'error');
+        });
+      });
+    };
+
+    window.permDelete = function (id) {
+      Swal.fire({ title:'Delete Permission?', icon:'warning', showCancelButton:true,
+        confirmButtonColor:'#d33', confirmButtonText:'Yes, delete!' }).then(function(r){
+        if (!r.isConfirmed) return;
+        secureFetch('/permissions/delete/' + id, { method:'DELETE' }).then(function(data){
+          if (data.success) {
+            Swal.fire({ icon:'success', title:'Deleted!', text:data.message, timer:1500, showConfirmButton:false });
+            dt.ajax.reload(null,false);
+          } else Swal.fire('Error', data.message, 'error');
+        });
+      });
+    };
+
+    function onSubmit(e) {
+      e.preventDefault();
+      var submitBtn = document.getElementById('permSubmitBtn');
+      var spinner   = document.getElementById('permSpinner');
+      var btnText   = document.getElementById('permBtnText');
+      hsDisableButton(submitBtn, spinner, btnText);
+      var payload = {
+        id:          document.getElementById('permId').value || null,
+        name:        document.getElementById('permName').value.trim().toUpperCase(),
+        urlPattern:  document.getElementById('permUrlPattern').value.trim() || null,
+        httpMethod:  document.getElementById('permHttpMethod').value || null,
+        module:      document.getElementById('permModule').value || null,
+        category:    document.getElementById('permCategory').value.trim() || null,
+        description: document.getElementById('permDescription').value.trim() || null,
+        active:      document.getElementById('permActive').checked
+      };
+      secureFetch('/permissions/save', { method:'POST', body: JSON.stringify(payload) })
+        .then(function(data){
+          if (data.success) {
+            Swal.fire({ icon:'success', title:'Success!', text:data.message, timer:1600, showConfirmButton:false });
+            bootstrap.Modal.getOrCreateInstance(document.getElementById('permModal')).hide();
+            dt.ajax.reload(null,false);
+          } else Swal.fire('Error', data.message, 'error');
+        })
+        .catch(function(err){ Swal.fire('Error', err.message||'Failed.', 'error'); })
+        .finally(function(){ hsEnableButton(submitBtn, spinner, btnText); });
+    }
+
+    function loadModules() {
+      secureFetch('/permissions/modules/all').then(function(modules){
+        var sel = document.getElementById('permModule');
+        modules.forEach(function(m){
+          var opt = document.createElement('option');
+          opt.value = m; opt.text = m;
+          sel.appendChild(opt);
+        });
+      }).catch(function(){});
+    }
+
+    function resetForm() {
+      document.getElementById('permForm').reset();
+      document.getElementById('permId').value = '';
+      document.getElementById('permActive').checked = true;
+    }
+
+    function setText(id, val) {
+      var el = document.getElementById(id); if (el) el.textContent = val || '—';
+    }
+  })();
+  </script>
+
+</section>
+</html>

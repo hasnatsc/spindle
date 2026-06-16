@@ -8,30 +8,25 @@ import org.springframework.stereotype.Repository;
 import java.util.List;
 import java.util.Optional;
 
-/**
- * RoleRepository
- *
- * Provides all role lookups needed by:
- *   UserController.allRoles()         → findAllActiveWithPermissions()
- *   UserServiceImpl.resolveRoles()    → findAllById() (from JpaRepository)
- *   SecurityDataInitializer           → findByName()
- */
 @Repository
 public interface RoleRepository extends JpaRepository<Role, Long> {
 
     Optional<Role> findByName(String name);
 
-    boolean existsByName(String name);
+    List<Role> findByActiveTrue();
 
-    /** For UserController /roles/all — returns active roles with permissions. */
+    boolean existsByName(String name);
+    boolean existsByNameAndIdNot(String name, Long id);
+
+    /** Roles for user-assignment dropdowns — permissions eagerly loaded */
     @Query("""
         SELECT DISTINCT r FROM Role r
-        LEFT JOIN FETCH r.permissions p
+        LEFT JOIN FETCH r.permissions
         WHERE r.active = true
-        ORDER BY r.name
+        ORDER BY r.name ASC
         """)
     List<Role> findAllActiveWithPermissions();
 
-    /** All active roles (no permission fetch — for dropdowns). */
-    List<Role> findAllByActiveTrueOrderByName();
+    /** All roles ordered — for DataTable and dropdowns */
+    List<Role> findAllByOrderByNameAsc();
 }

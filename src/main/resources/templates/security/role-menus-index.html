@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<!--
+  security/role-menus-index.html
+  URL: GET /role-menus
+
+  UX:
+   1. Pick a role from the top dropdown → loads the menu tree matrix
+   2. Check canView / canCreate / canEdit / canDelete per menu
+   3. Header checkboxes toggle the entire column
+   4. "Select All / None" row shortcuts per MODULE row
+   5. Save button POSTs /role-menus/save/{roleId}
+   6. Grant All / Revoke All convenience buttons
+-->
+<html th:replace="~{layout/base :: layout('Role Menu Access', ~{::section})}"
+      xmlns:th="http://www.thymeleaf.org">
+<section>
+
+  <ol class="breadcrumb float-xl-end">
+    <li class="breadcrumb-item"><a th:href="@{/dashboard}">Home</a></li>
+    <li class="breadcrumb-item">Security</li>
+    <li class="breadcrumb-item active">Role Menu Access</li>
+  </ol>
+  <h1 class="page-header">Role Menu Access <small>assign menus and CRUD flags per role</small></h1>
+
+  <!-- ── Role picker ─────────────────────────────────────────────────────── -->
+  <div class="panel panel-inverse">
+    <div class="panel-heading">
+      <div class="panel-title"><i class="fa fa-user-shield me-1"></i> Select Role</div>
+    </div>
+    <div class="panel-body">
+      <div class="row g-2 align-items-end">
+        <div class="col-md-5">
+          <label for="rolePicker" class="view-label">Role</label>
+          <select id="rolePicker" class="form-select" onchange="loadMatrix()">
+            <option value="">— Select a role to manage —</option>
+          </select>
+        </div>
+        <div class="col-md-7 d-flex gap-2 flex-wrap" id="actionButtons" style="display:none!important">
+          <button class="btn btn-success" onclick="saveAccess()" id="saveBtn">
+            <span class="spinner-border spinner-border-sm me-1 d-none" id="saveSpinner"></span>
+            <i class="fa fa-save me-1"></i> Save Access
+          </button>
+          <button class="btn btn-outline-primary" onclick="grantAll()">
+            <i class="fa fa-check-double me-1"></i> Grant All
+          </button>
+          <button class="btn btn-outline-danger" onclick="revokeAll()">
+            <i class="fa fa-ban me-1"></i> Revoke All
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Matrix panel ────────────────────────────────────────────────────── -->
+  <div class="panel panel-inverse" id="matrixPanel" style="display:none">
+    <div class="panel-heading">
+      <div class="panel-title">
+        <i class="fa fa-table me-1"></i>
+        Menu Access Matrix — <span id="matrixRoleLabel" class="fw-semibold text-warning"></span>
+      </div>
+      <div class="panel-heading-btn">
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-warning" data-toggle="panel-collapse"><i class="fa fa-minus"></i></a>
+      </div>
+    </div>
+    <div class="panel-body p-0">
+
+      <!-- sticky header -->
+      <div class="table-responsive">
+        <table class="table table-bordered table-hover mb-0" id="matrixTable">
+          <thead class="table-dark" style="position:sticky;top:0;z-index:10">
+            <tr>
+              <th style="min-width:260px">Menu</th>
+              <th class="text-center" style="width:90px">
+                View
+                <br><input type="checkbox" id="hdrView" title="Toggle all View"
+                           onchange="toggleCol('view',this.checked)" class="form-check-input mt-1">
+              </th>
+              <th class="text-center" style="width:90px">
+                Create
+                <br><input type="checkbox" id="hdrCreate" title="Toggle all Create"
+                           onchange="toggleCol('create',this.checked)" class="form-check-input mt-1">
+              </th>
+              <th class="text-center" style="width:90px">
+                Edit
+                <br><input type="checkbox" id="hdrEdit" title="Toggle all Edit"
+                           onchange="toggleCol('edit',this.checked)" class="form-check-input mt-1">
+              </th>
+              <th class="text-center" style="width:90px">
+                Delete
+                <br><input type="checkbox" id="hdrDelete" title="Toggle all Delete"
+                           onchange="toggleCol('delete',this.checked)" class="form-check-input mt-1">
+              </th>
+            </tr>
+          </thead>
+          <tbody id="matrixBody">
+            <tr><td colspan="5" class="text-center py-4 text-muted">
+              <span class="spinner-border spinner-border-sm me-2"></span> Loading…
+            </td></tr>
+          </tbody>
+        </table>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+  (function () {
+    'use strict';
+
+    var currentRoleId = null;
+    var matrixData    = [];    // flat array from server
+
+    /* ── Load role dropdown ───────────────────────────────────────────────── */
+    document.addEventListener('DOMContentLoaded', function () {
+      secureFetch('/role-menus/roles/all').then(function(roles){
+        var sel = document.getElementById('rolePicker');
+        roles.forEach(function(r){
+          var opt = document.createElement('option');
+          opt.value = r.id;
+          opt.text  = r.displayName + (r.active ? '' : ' [inactive]');
+          sel.appendChild(opt);
+        });
+      });
+    });
+
+    /* ── Load matrix for selected role ───────────────────────────────────── */
+    window.loadMatrix = function () {
+      var roleId = document.getElementById('rolePicker').value;
+      if (!roleId) {
+        document.getElementById('matrixPanel').style.display = 'none';
+        document.getElementById('actionButtons').style.display = 'none !important';
+        return;
+      }
+      currentRoleId = roleId;
+      document.getElementById('matrixPanel').style.display = '';
+      document.getElementById('actionButtons').style.removeProperty('display');
+      document.getElementById('matrixBody').innerHTML =
+        '<tr><td colspan="5" class="text-center py-4"><span class="spinner-border spinner-border-sm me-2"></span> Loading matrix…</td></tr>';
+
+      secureFetch('/role-menus/matrix/' + roleId).then(function(res){
+        if (!res.success) { Swal.fire('Error', res.message, 'error'); return; }
+        matrixData = res.menus;
+        document.getElementById('matrixRoleLabel').textContent = res.roleName;
+        renderMatrix(matrixData);
+      }).catch(function(err){
+        Swal.fire('Error', err.message||'Failed to load.', 'error');
+      });
+    };
+
+    /* ── Render matrix rows ─────────────────────────────────────────────── */
+    function renderMatrix(menus) {
+      var body = document.getElementById('matrixBody');
+
+      // Build tree structure: modules → groups → leaves
+      var byId   = {};
+      menus.forEach(function(m){ m._children = []; byId[m.id] = m; });
+      var roots  = [];
+      menus.forEach(function(m){
+        if (m.parentId && byId[m.parentId]) byId[m.parentId]._children.push(m);
+        else roots.push(m);
+      });
+      roots.sort(function(a,b){ return a.displayOrder - b.displayOrder; });
+
+      var rows = [];
+      roots.forEach(function(mod){ flattenTree(mod, rows, 0); });
+
+      var html = '';
+      rows.forEach(function(item){
+        var m     = item.menu;
+        var depth = item.depth;
+        var isModule = m.menuType === 'MODULE';
+        var isGroup  = m.menuType === 'GROUP';
+
+        var indent = depth * 20;
+        var icon   = m.icon ? '<i class="' + esc(m.icon) + ' me-1"></i>' : '';
+        var typeBadge = isModule
+          ? '<span class="badge bg-primary ms-1" style="font-size:.65rem">MOD</span>'
+          : isGroup
+          ? '<span class="badge bg-info text-dark ms-1" style="font-size:.65rem">GRP</span>'
+          : '';
+
+        var rowClass = isModule ? 'table-dark' : isGroup ? 'table-secondary' : '';
+
+        html += '<tr class="' + rowClass + '" data-menu-id="' + m.id + '">';
+        html += '<td style="padding-left:' + (indent + 8) + 'px">' + icon + esc(m.menuName) + typeBadge + '</td>';
+        html += td('view',   m.id, m.canView);
+        html += td('create', m.id, m.canCreate);
+        html += td('edit',   m.id, m.canEdit);
+        html += td('delete', m.id, m.canDelete);
+        html += '</tr>';
+      });
+
+      body.innerHTML = html || '<tr><td colspan="5" class="text-center text-muted">No menus found.</td></tr>';
+
+      /* When canView is unchecked, clear the other flags */
+      body.querySelectorAll('input[data-flag="view"]').forEach(function(cb){
+        cb.addEventListener('change', function(){
+          if (!this.checked) {
+            var mid = this.dataset.menuId;
+            ['create','edit','delete'].forEach(function(f){
+              var el = document.querySelector('input[data-flag="'+f+'"][data-menu-id="'+mid+'"]');
+              if (el) el.checked = false;
+            });
+          }
+        });
+      });
+    }
+
+    function flattenTree(menu, out, depth) {
+      out.push({ menu: menu, depth: depth });
+      (menu._children || [])
+        .sort(function(a,b){ return a.displayOrder - b.displayOrder; })
+        .forEach(function(c){ flattenTree(c, out, depth + 1); });
+    }
+
+    function td(flag, menuId, checked) {
+      return '<td class="text-center">'
+           + '<input type="checkbox" class="form-check-input cb-' + flag + '"'
+           + ' data-flag="' + flag + '" data-menu-id="' + menuId + '"'
+           + (checked ? ' checked' : '') + '>'
+           + '</td>';
+    }
+
+    /* ── Column header toggles ────────────────────────────────────────────── */
+    window.toggleCol = function (flag, checked) {
+      document.querySelectorAll('.cb-' + flag).forEach(function(cb){ cb.checked = checked; });
+      if (!checked && flag === 'view') {
+        ['create','edit','delete'].forEach(function(f){
+          document.querySelectorAll('.cb-' + f).forEach(function(cb){ cb.checked = false; });
+          var hdr = document.getElementById('hdr' + cap(f)); if (hdr) hdr.checked = false;
+        });
+      }
+    };
+
+    function cap(s){ return s.charAt(0).toUpperCase() + s.slice(1); }
+
+    /* ── Save ─────────────────────────────────────────────────────────────── */
+    window.saveAccess = function () {
+      if (!currentRoleId) return;
+
+      var rows = document.querySelectorAll('#matrixBody tr[data-menu-id]');
+      var payload = [];
+      rows.forEach(function(tr){
+        var mid = tr.dataset.menuId;
+        payload.push({
+          menuId:    Number(mid),
+          canView:   !!tr.querySelector('input[data-flag="view"]').checked,
+          canCreate: !!tr.querySelector('input[data-flag="create"]').checked,
+          canEdit:   !!tr.querySelector('input[data-flag="edit"]').checked,
+          canDelete: !!tr.querySelector('input[data-flag="delete"]').checked
+        });
+      });
+
+      var btn     = document.getElementById('saveBtn');
+      var spinner = document.getElementById('saveSpinner');
+      hsDisableButton(btn, spinner, null);
+
+      secureFetch('/role-menus/save/' + currentRoleId, {
+        method: 'POST', body: JSON.stringify(payload)
+      }).then(function(data){
+        if (data.success) {
+          Swal.fire({ icon:'success', title:'Saved!', text:data.message, timer:1800, showConfirmButton:false });
+        } else {
+          Swal.fire('Error', data.message, 'error');
+        }
+      }).catch(function(err){
+        Swal.fire('Error', err.message||'Failed.', 'error');
+      }).finally(function(){
+        hsEnableButton(btn, spinner, null);
+      });
+    };
+
+    /* ── Grant All ────────────────────────────────────────────────────────── */
+    window.grantAll = function () {
+      if (!currentRoleId) return;
+      Swal.fire({ title:'Grant All Menus?', text:'All menus will get full CRUD access.',
+        icon:'question', showCancelButton:true, confirmButtonColor:'#198754',
+        confirmButtonText:'Yes, grant all!'
+      }).then(function(r){
+        if (!r.isConfirmed) return;
+        secureFetch('/role-menus/grant-all/' + currentRoleId, { method:'POST' })
+          .then(function(data){
+            if (data.success) {
+              Swal.fire({ icon:'success', title:'Done!', text:data.message, timer:1600, showConfirmButton:false });
+              loadMatrix();
+            } else Swal.fire('Error', data.message, 'error');
+          });
+      });
+    };
+
+    /* ── Revoke All ───────────────────────────────────────────────────────── */
+    window.revokeAll = function () {
+      if (!currentRoleId) return;
+      Swal.fire({ title:'Revoke All Access?', text:'This role will lose all menu access.',
+        icon:'warning', showCancelButton:true, confirmButtonColor:'#d33',
+        confirmButtonText:'Yes, revoke all!'
+      }).then(function(r){
+        if (!r.isConfirmed) return;
+        secureFetch('/role-menus/revoke-all/' + currentRoleId, { method:'POST' })
+          .then(function(data){
+            if (data.success) {
+              Swal.fire({ icon:'success', title:'Done!', text:data.message, timer:1600, showConfirmButton:false });
+              loadMatrix();
+            } else Swal.fire('Error', data.message, 'error');
+          });
+      });
+    };
+
+    function esc(s) {
+      return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+  })();
+  </script>
+
+</section>
+</html>
