@@ -9,20 +9,24 @@ import java.time.LocalDateTime;
 
 /**
  * FIX: implements Serializable
- *
+ * <p>
  * Permission is the leaf node of the security object graph:
- *   User → Role → Permission
- *
+ * User → Role → Permission
+ * <p>
  * All three must implement Serializable for Spring Session JDBC
  * to successfully serialize the SecurityContext into the database.
  */
 @Entity
 @Table(name = "sec_permissions",
-    indexes = {
-        @Index(name = "idx_perm_name",   columnList = "name"),
-        @Index(name = "idx_perm_module", columnList = "module")
-    })
-@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+        indexes = {
+                @Index(name = "idx_perm_name", columnList = "name"),
+                @Index(name = "idx_perm_module", columnList = "module")
+        })
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class Permission implements Serializable {   // ✅ FIX
 
     @Serial
@@ -58,9 +62,6 @@ public class Permission implements Serializable {   // ✅ FIX
     private LocalDateTime updatedAt;
 
     public enum Module {
-        CORE_SECURITY, HRM, SALES_CUSTOMER_OPERATIONS, PURCHASE_SUPPLIER,
-        INVENTORY_WAREHOUSE, FINANCE_ACCOUNTS, PRODUCTION, PRODUCT_CATALOG_ECOMMERCE,
-        POS, CRM, COMMUNICATION_NOTIFICATION, COMMERCIAL, REPORTS_ANALYTICS,
-        BUDGET, FIXED_ASSETS
+        CORE_SECURITY, HRM, SALES_CUSTOMER_OPERATIONS, PURCHASE_SUPPLIER, INVENTORY_WAREHOUSE, FINANCE_ACCOUNTS, PRODUCTION, PRODUCT_CATALOG_ECOMMERCE, POS, CRM, COMMUNICATION_NOTIFICATION, COMMERCIAL, REPORTS_ANALYTICS, BUDGET, FIXED_ASSETS
     }
 }

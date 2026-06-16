@@ -1,10 +1,21 @@
 package com.asg.spindleserp.security.service;
 
 import com.asg.spindleserp.common.dto.DataTableResponse;
+import com.asg.spindleserp.organization.entity.BusinessUnit;
+import com.asg.spindleserp.organization.entity.CostCenter;
+import com.asg.spindleserp.organization.entity.Organization;
+import com.asg.spindleserp.organization.entity.Warehouse;
+import com.asg.spindleserp.organization.repository.BusinessUnitRepository;
+import com.asg.spindleserp.organization.repository.CostCenterRepository;
+import com.asg.spindleserp.organization.repository.OrganizationRepository;
+import com.asg.spindleserp.organization.repository.WarehouseRepository;
 import com.asg.spindleserp.security.dto.UserDTO;
 import com.asg.spindleserp.security.entity.Role;
 import com.asg.spindleserp.security.entity.User;
+import com.asg.spindleserp.security.entity.UserAccessScope;
+import com.asg.spindleserp.security.entity.UserAccessScope.ScopeType;
 import com.asg.spindleserp.security.repository.RoleRepository;
+import com.asg.spindleserp.security.repository.UserAccessScopeRepository;
 import com.asg.spindleserp.security.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -21,26 +32,12 @@ import java.util.stream.Collectors;
 /**
  * UserServiceImpl
  *
- * Changes from the uploaded version:
- *
- * 1. existsByUsername/existsByEmail changed to:
- *      existsByUsernameAndIdNot / existsByEmailAndIdNot  (update)
- *      existsByUsername / existsByEmail                  (create)
- *    The custom JPQL overloads in the uploaded UserRepository have been
- *    replaced with the standard Spring Data method-name conventions that
- *    already exist in the project repository.
- *
- * 2. datatableList uses DataTableResponse.of() (project's factory method).
- *    Pagination is in-memory (full table to page). Replace with
- *    Pageable/Specification when user count exceeds ~5 000.
- *
- * 3. buildActions() uses the JS function names that match users-index.html:
- *    userShow / userEdit / userToggle / userPwd / userDelete
- *
- * 4. phone uniqueness check added to createUser / updateUser.
- *
- * 5. createUser sets organization via the auth context (superadmin shares org).
- *    For a multi-org system, pass orgId in the DTO.
+ * Complete implementation covering:
+ *  - CRUD with full validation (duplicate username / email / phone)
+ *  - Access scope persistence (org / BU / cost-center / warehouse)
+ *  - Soft-delete + toggle status + change password
+ *  - DataTable server-side with search and in-memory pagination
+ *  - superadmin guard (cannot be deleted/disabled from UI)
  */
 @Slf4j
 @Service
@@ -48,9 +45,14 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class UserServiceImpl implements UserService {
 
-    private final UserRepository  userRepository;
-    private final RoleRepository  roleRepository;
-    private final PasswordEncoder passwordEncoder;
+    private final UserRepository           userRepository;
+    private final RoleRepository           roleRepository;
+    private final UserAccessScopeRepository scopeRepository;
+    private final OrganizationRepository   orgRepository;
+    private final BusinessUnitRepository   buRepository;
+    private final CostCenterRepository     ccRepository;
+    private final WarehouseRepository      whRepository;
+    private final PasswordEncoder          passwordEncoder;
 
     private static final DateTimeFormatter DT = DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm");
 
@@ -63,8 +65,6 @@ public class UserServiceImpl implements UserService {
         validate(dto, null);
 
         String actor = currentUsername();
-
-        // Resolve organization from the logged-in user's context
         User currentUser = userRepository
                 .findByUsernameWithRolesAndPermissions(actor)
                 .orElseThrow(() -> new IllegalStateException("Current user not found: " + actor));
@@ -86,9 +86,11 @@ public class UserServiceImpl implements UserService {
                 .updatedBy(actor)
                 .build();
 
-        UserDTO saved = toDTO(userRepository.save(user));
+        User saved = userRepository.save(user);
+        persistScopes(saved, dto);
+
         log.info("User '{}' created by {}", saved.getUsername(), actor);
-        return saved;
+        return toDTO(saved);
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -145,16 +147,18 @@ public class UserServiceImpl implements UserService {
         user.setRoles(resolveRoles(dto.getRoleIds()));
         user.setUpdatedBy(currentUsername());
 
-        // Password update — only when provided
+        // Password — only when provided on update
         if (dto.getPassword() != null && !dto.getPassword().isBlank()) {
             if (dto.getPassword().length() < 8)
                 throw new IllegalArgumentException("Password must be at least 8 characters.");
             user.setPassword(passwordEncoder.encode(dto.getPassword()));
         }
 
-        UserDTO saved = toDTO(userRepository.save(user));
+        User saved = userRepository.save(user);
+        persistScopes(saved, dto);  // replace all scopes
+
         log.info("User '{}' updated by {}", saved.getUsername(), currentUsername());
-        return saved;
+        return toDTO(saved);
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -165,7 +169,6 @@ public class UserServiceImpl implements UserService {
     public void deleteUser(Long id) {
         User user = userRepository.findByIdAndDeletedFalse(id)
                 .orElseThrow(() -> new IllegalArgumentException("User #" + id + " not found."));
-
         guardSuperAdmin(user);
 
         user.setDeleted(true);
@@ -183,7 +186,6 @@ public class UserServiceImpl implements UserService {
     public UserDTO toggleStatus(Long id) {
         User user = userRepository.findByIdAndDeletedFalse(id)
                 .orElseThrow(() -> new IllegalArgumentException("User #" + id + " not found."));
-
         guardSuperAdmin(user);
 
         user.setEnabled(!user.isEnabled());
@@ -210,7 +212,7 @@ public class UserServiceImpl implements UserService {
 
         user.setPassword(passwordEncoder.encode(newPassword));
         user.setUpdatedBy(currentUsername());
-        log.info("Password changed for user #{} '{}' by {}", id, user.getUsername(), currentUsername());
+        log.info("Password changed for user #{} by {}", id, currentUsername());
         return toDTO(userRepository.save(user));
     }
 
@@ -224,7 +226,7 @@ public class UserServiceImpl implements UserService {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // DATATABLE (server-side, in-memory pagination)
+    // DATATABLE
     // ─────────────────────────────────────────────────────────────────────────
 
     @Override
@@ -255,8 +257,7 @@ public class UserServiceImpl implements UserService {
             row.put("status",     u.isEnabled()
                     ? "<span class='badge bg-success'>Active</span>"
                     : "<span class='badge bg-danger'>Disabled</span>");
-            row.put("created_at", u.getCreatedAt() != null
-                    ? u.getCreatedAt().format(DT) : "—");
+            row.put("created_at", u.getCreatedAt() != null ? u.getCreatedAt().format(DT) : "—");
             row.put("actions",    buildActions(u.getId(), u.isEnabled()));
             rows.add(row);
         }
@@ -273,6 +274,18 @@ public class UserServiceImpl implements UserService {
         Set<Long>   roleIds   = u.getRoles().stream().map(Role::getId).collect(Collectors.toSet());
         Set<String> roleNames = u.getRoles().stream().map(Role::getName).collect(Collectors.toSet());
 
+        // Access scopes — read from sec_user_access_scopes
+        Set<Long> orgIds  = scopeRepository.findReferenceIdsByUserIdAndScopeType(u.getId(), ScopeType.ORGANIZATION);
+        Set<Long> buIds   = scopeRepository.findReferenceIdsByUserIdAndScopeType(u.getId(), ScopeType.BUSINESS_UNIT);
+        Set<Long> ccIds   = scopeRepository.findReferenceIdsByUserIdAndScopeType(u.getId(), ScopeType.COST_CENTER);
+        Set<Long> whIds   = scopeRepository.findReferenceIdsByUserIdAndScopeType(u.getId(), ScopeType.WAREHOUSE);
+
+        // Resolve display names
+        Set<String> orgNames = resolveOrgNames(orgIds);
+        Set<String> buNames  = resolveBuNames(buIds);
+        Set<String> ccNames  = resolveCcNames(ccIds);
+        Set<String> whNames  = resolveWhNames(whIds);
+
         return UserDTO.builder()
                 .id(u.getId())
                 .username(u.getUsername())
@@ -287,6 +300,14 @@ public class UserServiceImpl implements UserService {
                 .roleIds(roleIds)
                 .roleNames(roleNames)
                 .roleCount(roleIds.size())
+                .organizationIds(orgIds)
+                .businessUnitIds(buIds)
+                .costCenterIds(ccIds)
+                .warehouseIds(whIds)
+                .organizationNames(orgNames)
+                .businessUnitNames(buNames)
+                .costCenterNames(ccNames)
+                .warehouseNames(whNames)
                 .createdAt(u.getCreatedAt())
                 .updatedAt(u.getUpdatedAt())
                 .lastLoginAt(u.getLastLoginAt())
@@ -307,46 +328,109 @@ public class UserServiceImpl implements UserService {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // PRIVATE HELPERS
+    // PRIVATE — ACCESS SCOPES
     // ─────────────────────────────────────────────────────────────────────────
 
     /**
-     * Centralized validation for create (excludeId = null) and update (excludeId = id).
+     * Replace all access scopes for this user.
+     * Deletes existing rows and inserts fresh ones from the DTO.
+     * Call after every save / update.
      */
+    private void persistScopes(User user, UserDTO dto) {
+        scopeRepository.deleteAllByUserId(user.getId());
+
+        List<UserAccessScope> scopes = new ArrayList<>();
+
+        addScopes(scopes, user, ScopeType.ORGANIZATION,   dto.getOrganizationIds());
+        addScopes(scopes, user, ScopeType.BUSINESS_UNIT,  dto.getBusinessUnitIds());
+        addScopes(scopes, user, ScopeType.COST_CENTER,    dto.getCostCenterIds());
+        addScopes(scopes, user, ScopeType.WAREHOUSE,      dto.getWarehouseIds());
+
+        if (!scopes.isEmpty()) {
+            scopeRepository.saveAll(scopes);
+        }
+    }
+
+    private void addScopes(List<UserAccessScope> list, User user,
+                            ScopeType type, Set<Long> ids) {
+        if (ids == null || ids.isEmpty()) return;
+        for (Long refId : ids) {
+            list.add(UserAccessScope.builder()
+                    .user(user)
+                    .scopeType(type)
+                    .referenceId(refId)
+                    .build());
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // PRIVATE — DISPLAY NAME RESOLVERS
+    // ─────────────────────────────────────────────────────────────────────────
+
+    private Set<String> resolveOrgNames(Set<Long> ids) {
+        if (ids == null || ids.isEmpty()) return new HashSet<>();
+        return orgRepository.findAllById(ids).stream()
+                .map(Organization::getName).collect(Collectors.toSet());
+    }
+
+    private Set<String> resolveBuNames(Set<Long> ids) {
+        if (ids == null || ids.isEmpty()) return new HashSet<>();
+        return buRepository.findAllById(ids).stream()
+                .map(BusinessUnit::getName).collect(Collectors.toSet());
+    }
+
+    private Set<String> resolveCcNames(Set<Long> ids) {
+        if (ids == null || ids.isEmpty()) return new HashSet<>();
+        return ccRepository.findAllById(ids).stream()
+                .map(CostCenter::getCostCenterName).collect(Collectors.toSet());
+    }
+
+    private Set<String> resolveWhNames(Set<Long> ids) {
+        if (ids == null || ids.isEmpty()) return new HashSet<>();
+        return whRepository.findAllById(ids).stream()
+                .map(Warehouse::getWarehouseName).collect(Collectors.toSet());
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // PRIVATE — VALIDATION
+    // ─────────────────────────────────────────────────────────────────────────
+
     private void validate(UserDTO dto, Long excludeId) {
+        String uname = dto.getUsername().trim().toLowerCase();
+        String email = dto.getEmail().trim().toLowerCase();
+        String phone = dto.getPhone() != null ? dto.getPhone().trim() : null;
+
         if (excludeId == null) {
             // CREATE
-            if (userRepository.existsByUsername(dto.getUsername().trim().toLowerCase()))
+            if (userRepository.existsByUsername(uname))
                 throw new IllegalArgumentException("Username '" + dto.getUsername() + "' is already taken.");
-            if (userRepository.existsByEmail(dto.getEmail().trim().toLowerCase()))
+            if (userRepository.existsByEmail(email))
                 throw new IllegalArgumentException("Email '" + dto.getEmail() + "' is already registered.");
-            if (dto.getPhone() != null && !dto.getPhone().isBlank()
-                    && userRepository.existsByPhone(dto.getPhone().trim()))
+            if (phone != null && !phone.isBlank() && userRepository.existsByPhone(phone))
                 throw new IllegalArgumentException("Phone '" + dto.getPhone() + "' is already registered.");
             if (dto.getPassword() == null || dto.getPassword().length() < 8)
                 throw new IllegalArgumentException("Password must be at least 8 characters.");
         } else {
             // UPDATE — exclude self
-            if (userRepository.existsByUsernameAndIdNot(dto.getUsername().trim().toLowerCase(), excludeId))
+            if (userRepository.existsByUsernameAndIdNot(uname, excludeId))
                 throw new IllegalArgumentException("Username '" + dto.getUsername() + "' is already taken.");
-            if (userRepository.existsByEmailAndIdNot(dto.getEmail().trim().toLowerCase(), excludeId))
+            if (userRepository.existsByEmailAndIdNot(email, excludeId))
                 throw new IllegalArgumentException("Email '" + dto.getEmail() + "' is already registered.");
-            if (dto.getPhone() != null && !dto.getPhone().isBlank()
-                    && userRepository.existsByPhoneAndIdNot(dto.getPhone().trim(), excludeId))
+            if (phone != null && !phone.isBlank() && userRepository.existsByPhoneAndIdNot(phone, excludeId))
                 throw new IllegalArgumentException("Phone '" + dto.getPhone() + "' is already registered.");
         }
     }
 
-    /** Prevent mutating the superadmin account via the UI. */
+    // ─────────────────────────────────────────────────────────────────────────
+    // PRIVATE — MISC
+    // ─────────────────────────────────────────────────────────────────────────
+
     private void guardSuperAdmin(User user) {
         boolean isSuperAdmin = user.getRoles().stream()
                 .anyMatch(r -> "ROLE_SUPER_ADMIN".equals(r.getName()));
-        if (isSuperAdmin) {
-            String current = currentUsername();
-            if (!user.getUsername().equals(current))
-                throw new IllegalArgumentException(
-                        "The superadmin account cannot be modified through this interface.");
-        }
+        if (isSuperAdmin && !user.getUsername().equals(currentUsername()))
+            throw new IllegalArgumentException(
+                    "The superadmin account cannot be modified through this interface.");
     }
 
     private Set<Role> resolveRoles(Set<Long> ids) {
@@ -373,20 +457,20 @@ public class UserServiceImpl implements UserService {
     }
 
     /**
-     * Action buttons — names match the JS functions in users-index.html:
-     * userShow / userEdit / userToggle / userPwd / userDelete
+     * Action buttons — JS function names must match users-index.html exactly:
+     *   userShow / userEdit / userToggle / userPwd / userDelete
      */
     private String buildActions(Long id, boolean enabled) {
         String toggleIcon  = enabled ? "fa-toggle-on text-success" : "fa-toggle-off text-muted";
         String toggleTitle = enabled ? "Disable" : "Enable";
         return "<div class='btn-group btn-group-sm' role='group'>"
-             + btn("info",      "fa-eye",    "View",           "userShow("   + id + ")")
-             + btn("warning",   "fa-pencil", "Edit",           "userEdit("   + id + ")")
+             + btn("info",    "fa-eye",    "View",            "userShow("   + id + ")")
+             + btn("warning", "fa-pencil", "Edit",            "userEdit("   + id + ")")
              + "<button class='btn btn-outline-secondary' title='" + toggleTitle + "' "
              +   "onclick='userToggle(" + id + ")'>"
              +   "<i class='fa " + toggleIcon + "'></i></button>"
-             + btn("primary",   "fa-key",    "Change Password", "userPwd("   + id + ")")
-             + btn("danger",    "fa-trash",  "Delete",          "userDelete(" + id + ")")
+             + btn("primary", "fa-key",   "Change Password",  "userPwd("    + id + ")")
+             + btn("danger",  "fa-trash", "Delete",           "userDelete(" + id + ")")
              + "</div>";
     }
 

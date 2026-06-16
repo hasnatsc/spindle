@@ -8,10 +8,7 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * Service contract for User management.
- *
- * DataTableResponse uses the project's existing
- * com.asg.spindleserp.common.dto.DataTableResponse (non-generic).
+ * UserService — contract for all user management operations.
  */
 public interface UserService {
 

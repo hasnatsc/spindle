@@ -9,19 +9,20 @@ import java.util.HashSet;
 import java.util.Set;
 
 /**
- * DTO for User create / update / view operations.
+ * UserDTO — create / update / view.
  *
- * Notes:
- *   • password is optional on update — UserServiceImpl ignores it when blank
- *   • roleIds → resolved to Role entities by UserServiceImpl
- *   • defaultDashboard uses User.DefaultDashboard enum (all values covered)
- *   • Boolean flags use primitive boolean (not Boolean) — Builder.Default provides true/false
+ * Access-control fields (organizationIds, businessUnitIds, costCenterIds,
+ * warehouseIds) are stored in sec_user_access_scopes (soft-link table).
+ * They are resolved and passed through the DTO so the form can pre-populate
+ * and the service can persist them in one shot.
  *
- * Fix over uploaded version:
- *   getDefaultDashboardLabel() had null returns for ACCOUNTS, SALES,
- *   PURCHASE, HRM — now all 10 enum values return a label.
+ * Boolean flags use primitive boolean with @Builder.Default = true.
  */
-@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class UserDTO {
 
     private Long id;
@@ -44,7 +45,7 @@ public class UserDTO {
     private String fullName;
 
     // ── Password ──────────────────────────────────────────────────────────────
-    // Validated only when non-blank (create = required, update = optional)
+    // Required on create (≥8 chars), ignored when blank on update
 
     @Size(min = 8, message = "Password must be at least 8 characters")
     private String password;
@@ -54,7 +55,6 @@ public class UserDTO {
     private User.DefaultDashboard defaultDashboard;
 
     // ── Account flags ─────────────────────────────────────────────────────────
-    // Use @Builder.Default so the Lombok builder starts these as true.
 
     @Builder.Default private boolean enabled               = true;
     @Builder.Default private boolean accountNonExpired     = true;
@@ -67,6 +67,21 @@ public class UserDTO {
     @Builder.Default private Set<String> roleNames = new HashSet<>();
     private Integer roleCount;
 
+    // ── Access Control ────────────────────────────────────────────────────────
+    // IDs of orgs / BUs / cost-centers / warehouses the user is allowed to use.
+    // Empty = unrestricted (super-admin / org-admin behaviour).
+
+    @Builder.Default private Set<Long> organizationIds  = new HashSet<>();
+    @Builder.Default private Set<Long> businessUnitIds  = new HashSet<>();
+    @Builder.Default private Set<Long> costCenterIds    = new HashSet<>();
+    @Builder.Default private Set<Long> warehouseIds     = new HashSet<>();
+
+    // Display names — populated on read, ignored on write
+    @Builder.Default private Set<String> organizationNames  = new HashSet<>();
+    @Builder.Default private Set<String> businessUnitNames  = new HashSet<>();
+    @Builder.Default private Set<String> costCenterNames    = new HashSet<>();
+    @Builder.Default private Set<String> warehouseNames     = new HashSet<>();
+
     // ── Audit ─────────────────────────────────────────────────────────────────
 
     private LocalDateTime createdAt;
@@ -75,10 +90,6 @@ public class UserDTO {
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
-    /**
-     * Human-readable label for all User.DefaultDashboard enum values.
-     * Fix: uploaded version returned null for ACCOUNTS, SALES, PURCHASE, HRM.
-     */
     public String getDefaultDashboardLabel() {
         if (defaultDashboard == null) return "Default";
         return switch (defaultDashboard) {
@@ -95,8 +106,5 @@ public class UserDTO {
         };
     }
 
-    /** Convenience: is this a create operation? */
-    public boolean isNew() {
-        return id == null;
-    }
+    public boolean isNew() { return id == null; }
 }
