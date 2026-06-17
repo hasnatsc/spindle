@@ -4,6 +4,7 @@ import com.asg.spindleserp.common.dto.DataTableResponse;
 import com.asg.spindleserp.organization.dto.BusinessUnitDTO;
 import com.asg.spindleserp.organization.repository.OrganizationRepository;
 import com.asg.spindleserp.organization.service.BusinessUnitService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Controller;
@@ -11,6 +12,7 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -19,10 +21,12 @@ import java.util.Map;
  *
  * JS fn → endpoint mapping (must match business-unit-index.html):
  *   buShow(id)   GET    /business-units/show/{id}
- *   buEdit(id)   GET    /business-units/show/{id}    (same; form toggles mode)
+ *   buEdit(id)   GET    /business-units/show/{id}   (same; form toggles mode)
  *   buToggle(id) POST   /business-units/toggle/{id}
  *   buDelete(id) DELETE /business-units/delete/{id}
  *   (save)       POST   /business-units/save
+ *
+ * Response envelope: { success, message, obj: { defaultData: {...} } }
  */
 @Slf4j
 @Controller
@@ -74,7 +78,7 @@ public class BusinessUnitController {
 
     @PostMapping("/save")
     @ResponseBody
-    public Map<String, Object> save(@RequestBody BusinessUnitDTO dto) {
+    public Map<String, Object> save(@RequestBody @Valid BusinessUnitDTO dto) {
         Map<String, Object> res = new HashMap<>();
         try {
             if (dto.getId() != null) {
@@ -101,7 +105,7 @@ public class BusinessUnitController {
         try {
             BusinessUnitDTO dto = businessUnitService.toggleStatus(id);
             res.put("success", true);
-            res.put("message", "Business Unit " + (dto.getActive()? "activated" : "deactivated") + " successfully.");
+            res.put("message", "Business Unit " + (Boolean.TRUE.equals(dto.getActive()) ? "activated" : "deactivated") + " successfully.");
         } catch (Exception e) {
             res.put("success", false);
             res.put("message", e.getMessage());
@@ -128,15 +132,41 @@ public class BusinessUnitController {
 
     // ── Reference data ────────────────────────────────────────────────────────
 
+    /**
+     * Organizations dropdown for the BU form.
+     * GET /business-units/organizations/all
+     */
     @GetMapping("/organizations/all")
     @ResponseBody
     public List<Map<String, Object>> allOrganizations() {
-        return organizationRepository.findByIsActiveTrue()
-                .stream()
-                .map(o -> Map.<String, Object>of(
-                        "id",   o.getId(),
-                        "code", o.getCode(),
-                        "name", o.getName()))
+        return organizationRepository.findByIsActiveTrue().stream()
+                .map(o -> {
+                    Map<String, Object> m = new LinkedHashMap<>();
+                    m.put("id",   o.getId());
+                    m.put("code", o.getCode());
+                    m.put("name", o.getName());
+                    return m;
+                })
+                .toList();
+    }
+
+    /**
+     * Active business units — for Warehouse / Cost Center / User scope dropdowns.
+     * GET /business-units/active-list
+     */
+    @GetMapping("/active-list")
+    @ResponseBody
+    public List<Map<String, Object>> activeList() {
+        return businessUnitService.findAll().stream()
+                .filter(dto -> Boolean.TRUE.equals(dto.getActive()))
+                .map(dto -> {
+                    Map<String, Object> m = new LinkedHashMap<>();
+                    m.put("id",             dto.getId());
+                    m.put("code",           dto.getCode());
+                    m.put("name",           dto.getName());
+                    m.put("organizationId", dto.getOrganizationId());
+                    return m;
+                })
                 .toList();
     }
 }

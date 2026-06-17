@@ -1,87 +1,154 @@
 <!DOCTYPE html>
-<!--  organizations/wh-index.html  |  GET /warehouses  -->
+<!--
+  organizations/wh-index.html
+  URL : GET /warehouses
+
+  JS fn → endpoint:
+    whShow(id)   GET    /warehouses/show/{id}
+    whEdit(id)   GET    /warehouses/show/{id}
+    whToggle(id) POST   /warehouses/toggle/{id}
+    whDelete(id) DELETE /warehouses/delete/{id}
+    (save)       POST   /warehouses/save
+
+  DataTable columns must match WarehouseController.list() row-map keys:
+    sl, code, name, item_type, business_unit, manager, contact, status, created_at, actions
+-->
 <html th:replace="~{layout/base :: layout('Warehouses', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
+
 <section>
+
+  <!-- Breadcrumb -->
   <ol class="breadcrumb float-xl-end">
     <li class="breadcrumb-item"><a th:href="@{/dashboard}">Home</a></li>
-    <li class="breadcrumb-item">Setup</li>
+    <li class="breadcrumb-item">Organisation</li>
     <li class="breadcrumb-item active">Warehouses</li>
   </ol>
-  <h1 class="page-header">Warehouses <small>manage storage locations</small></h1>
+  <h1 class="page-header">Warehouses <small>manage storage locations per business unit</small></h1>
 
+  <!-- ═══════════════════════════════════════════════════════════ PANEL -->
   <div class="panel panel-inverse">
+
     <div class="panel-heading">
       <div class="panel-title">
-        <a href="javascript:;" onclick="whOpenCreate()"><span class="badge btn btn-outline-success"><i class="fa fa-plus me-1"></i> Add Warehouse</span></a>
+        <a href="javascript:;" onclick="whOpenCreate()">
+          <span class="badge btn btn-outline-success">
+            <i class="fa fa-plus me-1"></i> Add Warehouse
+          </span>
+        </a>
       </div>
       <div class="panel-heading-btn">
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-default" data-toggle="panel-expand"><i class="fa fa-expand"></i></a>
         <a href="javascript:;" class="btn btn-sm btn-icon btn-success" data-toggle="panel-reload"><i class="fa fa-redo"></i></a>
         <a href="javascript:;" class="btn btn-sm btn-icon btn-warning" data-toggle="panel-collapse"><i class="fa fa-minus"></i></a>
       </div>
     </div>
+
     <div class="panel-body">
-      <table id="whTable" width="100%" class="table table-striped table-bordered align-middle text-nowrap">
-        <thead><tr>
-          <th width="1%">SL</th><th>Code</th><th>Name</th><th>Item Type</th>
-          <th>Business Unit</th><th>Manager</th><th>Contact</th>
-          <th class="text-center" width="7%">Status</th><th>Created At</th>
-          <th class="text-center" width="12%">Actions</th>
-        </tr></thead>
+      <table id="whTable" width="100%"
+             class="table table-striped table-bordered align-middle text-nowrap">
+        <thead>
+          <tr>
+            <th width="1%">SL</th>
+            <th>Code</th>
+            <th>Name</th>
+            <th>Item Type</th>
+            <th>Business Unit</th>
+            <th>Manager</th>
+            <th>Contact</th>
+            <th class="text-center" width="7%">Status</th>
+            <th>Created At</th>
+            <th class="text-center" width="12%">Actions</th>
+          </tr>
+        </thead>
         <tbody></tbody>
       </table>
     </div>
 
-    <!-- MODAL -->
+    <!-- ═══════════════════════════════════════════ CREATE / EDIT MODAL -->
     <div tabindex="-1" id="whModal" class="modal fade">
       <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
         <div class="modal-content">
           <div class="modal-header">
-            <h5 class="modal-title" id="whModalTitle"><i class="fa fa-warehouse me-1 text-success"></i> Add Warehouse</h5>
+            <h5 class="modal-title" id="whModalTitle">
+              <i class="fa fa-warehouse me-1 text-success"></i> Add Warehouse
+            </h5>
             <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
           </div>
           <form id="whForm" novalidate>
-            <div class="modal-body"><div class="hs-box"><div class="row g-2">
-              <input type="hidden" id="whId">
+            <div class="modal-body">
+              <div class="hs-box">
+                <div class="row g-2">
+                  <input type="hidden" id="whId">
 
-              <div class="col-12"><h6 class="text-primary mb-1"><i class="fa fa-info-circle me-1"></i> Warehouse Details</h6><hr class="mt-0 mb-2"></div>
+                  <!-- Business Unit -->
+                  <div class="col-md-12 view-group">
+                    <select id="whBuId" class="form-select hs_span_view hsSelectTwo" required>
+                      <option value="">— Select Business Unit —</option>
+                    </select>
+                    <label for="whBuId" class="input-label">
+                      Business Unit <span class="text-danger">*</span>
+                    </label>
+                  </div>
 
-              <div class="col-md-12 mb-2">
-                <label for="whBuId" class="view-label">Business Unit <span class="text-danger">*</span></label>
-                <select id="whBuId" class="form-select" required></select>
-              </div>
-              <div class="col-md-4 view-group">
-                <input id="whCode" placeholder="e.g. WH-001" type="text" class="form-control hs_span_view text-uppercase" required maxlength="50">
-                <label for="whCode" class="input-label">Code <span class="text-danger">*</span></label>
-              </div>
-              <div class="col-md-8 view-group">
-                <input id="whName" placeholder="Warehouse Name" type="text" class="form-control hs_span_view" required maxlength="200">
-                <label for="whName" class="input-label">Name <span class="text-danger">*</span></label>
-              </div>
-              <div class="col-md-12 mb-2">
-                <label for="whItemType" class="view-label">Item Type <span class="text-danger">*</span></label>
-                <select id="whItemType" class="form-select" required></select>
-              </div>
+                  <!-- Code -->
+                  <div class="col-md-3 view-group">
+                    <input id="whCode" type="text" placeholder="e.g. WH-01"
+                           class="form-control hs_span_view text-uppercase"
+                           required maxlength="50">
+                    <label for="whCode" class="input-label">
+                      Code <span class="text-danger">*</span>
+                    </label>
+                  </div>
 
-              <div class="col-12"><hr class="mt-1 mb-2"><h6 class="text-info mb-1"><i class="fa fa-user me-1"></i> Contact &amp; Location</h6></div>
-              <div class="col-md-6 view-group">
-                <input id="whManagerName" placeholder="Manager Name" type="text" class="form-control hs_span_view" maxlength="100">
-                <label for="whManagerName" class="input-label">Manager Name</label>
-              </div>
-              <div class="col-md-6 view-group">
-                <input id="whContactNumber" placeholder="+880 …" type="text" class="form-control hs_span_view" maxlength="20">
-                <label for="whContactNumber" class="input-label">Contact Number</label>
-              </div>
-              <div class="col-md-12 view-group">
-                <textarea id="whAddress" class="form-control hs_span_view" rows="2" placeholder="Warehouse physical address"></textarea>
-                <label for="whAddress" class="input-label">Address</label>
-              </div>
-              <div class="col-md-12 mt-1">
-                <div class="form-check form-switch">
-                  <input type="checkbox" id="whActive" class="form-check-input" checked>
-                  <label class="form-check-label" for="whActive"><strong>Active</strong></label>
+                  <!-- Name -->
+                  <div class="col-md-5 view-group">
+                    <input id="whName" type="text" placeholder="Warehouse Name"
+                           class="form-control hs_span_view" required maxlength="200">
+                    <label for="whName" class="input-label">
+                      Name <span class="text-danger">*</span>
+                    </label>
+                  </div>
+
+                  <!-- Item Type -->
+                  <div class="col-md-4 view-group">
+                    <select id="whItemType" class="form-select hs_span_view" required>
+                      <option value="">— Select Item Type —</option>
+                    </select>
+                    <label for="whItemType" class="input-label">
+                      Item Type <span class="text-danger">*</span>
+                    </label>
+                  </div>
+
+                  <!-- Address -->
+                  <div class="col-md-12 view-group">
+                    <textarea id="whAddress" class="form-control hs_span_view"
+                              rows="2" placeholder="Warehouse address…"></textarea>
+                    <label for="whAddress" class="input-label">Address</label>
+                  </div>
+
+                  <!-- Manager / Contact -->
+                  <div class="col-md-6 view-group">
+                    <input id="whManager" type="text" placeholder="Manager Name"
+                           class="form-control hs_span_view" maxlength="100">
+                    <label for="whManager" class="input-label">Manager Name</label>
+                  </div>
+                  <div class="col-md-6 view-group">
+                    <input id="whContact" type="text" placeholder="Contact Number"
+                           class="form-control hs_span_view" maxlength="20">
+                    <label for="whContact" class="input-label">Contact Number</label>
+                  </div>
+
+                  <!-- Active toggle -->
+                  <div class="col-md-12 mt-1">
+                    <div class="form-check form-switch">
+                      <input type="checkbox" id="whActive" class="form-check-input" checked>
+                      <label class="form-check-label" for="whActive"><strong>Active</strong></label>
+                    </div>
+                  </div>
+
                 </div>
               </div>
-            </div></div></div>
+            </div>
             <div class="modal-footer">
               <button class="btn btn-success" type="submit" id="whSubmitBtn">
                 <span class="spinner-border spinner-border-sm me-2 d-none" id="whSpinner"></span>
@@ -94,68 +161,253 @@
       </div>
     </div>
 
-    <!-- VIEW MODAL -->
+    <!-- ═══════════════════════════════════════════════════ VIEW MODAL -->
     <div tabindex="-1" id="whViewModal" class="modal fade">
-      <div class="modal-dialog modal-dialog-centered modal-md">
+      <div class="modal-dialog modal-dialog-centered modal-lg">
         <div class="modal-content">
           <div class="modal-header">
-            <h5 class="modal-title"><i class="fa fa-warehouse me-1 text-primary"></i> Warehouse Details</h5>
+            <h5 class="modal-title">
+              <i class="fa fa-warehouse me-1 text-primary"></i> Warehouse Details
+            </h5>
             <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
           </div>
-          <div class="modal-body"><div class="hs-box"><div class="row g-2">
-            <div class="col-md-4 view-group"><label class="view-label">Code</label><span id="wv_code" class="form-control hs_span_show"></span></div>
-            <div class="col-md-8 view-group"><label class="view-label">Name</label><span id="wv_name" class="form-control hs_span_show"></span></div>
-            <div class="col-md-5 view-group"><label class="view-label">Item Type</label><span id="wv_itemType" class="form-control hs_span_show"></span></div>
-            <div class="col-md-7 view-group"><label class="view-label">Business Unit</label><span id="wv_bu" class="form-control hs_span_show"></span></div>
-            <div class="col-md-6 view-group"><label class="view-label">Manager</label><span id="wv_manager" class="form-control hs_span_show"></span></div>
-            <div class="col-md-6 view-group"><label class="view-label">Contact</label><span id="wv_contact" class="form-control hs_span_show"></span></div>
-            <div class="col-12 view-group"><label class="view-label">Address</label><span id="wv_address" class="form-control hs_span_show" style="min-height:38px"></span></div>
-            <div class="col-md-4 view-group"><label class="view-label">Status</label><span id="wv_status" class="form-control hs_span_show" style="min-height:38px"></span></div>
-            <div class="col-md-4 view-group"><label class="view-label">Created At</label><span id="wv_createdAt" class="form-control hs_span_show"></span></div>
-            <div class="col-md-4 view-group"><label class="view-label">Updated By</label><span id="wv_updatedBy" class="form-control hs_span_show"></span></div>
-          </div></div></div>
-          <div class="modal-footer"><button type="button" class="btn btn-white" data-bs-dismiss="modal"><i class="fa fa-times me-1"></i> Close</button></div>
+          <div class="modal-body">
+            <div class="hs-box">
+              <div class="row g-2">
+                <div class="col-md-3 view-group">
+                  <label class="view-label">Code</label>
+                  <span id="wv_code" class="form-control hs_span_show"></span>
+                </div>
+                <div class="col-md-5 view-group">
+                  <label class="view-label">Name</label>
+                  <span id="wv_name" class="form-control hs_span_show"></span>
+                </div>
+                <div class="col-md-4 view-group">
+                  <label class="view-label">Item Type</label>
+                  <span id="wv_itemType" class="form-control hs_span_show"></span>
+                </div>
+                <div class="col-12 view-group">
+                  <label class="view-label">Business Unit</label>
+                  <span id="wv_bu" class="form-control hs_span_show"></span>
+                </div>
+                <div class="col-12 view-group">
+                  <label class="view-label">Address</label>
+                  <span id="wv_address" class="form-control hs_span_show" style="min-height:38px"></span>
+                </div>
+                <div class="col-md-6 view-group">
+                  <label class="view-label">Manager</label>
+                  <span id="wv_manager" class="form-control hs_span_show"></span>
+                </div>
+                <div class="col-md-6 view-group">
+                  <label class="view-label">Contact</label>
+                  <span id="wv_contact" class="form-control hs_span_show"></span>
+                </div>
+                <div class="col-md-4 view-group">
+                  <label class="view-label">Status</label>
+                  <span id="wv_status" class="form-control hs_span_show"></span>
+                </div>
+                <div class="col-md-4 view-group">
+                  <label class="view-label">Created At</label>
+                  <span id="wv_createdAt" class="form-control hs_span_show"></span>
+                </div>
+                <div class="col-md-4 view-group">
+                  <label class="view-label">Updated By</label>
+                  <span id="wv_updatedBy" class="form-control hs_span_show"></span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-white" data-bs-dismiss="modal">
+              <i class="fa fa-times me-1"></i> Close
+            </button>
+          </div>
         </div>
       </div>
     </div>
 
-  </div>
+  </div><!-- /panel -->
 
-  <script>
-  (function(){
+
+  <!-- ═══════════════════════════════════════════════════════════ SCRIPT -->
+  <script th:inline="none">
+  (function () {
     'use strict';
+
+    const BASE_URL = '/warehouses';
     var dt;
-    document.addEventListener('DOMContentLoaded', function(){
-      dt=$('#whTable').DataTable({processing:true,serverSide:true,responsive:true,pageLength:25,ajax:{url:'/warehouses/list',type:'GET'},columns:[{data:'sl',orderable:false,width:'40px'},{data:'code'},{data:'name'},{data:'item_type',orderable:false,className:'text-center'},{data:'business_unit'},{data:'manager'},{data:'contact'},{data:'status',orderable:false,className:'text-center'},{data:'created_at'},{data:'actions',orderable:false,className:'text-center'}],language:{emptyTable:'No warehouses found.',processing:'<span class="spinner-border spinner-border-sm me-2"></span> Loading…'}});
-      window._whDT=dt;
-      loadBUs();
-      loadItemTypes();
-      document.getElementById('whForm').addEventListener('submit',onSubmit);
+
+    /* ── DataTable init ──────────────────────────────────────────────── */
+    document.addEventListener('DOMContentLoaded', function () {
+
+      dt = $('#whTable').DataTable({
+        processing : true,
+        serverSide : false,
+        responsive : true,
+        pageLength : 25,
+        ajax       : { url: BASE_URL + '/list', type: 'GET' },
+        columns    : [
+          { data: 'sl',            orderable: false, width: '40px' },
+          { data: 'code' },
+          { data: 'name' },
+          { data: 'item_type',     orderable: false, className: 'text-center' },
+          { data: 'business_unit', defaultContent: '' },
+          { data: 'manager',       defaultContent: '—' },
+          { data: 'contact',       defaultContent: '—' },
+          { data: 'status',        orderable: false, className: 'text-center' },
+          { data: 'created_at',    defaultContent: '' },
+          { data: 'actions',       orderable: false, className: 'text-center' }
+        ],
+        language: {
+          emptyTable : 'No warehouses found.',
+          processing : '<span class="spinner-border spinner-border-sm me-2"></span> Loading…'
+        }
+      });
+
+      _loadBUs();
+      _loadItemTypes();
+      document.getElementById('whForm').addEventListener('submit', _onSubmit);
     });
 
-    function loadBUs(){secureFetch('/business-units/active').then(function(data){var sel=document.getElementById('whBuId');while(sel.options.length>1)sel.remove(1);data.forEach(function(b){var op=document.createElement('option');op.value=b.id;op.text=b.name+' ('+b.code+')';sel.appendChild(op);});});}
-    function loadItemTypes(){secureFetch('/warehouses/item-types').then(function(types){var sel=document.getElementById('whItemType');while(sel.options.length)sel.remove(0);var blank=document.createElement('option');blank.value='';blank.text='— Select Item Type —';sel.appendChild(blank);types.forEach(function(t){var op=document.createElement('option');op.value=t;op.text=t.replace(/_/g,' ');sel.appendChild(op);});});}
-
-    window.whOpenCreate=function(){resetForm();document.getElementById('whModalTitle').innerHTML='<i class="fa fa-plus me-1 text-success"></i> Add Warehouse';document.getElementById('whBtnText').textContent='Save';bootstrap.Modal.getOrCreateInstance(document.getElementById('whModal')).show();};
-    window.whShow=function(id){secureFetch('/warehouses/show/'+id).then(function(res){if(!res.success){Swal.fire('Error',res.message,'error');return;}var w=res.obj.defaultData;set('wv_code',w.warehouseCode);set('wv_name',w.warehouseName);set('wv_itemType',w.itemType);set('wv_bu',w.businessUnitName);set('wv_manager',w.managerName||'—');set('wv_contact',w.contactNumber||'—');set('wv_address',w.address||'—');set('wv_createdAt',w.createdAt);set('wv_updatedBy',w.updatedBy||'—');document.getElementById('wv_status').innerHTML=w.active?"<span class='badge bg-success'>Active</span>":"<span class='badge bg-danger'>Inactive</span>";bootstrap.Modal.getOrCreateInstance(document.getElementById('whViewModal')).show();});};
-    window.whEdit=function(id){secureFetch('/warehouses/show/'+id).then(function(res){if(!res.success){Swal.fire('Error',res.message,'error');return;}var w=res.obj.defaultData;resetForm();val('whId',w.id);val('whCode',w.warehouseCode);val('whName',w.warehouseName);document.getElementById('whBuId').value=w.businessUnitId;document.getElementById('whItemType').value=w.itemType;val('whManagerName',w.managerName||'');val('whContactNumber',w.contactNumber||'');val('whAddress',w.address||'');document.getElementById('whActive').checked=w.active;document.getElementById('whModalTitle').innerHTML='<i class="fa fa-pencil me-1 text-warning"></i> Edit Warehouse';document.getElementById('whBtnText').textContent='Update';bootstrap.Modal.getOrCreateInstance(document.getElementById('whModal')).show();});};
-    window.whToggle=function(id){Swal.fire({title:'Change Status?',icon:'question',showCancelButton:true,confirmButtonText:'Yes'}).then(function(r){if(!r.isConfirmed)return;secureFetch('/warehouses/toggle/'+id,{method:'POST'}).then(function(d){d.success?dt.ajax.reload(null,false):Swal.fire('Error',d.message,'error');});});};
-    window.whDelete=function(id){Swal.fire({title:'Delete Warehouse?',icon:'warning',showCancelButton:true,confirmButtonColor:'#d33',confirmButtonText:'Yes, delete!'}).then(function(r){if(!r.isConfirmed)return;secureFetch('/warehouses/delete/'+id,{method:'DELETE'}).then(function(d){if(d.success){Swal.fire({icon:'success',title:'Deleted!',text:d.message,timer:1500,showConfirmButton:false});dt.ajax.reload(null,false);}else Swal.fire('Error',d.message,'error');});});};
-
-    function onSubmit(e){
-      e.preventDefault();
-      var sb=document.getElementById('whSubmitBtn'),sp=document.getElementById('whSpinner'),bt=document.getElementById('whBtnText');
-      hsDisableButton(sb,sp,bt);
-      var p={id:g('whId')||null,businessUnitId:document.getElementById('whBuId').value,warehouseCode:g('whCode'),warehouseName:g('whName'),itemType:document.getElementById('whItemType').value,managerName:g('whManagerName'),contactNumber:g('whContactNumber'),address:g('whAddress'),active:document.getElementById('whActive').checked};
-      secureFetch('/warehouses/save',{method:'POST',body:JSON.stringify(p)})
-        .then(function(d){if(d.success){Swal.fire({icon:'success',title:'Saved!',text:d.message,timer:1600,showConfirmButton:false});bootstrap.Modal.getOrCreateInstance(document.getElementById('whModal')).hide();dt.ajax.reload(null,false);}else Swal.fire('Error',d.message,'error');})
-        .catch(function(err){Swal.fire('Error',err.message||'Failed.','error');}).finally(function(){hsEnableButton(sb,sp,bt);});
+    /* ── Load Business Unit dropdown ─────────────────────────────────── */
+    function _loadBUs() {
+      secureFetch('/business-units/active-list')
+        .then(function (data) {
+          var sel = document.getElementById('whBuId');
+          while (sel.options.length > 1) sel.remove(1);
+          (data || []).forEach(function (b) {
+            var opt = document.createElement('option');
+            opt.value       = b.id;
+            opt.textContent = b.name + ' (' + b.code + ')';
+            sel.appendChild(opt);
+          });
+        });
     }
-    function resetForm(){document.getElementById('whForm').reset();document.getElementById('whId').value='';document.getElementById('whActive').checked=true;}
-    function g(id){var e=document.getElementById(id);return e?e.value:'';}
-    function val(id,v){var e=document.getElementById(id);if(e)e.value=v||'';}
-    function set(id,v){var e=document.getElementById(id);if(e)e.textContent=v||'—';}
+
+    /* ── Load Item Type dropdown from server enum ────────────────────── */
+    function _loadItemTypes() {
+      secureFetch(BASE_URL + '/item-types')
+        .then(function (data) {
+          var sel = document.getElementById('whItemType');
+          while (sel.options.length > 1) sel.remove(1);
+          (data || []).forEach(function (t) {
+            var opt = document.createElement('option');
+            opt.value       = t;
+            opt.textContent = t.replace(/_/g, ' ');
+            sel.appendChild(opt);
+          });
+        });
+    }
+
+    /* ── Open modal for CREATE ───────────────────────────────────────── */
+    window.whOpenCreate = function () {
+      _resetForm();
+      document.getElementById('whModalTitle').innerHTML =
+        '<i class="fa fa-plus me-1 text-success"></i> Add Warehouse';
+      document.getElementById('whBtnText').textContent = 'Save';
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('whModal')).show();
+    };
+
+    /* ── View ────────────────────────────────────────────────────────── */
+    window.whShow = function (id) {
+      secureFetch(BASE_URL + '/show/' + id)
+        .then(function (res) {
+          if (!res.success) { Swal.fire('Error', res.message, 'error'); return; }
+          var o = res.obj.defaultData;
+          _setText('wv_code',      o.warehouseCode);
+          _setText('wv_name',      o.warehouseName);
+          _setText('wv_itemType',  o.itemType);
+          _setText('wv_bu',        o.businessUnitName);
+          _setText('wv_address',   o.address);
+          _setText('wv_manager',   o.managerName);
+          _setText('wv_contact',   o.contactNumber);
+          _setText('wv_createdAt', o.createdAt);
+          _setText('wv_updatedBy', o.updatedBy);
+          document.getElementById('wv_status').innerHTML = o.active
+            ? "<span class='badge bg-success'>Active</span>"
+            : "<span class='badge bg-danger'>Inactive</span>";
+          bootstrap.Modal.getOrCreateInstance(document.getElementById('whViewModal')).show();
+        });
+    };
+
+    /* ── Edit ────────────────────────────────────────────────────────── */
+    window.whEdit = function (id) {
+      secureFetch(BASE_URL + '/show/' + id)
+        .then(function (res) {
+          if (!res.success) { Swal.fire('Error', res.message, 'error'); return; }
+          var o = res.obj.defaultData;
+          _resetForm();
+          _val('whId',       o.id);
+          _val('whCode',     o.warehouseCode);
+          _val('whName',     o.warehouseName);
+          _val('whAddress',  o.address || '');
+          _val('whManager',  o.managerName || '');
+          _val('whContact',  o.contactNumber || '');
+          document.getElementById('whBuId').value     = o.businessUnitId || '';
+          document.getElementById('whItemType').value = o.itemType || '';
+          document.getElementById('whActive').checked = o.active;
+          document.getElementById('whModalTitle').innerHTML =
+            '<i class="fa fa-pencil me-1 text-warning"></i> Edit Warehouse';
+          document.getElementById('whBtnText').textContent = 'Update';
+          bootstrap.Modal.getOrCreateInstance(document.getElementById('whModal')).show();
+        });
+    };
+
+    /* ── Toggle status ───────────────────────────────────────────────── */
+    window.whToggle = function (id) {
+      hsChangeStatus(BASE_URL + '/toggle/' + id, dt, 'Warehouse');
+    };
+
+    /* ── Delete ──────────────────────────────────────────────────────── */
+    window.whDelete = function (id) {
+      hsConfirmDelete(BASE_URL + '/delete/' + id, dt);
+    };
+
+    /* ── Form submit (create / update) ──────────────────────────────── */
+    function _onSubmit(e) {
+      e.preventDefault();
+      var sb = document.getElementById('whSubmitBtn');
+      var sp = document.getElementById('whSpinner');
+      var bt = document.getElementById('whBtnText');
+      hsDisableButton(sb, sp, bt);
+
+      var payload = {
+        id              : document.getElementById('whId').value || null,
+        businessUnitId  : document.getElementById('whBuId').value,
+        warehouseCode   : document.getElementById('whCode').value,
+        warehouseName   : document.getElementById('whName').value,
+        itemType        : document.getElementById('whItemType').value,
+        address         : document.getElementById('whAddress').value,
+        managerName     : document.getElementById('whManager').value,
+        contactNumber   : document.getElementById('whContact').value,
+        active          : document.getElementById('whActive').checked
+      };
+
+      secureFetch(BASE_URL + '/save', { method: 'POST', body: JSON.stringify(payload) })
+        .then(function (d) {
+          if (d.success) {
+            Swal.fire({ icon: 'success', title: 'Saved!', text: d.message, timer: 1600, showConfirmButton: false });
+            bootstrap.Modal.getOrCreateInstance(document.getElementById('whModal')).hide();
+            dt.ajax.reload(null, false);
+          } else {
+            Swal.fire('Error', d.message, 'error');
+          }
+        })
+        .catch(function (err) { Swal.fire('Error', err.message || 'Request failed.', 'error'); })
+        .finally(function () { hsEnableButton(sb, sp, bt); });
+    }
+
+    /* ── Helpers ─────────────────────────────────────────────────────── */
+    function _resetForm() {
+      document.getElementById('whForm').reset();
+      document.getElementById('whId').value      = '';
+      document.getElementById('whActive').checked = true;
+    }
+    function _val(id, v)     { var e = document.getElementById(id); if (e) e.value       = v || ''; }
+    function _setText(id, v) { var e = document.getElementById(id); if (e) e.textContent = v || '—'; }
+
   })();
   </script>
+
 </section>
 </html>

@@ -9,7 +9,10 @@ import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface DepartmentRepository extends JpaRepository<Department, Long>, JpaSpecificationExecutor<Department> {
+public interface DepartmentRepository
+        extends JpaRepository<Department, Long>,
+                JpaSpecificationExecutor<Department> {
+
     List<Department> findByOrganizationIdAndActiveTrue(Long orgId);
 
     Optional<Department> findByCode(String code);
@@ -19,4 +22,12 @@ public interface DepartmentRepository extends JpaRepository<Department, Long>, J
     List<Department> findByParentDepartmentIdIsNullAndOrganizationId(Long orgId);
 
     boolean existsByCode(String code);
+
+    boolean existsByCodeAndIdNot(String code, Long id);
+
+    boolean existsByName(String name);
+
+    boolean existsByNameAndIdNot(String name, Long id);
+
+    boolean existsByParentDepartmentId(Long parentId);
 }

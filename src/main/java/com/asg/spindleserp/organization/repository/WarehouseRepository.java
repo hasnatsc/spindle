@@ -2,13 +2,17 @@ package com.asg.spindleserp.organization.repository;
 
 import com.asg.spindleserp.organization.entity.Warehouse;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface WarehouseRepository extends JpaRepository<Warehouse, Long> {
+public interface WarehouseRepository
+        extends JpaRepository<Warehouse, Long>,
+                JpaSpecificationExecutor<Warehouse> {
+
     List<Warehouse> findByBusinessUnitIdAndIsActiveTrue(Long buId);
 
     List<Warehouse> findByBusinessUnitOrganizationIdAndIsActiveTrue(Long orgId);
@@ -16,4 +20,6 @@ public interface WarehouseRepository extends JpaRepository<Warehouse, Long> {
     Optional<Warehouse> findByWarehouseCode(String code);
 
     boolean existsByWarehouseCode(String code);
+
+    boolean existsByWarehouseCodeAndIdNot(String code, Long id);
 }

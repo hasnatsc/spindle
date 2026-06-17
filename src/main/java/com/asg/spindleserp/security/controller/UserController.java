@@ -246,10 +246,7 @@ public class UserController {
         // Resolve current user's org to scope the dropdown
         Long orgId = resolveCurrentOrgId(principal);
 
-        List<BusinessUnit> list = (orgId != null)
-                ? buRepository.findByOrganizationIdAndIsActiveTrue(orgId)
-                : buRepository.findAll().stream()
-                        .filter(BusinessUnit::isActive).toList();
+        List<BusinessUnit> list = (orgId != null) ? buRepository.findByOrganizationIdAndIsActiveTrue(orgId) : buRepository.findAll().stream().filter(BusinessUnit::isActive).toList();
 
         return list.stream().map(bu -> {
             Map<String, Object> m = new LinkedHashMap<>();

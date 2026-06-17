@@ -9,7 +9,10 @@ import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface CostCenterRepository extends JpaRepository<CostCenter, Long>, JpaSpecificationExecutor<CostCenter> {
+public interface CostCenterRepository
+        extends JpaRepository<CostCenter, Long>,
+                JpaSpecificationExecutor<CostCenter> {
+
     Optional<CostCenter> findByCostCenterCode(String code);
 
     List<CostCenter> findByBusinessUnitIdAndIsActiveTrueOrderByCostCenterName(Long buId);
@@ -19,4 +22,8 @@ public interface CostCenterRepository extends JpaRepository<CostCenter, Long>, J
     List<CostCenter> findByParentCostCenterIdIsNullAndBusinessUnitOrganizationId(Long orgId);
 
     boolean existsByCostCenterCode(String code);
+
+    boolean existsByCostCenterCodeAndIdNot(String code, Long id);
+
+    boolean existsByParentCostCenterId(Long parentId);
 }

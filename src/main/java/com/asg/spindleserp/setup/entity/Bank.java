@@ -6,8 +6,7 @@ import lombok.*;
 
 @Entity
 @Table(name = "stp_banks",
-        uniqueConstraints = @UniqueConstraint(name = "uq_bank_org_code",
-                columnNames = {"organization_id", "bank_code"}),
+        uniqueConstraints = @UniqueConstraint(name = "uq_bank_org_code", columnNames = {"organization_id", "bank_code"}),
         indexes = @Index(name = "idx_bank_org", columnList = "organization_id"))
 @Getter
 @Setter
@@ -34,9 +33,9 @@ public class Bank extends BaseEntity {
     @Column(length = 50)
     private String shortName;
 
-    @Builder.Default
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
-    private String bankType = "COMMERCIAL";
+    private BankType bankType = BankType.COMMERCIAL;
 
     @Column(length = 30)
     private String bankCategory;
@@ -67,9 +66,9 @@ public class Bank extends BaseEntity {
     @Column(length = 50)
     private String correspondentAccountNumber;
 
-    @Builder.Default
-    @Column(length = 20)
-    private String rating = "UNRATED";
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 30)
+    private BankRating rating = BankRating.UNRATED;
 
     @Builder.Default
     @Column(nullable = false)
