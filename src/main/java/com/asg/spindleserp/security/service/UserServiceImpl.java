@@ -4,11 +4,14 @@ import com.asg.spindleserp.common.dto.DataTableResponse;
 import com.asg.spindleserp.organization.entity.BusinessUnit;
 import com.asg.spindleserp.organization.entity.CostCenter;
 import com.asg.spindleserp.organization.entity.Organization;
+import com.asg.spindleserp.organization.entity.UserContext;
 import com.asg.spindleserp.organization.entity.Warehouse;
 import com.asg.spindleserp.organization.repository.BusinessUnitRepository;
 import com.asg.spindleserp.organization.repository.CostCenterRepository;
 import com.asg.spindleserp.organization.repository.OrganizationRepository;
+import com.asg.spindleserp.organization.repository.UserContextRepository;
 import com.asg.spindleserp.organization.repository.WarehouseRepository;
+import com.asg.spindleserp.organization.service.UserContextService;
 import com.asg.spindleserp.security.dto.UserDTO;
 import com.asg.spindleserp.security.entity.Role;
 import com.asg.spindleserp.security.entity.User;
@@ -32,12 +35,20 @@ import java.util.stream.Collectors;
 /**
  * UserServiceImpl
  *
- * Complete implementation covering:
- *  - CRUD with full validation (duplicate username / email / phone)
- *  - Access scope persistence (org / BU / cost-center / warehouse)
- *  - Soft-delete + toggle status + change password
- *  - DataTable server-side with search and in-memory pagination
- *  - superadmin guard (cannot be deleted/disabled from UI)
+ * Changes over the uploaded version:
+ *
+ * FIX 1 — Boolean (wrapper) null-safety
+ *   UserDTO now uses Boolean (wrapper) for enabled/accountNonExpired/
+ *   accountNonLocked/credentialsNonExpired. When the form omits those
+ *   fields Jackson sends null; the DTO's isXxx() helpers return true
+ *   as the safe default so the entity is always set correctly.
+ *
+ * FIX 2 — Default user context persistence
+ *   After createUser / updateUser the service also persists the
+ *   defaultOrganizationId / defaultBusinessUnitId / defaultCostCenterId /
+ *   defaultWarehouseId from the DTO into the user_context table via
+ *   UserContextService. toDTO() populates those fields on read so the
+ *   form can pre-fill them.
  */
 @Slf4j
 @Service
@@ -45,14 +56,16 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class UserServiceImpl implements UserService {
 
-    private final UserRepository           userRepository;
-    private final RoleRepository           roleRepository;
+    private final UserRepository            userRepository;
+    private final RoleRepository            roleRepository;
     private final UserAccessScopeRepository scopeRepository;
-    private final OrganizationRepository   orgRepository;
-    private final BusinessUnitRepository   buRepository;
-    private final CostCenterRepository     ccRepository;
-    private final WarehouseRepository      whRepository;
-    private final PasswordEncoder          passwordEncoder;
+    private final OrganizationRepository    orgRepository;
+    private final BusinessUnitRepository    buRepository;
+    private final CostCenterRepository      ccRepository;
+    private final WarehouseRepository       whRepository;
+    private final PasswordEncoder           passwordEncoder;
+    private final UserContextService        userContextService;      // ← NEW
+    private final UserContextRepository     userContextRepository;   // ← NEW (for toDTO read)
 
     private static final DateTimeFormatter DT = DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm");
 
@@ -69,6 +82,7 @@ public class UserServiceImpl implements UserService {
                 .findByUsernameWithRolesAndPermissions(actor)
                 .orElseThrow(() -> new IllegalStateException("Current user not found: " + actor));
 
+        // ✅ FIX 1: dto.isEnabled() etc. now use null-safe Boolean wrapper helpers
         User user = User.builder()
                 .organization(currentUser.getOrganization())
                 .username(dto.getUsername().trim().toLowerCase())
@@ -76,7 +90,7 @@ public class UserServiceImpl implements UserService {
                 .phone(dto.getPhone() != null ? dto.getPhone().trim() : null)
                 .fullName(dto.getFullName())
                 .password(passwordEncoder.encode(dto.getPassword()))
-                .enabled(dto.isEnabled())
+                .enabled(dto.isEnabled())                            // null-safe Boolean helper
                 .accountNonExpired(dto.isAccountNonExpired())
                 .accountNonLocked(dto.isAccountNonLocked())
                 .credentialsNonExpired(dto.isCredentialsNonExpired())
@@ -88,6 +102,7 @@ public class UserServiceImpl implements UserService {
 
         User saved = userRepository.save(user);
         persistScopes(saved, dto);
+        persistDefaultContext(saved.getId(), dto);   // ✅ FIX 2
 
         log.info("User '{}' created by {}", saved.getUsername(), actor);
         return toDTO(saved);
@@ -139,6 +154,7 @@ public class UserServiceImpl implements UserService {
         user.setEmail(dto.getEmail().trim().toLowerCase());
         user.setPhone(dto.getPhone() != null ? dto.getPhone().trim() : null);
         user.setFullName(dto.getFullName());
+        // ✅ FIX 1: null-safe Boolean helpers
         user.setEnabled(dto.isEnabled());
         user.setAccountNonExpired(dto.isAccountNonExpired());
         user.setAccountNonLocked(dto.isAccountNonLocked());
@@ -155,7 +171,8 @@ public class UserServiceImpl implements UserService {
         }
 
         User saved = userRepository.save(user);
-        persistScopes(saved, dto);  // replace all scopes
+        persistScopes(saved, dto);
+        persistDefaultContext(saved.getId(), dto);   // ✅ FIX 2
 
         log.info("User '{}' updated by {}", saved.getUsername(), currentUsername());
         return toDTO(saved);
@@ -257,7 +274,8 @@ public class UserServiceImpl implements UserService {
             row.put("status",     u.isEnabled()
                     ? "<span class='badge bg-success'>Active</span>"
                     : "<span class='badge bg-danger'>Disabled</span>");
-            row.put("created_at", u.getCreatedAt() != null ? u.getCreatedAt().format(DT) : "—");
+            row.put("created_at", u.getCreatedAt() != null
+                    ? u.getCreatedAt().format(DT) : "—");
             row.put("actions",    buildActions(u.getId(), u.isEnabled()));
             rows.add(row);
         }
@@ -266,27 +284,27 @@ public class UserServiceImpl implements UserService {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // CONVERSION
+    // CONVERSION — toDTO
     // ─────────────────────────────────────────────────────────────────────────
 
     @Override
+    @Transactional(readOnly = true)
     public UserDTO toDTO(User u) {
-        Set<Long>   roleIds   = u.getRoles().stream().map(Role::getId).collect(Collectors.toSet());
-        Set<String> roleNames = u.getRoles().stream().map(Role::getName).collect(Collectors.toSet());
+        // Access scope IDs
+        Set<Long> orgIds = scopeRepository
+                .findReferenceIdsByUserIdAndScopeType(u.getId(), ScopeType.ORGANIZATION);
+        Set<Long> buIds  = scopeRepository
+                .findReferenceIdsByUserIdAndScopeType(u.getId(), ScopeType.BUSINESS_UNIT);
+        Set<Long> ccIds  = scopeRepository
+                .findReferenceIdsByUserIdAndScopeType(u.getId(), ScopeType.COST_CENTER);
+        Set<Long> whIds  = scopeRepository
+                .findReferenceIdsByUserIdAndScopeType(u.getId(), ScopeType.WAREHOUSE);
 
-        // Access scopes — read from sec_user_access_scopes
-        Set<Long> orgIds  = scopeRepository.findReferenceIdsByUserIdAndScopeType(u.getId(), ScopeType.ORGANIZATION);
-        Set<Long> buIds   = scopeRepository.findReferenceIdsByUserIdAndScopeType(u.getId(), ScopeType.BUSINESS_UNIT);
-        Set<Long> ccIds   = scopeRepository.findReferenceIdsByUserIdAndScopeType(u.getId(), ScopeType.COST_CENTER);
-        Set<Long> whIds   = scopeRepository.findReferenceIdsByUserIdAndScopeType(u.getId(), ScopeType.WAREHOUSE);
+        // Default working context (user_context table)
+        UserContext ctx = userContextRepository.findByUserId(u.getId())
+                .orElse(null);
 
-        // Resolve display names
-        Set<String> orgNames = resolveOrgNames(orgIds);
-        Set<String> buNames  = resolveBuNames(buIds);
-        Set<String> ccNames  = resolveCcNames(ccIds);
-        Set<String> whNames  = resolveWhNames(whIds);
-
-        return UserDTO.builder()
+        UserDTO.UserDTOBuilder b = UserDTO.builder()
                 .id(u.getId())
                 .username(u.getUsername())
                 .email(u.getEmail())
@@ -297,21 +315,47 @@ public class UserServiceImpl implements UserService {
                 .accountNonExpired(u.isAccountNonExpired())
                 .accountNonLocked(u.isAccountNonLocked())
                 .credentialsNonExpired(u.isCredentialsNonExpired())
-                .roleIds(roleIds)
-                .roleNames(roleNames)
-                .roleCount(roleIds.size())
+                .roleIds(u.getRoles().stream().map(Role::getId).collect(Collectors.toSet()))
+                .roleNames(u.getRoles().stream().map(Role::getName).collect(Collectors.toSet()))
+                .roleCount(u.getRoles().size())
                 .organizationIds(orgIds)
                 .businessUnitIds(buIds)
                 .costCenterIds(ccIds)
                 .warehouseIds(whIds)
-                .organizationNames(orgNames)
-                .businessUnitNames(buNames)
-                .costCenterNames(ccNames)
-                .warehouseNames(whNames)
+                .organizationNames(resolveOrgNames(orgIds))
+                .businessUnitNames(resolveBuNames(buIds))
+                .costCenterNames(resolveCcNames(ccIds))
+                .warehouseNames(resolveWhNames(whIds))
                 .createdAt(u.getCreatedAt())
                 .updatedAt(u.getUpdatedAt())
-                .lastLoginAt(u.getLastLoginAt())
-                .build();
+                .lastLoginAt(u.getLastLoginAt());
+
+        // ✅ FIX 2: populate default context fields from user_context
+        if (ctx != null) {
+            b.defaultOrganizationId(ctx.getOrganizationId());
+            b.defaultBusinessUnitId(ctx.getBusinessUnitId());
+            b.defaultCostCenterId(ctx.getCostCenterId());
+            b.defaultWarehouseId(ctx.getWarehouseId());
+            // Resolve display names for the form
+            if (ctx.getOrganizationId() != null) {
+                orgRepository.findById(ctx.getOrganizationId())
+                        .ifPresent(o -> b.defaultOrganizationName(o.getName()));
+            }
+            if (ctx.getBusinessUnitId() != null) {
+                buRepository.findById(ctx.getBusinessUnitId())
+                        .ifPresent(o -> b.defaultBusinessUnitName(o.getName()));
+            }
+            if (ctx.getCostCenterId() != null) {
+                ccRepository.findById(ctx.getCostCenterId())
+                        .ifPresent(o -> b.defaultCostCenterName(o.getCostCenterName()));
+            }
+            if (ctx.getWarehouseId() != null) {
+                whRepository.findById(ctx.getWarehouseId())
+                        .ifPresent(o -> b.defaultWarehouseName(o.getWarehouseName()));
+            }
+        }
+
+        return b.build();
     }
 
     @Override
@@ -328,23 +372,42 @@ public class UserServiceImpl implements UserService {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // PRIVATE — ACCESS SCOPES
+    // PRIVATE — DEFAULT CONTEXT PERSISTENCE
     // ─────────────────────────────────────────────────────────────────────────
 
     /**
-     * Replace all access scopes for this user.
-     * Deletes existing rows and inserts fresh ones from the DTO.
-     * Call after every save / update.
+     * ✅ FIX 2: Persist defaultOrg/BU/CC/WH from the DTO into user_context.
+     * Called after createUser and updateUser.
+     * If all four are null, the existing row is preserved (no overwrite).
      */
+    private void persistDefaultContext(Long userId, UserDTO dto) {
+        boolean anySet = dto.getDefaultOrganizationId() != null
+                      || dto.getDefaultBusinessUnitId()  != null
+                      || dto.getDefaultCostCenterId()    != null
+                      || dto.getDefaultWarehouseId()     != null;
+        if (!anySet) return;   // form didn't send context — don't clear existing row
+
+        userContextService.saveContextForUser(
+                userId,
+                dto.getDefaultOrganizationId(),
+                dto.getDefaultBusinessUnitId(),
+                dto.getDefaultCostCenterId(),
+                dto.getDefaultWarehouseId()
+        );
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // PRIVATE — ACCESS SCOPES
+    // ─────────────────────────────────────────────────────────────────────────
+
     private void persistScopes(User user, UserDTO dto) {
         scopeRepository.deleteAllByUserId(user.getId());
 
         List<UserAccessScope> scopes = new ArrayList<>();
-
-        addScopes(scopes, user, ScopeType.ORGANIZATION,   dto.getOrganizationIds());
-        addScopes(scopes, user, ScopeType.BUSINESS_UNIT,  dto.getBusinessUnitIds());
-        addScopes(scopes, user, ScopeType.COST_CENTER,    dto.getCostCenterIds());
-        addScopes(scopes, user, ScopeType.WAREHOUSE,      dto.getWarehouseIds());
+        addScopes(scopes, user, ScopeType.ORGANIZATION,  dto.getOrganizationIds());
+        addScopes(scopes, user, ScopeType.BUSINESS_UNIT, dto.getBusinessUnitIds());
+        addScopes(scopes, user, ScopeType.COST_CENTER,   dto.getCostCenterIds());
+        addScopes(scopes, user, ScopeType.WAREHOUSE,     dto.getWarehouseIds());
 
         if (!scopes.isEmpty()) {
             scopeRepository.saveAll(scopes);
@@ -401,7 +464,6 @@ public class UserServiceImpl implements UserService {
         String phone = dto.getPhone() != null ? dto.getPhone().trim() : null;
 
         if (excludeId == null) {
-            // CREATE
             if (userRepository.existsByUsername(uname))
                 throw new IllegalArgumentException("Username '" + dto.getUsername() + "' is already taken.");
             if (userRepository.existsByEmail(email))
@@ -411,7 +473,6 @@ public class UserServiceImpl implements UserService {
             if (dto.getPassword() == null || dto.getPassword().length() < 8)
                 throw new IllegalArgumentException("Password must be at least 8 characters.");
         } else {
-            // UPDATE — exclude self
             if (userRepository.existsByUsernameAndIdNot(uname, excludeId))
                 throw new IllegalArgumentException("Username '" + dto.getUsername() + "' is already taken.");
             if (userRepository.existsByEmailAndIdNot(email, excludeId))
@@ -456,21 +517,17 @@ public class UserServiceImpl implements UserService {
                 .collect(Collectors.joining());
     }
 
-    /**
-     * Action buttons — JS function names must match users-index.html exactly:
-     *   userShow / userEdit / userToggle / userPwd / userDelete
-     */
     private String buildActions(Long id, boolean enabled) {
         String toggleIcon  = enabled ? "fa-toggle-on text-success" : "fa-toggle-off text-muted";
         String toggleTitle = enabled ? "Disable" : "Enable";
         return "<div class='btn-group btn-group-sm' role='group'>"
-             + btn("info",    "fa-eye",    "View",            "userShow("   + id + ")")
-             + btn("warning", "fa-pencil", "Edit",            "userEdit("   + id + ")")
+             + btn("info",    "fa-eye",    "View",           "userShow("   + id + ")")
+             + btn("warning", "fa-pencil", "Edit",           "userEdit("   + id + ")")
              + "<button class='btn btn-outline-secondary' title='" + toggleTitle + "' "
              +   "onclick='userToggle(" + id + ")'>"
              +   "<i class='fa " + toggleIcon + "'></i></button>"
-             + btn("primary", "fa-key",   "Change Password",  "userPwd("    + id + ")")
-             + btn("danger",  "fa-trash", "Delete",           "userDelete(" + id + ")")
+             + btn("primary", "fa-key",   "Change Password", "userPwd("    + id + ")")
+             + btn("danger",  "fa-trash", "Delete",          "userDelete(" + id + ")")
              + "</div>";
     }
 

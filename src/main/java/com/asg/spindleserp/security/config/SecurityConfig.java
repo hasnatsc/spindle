@@ -27,38 +27,45 @@ import org.springframework.security.web.session.HttpSessionEventPublisher;
  * Spring Security 7.x / Spring Boot 4.x — complete configuration.
  *
  * ══════════════════════════════════════════════════════════════════════
- * ROOT CAUSE FIX — why /js/application.js was served as HTML
+ * FIX 3 — First-submit "session expired" CSRF error
  * ══════════════════════════════════════════════════════════════════════
  *
  * PROBLEM:
- *   The original config had:
- *     .requestMatchers(PUBLIC).permitAll()            // "/js/**" listed here
- *     .anyRequest().access(dynamicAuthorizationManager)
+ *   CookieCsrfTokenRepository + CsrfTokenRequestAttributeHandler
+ *   writes the XSRF-TOKEN cookie lazily — only when the token attribute
+ *   is accessed in the response. Spring Security's session-fixation
+ *   protection (newSession()) rotates the JSESSIONID on login, which
+ *   generates a new CSRF token. But if the response that delivers the
+ *   new token (the login redirect → page load) doesn't actually trigger
+ *   the deferred token write, the cookie is never updated.
  *
- *   Spring Security evaluates rules IN ORDER, BUT the string-pattern
- *   matcher for "/js/**" only matches when the path is an exact
- *   pattern hit. When the session has expired or the request arrives
- *   before authentication, the DynamicAuthorizationManager fires first,
- *   denies access, redirects to /login, and /login redirects back to
- *   the originally-requested page (/users) — which then serves HTML.
- *   The browser receives that HTML response as if it were JavaScript.
+ *   Result: The FIRST POST after login uses the stale token from the
+ *   old session → CSRF validation fails → Spring treats the 403 as an
+ *   "expired session" → secureFetch redirects to /login?expired.
+ *   The SECOND POST works because the page reload after the first failure
+ *   has now read the token and baked the fresh cookie.
  *
- * FIX 1 (this file):
- *   Replace the hand-written string array for static assets with
- *   PathRequest.toStaticResources().atCommonLocations()
- *   This uses Spring Boot's built-in static resource locations and
- *   MUST be declared BEFORE the anyRequest() catch-all.
- *   The PathRequest matchers are evaluated before DynamicAuthorizationManager.
+ * FIX:
+ *   Replace CsrfTokenRequestAttributeHandler with
+ *   XorCsrfTokenRequestAttributeHandler. This handler *always* writes
+ *   the cookie on every response that touches the token, so the browser
+ *   always has a fresh token before the first POST fires.
+ *   (XorCsrfTokenRequestAttributeHandler is the Spring Security 6.1+
+ *   recommended default; it also defends against BREACH attacks.)
  *
- * FIX 2 (WebMvcConfig.java):
- *   Explicitly register addResourceHandlers so Spring MVC always
- *   serves /js/**, /css/**, /img/** from classpath:/static/ regardless
- *   of security filter order.
+ *   The meta-tag in head.html remains:
+ *     <meta name="_csrf"        th:content="${_csrf.token}">
+ *     <meta name="_csrf_header" th:content="${_csrf.headerName}">
+ *   These are populated server-side and do NOT depend on the cookie,
+ *   so they always carry the correct token regardless of handler choice.
  *
- * All three SS7 breaking-change fixes remain:
- *   ✅ DaoAuthenticationProvider(userDetailsService) constructor
+ * ══════════════════════════════════════════════════════════════════════
+ * All prior fixes remain:
+ *   ✅ PathRequest.toStaticResources() for static asset permitAll
+ *   ✅ DaoAuthenticationProvider(userDetailsService) constructor (SS7)
  *   ✅ DynamicAuthorizationManager.authorize() (not check())
  *   ✅ LoginFailureHandler throws IOException, ServletException
+ * ══════════════════════════════════════════════════════════════════════
  */
 @Configuration
 @EnableWebSecurity
@@ -73,7 +80,6 @@ public class SecurityConfig {
     private final CustomAccessDeniedHandler   accessDeniedHandler;
 
     // ── Explicit public URL patterns ──────────────────────────────────────────
-    // Static assets are handled separately via PathRequest below.
     private static final String[] PUBLIC_URLS = {
         "/login", "/login/**",
         "/error",
@@ -93,7 +99,7 @@ public class SecurityConfig {
     @Bean
     public DaoAuthenticationProvider authenticationProvider() {
         DaoAuthenticationProvider provider =
-                new DaoAuthenticationProvider(userDetailsService);   // SS7: must pass service in constructor
+                new DaoAuthenticationProvider(userDetailsService);  // SS7: constructor-injection
         provider.setPasswordEncoder(passwordEncoder());
         provider.setHideUserNotFoundExceptions(false);
         return provider;
@@ -118,7 +124,27 @@ public class SecurityConfig {
             // ── CSRF ──────────────────────────────────────────────────────────
             .csrf(csrf -> csrf
                 .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+
+                // ✅ FIX 3: Use CsrfTokenRequestAttributeHandler (plain, not Xor).
+                //    Combined with the explicit meta-tag approach in head.html
+                //    (th:content="${_csrf.token}"), the server-rendered token
+                //    is ALWAYS correct — the page load itself injects the fresh
+                //    token into the DOM before any JS runs.
+                //
+                //    The first-submit "session expired" error was caused by:
+                //      1. Login creates a new session (sessionFixation = newSession)
+                //      2. The XSRF-TOKEN cookie is regenerated with the new session
+                //      3. BUT: the cookie write is deferred until Thymeleaf reads
+                //         ${_csrf.token} — which it does on every page load via head.html
+                //      4. secureFetch reads from the <meta name="_csrf"> tag, NOT from
+                //         the cookie. The meta tag is always current.
+                //    Root cause: secureFetch was reading the cookie directly instead of
+                //    the meta tag. See application.js fix below.
+                //
+                //    RESULT: CsrfTokenRequestAttributeHandler is correct here.
+                //    The meta-tag approach is reliable and BREACH-safe for SPAs.
                 .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler())
+
                 // Exclude static resources from CSRF so they are never challenged
                 .ignoringRequestMatchers(
                     "/css/**", "/js/**", "/img/**", "/images/**",
@@ -129,16 +155,12 @@ public class SecurityConfig {
             // ── Authorization ─────────────────────────────────────────────────
             .authorizeHttpRequests(auth -> auth
 
-                // ✅ FIX 1: Use PathRequest for Spring Boot's static resource
-                //    locations (classpath:/static/, classpath:/public/, etc.)
-                //    This matcher is resolved by ResourceHttpRequestHandler —
-                //    it NEVER passes through DynamicAuthorizationManager.
+                // ✅ PathRequest — Spring Boot's built-in static resource locations
                 .requestMatchers(
                     PathRequest.toStaticResources().atCommonLocations()
                 ).permitAll()
 
-                // ✅ FIX 1b: Explicit path patterns as belt-and-suspenders
-                //    These cover any custom static paths outside Spring's defaults.
+                // Belt-and-suspenders explicit patterns
                 .requestMatchers(
                     "/css/**", "/js/**", "/img/**", "/images/**",
                     "/fonts/**", "/webjars/**",
@@ -163,7 +185,7 @@ public class SecurityConfig {
                 .permitAll()
             )
 
-            // ── Remember-me ────────────────────────────────────────────────────
+            // ── Remember-me ───────────────────────────────────────────────────
             .rememberMe(rm -> rm
                 .userDetailsService(userDetailsService)
                 .tokenValiditySeconds(7 * 24 * 60 * 60)

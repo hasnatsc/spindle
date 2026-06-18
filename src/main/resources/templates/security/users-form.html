@@ -7,14 +7,27 @@
 
   Covers:
    ✅ Create new user (password required)
-   ✅ Edit existing user (password optional — shown only when filled)
+   ✅ Edit existing user (password optional)
    ✅ Roles multi-select (Select2)
    ✅ Access Control: Organizations, Business Units, Cost Centers, Warehouses
+   ✅ Default Working Context: defaultOrg / defaultBU / defaultCC / defaultWH
    ✅ Default Dashboard dropdown
    ✅ Account status toggle
    ✅ Parsley validation
-   ✅ submitWithSecureFetch pattern matching application.js
-   ✅ window._userDT.ajax.reload() after save
+   ✅ secureFetch reads CSRF from <meta name="_csrf"> (always fresh)
+
+  Changes over the previous version:
+   FIX 1: Payload uses Boolean: only 'enabled' is sent from the form;
+          the other three flags are intentionally omitted so the server's
+          null-safe Boolean defaults (all = true) apply.
+   FIX 2: Added "Default Working Context" section with four single-select
+          dropdowns (defaultOrganizationId, defaultBusinessUnitId,
+          defaultCostCenterId, defaultWarehouseId).
+          populateEditForm() pre-fills these from the loaded user data.
+   FIX 3: The CSRF token is always read from the <meta name="_csrf"> tag
+          which Thymeleaf renders server-side on every page load.
+          This is always current — even on the first POST after login.
+          (secureFetch in application.js already does this correctly.)
 -->
 <html xmlns:th="http://www.thymeleaf.org" lang="en">
 <body>
@@ -94,7 +107,7 @@
                   </select>
                 </div>
 
-                <!-- ══ SECTION: Password (create only / optional on edit) ═ -->
+                <!-- ══ SECTION: Password ═══════════════════════════════════ -->
                 <div class="col-12" id="passwordSection">
                   <hr class="mt-1 mb-2">
                   <h6 class="text-warning mb-1">
@@ -176,6 +189,66 @@
                           class="form-control select2-multi" multiple></select>
                 </div>
 
+                <!-- ══ SECTION: Default Working Context ════════════════════
+                     ✅ FIX 2: Persisted to user_context table.
+                     Any module can read these via ContextProvider without
+                     a DB query — they're cached in the session bean.
+                     Example in a service:
+                       @Autowired ContextProvider ctx;
+                       Long orgId = ctx.getOrganizationId();
+                ════════════════════════════════════════════════════════════ -->
+                <div class="col-12">
+                  <hr class="mt-1 mb-2">
+                  <h6 class="text-primary mb-1">
+                    <i class="fa fa-map-marker-alt me-1"></i> Default Working Context
+                  </h6>
+                  <div class="alert alert-light py-2 mb-2 border" role="alert" style="font-size:0.82rem">
+                    <i class="fa fa-lightbulb me-1 text-warning"></i>
+                    These defaults are pre-filled in every new document (PO, SO, GRN etc.)
+                    so the user doesn't have to select them every time.
+                  </div>
+                </div>
+
+                <div class="col-md-6 mb-2 select-group">
+                  <label for="defaultOrganizationId" class="view-label">
+                    Default Organization
+                  </label>
+                  <select name="defaultOrganizationId" id="defaultOrganizationId"
+                          class="form-select hsSelectTwo">
+                    <option value="">— Select Organization —</option>
+                  </select>
+                </div>
+
+                <div class="col-md-6 mb-2 select-group">
+                  <label for="defaultBusinessUnitId" class="view-label">
+                    Default Business Unit
+                  </label>
+                  <select name="defaultBusinessUnitId" id="defaultBusinessUnitId"
+                          class="form-select hsSelectTwo">
+                    <option value="">— Select Business Unit —</option>
+                  </select>
+                </div>
+
+                <div class="col-md-6 mb-2 select-group">
+                  <label for="defaultCostCenterId" class="view-label">
+                    Default Cost Center
+                  </label>
+                  <select name="defaultCostCenterId" id="defaultCostCenterId"
+                          class="form-select hsSelectTwo">
+                    <option value="">— Select Cost Center —</option>
+                  </select>
+                </div>
+
+                <div class="col-md-6 mb-2 select-group">
+                  <label for="defaultWarehouseId" class="view-label">
+                    Default Warehouse
+                  </label>
+                  <select name="defaultWarehouseId" id="defaultWarehouseId"
+                          class="form-select hsSelectTwo">
+                    <option value="">— Select Warehouse —</option>
+                  </select>
+                </div>
+
                 <!-- ══ SECTION: Status ══════════════════════════════════════ -->
                 <div class="col-12">
                   <hr class="mt-1 mb-2">
@@ -219,12 +292,12 @@
   (function () {
     'use strict';
 
-    /* ── DOM refs (set after DOMContentLoaded) ────────────────────────────── */
+    /* ── DOM refs ─────────────────────────────────────────────────────────── */
     var form, submitBtn, spinner, btnText;
     var isEditMode = false;
 
     /* ════════════════════════════════════════════════════════════════════════
-       INIT — runs once on page load
+       INIT
     ════════════════════════════════════════════════════════════════════════ */
     document.addEventListener('DOMContentLoaded', function () {
 
@@ -239,18 +312,26 @@
       loadRefData('/users/business-units/all', 'businessUnitIds',  labelOrg);
       loadRefData('/users/cost-centers/all',   'costCenterIds',    labelOrg);
       loadRefData('/users/warehouses/all',     'warehouseIds',     labelOrg);
+
+      /* ✅ FIX 2: Load default context dropdowns from same endpoints */
+      loadContextDropdown('/users/organizations/all',  'defaultOrganizationId',  labelOrg);
+      loadContextDropdown('/users/business-units/all', 'defaultBusinessUnitId',  labelOrg);
+      loadContextDropdown('/users/cost-centers/all',   'defaultCostCenterId',    labelOrg);
+      loadContextDropdown('/users/warehouses/all',     'defaultWarehouseId',     labelOrg);
+
       loadDashboards();
 
-      /* Parsley */
       if (typeof $ !== 'undefined' && $.fn.parsley) $(form).parsley();
 
-      /* Submit */
       form.addEventListener('submit', onSubmit);
-
     });
 
     /* ════════════════════════════════════════════════════════════════════════
        SUBMIT
+       ✅ FIX 1: Only 'enabled' is sent from the form.
+          accountNonExpired / accountNonLocked / credentialsNonExpired are
+          intentionally omitted — the server treats null as true (safe default).
+          This prevents the "Cannot map null into boolean" Jackson error.
     ════════════════════════════════════════════════════════════════════════ */
     function onSubmit(e) {
       e.preventDefault();
@@ -258,9 +339,7 @@
       var pw  = document.getElementById('password').value;
       var cpw = document.getElementById('confirmPassword').value;
 
-      /* Password validation */
       if (!isEditMode) {
-        /* Create: password required */
         if (!pw || pw.length < 8) {
           Swal.fire({ icon: 'warning', title: 'Validation', text: 'Password must be at least 8 characters.' });
           return;
@@ -270,7 +349,6 @@
           return;
         }
       } else if (pw) {
-        /* Edit: only validate if supplied */
         if (pw.length < 8) {
           Swal.fire({ icon: 'warning', title: 'Validation', text: 'Password must be at least 8 characters.' });
           return;
@@ -283,23 +361,40 @@
 
       hsDisableButton(submitBtn, spinner, btnText);
 
+      /*
+       * ✅ FIX 1: accountNonExpired / accountNonLocked / credentialsNonExpired
+       * are NOT included in the payload.  The server-side UserDTO uses
+       * Boolean (wrapper) and its isXxx() helpers return true when null,
+       * which means "keep current value / use safe default".
+       *
+       * ✅ FIX 3: secureFetch reads the CSRF token from
+       *   <meta name="_csrf"> and <meta name="_csrf_header">
+       * which Thymeleaf renders server-side on every page load.
+       * This is always the correct fresh token — not a stale cookie —
+       * so the first POST after login never gets a CSRF mismatch.
+       */
       var payload = {
-        id:              val('id')              || null,
-        username:        val('username'),
-        fullName:        val('fullName'),
-        email:           val('email'),
-        phone:           val('phone'),
-        defaultDashboard: val('defaultDashboard') || 'DEFAULT',
-        enabled:          checked('enabled'),
+        id:                     val('id')              || null,
+        username:               val('username'),
+        fullName:               val('fullName'),
+        email:                  val('email'),
+        phone:                  val('phone'),
+        defaultDashboard:       val('defaultDashboard') || 'DEFAULT',
+        enabled:                checked('enabled'),
         /* password — only send when non-blank */
-        password:        pw  || undefined,
-        confirmPassword: cpw || undefined,
-        /* multi-selects */
-        roleIds:          multiIds('roleIds'),
-        organizationIds:  multiIds('organizationIds'),
-        businessUnitIds:  multiIds('businessUnitIds'),
-        costCenterIds:    multiIds('costCenterIds'),
-        warehouseIds:     multiIds('warehouseIds')
+        password:               pw  || undefined,
+        confirmPassword:        cpw || undefined,
+        /* multi-selects — access control */
+        roleIds:                multiIds('roleIds'),
+        organizationIds:        multiIds('organizationIds'),
+        businessUnitIds:        multiIds('businessUnitIds'),
+        costCenterIds:          multiIds('costCenterIds'),
+        warehouseIds:           multiIds('warehouseIds'),
+        /* ✅ FIX 2: default working context (single-selects, nullable) */
+        defaultOrganizationId:  numOrNull(val('defaultOrganizationId')),
+        defaultBusinessUnitId:  numOrNull(val('defaultBusinessUnitId')),
+        defaultCostCenterId:    numOrNull(val('defaultCostCenterId')),
+        defaultWarehouseId:     numOrNull(val('defaultWarehouseId'))
       };
 
       secureFetch('/users/save', {
@@ -329,26 +424,29 @@
     }
 
     /* ════════════════════════════════════════════════════════════════════════
-       PUBLIC: resetUserForm  — called from index before opening create modal
+       PUBLIC: resetUserForm
     ════════════════════════════════════════════════════════════════════════ */
     window.resetUserForm = function () {
       if (!form) return;
       isEditMode = false;
       hsResetForm(form);
 
-      /* Reset header */
       document.getElementById('asgModalLabel').innerHTML =
         '<i class="fa fa-user-plus me-1 text-success"></i> Create User';
       btnText.textContent = 'Save User';
 
-      /* Reset selects */
       clearMulti('roleIds');
       clearMulti('organizationIds');
       clearMulti('businessUnitIds');
       clearMulti('costCenterIds');
       clearMulti('warehouseIds');
 
-      /* Password: required on create */
+      /* Reset default context dropdowns */
+      clearSingle('defaultOrganizationId');
+      clearSingle('defaultBusinessUnitId');
+      clearSingle('defaultCostCenterId');
+      clearSingle('defaultWarehouseId');
+
       setDisplay('passwordSection',             true);
       setDisplay('passwordFieldWrapper',        true);
       setDisplay('confirmPasswordFieldWrapper', true);
@@ -362,7 +460,7 @@
     };
 
     /* ════════════════════════════════════════════════════════════════════════
-       PUBLIC: populateEditForm  — called from index dataEdit()
+       PUBLIC: populateEditForm
     ════════════════════════════════════════════════════════════════════════ */
     window.populateEditForm = function (u) {
       if (!form) return;
@@ -381,14 +479,26 @@
       setVal('defaultDashboard', u.defaultDashboard || 'DEFAULT');
       document.getElementById('enabled').checked = !!u.enabled;
 
-      /* Populate multi-selects */
       setMulti('roleIds',         toNumArr(u.roleIds));
       setMulti('organizationIds', toNumArr(u.organizationIds));
       setMulti('businessUnitIds', toNumArr(u.businessUnitIds));
       setMulti('costCenterIds',   toNumArr(u.costCenterIds));
       setMulti('warehouseIds',    toNumArr(u.warehouseIds));
 
-      /* Password: optional on edit */
+      /* ✅ FIX 2: pre-fill default context single-selects */
+      setVal('defaultOrganizationId', u.defaultOrganizationId || '');
+      setVal('defaultBusinessUnitId', u.defaultBusinessUnitId || '');
+      setVal('defaultCostCenterId',   u.defaultCostCenterId   || '');
+      setVal('defaultWarehouseId',    u.defaultWarehouseId    || '');
+
+      /* Trigger Select2 change if used */
+      ['defaultOrganizationId','defaultBusinessUnitId',
+       'defaultCostCenterId','defaultWarehouseId'].forEach(function (id) {
+        if (typeof $ !== 'undefined' && $.fn.select2) {
+          $('#' + id).trigger('change');
+        }
+      });
+
       setDisplay('passwordSection',             true);
       setDisplay('passwordFieldWrapper',        true);
       setDisplay('confirmPasswordFieldWrapper', true);
@@ -408,14 +518,40 @@
       secureFetch(url).then(function (data) {
         var el = document.getElementById(selectId);
         if (!el) return;
-        /* Keep any existing options (none in multi) then append */
         data.forEach(function (item) {
           var opt   = document.createElement('option');
           opt.value = item.id;
           opt.text  = labelFn(item);
           el.appendChild(opt);
         });
-        initSelect2(el);
+        initSelect2Multi(el);
+      }).catch(function (err) {
+        console.warn('[users-form] ' + url + ':', err.message);
+      });
+    }
+
+    /* ✅ FIX 2: Load context dropdowns (single-select with blank option) */
+    function loadContextDropdown(url, selectId, labelFn) {
+      secureFetch(url).then(function (data) {
+        var el = document.getElementById(selectId);
+        if (!el) return;
+        data.forEach(function (item) {
+          var opt   = document.createElement('option');
+          opt.value = item.id;
+          opt.text  = labelFn(item);
+          el.appendChild(opt);
+        });
+        /* Init as Select2 single-select if available */
+        if (typeof $ !== 'undefined' && $.fn.select2) {
+          var $el = $(el);
+          if ($el.hasClass('select2-hidden-accessible')) $el.select2('destroy');
+          $el.select2({
+            dropdownParent: $('#defaultModal'),
+            width:          '100%',
+            placeholder:    '— Select —',
+            allowClear:     true
+          });
+        }
       }).catch(function (err) {
         console.warn('[users-form] ' + url + ':', err.message);
       });
@@ -425,7 +561,6 @@
       secureFetch('/users/dashboards/all').then(function (data) {
         var el = document.getElementById('defaultDashboard');
         if (!el) return;
-        /* clear then re-add */
         while (el.options.length) el.remove(0);
         data.forEach(function (d) {
           var opt   = document.createElement('option');
@@ -446,7 +581,7 @@
       return (r.code ? r.code + ' — ' : '') + r.name;
     }
 
-    function initSelect2(el) {
+    function initSelect2Multi(el) {
       if (typeof $ === 'undefined' || !$.fn.select2) return;
       var $el = $(el);
       if ($el.hasClass('select2-hidden-accessible')) $el.select2('destroy');
@@ -466,6 +601,8 @@
     function setVal(id, v) { var e = document.getElementById(id); if (e) e.value = v || ''; }
     function checked(id) { var e = document.getElementById(id); return e ? e.checked : false; }
 
+    function numOrNull(v) { var n = parseInt(v, 10); return isNaN(n) ? null : n; }
+
     function multiIds(id) {
       var el = document.getElementById(id);
       if (!el) return [];
@@ -477,6 +614,15 @@
     function clearMulti(id) {
       if (typeof $ !== 'undefined' && $.fn.select2) {
         $('#' + id).val(null).trigger('change');
+      }
+    }
+
+    function clearSingle(id) {
+      if (typeof $ !== 'undefined' && $.fn.select2) {
+        $('#' + id).val('').trigger('change');
+      } else {
+        var el = document.getElementById(id);
+        if (el) el.value = '';
       }
     }
 

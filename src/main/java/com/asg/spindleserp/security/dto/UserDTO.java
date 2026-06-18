@@ -11,12 +11,36 @@ import java.util.Set;
 /**
  * UserDTO — create / update / view.
  *
+ * ══════════════════════════════════════════════════════════════════════
+ * FIX 1 — Boolean (wrapper) not boolean (primitive) for flag fields
+ * ══════════════════════════════════════════════════════════════════════
+ *
+ * ROOT CAUSE:
+ *   The form only submits ONE flag: "enabled" (from the checkbox).
+ *   The other three flags (accountNonExpired, accountNonLocked,
+ *   credentialsNonExpired) are not present in the JSON payload at all,
+ *   so Jackson receives null for those fields.
+ *
+ *   With primitive boolean:  null → cannot be mapped → EXCEPTION
+ *     "Cannot map `null` into type `boolean`"
+ *
+ *   With wrapper Boolean: null → field stays null → no exception.
+ *   The service then treats null as "use the existing entity value"
+ *   (for update) or the safe default true (for create).
+ *
+ * PATTERN:
+ *   Boolean fields in DTOs that come from JSON must use wrapper Boolean.
+ *   The "is" prefix on field names is also dropped so Jackson maps
+ *   JSON key "enabled" → field "enabled" cleanly (no getIsEnabled mess).
+ *
  * Access-control fields (organizationIds, businessUnitIds, costCenterIds,
  * warehouseIds) are stored in sec_user_access_scopes (soft-link table).
  * They are resolved and passed through the DTO so the form can pre-populate
  * and the service can persist them in one shot.
  *
- * Boolean flags use primitive boolean with @Builder.Default = true.
+ * Added: defaultOrganizationId, defaultBusinessUnitId, defaultCostCenterId,
+ * defaultWarehouseId — these map to the user_context table and give every
+ * module a zero-DB way to seed new documents with the user's working context.
  */
 @Getter
 @Setter
@@ -55,11 +79,16 @@ public class UserDTO {
     private User.DefaultDashboard defaultDashboard;
 
     // ── Account flags ─────────────────────────────────────────────────────────
+    // ✅ FIX 1: Boolean (wrapper) — accepts null from JSON without exception.
+    //    When the form omits these fields Jackson deserializes them as null.
+    //    The service checks for null and applies a safe default (true).
+    //    Using primitive boolean causes:
+    //      "Cannot map `null` into type `boolean`" on the first POST.
 
-    @Builder.Default private boolean enabled               = true;
-    @Builder.Default private boolean accountNonExpired     = true;
-    @Builder.Default private boolean accountNonLocked      = true;
-    @Builder.Default private boolean credentialsNonExpired = true;
+    @Builder.Default private Boolean enabled               = Boolean.TRUE;
+    @Builder.Default private Boolean accountNonExpired     = Boolean.TRUE;
+    @Builder.Default private Boolean accountNonLocked      = Boolean.TRUE;
+    @Builder.Default private Boolean credentialsNonExpired = Boolean.TRUE;
 
     // ── Roles ─────────────────────────────────────────────────────────────────
 
@@ -82,6 +111,25 @@ public class UserDTO {
     @Builder.Default private Set<String> costCenterNames    = new HashSet<>();
     @Builder.Default private Set<String> warehouseNames     = new HashSet<>();
 
+    // ── Default Working Context ───────────────────────────────────────────────
+    // Stored in user_context table.
+    // Any module reads these via ContextProvider.currentContext() — zero DB hits.
+    // Example usage in a service:
+    //   UserContextDTO ctx = ContextProvider.currentContext();
+    //   Long orgId = ctx.getDefaultOrganizationId();
+
+    private Long   defaultOrganizationId;
+    private String defaultOrganizationName;
+
+    private Long   defaultBusinessUnitId;
+    private String defaultBusinessUnitName;
+
+    private Long   defaultCostCenterId;
+    private String defaultCostCenterName;
+
+    private Long   defaultWarehouseId;
+    private String defaultWarehouseName;
+
     // ── Audit ─────────────────────────────────────────────────────────────────
 
     private LocalDateTime createdAt;
@@ -89,6 +137,12 @@ public class UserDTO {
     private LocalDateTime lastLoginAt;
 
     // ── Helpers ───────────────────────────────────────────────────────────────
+
+    /** Safe null-guard accessor used by the service when building the entity */
+    public boolean isEnabled()               { return enabled               == null || Boolean.TRUE.equals(enabled); }
+    public boolean isAccountNonExpired()     { return accountNonExpired     == null || Boolean.TRUE.equals(accountNonExpired); }
+    public boolean isAccountNonLocked()      { return accountNonLocked      == null || Boolean.TRUE.equals(accountNonLocked); }
+    public boolean isCredentialsNonExpired() { return credentialsNonExpired == null || Boolean.TRUE.equals(credentialsNonExpired); }
 
     public String getDefaultDashboardLabel() {
         if (defaultDashboard == null) return "Default";

@@ -3,7 +3,6 @@ package com.asg.spindleserp.security.controller;
 import com.asg.spindleserp.common.dto.DataTableResponse;
 import com.asg.spindleserp.organization.entity.BusinessUnit;
 import com.asg.spindleserp.organization.entity.CostCenter;
-import com.asg.spindleserp.organization.entity.Organization;
 import com.asg.spindleserp.organization.entity.Warehouse;
 import com.asg.spindleserp.organization.repository.BusinessUnitRepository;
 import com.asg.spindleserp.organization.repository.CostCenterRepository;
@@ -100,8 +99,7 @@ public class UserController {
     public Map<String, Object> show(@PathVariable Long id) {
         Map<String, Object> res = new HashMap<>();
         try {
-            UserDTO dto = userService.findById(id)
-                    .orElseThrow(() -> new IllegalArgumentException("User #" + id + " not found."));
+            UserDTO dto = userService.findById(id).orElseThrow(() -> new IllegalArgumentException("User #" + id + " not found."));
             res.put("success", true);
             res.put("obj", Map.of("defaultData", buildPayload(dto)));
         } catch (Exception e) {
