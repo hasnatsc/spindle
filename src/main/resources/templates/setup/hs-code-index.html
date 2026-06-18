@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<!--
+  setup/hs-code-index.html   GET /hs-codes
+  JS fns: hsShow / hsEdit / hsToggle / hsDelete / hsOpenCreate
+-->
+<html th:replace="~{layout/base :: layout('HS Codes', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
+<section>
+
+  <ol class="breadcrumb float-xl-end">
+    <li class="breadcrumb-item"><a th:href="@{/dashboard}">Home</a></li>
+    <li class="breadcrumb-item">Setup</li>
+    <li class="breadcrumb-item active">HS Codes</li>
+  </ol>
+  <h1 class="page-header">HS Codes <small>harmonised system codes for trade</small></h1>
+
+  <div class="panel panel-inverse">
+    <div class="panel-heading">
+      <div class="panel-title">
+        <a href="javascript:;" onclick="hsOpenCreate()">
+          <span class="badge btn btn-outline-success"><i class="fa fa-plus me-1"></i> Add HS Code</span>
+        </a>
+      </div>
+      <div class="panel-heading-btn">
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-default" data-toggle="panel-expand"><i class="fa fa-expand"></i></a>
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-success" data-toggle="panel-reload"><i class="fa fa-redo"></i></a>
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-warning" data-toggle="panel-collapse"><i class="fa fa-minus"></i></a>
+      </div>
+    </div>
+    <div class="panel-body">
+      <table id="hsTable" width="100%" class="table table-striped table-bordered align-middle">
+        <thead><tr>
+          <th width="1%">SL</th><th>HS Code</th><th>Description</th><th>Short Desc.</th>
+          <th>Type</th><th>VAT %</th><th>CD %</th>
+          <th class="text-center" width="7%">Status</th><th>Created</th>
+          <th class="text-center" width="12%">Actions</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <!-- CREATE / EDIT MODAL -->
+    <div tabindex="-1" id="hsModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="hsModalTitle"><i class="fa fa-barcode me-1 text-success"></i> Add HS Code</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <form id="hsForm" novalidate>
+            <div class="modal-body">
+              <div class="hs-box"><div class="row g-2">
+                <input type="hidden" id="hsId">
+                <div class="col-md-3 view-group">
+                  <input id="hsCode" type="text" placeholder="e.g. 5208.11.10" class="form-control hs_span_view" required maxlength="20">
+                  <label for="hsCode" class="input-label">HS Code <span class="text-danger">*</span></label>
+                </div>
+                <div class="col-md-3 view-group">
+                  <select id="hsType" class="form-select hs_span_view">
+                    <option value="BOTH">Both (Import &amp; Export)</option>
+                    <option value="EXPORT">Export Only</option>
+                    <option value="IMPORT">Import Only</option>
+                  </select>
+                  <label for="hsType" class="input-label">Type</label>
+                </div>
+                <div class="col-md-6 view-group">
+                  <input id="hsShortDesc" type="text" placeholder="Short description" class="form-control hs_span_view" maxlength="200">
+                  <label for="hsShortDesc" class="input-label">Short Description</label>
+                </div>
+                <div class="col-12 view-group">
+                  <textarea id="hsDesc" class="form-control hs_span_view" rows="2" placeholder="Full description…" required maxlength="500"></textarea>
+                  <label for="hsDesc" class="input-label">Description <span class="text-danger">*</span></label>
+                </div>
+                <!-- Duty fields -->
+                <div class="col-md-3 view-group">
+                  <input id="hsVat" type="number" step="0.01" min="0" max="999" placeholder="0.00" class="form-control hs_span_view">
+                  <label for="hsVat" class="input-label">VAT %</label>
+                </div>
+                <div class="col-md-3 view-group">
+                  <input id="hsCd" type="number" step="0.01" min="0" max="999" placeholder="0.00" class="form-control hs_span_view">
+                  <label for="hsCd" class="input-label">Customs Duty %</label>
+                </div>
+                <div class="col-md-3 view-group">
+                  <input id="hsSd" type="number" step="0.01" min="0" max="999" placeholder="0.00" class="form-control hs_span_view">
+                  <label for="hsSd" class="input-label">Suppl. Duty %</label>
+                </div>
+                <div class="col-md-3 view-group">
+                  <input id="hsAit" type="number" step="0.01" min="0" max="999" placeholder="0.00" class="form-control hs_span_view">
+                  <label for="hsAit" class="input-label">AIT %</label>
+                </div>
+                <!-- Flags -->
+                <div class="col-md-3"><div class="form-check form-switch"><input type="checkbox" id="hsActive" class="form-check-input" checked><label class="form-check-label" for="hsActive">Active</label></div></div>
+                <div class="col-md-3"><div class="form-check form-switch"><input type="checkbox" id="hsBonded" class="form-check-input"><label class="form-check-label" for="hsBonded">Bonded Allowed</label></div></div>
+                <div class="col-md-3"><div class="form-check form-switch"><input type="checkbox" id="hsImportPermit" class="form-check-input"><label class="form-check-label" for="hsImportPermit">Import Permit</label></div></div>
+                <div class="col-md-3"><div class="form-check form-switch"><input type="checkbox" id="hsExportPermit" class="form-check-input"><label class="form-check-label" for="hsExportPermit">Export Permit</label></div></div>
+              </div></div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-success" type="submit" id="hsSubmitBtn">
+                <span class="spinner-border spinner-border-sm me-2 d-none" id="hsSpinner"></span>
+                <span id="hsBtnText">Save</span>
+              </button>
+              <button type="button" class="btn btn-white" data-bs-dismiss="modal">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- VIEW MODAL -->
+    <div tabindex="-1" id="hsViewModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-xl">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title"><i class="fa fa-barcode me-1 text-primary"></i> HS Code Details</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <div class="hs-box"><div class="row g-2">
+              <div class="col-md-3 view-group"><label class="view-label">HS Code</label><span id="hv_code" class="form-control hs_span_show"></span></div>
+              <div class="col-md-3 view-group"><label class="view-label">Type</label><span id="hv_type" class="form-control hs_span_show"></span></div>
+              <div class="col-md-6 view-group"><label class="view-label">Short Description</label><span id="hv_shortDesc" class="form-control hs_span_show"></span></div>
+              <div class="col-12 view-group"><label class="view-label">Description</label><span id="hv_desc" class="form-control hs_span_show" style="min-height:38px"></span></div>
+              <div class="col-md-3 view-group"><label class="view-label">VAT %</label><span id="hv_vat" class="form-control hs_span_show"></span></div>
+              <div class="col-md-3 view-group"><label class="view-label">CD %</label><span id="hv_cd" class="form-control hs_span_show"></span></div>
+              <div class="col-md-3 view-group"><label class="view-label">SD %</label><span id="hv_sd" class="form-control hs_span_show"></span></div>
+              <div class="col-md-3 view-group"><label class="view-label">AIT %</label><span id="hv_ait" class="form-control hs_span_show"></span></div>
+              <div class="col-md-3 view-group"><label class="view-label">Status</label><span id="hv_status" class="form-control hs_span_show"></span></div>
+              <div class="col-md-3 view-group"><label class="view-label">Bonded</label><span id="hv_bonded" class="form-control hs_span_show"></span></div>
+              <div class="col-md-3 view-group"><label class="view-label">Import Permit</label><span id="hv_importPermit" class="form-control hs_span_show"></span></div>
+              <div class="col-md-3 view-group"><label class="view-label">Export Permit</label><span id="hv_exportPermit" class="form-control hs_span_show"></span></div>
+            </div></div>
+          </div>
+          <div class="modal-footer"><button type="button" class="btn btn-white" data-bs-dismiss="modal">Close</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script th:inline="none">
+  (function () {
+    'use strict';
+    const BASE = '/hs-codes';
+    var dt;
+    document.addEventListener('DOMContentLoaded', function () {
+      dt = $('#hsTable').DataTable({
+        processing: true, serverSide: false, responsive: true, pageLength: 25,
+        ajax: { url: BASE + '/list', type: 'GET' },
+        columns: [
+          { data: 'sl', orderable: false, width: '40px' },
+          { data: 'hs_code' }, { data: 'description' },
+          { data: 'short_description', defaultContent: '—' },
+          { data: 'hs_type', orderable: false, className: 'text-center' },
+          { data: 'vat_percent', defaultContent: '—', className: 'text-end' },
+          { data: 'customs_duty_percent', defaultContent: '—', className: 'text-end' },
+          { data: 'status', orderable: false, className: 'text-center' },
+          { data: 'created_at', defaultContent: '—' },
+          { data: 'actions', orderable: false, className: 'text-center' }
+        ],
+        language: { emptyTable: 'No HS codes found.', processing: '<span class="spinner-border spinner-border-sm me-2"></span> Loading…' }
+      });
+      document.getElementById('hsForm').addEventListener('submit', _onSubmit);
+    });
+
+    window.hsOpenCreate = function () {
+      _reset(); document.getElementById('hsModalTitle').innerHTML = '<i class="fa fa-plus me-1 text-success"></i> Add HS Code';
+      document.getElementById('hsBtnText').textContent = 'Save';
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('hsModal')).show();
+    };
+    window.hsShow = function (id) {
+      secureFetch(BASE + '/show/' + id).then(function (res) {
+        if (!res.success) { Swal.fire('Error', res.message, 'error'); return; }
+        var o = res.obj.defaultData;
+        _st('hv_code', o.hsCode); _st('hv_type', o.hsType); _st('hv_shortDesc', o.shortDescription);
+        _st('hv_desc', o.description); _st('hv_vat', o.vatPercent); _st('hv_cd', o.customsDutyPercent);
+        _st('hv_sd', o.supplementaryDutyPercent); _st('hv_ait', o.aitPercent);
+        document.getElementById('hv_status').innerHTML  = o.active ? "<span class='badge bg-success'>Active</span>" : "<span class='badge bg-danger'>Inactive</span>";
+        document.getElementById('hv_bonded').innerHTML  = o.bondedAllowed    ? "<span class='badge bg-success'>Yes</span>" : "<span class='badge bg-secondary'>No</span>";
+        document.getElementById('hv_importPermit').innerHTML = o.requiresImportPermit ? "<span class='badge bg-warning text-dark'>Required</span>" : "<span class='badge bg-secondary'>No</span>";
+        document.getElementById('hv_exportPermit').innerHTML = o.requiresExportPermit ? "<span class='badge bg-warning text-dark'>Required</span>" : "<span class='badge bg-secondary'>No</span>";
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('hsViewModal')).show();
+      });
+    };
+    window.hsEdit = function (id) {
+      secureFetch(BASE + '/show/' + id).then(function (res) {
+        if (!res.success) { Swal.fire('Error', res.message, 'error'); return; }
+        var o = res.obj.defaultData; _reset();
+        _v('hsId', o.id); _v('hsCode', o.hsCode); _v('hsShortDesc', o.shortDescription || '');
+        _v('hsDesc', o.description); _v('hsVat', o.vatPercent || ''); _v('hsCd', o.customsDutyPercent || '');
+        _v('hsSd', o.supplementaryDutyPercent || ''); _v('hsAit', o.aitPercent || '');
+        document.getElementById('hsType').value = o.hsType || 'BOTH';
+        document.getElementById('hsActive').checked       = o.active;
+        document.getElementById('hsBonded').checked       = o.bondedAllowed;
+        document.getElementById('hsImportPermit').checked = o.requiresImportPermit;
+        document.getElementById('hsExportPermit').checked = o.requiresExportPermit;
+        document.getElementById('hsModalTitle').innerHTML = '<i class="fa fa-pencil me-1 text-warning"></i> Edit HS Code';
+        document.getElementById('hsBtnText').textContent = 'Update';
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('hsModal')).show();
+      });
+    };
+    window.hsToggle = function (id) { hsChangeStatus(BASE + '/toggle/' + id, dt, 'HS Code'); };
+    window.hsDelete = function (id) { hsConfirmDelete(BASE + '/delete/' + id, dt); };
+
+    function _onSubmit(e) {
+      e.preventDefault();
+      var sb = document.getElementById('hsSubmitBtn'), sp = document.getElementById('hsSpinner'), bt = document.getElementById('hsBtnText');
+      hsDisableButton(sb, sp, bt);
+      secureFetch(BASE + '/save', { method: 'POST', body: JSON.stringify({
+        id: document.getElementById('hsId').value || null,
+        hsCode: document.getElementById('hsCode').value,
+        description: document.getElementById('hsDesc').value,
+        shortDescription: document.getElementById('hsShortDesc').value,
+        hsType: document.getElementById('hsType').value,
+        vatPercent: document.getElementById('hsVat').value || null,
+        customsDutyPercent: document.getElementById('hsCd').value || null,
+        supplementaryDutyPercent: document.getElementById('hsSd').value || null,
+        aitPercent: document.getElementById('hsAit').value || null,
+        active: document.getElementById('hsActive').checked,
+        bondedAllowed: document.getElementById('hsBonded').checked,
+        requiresImportPermit: document.getElementById('hsImportPermit').checked,
+        requiresExportPermit: document.getElementById('hsExportPermit').checked
+      })}).then(function (d) {
+        if (d.success) { Swal.fire({ icon: 'success', title: 'Saved!', text: d.message, timer: 1600, showConfirmButton: false });
+          bootstrap.Modal.getOrCreateInstance(document.getElementById('hsModal')).hide(); dt.ajax.reload(null, false);
+        } else { Swal.fire('Error', d.message, 'error'); }
+      }).catch(function (err) { Swal.fire('Error', err.message || 'Request failed.', 'error'); })
+        .finally(function () { hsEnableButton(sb, sp, bt); });
+    }
+    function _reset() {
+      document.getElementById('hsForm').reset();
+      document.getElementById('hsId').value = '';
+      document.getElementById('hsActive').checked = true;
+      ['hsBonded','hsImportPermit','hsExportPermit'].forEach(function(id){ document.getElementById(id).checked = false; });
+    }
+    function _v(id, v) { var e = document.getElementById(id); if (e) e.value = (v !== null && v !== undefined) ? v : ''; }
+    function _st(id, v) { var e = document.getElementById(id); if (e) e.textContent = (v !== null && v !== undefined) ? v : '—'; }
+  })();
+  </script>
+</section>
+</html>

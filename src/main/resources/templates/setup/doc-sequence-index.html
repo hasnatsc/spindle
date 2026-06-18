@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<!--
+  setup/doc-sequence-index.html   GET /document-sequences
+  JS fns: seqShow / seqEdit / seqDelete / seqOpenCreate
+  Note: No toggle — sequences have no active/inactive flag
+-->
+<html th:replace="~{layout/base :: layout('Document Sequences', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
+<section>
+
+  <ol class="breadcrumb float-xl-end">
+    <li class="breadcrumb-item"><a th:href="@{/dashboard}">Home</a></li>
+    <li class="breadcrumb-item">Setup</li>
+    <li class="breadcrumb-item active">Document Sequences</li>
+  </ol>
+  <h1 class="page-header">Document Sequences <small>auto-numbering configuration per prefix &amp; year</small></h1>
+
+  <div class="panel panel-inverse">
+    <div class="panel-heading">
+      <div class="panel-title">
+        <a href="javascript:;" onclick="seqOpenCreate()">
+          <span class="badge btn btn-outline-success"><i class="fa fa-plus me-1"></i> Add Sequence</span>
+        </a>
+      </div>
+      <div class="panel-heading-btn">
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-default" data-toggle="panel-expand"><i class="fa fa-expand"></i></a>
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-success" data-toggle="panel-reload"><i class="fa fa-redo"></i></a>
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-warning" data-toggle="panel-collapse"><i class="fa fa-minus"></i></a>
+      </div>
+    </div>
+    <div class="panel-body">
+      <table id="seqTable" width="100%" class="table table-striped table-bordered align-middle">
+        <thead><tr>
+          <th width="1%">SL</th><th>Prefix</th><th>Year Code</th>
+          <th>Last Seq</th><th>Last Number</th><th>Updated At</th>
+          <th class="text-center" width="10%">Actions</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <!-- CREATE / EDIT MODAL -->
+    <div tabindex="-1" id="seqModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-md">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="seqModalTitle"><i class="fa fa-hashtag me-1 text-success"></i> Add Document Sequence</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <form id="seqForm" novalidate>
+            <div class="modal-body">
+              <div class="hs-box"><div class="row g-2">
+                <input type="hidden" id="seqId">
+                <div class="col-md-4 view-group">
+                  <input id="seqPrefix" type="text" placeholder="e.g. PO" class="form-control hs_span_view text-uppercase" required maxlength="20">
+                  <label for="seqPrefix" class="input-label">Prefix <span class="text-danger">*</span></label>
+                </div>
+                <div class="col-md-4 view-group">
+                  <input id="seqYearCode" type="text" placeholder="e.g. 25-26" class="form-control hs_span_view" required maxlength="7">
+                  <label for="seqYearCode" class="input-label">Year Code <span class="text-danger">*</span></label>
+                </div>
+                <div class="col-md-4 view-group">
+                  <input id="seqLastSeq" type="number" min="0" value="0" class="form-control hs_span_view">
+                  <label for="seqLastSeq" class="input-label">Last Seq (reset)</label>
+                </div>
+                <div class="col-12">
+                  <div class="alert alert-info py-2 mb-0 small">
+                    <i class="fa fa-info-circle me-1"></i>
+                    Generated format: <strong>{PREFIX}-{YEAR}-{000001}</strong>.
+                    Set "Last Seq" to 0 for a new sequence or to the desired starting point minus 1.
+                  </div>
+                </div>
+              </div></div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-success" type="submit" id="seqSubmitBtn">
+                <span class="spinner-border spinner-border-sm me-2 d-none" id="seqSpinner"></span>
+                <span id="seqBtnText">Save</span>
+              </button>
+              <button type="button" class="btn btn-white" data-bs-dismiss="modal">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- VIEW MODAL -->
+    <div tabindex="-1" id="seqViewModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-md">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title"><i class="fa fa-hashtag me-1 text-primary"></i> Sequence Details</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <div class="hs-box"><div class="row g-2">
+              <div class="col-md-4 view-group"><label class="view-label">Prefix</label><span id="sqv_prefix" class="form-control hs_span_show"></span></div>
+              <div class="col-md-4 view-group"><label class="view-label">Year Code</label><span id="sqv_year" class="form-control hs_span_show"></span></div>
+              <div class="col-md-4 view-group"><label class="view-label">Last Seq</label><span id="sqv_lastSeq" class="form-control hs_span_show"></span></div>
+              <div class="col-md-6 view-group"><label class="view-label">Last Number</label><span id="sqv_lastNumber" class="form-control hs_span_show fw-bold"></span></div>
+              <div class="col-md-6 view-group"><label class="view-label">Updated At</label><span id="sqv_updatedAt" class="form-control hs_span_show"></span></div>
+            </div></div>
+          </div>
+          <div class="modal-footer"><button type="button" class="btn btn-white" data-bs-dismiss="modal">Close</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script th:inline="none">
+  (function () {
+    'use strict';
+    const BASE = '/document-sequences';
+    var dt;
+    document.addEventListener('DOMContentLoaded', function () {
+      dt = $('#seqTable').DataTable({
+        processing: true, serverSide: false, responsive: true, pageLength: 25,
+        ajax: { url: BASE + '/list', type: 'GET' },
+        columns: [
+          { data: 'sl', orderable: false, width: '40px' },
+          { data: 'prefix' }, { data: 'year_code' },
+          { data: 'last_seq', className: 'text-center' },
+          { data: 'last_number', className: 'text-center fw-bold' },
+          { data: 'updated_at', defaultContent: '—' },
+          { data: 'actions', orderable: false, className: 'text-center' }
+        ],
+        language: { emptyTable: 'No sequences found.', processing: '<span class="spinner-border spinner-border-sm me-2"></span> Loading…' }
+      });
+      document.getElementById('seqForm').addEventListener('submit', _onSubmit);
+    });
+
+    window.seqOpenCreate = function () {
+      _reset(); document.getElementById('seqModalTitle').innerHTML = '<i class="fa fa-plus me-1 text-success"></i> Add Document Sequence';
+      document.getElementById('seqBtnText').textContent = 'Save';
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('seqModal')).show();
+    };
+    window.seqShow = function (id) {
+      secureFetch(BASE + '/show/' + id).then(function (res) {
+        if (!res.success) { Swal.fire('Error', res.message, 'error'); return; }
+        var o = res.obj.defaultData;
+        _st('sqv_prefix', o.prefix); _st('sqv_year', o.yearCode); _st('sqv_lastSeq', o.lastSeq);
+        _st('sqv_updatedAt', o.updatedAt);
+        var lastNum = o.prefix + '-' + o.yearCode + '-' + String(o.lastSeq).padStart(6, '0');
+        _st('sqv_lastNumber', lastNum);
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('seqViewModal')).show();
+      });
+    };
+    window.seqEdit = function (id) {
+      secureFetch(BASE + '/show/' + id).then(function (res) {
+        if (!res.success) { Swal.fire('Error', res.message, 'error'); return; }
+        var o = res.obj.defaultData; _reset();
+        _v('seqId', o.id); _v('seqPrefix', o.prefix); _v('seqYearCode', o.yearCode); _v('seqLastSeq', o.lastSeq);
+        document.getElementById('seqModalTitle').innerHTML = '<i class="fa fa-pencil me-1 text-warning"></i> Edit Sequence';
+        document.getElementById('seqBtnText').textContent = 'Update';
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('seqModal')).show();
+      });
+    };
+    window.seqDelete = function (id) { hsConfirmDelete(BASE + '/delete/' + id, dt); };
+
+    function _onSubmit(e) {
+      e.preventDefault();
+      var sb = document.getElementById('seqSubmitBtn'), sp = document.getElementById('seqSpinner'), bt = document.getElementById('seqBtnText');
+      hsDisableButton(sb, sp, bt);
+      secureFetch(BASE + '/save', { method: 'POST', body: JSON.stringify({
+        id: document.getElementById('seqId').value || null,
+        prefix: document.getElementById('seqPrefix').value,
+        yearCode: document.getElementById('seqYearCode').value,
+        lastSeq: parseInt(document.getElementById('seqLastSeq').value) || 0
+      })}).then(function (d) {
+        if (d.success) { Swal.fire({ icon: 'success', title: 'Saved!', text: d.message, timer: 1600, showConfirmButton: false });
+          bootstrap.Modal.getOrCreateInstance(document.getElementById('seqModal')).hide(); dt.ajax.reload(null, false);
+        } else { Swal.fire('Error', d.message, 'error'); }
+      }).catch(function (err) { Swal.fire('Error', err.message || 'Request failed.', 'error'); })
+        .finally(function () { hsEnableButton(sb, sp, bt); });
+    }
+    function _reset() { document.getElementById('seqForm').reset(); document.getElementById('seqId').value = ''; document.getElementById('seqLastSeq').value = 0; }
+    function _v(id, v) { var e = document.getElementById(id); if (e) e.value = (v !== null && v !== undefined) ? v : ''; }
+    function _st(id, v) { var e = document.getElementById(id); if (e) e.textContent = (v !== null && v !== undefined) ? v : '—'; }
+  })();
+  </script>
+</section>
+</html>

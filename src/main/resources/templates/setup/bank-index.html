@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<!--
+  setup/bank-index.html   GET /banks
+  JS fns: bankShow / bankEdit / bankToggle / bankDelete / bankOpenCreate
+-->
+<html th:replace="~{layout/base :: layout('Banks', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
+<section>
+
+  <ol class="breadcrumb float-xl-end">
+    <li class="breadcrumb-item"><a th:href="@{/dashboard}">Home</a></li>
+    <li class="breadcrumb-item">Setup</li>
+    <li class="breadcrumb-item active">Banks</li>
+  </ol>
+  <h1 class="page-header">Banks <small>manage bank master data</small></h1>
+
+  <div class="panel panel-inverse">
+    <div class="panel-heading">
+      <div class="panel-title">
+        <a href="javascript:;" onclick="bankOpenCreate()">
+          <span class="badge btn btn-outline-success"><i class="fa fa-plus me-1"></i> Add Bank</span>
+        </a>
+      </div>
+      <div class="panel-heading-btn">
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-default" data-toggle="panel-expand"><i class="fa fa-expand"></i></a>
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-success" data-toggle="panel-reload"><i class="fa fa-redo"></i></a>
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-warning" data-toggle="panel-collapse"><i class="fa fa-minus"></i></a>
+      </div>
+    </div>
+    <div class="panel-body">
+      <table id="bankTable" width="100%" class="table table-striped table-bordered align-middle">
+        <thead><tr>
+          <th width="1%">SL</th><th>Code</th><th>Name</th><th>Short Name</th>
+          <th>SWIFT</th><th>Type</th><th>LC</th>
+          <th class="text-center" width="7%">Status</th><th>Created</th>
+          <th class="text-center" width="12%">Actions</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <!-- CREATE / EDIT MODAL — tabbed -->
+    <div tabindex="-1" id="bankModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="bankModalTitle"><i class="fa fa-university me-1 text-success"></i> Add Bank</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <form id="bankForm" novalidate>
+            <div class="modal-body">
+              <input type="hidden" id="bankId">
+              <!-- Tabs -->
+              <ul class="nav nav-tabs mb-3" id="bankTabs">
+                <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#bankTab1">Basic Info</a></li>
+                <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#bankTab2">Head Office</a></li>
+                <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#bankTab3">Correspondent</a></li>
+                <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#bankTab4">Features</a></li>
+              </ul>
+              <div class="tab-content hs-box">
+                <!-- TAB 1: Basic -->
+                <div class="tab-pane fade show active" id="bankTab1">
+                  <div class="row g-2">
+                    <div class="col-md-3 view-group">
+                      <input id="bankCode" type="text" placeholder="e.g. DBBL" class="form-control hs_span_view text-uppercase" required maxlength="20">
+                      <label for="bankCode" class="input-label">Code <span class="text-danger">*</span></label>
+                    </div>
+                    <div class="col-md-5 view-group">
+                      <input id="bankName" type="text" placeholder="Bank Name" class="form-control hs_span_view" required maxlength="200">
+                      <label for="bankName" class="input-label">Name <span class="text-danger">*</span></label>
+                    </div>
+                    <div class="col-md-4 view-group">
+                      <input id="bankNameLocal" type="text" placeholder="নাম" class="form-control hs_span_view" maxlength="200">
+                      <label for="bankNameLocal" class="input-label">Local Name</label>
+                    </div>
+                    <div class="col-md-3 view-group">
+                      <input id="bankShortName" type="text" placeholder="DBBL" class="form-control hs_span_view" maxlength="50">
+                      <label for="bankShortName" class="input-label">Short Name</label>
+                    </div>
+                    <div class="col-md-3 view-group">
+                      <select id="bankType" class="form-select hs_span_view"><option value="COMMERCIAL">Commercial</option></select>
+                      <label for="bankType" class="input-label">Type</label>
+                    </div>
+                    <div class="col-md-3 view-group">
+                      <select id="bankRating" class="form-select hs_span_view"><option value="UNRATED">Unrated</option></select>
+                      <label for="bankRating" class="input-label">Rating</label>
+                    </div>
+                    <div class="col-md-3 view-group">
+                      <input id="bankSwift" type="text" placeholder="DBLBBDDH" class="form-control hs_span_view text-uppercase" maxlength="11">
+                      <label for="bankSwift" class="input-label">SWIFT Code</label>
+                    </div>
+                    <div class="col-md-4 view-group">
+                      <input id="bankCentralCode" type="text" placeholder="BB Central Code" class="form-control hs_span_view" maxlength="20">
+                      <label for="bankCentralCode" class="input-label">Central Bank Code</label>
+                    </div>
+                    <div class="col-md-4 view-group">
+                      <input id="bankRoutingPrefix" type="text" placeholder="e.g. 090270" class="form-control hs_span_view" maxlength="9">
+                      <label for="bankRoutingPrefix" class="input-label">Routing Prefix</label>
+                    </div>
+                    <div class="col-md-4 view-group">
+                      <input id="bankWebsite" type="text" placeholder="https://bank.com" class="form-control hs_span_view" maxlength="200">
+                      <label for="bankWebsite" class="input-label">Website</label>
+                    </div>
+                    <div class="col-12 mt-1">
+                      <div class="form-check form-switch">
+                        <input type="checkbox" id="bankActive" class="form-check-input" checked>
+                        <label class="form-check-label" for="bankActive"><strong>Active</strong></label>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <!-- TAB 2: Head Office -->
+                <div class="tab-pane fade" id="bankTab2">
+                  <div class="row g-2">
+                    <div class="col-12 view-group">
+                      <textarea id="bankHoAddress" class="form-control hs_span_view" rows="2" placeholder="Head Office Address" maxlength="500"></textarea>
+                      <label for="bankHoAddress" class="input-label">Address</label>
+                    </div>
+                    <div class="col-md-4 view-group">
+                      <input id="bankHoCity" type="text" class="form-control hs_span_view" placeholder="City" maxlength="100">
+                      <label for="bankHoCity" class="input-label">City</label>
+                    </div>
+                    <div class="col-md-4 view-group">
+                      <input id="bankHoCountry" type="text" class="form-control hs_span_view" placeholder="Country" maxlength="100">
+                      <label for="bankHoCountry" class="input-label">Country</label>
+                    </div>
+                    <div class="col-md-4 view-group">
+                      <input id="bankHoPhone" type="text" class="form-control hs_span_view" placeholder="Phone" maxlength="50">
+                      <label for="bankHoPhone" class="input-label">Phone</label>
+                    </div>
+                    <div class="col-md-6 view-group">
+                      <input id="bankHoEmail" type="email" class="form-control hs_span_view" placeholder="email@bank.com" maxlength="100">
+                      <label for="bankHoEmail" class="input-label">Email</label>
+                    </div>
+                  </div>
+                </div>
+                <!-- TAB 3: Correspondent -->
+                <div class="tab-pane fade" id="bankTab3">
+                  <div class="row g-2">
+                    <div class="col-md-6 view-group">
+                      <input id="bankCorName" type="text" class="form-control hs_span_view" placeholder="Correspondent Bank Name" maxlength="200">
+                      <label for="bankCorName" class="input-label">Correspondent Bank</label>
+                    </div>
+                    <div class="col-md-3 view-group">
+                      <input id="bankCorSwift" type="text" class="form-control hs_span_view text-uppercase" placeholder="SWIFT" maxlength="11">
+                      <label for="bankCorSwift" class="input-label">Correspondent SWIFT</label>
+                    </div>
+                    <div class="col-md-3 view-group">
+                      <input id="bankCorAccount" type="text" class="form-control hs_span_view" placeholder="Account No." maxlength="50">
+                      <label for="bankCorAccount" class="input-label">Correspondent A/C</label>
+                    </div>
+                  </div>
+                </div>
+                <!-- TAB 4: Features -->
+                <div class="tab-pane fade" id="bankTab4">
+                  <div class="row g-2 pt-2">
+                    <div class="col-md-4"><div class="form-check form-switch"><input type="checkbox" id="bankSupportsLc" class="form-check-input"><label class="form-check-label" for="bankSupportsLc">Supports LC</label></div></div>
+                    <div class="col-md-4"><div class="form-check form-switch"><input type="checkbox" id="bankSupportsImportLc" class="form-check-input"><label class="form-check-label" for="bankSupportsImportLc">Import LC</label></div></div>
+                    <div class="col-md-4"><div class="form-check form-switch"><input type="checkbox" id="bankSupportsExportLc" class="form-check-input"><label class="form-check-label" for="bankSupportsExportLc">Export LC</label></div></div>
+                    <div class="col-md-4"><div class="form-check form-switch"><input type="checkbox" id="bankSupportsBtbLc" class="form-check-input"><label class="form-check-label" for="bankSupportsBtbLc">Back-to-Back LC</label></div></div>
+                    <div class="col-md-4"><div class="form-check form-switch"><input type="checkbox" id="bankSupportsInlandLc" class="form-check-input"><label class="form-check-label" for="bankSupportsInlandLc">Inland LC</label></div></div>
+                    <div class="col-md-4"><div class="form-check form-switch"><input type="checkbox" id="bankSupportsOnline" class="form-check-input"><label class="form-check-label" for="bankSupportsOnline">Online Banking</label></div></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-success" type="submit" id="bankSubmitBtn">
+                <span class="spinner-border spinner-border-sm me-2 d-none" id="bankSpinner"></span>
+                <span id="bankBtnText">Save</span>
+              </button>
+              <button type="button" class="btn btn-white" data-bs-dismiss="modal">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- VIEW MODAL -->
+    <div tabindex="-1" id="bankViewModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title"><i class="fa fa-university me-1 text-primary"></i> Bank Details</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <div class="hs-box"><div class="row g-2">
+              <div class="col-md-3 view-group"><label class="view-label">Code</label><span id="bv_code" class="form-control hs_span_show"></span></div>
+              <div class="col-md-5 view-group"><label class="view-label">Name</label><span id="bv_name" class="form-control hs_span_show"></span></div>
+              <div class="col-md-4 view-group"><label class="view-label">Local Name</label><span id="bv_nameLocal" class="form-control hs_span_show"></span></div>
+              <div class="col-md-3 view-group"><label class="view-label">Type</label><span id="bv_type" class="form-control hs_span_show"></span></div>
+              <div class="col-md-3 view-group"><label class="view-label">SWIFT</label><span id="bv_swift" class="form-control hs_span_show"></span></div>
+              <div class="col-md-3 view-group"><label class="view-label">Rating</label><span id="bv_rating" class="form-control hs_span_show"></span></div>
+              <div class="col-md-3 view-group"><label class="view-label">Status</label><span id="bv_status" class="form-control hs_span_show"></span></div>
+              <div class="col-md-6 view-group"><label class="view-label">Head Office</label><span id="bv_address" class="form-control hs_span_show"></span></div>
+              <div class="col-md-3 view-group"><label class="view-label">City</label><span id="bv_city" class="form-control hs_span_show"></span></div>
+              <div class="col-md-3 view-group"><label class="view-label">Country</label><span id="bv_country" class="form-control hs_span_show"></span></div>
+              <div class="col-md-6 view-group"><label class="view-label">Correspondent Bank</label><span id="bv_corBank" class="form-control hs_span_show"></span></div>
+              <div class="col-md-3 view-group"><label class="view-label">Corr. SWIFT</label><span id="bv_corSwift" class="form-control hs_span_show"></span></div>
+              <div class="col-md-3 view-group"><label class="view-label">Created</label><span id="bv_createdAt" class="form-control hs_span_show"></span></div>
+            </div></div>
+          </div>
+          <div class="modal-footer"><button type="button" class="btn btn-white" data-bs-dismiss="modal">Close</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script th:inline="none">
+  (function () {
+    'use strict';
+    const BASE = '/banks';
+    var dt;
+    document.addEventListener('DOMContentLoaded', function () {
+      dt = $('#bankTable').DataTable({
+        processing: true, serverSide: false, responsive: true, pageLength: 25,
+        ajax: { url: BASE + '/list', type: 'GET' },
+        columns: [
+          { data: 'sl', orderable: false, width: '40px' },
+          { data: 'bank_code' }, { data: 'bank_name' },
+          { data: 'short_name', defaultContent: '—' },
+          { data: 'swift_code', defaultContent: '—' },
+          { data: 'bank_type', defaultContent: '—' },
+          { data: 'lc_flag', orderable: false, className: 'text-center' },
+          { data: 'status', orderable: false, className: 'text-center' },
+          { data: 'created_at', defaultContent: '—' },
+          { data: 'actions', orderable: false, className: 'text-center' }
+        ],
+        language: { emptyTable: 'No banks found.', processing: '<span class="spinner-border spinner-border-sm me-2"></span> Loading…' }
+      });
+      _loadEnums();
+      document.getElementById('bankForm').addEventListener('submit', _onSubmit);
+    });
+
+    function _loadEnums() {
+      secureFetch(BASE + '/bank-types').then(function (types) {
+        var sel = document.getElementById('bankType'); sel.innerHTML = '';
+        types.forEach(function (t) { sel.innerHTML += '<option value="' + t + '">' + t.replace(/_/g,' ') + '</option>'; });
+      });
+      secureFetch(BASE + '/bank-ratings').then(function (ratings) {
+        var sel = document.getElementById('bankRating'); sel.innerHTML = '';
+        ratings.forEach(function (r) { sel.innerHTML += '<option value="' + r + '">' + r + '</option>'; });
+      });
+    }
+
+    window.bankOpenCreate = function () {
+      _reset(); document.getElementById('bankModalTitle').innerHTML = '<i class="fa fa-plus me-1 text-success"></i> Add Bank';
+      document.getElementById('bankBtnText').textContent = 'Save';
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('bankModal')).show();
+    };
+    window.bankShow = function (id) {
+      secureFetch(BASE + '/show/' + id).then(function (res) {
+        if (!res.success) { Swal.fire('Error', res.message, 'error'); return; }
+        var o = res.obj.defaultData;
+        _st('bv_code', o.bankCode); _st('bv_name', o.bankName); _st('bv_nameLocal', o.bankNameLocal);
+        _st('bv_type', o.bankType); _st('bv_swift', o.swiftCode); _st('bv_rating', o.rating);
+        _st('bv_address', o.headOfficeAddress); _st('bv_city', o.headOfficeCity); _st('bv_country', o.headOfficeCountry);
+        _st('bv_corBank', o.correspondentBankName); _st('bv_corSwift', o.correspondentSwiftCode);
+        _st('bv_createdAt', o.createdAt);
+        document.getElementById('bv_status').innerHTML = o.active ? "<span class='badge bg-success'>Active</span>" : "<span class='badge bg-danger'>Inactive</span>";
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('bankViewModal')).show();
+      });
+    };
+    window.bankEdit = function (id) {
+      secureFetch(BASE + '/show/' + id).then(function (res) {
+        if (!res.success) { Swal.fire('Error', res.message, 'error'); return; }
+        var o = res.obj.defaultData; _reset();
+        _v('bankId', o.id); _v('bankCode', o.bankCode); _v('bankName', o.bankName);
+        _v('bankNameLocal', o.bankNameLocal || ''); _v('bankShortName', o.shortName || '');
+        _v('bankSwift', o.swiftCode || ''); _v('bankCentralCode', o.centralBankCode || '');
+        _v('bankRoutingPrefix', o.routingNumberPrefix || ''); _v('bankWebsite', o.website || '');
+        _v('bankHoAddress', o.headOfficeAddress || ''); _v('bankHoCity', o.headOfficeCity || '');
+        _v('bankHoCountry', o.headOfficeCountry || ''); _v('bankHoPhone', o.headOfficePhone || '');
+        _v('bankHoEmail', o.headOfficeEmail || '');
+        _v('bankCorName', o.correspondentBankName || ''); _v('bankCorSwift', o.correspondentSwiftCode || '');
+        _v('bankCorAccount', o.correspondentAccountNumber || '');
+        document.getElementById('bankType').value  = o.bankType  || 'COMMERCIAL';
+        document.getElementById('bankRating').value = o.rating   || 'UNRATED';
+        document.getElementById('bankActive').checked         = o.active;
+        document.getElementById('bankSupportsLc').checked     = o.supportsLc;
+        document.getElementById('bankSupportsImportLc').checked = o.supportsImportLc;
+        document.getElementById('bankSupportsExportLc').checked = o.supportsExportLc;
+        document.getElementById('bankSupportsBtbLc').checked  = o.supportsBtbLc;
+        document.getElementById('bankSupportsInlandLc').checked = o.supportsInlandLc;
+        document.getElementById('bankSupportsOnline').checked = o.supportsOnlineBanking;
+        document.getElementById('bankModalTitle').innerHTML = '<i class="fa fa-pencil me-1 text-warning"></i> Edit Bank';
+        document.getElementById('bankBtnText').textContent = 'Update';
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('bankModal')).show();
+      });
+    };
+    window.bankToggle = function (id) { hsChangeStatus(BASE + '/toggle/' + id, dt, 'Bank'); };
+    window.bankDelete = function (id) { hsConfirmDelete(BASE + '/delete/' + id, dt); };
+
+    function _onSubmit(e) {
+      e.preventDefault();
+      var sb = document.getElementById('bankSubmitBtn'), sp = document.getElementById('bankSpinner'), bt = document.getElementById('bankBtnText');
+      hsDisableButton(sb, sp, bt);
+      secureFetch(BASE + '/save', { method: 'POST', body: JSON.stringify({
+        id: document.getElementById('bankId').value || null,
+        organizationId: null,  /* populated server-side from SecurityHelper */
+        bankCode: document.getElementById('bankCode').value,
+        bankName: document.getElementById('bankName').value,
+        bankNameLocal: document.getElementById('bankNameLocal').value,
+        shortName: document.getElementById('bankShortName').value,
+        bankType: document.getElementById('bankType').value,
+        rating: document.getElementById('bankRating').value,
+        swiftCode: document.getElementById('bankSwift').value,
+        centralBankCode: document.getElementById('bankCentralCode').value,
+        routingNumberPrefix: document.getElementById('bankRoutingPrefix').value,
+        website: document.getElementById('bankWebsite').value,
+        headOfficeAddress: document.getElementById('bankHoAddress').value,
+        headOfficeCity: document.getElementById('bankHoCity').value,
+        headOfficeCountry: document.getElementById('bankHoCountry').value,
+        headOfficePhone: document.getElementById('bankHoPhone').value,
+        headOfficeEmail: document.getElementById('bankHoEmail').value,
+        correspondentBankName: document.getElementById('bankCorName').value,
+        correspondentSwiftCode: document.getElementById('bankCorSwift').value,
+        correspondentAccountNumber: document.getElementById('bankCorAccount').value,
+        supportsLc: document.getElementById('bankSupportsLc').checked,
+        supportsImportLc: document.getElementById('bankSupportsImportLc').checked,
+        supportsExportLc: document.getElementById('bankSupportsExportLc').checked,
+        supportsBtbLc: document.getElementById('bankSupportsBtbLc').checked,
+        supportsInlandLc: document.getElementById('bankSupportsInlandLc').checked,
+        supportsOnlineBanking: document.getElementById('bankSupportsOnline').checked,
+        active: document.getElementById('bankActive').checked
+      })}).then(function (d) {
+        if (d.success) { Swal.fire({ icon: 'success', title: 'Saved!', text: d.message, timer: 1600, showConfirmButton: false });
+          bootstrap.Modal.getOrCreateInstance(document.getElementById('bankModal')).hide(); dt.ajax.reload(null, false);
+        } else { Swal.fire('Error', d.message, 'error'); }
+      }).catch(function (err) { Swal.fire('Error', err.message || 'Request failed.', 'error'); })
+        .finally(function () { hsEnableButton(sb, sp, bt); });
+    }
+    function _reset() {
+      document.getElementById('bankForm').reset();
+      document.getElementById('bankId').value = '';
+      document.getElementById('bankActive').checked = true;
+      ['bankSupportsLc','bankSupportsImportLc','bankSupportsExportLc',
+       'bankSupportsBtbLc','bankSupportsInlandLc','bankSupportsOnline'].forEach(function(id){
+        document.getElementById(id).checked = false;
+      });
+    }
+    function _v(id, v) { var e = document.getElementById(id); if (e) e.value = v || ''; }
+    function _st(id, v) { var e = document.getElementById(id); if (e) e.textContent = v || '—'; }
+  })();
+  </script>
+</section>
+</html>

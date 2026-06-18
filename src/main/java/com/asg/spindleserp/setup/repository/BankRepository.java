@@ -9,7 +9,10 @@ import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface BankRepository extends JpaRepository<Bank, Long>, JpaSpecificationExecutor<Bank> {
+public interface BankRepository
+        extends JpaRepository<Bank, Long>,
+                JpaSpecificationExecutor<Bank> {
+
     Optional<Bank> findByOrganizationIdAndBankCode(Long orgId, String bankCode);
 
     List<Bank> findByOrganizationIdAndIsActiveTrue(Long orgId);
@@ -17,4 +20,6 @@ public interface BankRepository extends JpaRepository<Bank, Long>, JpaSpecificat
     List<Bank> findByOrganizationIdAndIsActiveTrueAndSupportsLcTrue(Long orgId);
 
     boolean existsByOrganizationIdAndBankCode(Long orgId, String bankCode);
+
+    boolean existsByOrganizationIdAndBankCodeAndIdNot(Long orgId, String bankCode, Long id);
 }
