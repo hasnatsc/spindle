@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <!--
-  inventory/category-index.html   GET /item-categories
+  inventory/category-index.html   GET /inventory/categories
   JS fns: catShow / catEdit / catToggle / catDelete / catOpenCreate
 -->
 <html th:replace="~{layout/base :: layout('Item Categories', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
@@ -127,7 +127,7 @@
   <script th:inline="none">
   (function () {
     'use strict';
-    const BASE = '/item-categories';
+    const BASE = '/inventory/categories';
     var dt;
     document.addEventListener('DOMContentLoaded', function () {
       dt = $('#catTable').DataTable({

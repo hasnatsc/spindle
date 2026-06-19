@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <!--
-  inventory/uom-index.html   GET /item-uoms
+  inventory/uom-index.html   GET /inventory/uoms
   JS fns: uomShow / uomEdit / uomToggle / uomDelete / uomOpenCreate
 -->
 <html th:replace="~{layout/base :: layout('Units of Measure', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
@@ -121,7 +121,7 @@
   <script th:inline="none">
   (function () {
     'use strict';
-    const BASE = '/item-uoms';
+    const BASE = '/inventory/uoms';
     var dt;
     document.addEventListener('DOMContentLoaded', function () {
       dt = $('#uomTable').DataTable({

@@ -14,12 +14,12 @@ import org.springframework.web.bind.annotation.*;
 import java.util.*;
 
 /**
- * ItemModelController  /item-models
+ * ItemModelController  /inventory/models
  * JS fns: modelShow / modelEdit / modelToggle / modelDelete / modelOpenCreate
  */
 @Slf4j
 @Controller
-@RequestMapping("/item-models")
+@RequestMapping("/inventory/models")
 @RequiredArgsConstructor
 public class ItemModelController {
 

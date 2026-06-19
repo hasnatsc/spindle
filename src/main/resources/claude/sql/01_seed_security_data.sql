@@ -180,36 +180,61 @@ INSERT INTO sec_permissions (name, description, url_pattern, http_method, module
 ON CONFLICT (name) DO NOTHING;
 
 -- ─── FINANCE / ACCOUNTS ───────────────────────────────────────────────────────
-INSERT INTO sec_permissions (name, description, url_pattern, http_method, module, category, active, created_at, updated_at) VALUES
-('ACC.COA.VIEW',              'View chart of accounts',     '/accounts/chart/**',         'GET',    'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
-('ACC.COA.CREATE',            'Create COA entry',           '/accounts/chart/save',       'POST',   'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
-('ACC.COA.EDIT',              'Edit COA entry',             '/accounts/chart/save',       'POST',   'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
-('ACC.COA.DELETE',            'Delete COA entry',           '/accounts/chart/delete/**',  'DELETE', 'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
-('ACC.SUBACC.VIEW',           'View sub-accounts',          '/accounts/sub-accounts/**',  'GET',    'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
-('ACC.SUBACC.CREATE',         'Create sub-account',         '/accounts/sub-accounts/save','POST',   'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
-('ACC.SUBACC.EDIT',           'Edit sub-account',           '/accounts/sub-accounts/save','POST',   'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
-('ACC.BANK_ACC.VIEW',         'View bank accounts',         '/accounts/bank-accounts/**', 'GET',    'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
-('ACC.BANK_ACC.CREATE',       'Create bank account',        '/accounts/bank-accounts/save','POST',  'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
-('ACC.BANK_ACC.EDIT',         'Edit bank account',          '/accounts/bank-accounts/save','POST',  'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
-('ACC.MAPPING.VIEW',          'View account mappings',      '/accounts/mappings/**',      'GET',    'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
-('ACC.MAPPING.EDIT',          'Edit account mapping',       '/accounts/mappings/save',    'POST',   'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
-('ACC.JOURNAL.VIEW',          'View journal vouchers',      '/accounts/journals/**',      'GET',    'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
-('ACC.JOURNAL.CREATE',        'Create journal voucher',     '/accounts/journals/save',    'POST',   'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
-('ACC.JOURNAL.EDIT',          'Edit journal voucher',       '/accounts/journals/save',    'POST',   'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
-('ACC.JOURNAL.DELETE',        'Delete journal voucher',     '/accounts/journals/delete/**','DELETE','FINANCE_ACCOUNTS','ACCOUNTS', true, NOW(), NOW()),
-('ACC.PAYMENT.VIEW',          'View payment vouchers',      '/accounts/payments/**',      'GET',    'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
-('ACC.PAYMENT.CREATE',        'Create payment voucher',     '/accounts/payments/save',    'POST',   'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
-('ACC.PAYMENT.EDIT',          'Edit payment voucher',       '/accounts/payments/save',    'POST',   'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
-('ACC.RECEIPT.VIEW',          'View receipt vouchers',      '/accounts/receipts/**',      'GET',    'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
-('ACC.RECEIPT.CREATE',        'Create receipt voucher',     '/accounts/receipts/save',    'POST',   'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
-('ACC.RECEIPT.EDIT',          'Edit receipt voucher',       '/accounts/receipts/save',    'POST',   'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
-('ACC.POLICY.VIEW',           'View accounting policies',   '/accounts/policies/**',      'GET',    'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
-('ACC.POLICY.CREATE',         'Create accounting policy',   '/accounts/policies/save',    'POST',   'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
-('ACC.POLICY.EDIT',           'Edit accounting policy',     '/accounts/policies/save',    'POST',   'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
-('ACC.LEDGER.VIEW',           'View general ledger',        '/accounts/ledger/**',        'GET',    'FINANCE_ACCOUNTS', 'REPORTS',  true, NOW(), NOW()),
-('ACC.TRIAL_BAL.VIEW',        'View trial balance',         '/accounts/trial-balance/**', 'GET',    'FINANCE_ACCOUNTS', 'REPORTS',  true, NOW(), NOW()),
-('ACC.PROFIT_LOSS.VIEW',      'View profit & loss',         '/accounts/profit-loss/**',   'GET',    'FINANCE_ACCOUNTS', 'REPORTS',  true, NOW(), NOW()),
-('ACC.BALANCE_SHEET.VIEW',    'View balance sheet',         '/accounts/balance-sheet/**', 'GET',    'FINANCE_ACCOUNTS', 'REPORTS',  true, NOW(), NOW())
+INSERT INTO sec_permissions (name, module, description, url_pattern, http_method, active) VALUES
+-- Chart of Accounts
+('accounts.coa.view',           'ACCOUNTS', 'View chart of accounts',       '/accounts/chart',               'GET', TRUE),
+('accounts.coa.create',         'ACCOUNTS', 'Create chart account',         '/accounts/chart',               'POST',TRUE),
+('accounts.coa.edit',           'ACCOUNTS', 'Edit chart account',           '/accounts/chart/**',            'POST',TRUE),
+('accounts.coa.delete',         'ACCOUNTS', 'Delete chart account',         '/accounts/chart/**',            'DELETE',TRUE),
+('accounts.coa.toggle',         'ACCOUNTS', 'Toggle chart account status',  '/accounts/chart/toggle/**',     'POST',TRUE),
+-- Sub-accounts (all types)
+('accounts.subledger.view',     'ACCOUNTS', 'View sub-ledger accounts',     '/accounts/sub-accounts',        'GET', TRUE),
+('accounts.subledger.create',   'ACCOUNTS', 'Create sub-ledger account',    '/accounts/sub-accounts',        'POST',TRUE),
+('accounts.subledger.edit',     'ACCOUNTS', 'Edit sub-ledger account',      '/accounts/sub-accounts/**',     'POST',TRUE),
+('accounts.subledger.delete',   'ACCOUNTS', 'Delete sub-ledger account',    '/accounts/sub-accounts/**',     'DELETE',TRUE),
+-- Bank / Cash
+('accounts.bank.view',          'ACCOUNTS', 'View bank accounts',           '/accounts/bank-accounts',       'GET', TRUE),
+('accounts.bank.create',        'ACCOUNTS', 'Create bank account',          '/accounts/bank-accounts',       'POST',TRUE),
+('accounts.cash.view',          'ACCOUNTS', 'View cash accounts',           '/accounts/cash-accounts',       'GET', TRUE),
+('accounts.cash.create',        'ACCOUNTS', 'Create cash account',          '/accounts/cash-accounts',       'POST',TRUE),
+-- Customer / Supplier / Employee
+('accounts.customer.view',      'ACCOUNTS', 'View customer accounts',       '/accounts/customer-accounts',   'GET', TRUE),
+('accounts.customer.create',    'ACCOUNTS', 'Create customer account',      '/accounts/customer-accounts',   'POST',TRUE),
+('accounts.supplier.view',      'ACCOUNTS', 'View supplier accounts',       '/accounts/supplier-accounts',   'GET', TRUE),
+('accounts.supplier.create',    'ACCOUNTS', 'Create supplier account',      '/accounts/supplier-accounts',   'POST',TRUE),
+('accounts.employee.view',      'ACCOUNTS', 'View employee accounts',       '/accounts/employee-accounts',   'GET', TRUE),
+('accounts.employee.create',    'ACCOUNTS', 'Create employee account',      '/accounts/employee-accounts',   'POST',TRUE),
+-- Accounting Periods
+('accounts.period.view',        'ACCOUNTS', 'View accounting periods',      '/accounts/periods',             'GET', TRUE),
+('accounts.period.create',      'ACCOUNTS', 'Create accounting period',     '/accounts/periods',             'POST',TRUE),
+('accounts.period.close',       'ACCOUNTS', 'Close accounting period',      '/accounts/periods/close/**',    'POST',TRUE),
+-- Journals / Vouchers
+('accounts.journal.view',       'ACCOUNTS', 'View journal vouchers',        '/accounts/journals',            'GET', TRUE),
+('accounts.journal.create',     'ACCOUNTS', 'Create journal voucher',       '/accounts/journals',            'POST',TRUE),
+('accounts.journal.post',       'ACCOUNTS', 'Post journal voucher',         '/accounts/journals/post/**',    'POST',TRUE),
+('accounts.journal.reverse',    'ACCOUNTS', 'Reverse journal voucher',      '/accounts/journals/reverse/**', 'POST',TRUE),
+('accounts.journal.delete',     'ACCOUNTS', 'Delete journal voucher',       '/accounts/journals/**',         'DELETE',TRUE),
+('accounts.payment.view',       'ACCOUNTS', 'View payment vouchers',        '/accounts/payment-vouchers',    'GET', TRUE),
+('accounts.payment.create',     'ACCOUNTS', 'Create payment voucher',       '/accounts/payment-vouchers',    'POST',TRUE),
+('accounts.receipt.view',       'ACCOUNTS', 'View receipt vouchers',        '/accounts/receipt-vouchers',    'GET', TRUE),
+('accounts.receipt.create',     'ACCOUNTS', 'Create receipt voucher',       '/accounts/receipt-vouchers',    'POST',TRUE),
+('accounts.contra.view',        'ACCOUNTS', 'View contra vouchers',         '/accounts/contra-vouchers',     'GET', TRUE),
+('accounts.debitnote.view',     'ACCOUNTS', 'View debit notes',             '/accounts/debit-notes',         'GET', TRUE),
+('accounts.creditnote.view',    'ACCOUNTS', 'View credit notes',            '/accounts/credit-notes',        'GET', TRUE),
+('accounts.openingbal.view',    'ACCOUNTS', 'View opening balances',        '/accounts/opening-balances',    'GET', TRUE),
+('accounts.openingbal.post',    'ACCOUNTS', 'Post opening balances',        '/accounts/opening-balances/post/**','POST',TRUE),
+-- Config
+('accounts.mapping.view',       'ACCOUNTS', 'View account mapping',         '/accounts/mapping',             'GET', TRUE),
+('accounts.mapping.create',     'ACCOUNTS', 'Create account mapping',       '/accounts/mapping',             'POST',TRUE),
+('accounts.policy.view',        'ACCOUNTS', 'View voucher policy',          '/accounts/policy',              'GET', TRUE),
+('accounts.policy.create',      'ACCOUNTS', 'Create voucher policy',        '/accounts/policy',              'POST',TRUE),
+('accounts.autotemplate.view',  'ACCOUNTS', 'View auto journal templates',  '/accounts/auto-templates',      'GET', TRUE),
+('accounts.autotemplate.create','ACCOUNTS', 'Create auto journal template', '/accounts/auto-templates',      'POST',TRUE),
+-- Reports
+('accounts.report.trial',       'ACCOUNTS', 'View trial balance',           '/accounts/reports/trial-balance','GET',TRUE),
+('accounts.report.ledger',      'ACCOUNTS', 'View account ledger',          '/accounts/reports/ledger',      'GET', TRUE),
+('accounts.report.cashbook',    'ACCOUNTS', 'View cash book',               '/accounts/reports/cash-book',   'GET', TRUE),
+('accounts.report.bankbook',    'ACCOUNTS', 'View bank book',               '/accounts/reports/bank-book',   'GET', TRUE)
 ON CONFLICT (name) DO NOTHING;
 
 -- ─── HRM ──────────────────────────────────────────────────────────────────────

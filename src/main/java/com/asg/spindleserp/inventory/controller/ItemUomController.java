@@ -15,12 +15,12 @@ import org.springframework.web.bind.annotation.*;
 import java.util.*;
 
 /**
- * ItemUomController  /item-uoms
+ * ItemUomController  /inventory/uoms
  * JS fns: uomShow / uomEdit / uomToggle / uomDelete / uomOpenCreate
  */
 @Slf4j
 @Controller
-@RequestMapping("/item-uoms")
+@RequestMapping("/inventory/uoms")
 @RequiredArgsConstructor
 public class ItemUomController {
 

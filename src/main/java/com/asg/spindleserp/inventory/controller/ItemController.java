@@ -16,7 +16,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 /**
- * ItemController  /items
+ * ItemController  /inventory/items
  * JS fns: itemShow / itemEdit / itemToggle / itemDelete / itemOpenCreate
  *
  * NEW: GET /items/search?search=&page=&pageSize=   → {items:[{id,text,code,name,uom}], hasMore}
@@ -24,7 +24,7 @@ import java.util.stream.Collectors;
  */
 @Slf4j
 @Controller
-@RequestMapping("/items")
+@RequestMapping("/inventory/items")
 @RequiredArgsConstructor
 public class ItemController {
 

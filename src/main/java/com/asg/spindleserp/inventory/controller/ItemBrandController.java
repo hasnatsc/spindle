@@ -14,12 +14,12 @@ import org.springframework.web.bind.annotation.*;
 import java.util.*;
 
 /**
- * ItemBrandController  /item-brands
+ * ItemBrandController  /inventory/brands
  * JS fns: brandShow / brandEdit / brandToggle / brandDelete / brandOpenCreate
  */
 @Slf4j
 @Controller
-@RequestMapping("/item-brands")
+@RequestMapping("/inventory/brands")
 @RequiredArgsConstructor
 public class ItemBrandController {
 

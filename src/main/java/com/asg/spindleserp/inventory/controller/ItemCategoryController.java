@@ -16,12 +16,12 @@ import org.springframework.web.bind.annotation.*;
 import java.util.*;
 
 /**
- * ItemCategoryController  /item-categories
+ * ItemCategoryController  /inventory/categories
  * JS fns: catShow / catEdit / catToggle / catDelete / catOpenCreate
  */
 @Slf4j
 @Controller
-@RequestMapping("/item-categories")
+@RequestMapping("/inventory/categories")
 @RequiredArgsConstructor
 public class ItemCategoryController {
 

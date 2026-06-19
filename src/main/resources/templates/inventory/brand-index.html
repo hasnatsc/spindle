@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <!--
-  inventory/brand-index.html   GET /item-brands
+  inventory/brand-index.html   GET /inventory/brands
   JS fns: brandShow / brandEdit / brandToggle / brandDelete / brandOpenCreate
 -->
 <html th:replace="~{layout/base :: layout('Item Brands', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
@@ -106,7 +106,7 @@
   <script th:inline="none">
   (function () {
     'use strict';
-    const BASE = '/item-brands';
+    const BASE = '/inventory/brands';
     var dt;
     document.addEventListener('DOMContentLoaded', function () {
       dt = $('#brandTable').DataTable({
