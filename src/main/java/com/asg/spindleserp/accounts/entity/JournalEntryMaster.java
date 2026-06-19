@@ -31,9 +31,6 @@ public class JournalEntryMaster extends BaseEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "organization_id")
-    private Long organizationId;
-
     @Column(length = 100)
     private String voucherNo;
     private LocalDate voucherDate;

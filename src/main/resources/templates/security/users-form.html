@@ -1,40 +1,23 @@
 <!DOCTYPE html>
 <!--
-  security/users-form.html
-  Fragment  : modalForm
-  Path      : src/main/resources/templates/security/users-form.html
-  Inject via: <div th:replace="~{security/users-form :: modalForm}"></div>
+  security/users-form.html — fragment: modalForm
+  Path: src/main/resources/templates/security/users-form.html
 
-  Covers:
-   ✅ Create new user (password required)
-   ✅ Edit existing user (password optional)
-   ✅ Roles multi-select (Select2)
-   ✅ Access Control: Organizations, Business Units, Cost Centers, Warehouses
-   ✅ Default Working Context: defaultOrg / defaultBU / defaultCC / defaultWH
-   ✅ Default Dashboard dropdown
-   ✅ Account status toggle
-   ✅ Parsley validation
-   ✅ secureFetch reads CSRF from <meta name="_csrf"> (always fresh)
-
-  Changes over the previous version:
-   FIX 1: Payload uses Boolean: only 'enabled' is sent from the form;
-          the other three flags are intentionally omitted so the server's
-          null-safe Boolean defaults (all = true) apply.
-   FIX 2: Added "Default Working Context" section with four single-select
-          dropdowns (defaultOrganizationId, defaultBusinessUnitId,
-          defaultCostCenterId, defaultWarehouseId).
-          populateEditForm() pre-fills these from the loaded user data.
-   FIX 3: The CSRF token is always read from the <meta name="_csrf"> tag
-          which Thymeleaf renders server-side on every page load.
-          This is always current — even on the first POST after login.
-          (secureFetch in application.js already does this correctly.)
+  Sections:
+    1. Basic Information
+    2. Password (required on create, optional on edit)
+    3. Roles
+    4. Access Control  — multi-select: WHICH orgs/BU/CC/WH user is ALLOWED to access
+                          stored in sec_user_organizations / sec_user_org_business_units /
+                          sec_user_org_cost_centers / sec_user_warehouses
+    5. Default Working Context — single-select: which one is pre-selected at login
+                                  stored in user_context via UserContextService
+    6. Status
 -->
 <html xmlns:th="http://www.thymeleaf.org" lang="en">
 <body>
-
 <div th:fragment="modalForm">
 
-  <!-- ══ CREATE / EDIT USER MODAL ═══════════════════════════════════════════ -->
   <div tabindex="-1" aria-hidden="true" id="defaultModal" class="modal fade">
     <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
       <div class="modal-content">
@@ -43,224 +26,154 @@
           <h5 class="modal-title" id="asgModalLabel">
             <i class="fa fa-user-plus me-1 text-success"></i> Create User
           </h5>
-          <button type="button" data-bs-dismiss="modal"
-                  class="btn-close" aria-label="Close"></button>
+          <button type="button" data-bs-dismiss="modal" class="btn-close" aria-label="Close"></button>
         </div>
 
-        <form id="asgModalForm" novalidate>
+        <form id="asgModalForm"  class="row" novalidate>
           <div class="modal-body">
+            <div class="panel-body" style="max-height: 75vh; overflow-y: auto;">
             <div id="formMessages"></div>
             <div class="hs-box">
-              <div class="row g-2">
-
+              <div class="row">
                 <input name="id" id="id" type="hidden">
 
-                <!-- ══ SECTION: Basic Information ══════════════════════════ -->
+                <!-- ══ 1. Basic Information ═════════════════════════════════ -->
                 <div class="col-12">
-                  <h6 class="text-primary mb-1">
-                    <i class="fa fa-user me-1"></i> Basic Information
-                  </h6>
+                  <h6 class="text-primary mb-1"><i class="fa fa-user me-1"></i> Basic Information</h6>
                   <hr class="mt-0 mb-2">
                 </div>
-
                 <div class="col-md-6 view-group">
-                  <input name="username" id="username"
-                         placeholder="Enter Username"
-                         type="text" class="form-control hs_span_view"
-                         required minlength="3" maxlength="80">
-                  <label for="username" class="input-label">
-                    Username <span class="text-danger">*</span>
-                  </label>
+                  <input name="username" id="username" placeholder="Enter Username" type="text"
+                         class="form-control hs_span_view" required minlength="3" maxlength="80">
+                  <label for="username" class="input-label">Username <span class="text-danger">*</span></label>
                 </div>
-
                 <div class="col-md-6 view-group">
-                  <input name="fullName" id="fullName"
-                         placeholder="Enter Full Name"
-                         type="text" class="form-control hs_span_view" maxlength="200">
+                  <input name="fullName" id="fullName" placeholder="Enter Full Name" type="text"
+                         class="form-control hs_span_view" maxlength="200">
                   <label for="fullName" class="input-label">Full Name</label>
                 </div>
-
                 <div class="col-md-4 view-group">
-                  <input name="email" id="email"
-                         placeholder="Enter Email"
-                         type="email" class="form-control hs_span_view"
-                         required maxlength="150">
-                  <label for="email" class="input-label">
-                    Email <span class="text-danger">*</span>
-                  </label>
+                  <input name="email" id="email" placeholder="Enter Email" type="email"
+                         class="form-control hs_span_view" required maxlength="150">
+                  <label for="email" class="input-label">Email <span class="text-danger">*</span></label>
                 </div>
-
                 <div class="col-md-4 view-group">
-                  <input name="phone" id="phone"
-                         placeholder="Enter Phone Number"
-                         type="text" class="form-control hs_span_view" maxlength="30">
+                  <input name="phone" id="phone" placeholder="Enter Phone" type="text"
+                         class="form-control hs_span_view" maxlength="30">
                   <label for="phone" class="input-label">Phone</label>
                 </div>
-
                 <div class="col-md-4 mb-2 select-group">
-                  <label for="defaultDashboard" class="view-label">
-                    Default Dashboard
-                  </label>
-                  <select name="defaultDashboard" id="defaultDashboard"
-                          class="form-select">
+                  <label for="defaultDashboard" class="view-label">Default Dashboard</label>
+                  <select name="defaultDashboard" id="defaultDashboard" class="form-select">
                     <option value="DEFAULT">Default</option>
                   </select>
                 </div>
 
-                <!-- ══ SECTION: Password ═══════════════════════════════════ -->
+                <!-- ══ 2. Password ══════════════════════════════════════════ -->
                 <div class="col-12" id="passwordSection">
                   <hr class="mt-1 mb-2">
-                  <h6 class="text-warning mb-1">
-                    <i class="fa fa-lock me-1"></i> Password
-                  </h6>
-                  <p class="text-muted small mb-2" id="passwordHint">
-                    Minimum 8 characters.
-                  </p>
+                  <h6 class="text-warning mb-1"><i class="fa fa-lock me-1"></i> Password</h6>
+                  <p class="text-muted small mb-2" id="passwordHint">Minimum 8 characters.</p>
                 </div>
-
                 <div class="col-md-6 view-group" id="passwordFieldWrapper">
-                  <input name="password" id="password"
-                         placeholder="Enter Password"
-                         type="password" class="form-control hs_span_view"
-                         minlength="8" autocomplete="new-password">
-                  <label for="password" class="input-label">
-                    Password <span class="text-danger" id="passwordRequired">*</span>
-                  </label>
+                  <input name="password" id="password" placeholder="Enter Password" type="password"
+                         class="form-control hs_span_view" minlength="8" autocomplete="new-password">
+                  <label for="password" class="input-label">Password <span class="text-danger" id="passwordRequired">*</span></label>
                 </div>
-
                 <div class="col-md-6 view-group" id="confirmPasswordFieldWrapper">
-                  <input name="confirmPassword" id="confirmPassword"
-                         placeholder="Confirm Password"
-                         type="password" class="form-control hs_span_view"
-                         autocomplete="new-password">
-                  <label for="confirmPassword" class="input-label">
-                    Confirm Password <span class="text-danger" id="confirmRequired">*</span>
-                  </label>
+                  <input name="confirmPassword" id="confirmPassword" placeholder="Confirm Password"
+                         type="password" class="form-control hs_span_view" autocomplete="new-password">
+                  <label for="confirmPassword" class="input-label">Confirm <span class="text-danger" id="confirmRequired">*</span></label>
                 </div>
 
-                <!-- ══ SECTION: Roles ═══════════════════════════════════════ -->
+                <!-- ══ 3. Roles ═════════════════════════════════════════════ -->
                 <div class="col-12">
                   <hr class="mt-1 mb-2">
-                  <h6 class="text-success mb-1">
-                    <i class="fa fa-shield-alt me-1"></i> Roles &amp; Permissions
-                  </h6>
+                  <h6 class="text-success mb-1"><i class="fa fa-shield-alt me-1"></i> Roles &amp; Permissions</h6>
                 </div>
-
                 <div class="col-md-12 mb-2">
                   <label for="roleIds" class="view-label">Assigned Roles</label>
-                  <select name="roleIds" id="roleIds"
-                          class="form-control select2-multi" multiple></select>
+                  <select name="roleIds" id="roleIds" class="form-control hsSelectTwo" multiple></select>
                 </div>
 
-                <!-- ══ SECTION: Access Control ══════════════════════════════ -->
+                <!-- ══ 4. Access Control ════════════════════════════════════
+                     Multi-select: which orgs/BU/CC/WH the user CAN access.
+                     Stored in sec_user_organizations etc.
+                ════════════════════════════════════════════════════════════ -->
                 <div class="col-12">
                   <hr class="mt-1 mb-2">
-                  <h6 class="text-info mb-1">
-                    <i class="fa fa-building me-1"></i> Access Control
-                  </h6>
-                  <div class="alert alert-info py-2 mb-2" role="alert" style="font-size:0.82rem">
-                    <i class="fa fa-info-circle me-1"></i>
-                    Leave blank for unrestricted access. When set, the user can only
-                    operate within the selected organizations, units, and warehouses.
-                  </div>
+                  <h6 class="text-info mb-1"><i class="fa fa-building me-1"></i> Access Control</h6>
+                  <p class="text-muted small mb-2">
+                    Leave blank for unrestricted access.
+                    When set, the user can only work in these organizations, units, cost centers, and warehouses.
+                  </p>
                 </div>
-
                 <div class="col-md-6 mb-2">
                   <label for="organizationIds" class="view-label">Allowed Organizations</label>
-                  <select name="organizationIds" id="organizationIds"
-                          class="form-control select2-multi" multiple></select>
+                  <select name="organizationIds" id="organizationIds" class="form-control hsSelectTwo" multiple></select>
                 </div>
-
                 <div class="col-md-6 mb-2">
                   <label for="businessUnitIds" class="view-label">Allowed Business Units</label>
-                  <select name="businessUnitIds" id="businessUnitIds"
-                          class="form-control select2-multi" multiple></select>
+                  <select name="businessUnitIds" id="businessUnitIds" class="form-control hsSelectTwo" multiple></select>
                 </div>
-
                 <div class="col-md-6 mb-2">
                   <label for="costCenterIds" class="view-label">Allowed Cost Centers</label>
-                  <select name="costCenterIds" id="costCenterIds"
-                          class="form-control select2-multi" multiple></select>
+                  <select name="costCenterIds" id="costCenterIds" class="form-control hsSelectTwo" multiple></select>
                 </div>
-
                 <div class="col-md-6 mb-2">
                   <label for="warehouseIds" class="view-label">Allowed Warehouses</label>
-                  <select name="warehouseIds" id="warehouseIds"
-                          class="form-control select2-multi" multiple></select>
+                  <select name="warehouseIds" id="warehouseIds" class="form-control hsSelectTwo" multiple></select>
                 </div>
 
-                <!-- ══ SECTION: Default Working Context ════════════════════
-                     ✅ FIX 2: Persisted to user_context table.
-                     Any module can read these via ContextProvider without
-                     a DB query — they're cached in the session bean.
-                     Example in a service:
-                       @Autowired ContextProvider ctx;
-                       Long orgId = ctx.getOrganizationId();
+                <!-- ══ 5. Default Working Context ════════════════════════════
+                     Single-select: which one is pre-loaded at login.
+                     Stored in user_context table via UserContextService.
+                     Cascades: Org → BU → CC + WH.
                 ════════════════════════════════════════════════════════════ -->
                 <div class="col-12">
                   <hr class="mt-1 mb-2">
                   <h6 class="text-primary mb-1">
                     <i class="fa fa-map-marker-alt me-1"></i> Default Working Context
                   </h6>
-                  <div class="alert alert-light py-2 mb-2 border" role="alert" style="font-size:0.82rem">
+                  <div class="alert alert-light border py-2 mb-2" style="font-size:.82rem">
                     <i class="fa fa-lightbulb me-1 text-warning"></i>
-                    These defaults are pre-filled in every new document (PO, SO, GRN etc.)
-                    so the user doesn't have to select them every time.
+                    Pre-fills every new document with this org/BU/CC/WH.
+                    The user can switch at any time from the top menu.
                   </div>
                 </div>
-
                 <div class="col-md-6 mb-2 select-group">
-                  <label for="defaultOrganizationId" class="view-label">
-                    Default Organization
-                  </label>
-                  <select name="defaultOrganizationId" id="defaultOrganizationId"
-                          class="form-select hsSelectTwo">
-                    <option value="">— Select Organization —</option>
+                  <label for="defaultOrgId" class="view-label">Default Organization</label>
+                  <select id="defaultOrgId" class="form-select hsSelectTwo">
+                    <option value="">— Select —</option>
+                  </select>
+                </div>
+                <div class="col-md-6 mb-2 select-group">
+                  <label for="defaultBuId" class="view-label">Default Business Unit</label>
+                  <select id="defaultBuId" class="form-select hsSelectTwo">
+                    <option value="">— Select —</option>
+                  </select>
+                </div>
+                <div class="col-md-6 mb-2 select-group">
+                  <label for="defaultCcId" class="view-label">Default Cost Center</label>
+                  <select id="defaultCcId" class="form-select hsSelectTwo">
+                    <option value="">— Select —</option>
+                  </select>
+                </div>
+                <div class="col-md-6 mb-2 select-group">
+                  <label for="defaultWhId" class="view-label">Default Warehouse</label>
+                  <select id="defaultWhId" class="form-select hsSelectTwo">
+                    <option value="">— Select —</option>
                   </select>
                 </div>
 
-                <div class="col-md-6 mb-2 select-group">
-                  <label for="defaultBusinessUnitId" class="view-label">
-                    Default Business Unit
-                  </label>
-                  <select name="defaultBusinessUnitId" id="defaultBusinessUnitId"
-                          class="form-select hsSelectTwo">
-                    <option value="">— Select Business Unit —</option>
-                  </select>
-                </div>
-
-                <div class="col-md-6 mb-2 select-group">
-                  <label for="defaultCostCenterId" class="view-label">
-                    Default Cost Center
-                  </label>
-                  <select name="defaultCostCenterId" id="defaultCostCenterId"
-                          class="form-select hsSelectTwo">
-                    <option value="">— Select Cost Center —</option>
-                  </select>
-                </div>
-
-                <div class="col-md-6 mb-2 select-group">
-                  <label for="defaultWarehouseId" class="view-label">
-                    Default Warehouse
-                  </label>
-                  <select name="defaultWarehouseId" id="defaultWarehouseId"
-                          class="form-select hsSelectTwo">
-                    <option value="">— Select Warehouse —</option>
-                  </select>
-                </div>
-
-                <!-- ══ SECTION: Status ══════════════════════════════════════ -->
+                <!-- ══ 6. Status ════════════════════════════════════════════ -->
                 <div class="col-12">
                   <hr class="mt-1 mb-2">
-                  <h6 class="text-secondary mb-1">
-                    <i class="fa fa-info-circle me-1"></i> Account Status
-                  </h6>
+                  <h6 class="text-secondary mb-1"><i class="fa fa-info-circle me-1"></i> Account Status</h6>
                 </div>
-
                 <div class="col-md-12 mb-2">
                   <div class="form-check form-switch">
-                    <input type="checkbox" name="enabled" id="enabled"
-                           class="form-check-input" checked>
+                    <input type="checkbox" name="enabled" id="enabled" class="form-check-input" checked>
                     <label class="form-check-label" for="enabled">
                       <strong>Active</strong>
                       <span class="text-muted ms-1 small">(uncheck to disable login)</span>
@@ -275,201 +188,152 @@
           <div class="modal-footer">
             <button class="btn btn-success" type="submit" id="submitBtn">
               <span class="spinner-border spinner-border-sm me-2 d-none" id="spinner"></span>
-              <span id="btnText">Save</span>
+              <span id="btnText">Save User</span>
             </button>
-            <button type="button" data-bs-dismiss="modal"
-                    class="btn btn-white">Cancel</button>
+            <button type="button" data-bs-dismiss="modal" class="btn btn-white">Cancel</button>
+          </div>
           </div>
         </form>
 
       </div>
     </div>
   </div>
-  <!-- END modal -->
 
-  <!-- ══ FORM SCRIPT ════════════════════════════════════════════════════════ -->
   <script>
   (function () {
     'use strict';
 
-    /* ── DOM refs ─────────────────────────────────────────────────────────── */
     var form, submitBtn, spinner, btnText;
     var isEditMode = false;
 
-    /* ════════════════════════════════════════════════════════════════════════
-       INIT
-    ════════════════════════════════════════════════════════════════════════ */
-    document.addEventListener('DOMContentLoaded', function () {
+    // Master lists for cascading default context dropdowns
+    var _allBus = [], _allCcs = [], _allWhs = [];
 
+    document.addEventListener('DOMContentLoaded', function () {
       form      = document.getElementById('asgModalForm');
       submitBtn = document.getElementById('submitBtn');
       spinner   = document.getElementById('spinner');
       btnText   = document.getElementById('btnText');
 
-      /* Load all reference data once */
-      loadRefData('/users/roles/all',          'roleIds',          labelRole);
-      loadRefData('/users/organizations/all',  'organizationIds',  labelOrg);
-      loadRefData('/users/business-units/all', 'businessUnitIds',  labelOrg);
-      loadRefData('/users/cost-centers/all',   'costCenterIds',    labelOrg);
-      loadRefData('/users/warehouses/all',     'warehouseIds',     labelOrg);
-
-      /* ✅ FIX 2: Load default context dropdowns from same endpoints */
-      loadContextDropdown('/users/organizations/all',  'defaultOrganizationId',  labelOrg);
-      loadContextDropdown('/users/business-units/all', 'defaultBusinessUnitId',  labelOrg);
-      loadContextDropdown('/users/cost-centers/all',   'defaultCostCenterId',    labelOrg);
-      loadContextDropdown('/users/warehouses/all',     'defaultWarehouseId',     labelOrg);
-
+      // Access control multi-selects
+      loadMulti('roleIds',          '/users/roles/all',          function (r) { return r.name + (r.description ? ' - ' + r.description : ''); });
+      loadMulti('organizationIds',  '/users/organizations/all',  labelOrg);
+      loadMulti('businessUnitIds',  '/users/business-units/all', labelOrg);
+      loadMulti('costCenterIds',    '/users/cost-centers/all',   labelOrg);
+      loadMulti('warehouseIds',     '/users/warehouses/all',     labelOrg);
       loadDashboards();
 
-      if (typeof $ !== 'undefined' && $.fn.parsley) $(form).parsley();
+      // Default context: load all orgs, pre-cache BU/CC/WH for cascading
+      loadDefaultContextLists();
 
+      // Cascade: default org → filter BU
+      document.getElementById('defaultOrgId').addEventListener('change', function () {
+        var orgId = numOrNull(this.value);
+        rebuildDefaultBu(orgId);
+        s2val('defaultBuId', '');
+        s2val('defaultCcId', '');
+        s2val('defaultWhId', '');
+      });
+
+      // Cascade: default BU → filter CC + WH
+      document.getElementById('defaultBuId').addEventListener('change', function () {
+        var buId = numOrNull(this.value);
+        rebuildDefaultCcWh(buId);
+        s2val('defaultCcId', '');
+        s2val('defaultWhId', '');
+      });
+
+      if (typeof $ !== 'undefined' && $.fn.parsley) $(form).parsley();
       form.addEventListener('submit', onSubmit);
     });
 
-    /* ════════════════════════════════════════════════════════════════════════
-       SUBMIT
-       ✅ FIX 1: Only 'enabled' is sent from the form.
-          accountNonExpired / accountNonLocked / credentialsNonExpired are
-          intentionally omitted — the server treats null as true (safe default).
-          This prevents the "Cannot map null into boolean" Jackson error.
-    ════════════════════════════════════════════════════════════════════════ */
+    // ── Submit ──────────────────────────────────────────────────────────────
+
     function onSubmit(e) {
       e.preventDefault();
-
-      var pw  = document.getElementById('password').value;
-      var cpw = document.getElementById('confirmPassword').value;
+      var pw  = val('password');
+      var cpw = val('confirmPassword');
 
       if (!isEditMode) {
-        if (!pw || pw.length < 8) {
-          Swal.fire({ icon: 'warning', title: 'Validation', text: 'Password must be at least 8 characters.' });
-          return;
-        }
-        if (pw !== cpw) {
-          Swal.fire({ icon: 'warning', title: 'Validation', text: 'Passwords do not match.' });
-          return;
-        }
+        if (!pw || pw.length < 8) { Swal.fire({ icon:'warning', title:'Validation', text:'Password must be at least 8 characters.' }); return; }
+        if (pw !== cpw)           { Swal.fire({ icon:'warning', title:'Validation', text:'Passwords do not match.' }); return; }
       } else if (pw) {
-        if (pw.length < 8) {
-          Swal.fire({ icon: 'warning', title: 'Validation', text: 'Password must be at least 8 characters.' });
-          return;
-        }
-        if (pw !== cpw) {
-          Swal.fire({ icon: 'warning', title: 'Validation', text: 'Passwords do not match.' });
-          return;
-        }
+        if (pw.length < 8) { Swal.fire({ icon:'warning', title:'Validation', text:'Password must be at least 8 characters.' }); return; }
+        if (pw !== cpw)    { Swal.fire({ icon:'warning', title:'Validation', text:'Passwords do not match.' }); return; }
       }
 
       hsDisableButton(submitBtn, spinner, btnText);
 
-      /*
-       * ✅ FIX 1: accountNonExpired / accountNonLocked / credentialsNonExpired
-       * are NOT included in the payload.  The server-side UserDTO uses
-       * Boolean (wrapper) and its isXxx() helpers return true when null,
-       * which means "keep current value / use safe default".
-       *
-       * ✅ FIX 3: secureFetch reads the CSRF token from
-       *   <meta name="_csrf"> and <meta name="_csrf_header">
-       * which Thymeleaf renders server-side on every page load.
-       * This is always the correct fresh token — not a stale cookie —
-       * so the first POST after login never gets a CSRF mismatch.
-       */
       var payload = {
-        id:                     val('id')              || null,
-        username:               val('username'),
-        fullName:               val('fullName'),
-        email:                  val('email'),
-        phone:                  val('phone'),
-        defaultDashboard:       val('defaultDashboard') || 'DEFAULT',
-        enabled:                checked('enabled'),
-        /* password — only send when non-blank */
-        password:               pw  || undefined,
-        confirmPassword:        cpw || undefined,
-        /* multi-selects — access control */
-        roleIds:                multiIds('roleIds'),
-        organizationIds:        multiIds('organizationIds'),
-        businessUnitIds:        multiIds('businessUnitIds'),
-        costCenterIds:          multiIds('costCenterIds'),
-        warehouseIds:           multiIds('warehouseIds'),
-        /* ✅ FIX 2: default working context (single-selects, nullable) */
-        defaultOrganizationId:  numOrNull(val('defaultOrganizationId')),
-        defaultBusinessUnitId:  numOrNull(val('defaultBusinessUnitId')),
-        defaultCostCenterId:    numOrNull(val('defaultCostCenterId')),
-        defaultWarehouseId:     numOrNull(val('defaultWarehouseId'))
+        id:               val('id') || null,
+        username:         val('username'),
+        fullName:         val('fullName'),
+        email:            val('email'),
+        phone:            val('phone'),
+        defaultDashboard: val('defaultDashboard') || 'DEFAULT',
+        enabled:          document.getElementById('enabled').checked,
+        password:         pw || undefined,
+        // Access control (multi-select) — stored in sec_user_organizations etc.
+        roleIds:          multiIds('roleIds'),
+        organizationIds:  multiIds('organizationIds'),
+        businessUnitIds:  multiIds('businessUnitIds'),
+        costCenterIds:    multiIds('costCenterIds'),
+        warehouseIds:     multiIds('warehouseIds'),
+        // Default working context (single-select) — stored in user_context table
+        defaultOrganizationId: numOrNull(val('defaultOrgId')),
+        defaultBusinessUnitId: numOrNull(val('defaultBuId')),
+        defaultCostCenterId:   numOrNull(val('defaultCcId')),
+        defaultWarehouseId:    numOrNull(val('defaultWhId'))
       };
 
-      secureFetch('/users/save', {
-        method: 'POST',
-        body:   JSON.stringify(payload)
-      })
-      .then(function (data) {
-        if (data.success) {
-          Swal.fire({
-            icon: 'success', title: 'Success!', text: data.message,
-            timer: 1800, showConfirmButton: false
-          });
-          bootstrap.Modal.getOrCreateInstance(
-            document.getElementById('defaultModal')
-          ).hide();
-          if (window._userDT) window._userDT.ajax.reload(null, false);
-        } else {
-          Swal.fire({ icon: 'error', title: 'Error!', text: data.message });
-        }
-      })
-      .catch(function (err) {
-        Swal.fire({ icon: 'error', title: 'Error!', text: err.message || 'Request failed.' });
-      })
-      .finally(function () {
-        hsEnableButton(submitBtn, spinner, btnText);
-      });
+      secureFetch('/users/save', { method: 'POST', body: JSON.stringify(payload) })
+        .then(function (data) {
+          if (data.success) {
+            Swal.fire({ icon: 'success', title: 'Saved!', text: data.message,
+                        timer: 1800, showConfirmButton: false });
+            bootstrap.Modal.getOrCreateInstance(
+              document.getElementById('defaultModal')
+            ).hide();
+            if (window._userDT) window._userDT.ajax.reload(null, false);
+          } else {
+            Swal.fire({ icon: 'error', title: 'Error', text: data.message });
+          }
+        })
+        .catch(function (err) {
+          Swal.fire({ icon: 'error', title: 'Error', text: err.message || 'Request failed.' });
+        })
+        .finally(function () { hsEnableButton(submitBtn, spinner, btnText); });
     }
 
-    /* ════════════════════════════════════════════════════════════════════════
-       PUBLIC: resetUserForm
-    ════════════════════════════════════════════════════════════════════════ */
-    window.resetUserForm = function () {
-      if (!form) return;
-      isEditMode = false;
-      hsResetForm(form);
+    // ── PUBLIC: resetUserForm ───────────────────────────────────────────────
 
+    window.resetUserForm = function () {
+      isEditMode = false;
+      if (form) hsResetForm(form);
       document.getElementById('asgModalLabel').innerHTML =
         '<i class="fa fa-user-plus me-1 text-success"></i> Create User';
-      btnText.textContent = 'Save User';
+      if (btnText) btnText.textContent = 'Save User';
 
-      clearMulti('roleIds');
-      clearMulti('organizationIds');
-      clearMulti('businessUnitIds');
-      clearMulti('costCenterIds');
-      clearMulti('warehouseIds');
+      clearS2All(['roleIds','organizationIds','businessUnitIds','costCenterIds','warehouseIds']);
+      s2val('defaultOrgId',''); s2val('defaultBuId','');
+      s2val('defaultCcId','');  s2val('defaultWhId','');
 
-      /* Reset default context dropdowns */
-      clearSingle('defaultOrganizationId');
-      clearSingle('defaultBusinessUnitId');
-      clearSingle('defaultCostCenterId');
-      clearSingle('defaultWarehouseId');
-
-      setDisplay('passwordSection',             true);
-      setDisplay('passwordFieldWrapper',        true);
-      setDisplay('confirmPasswordFieldWrapper', true);
-      show('passwordRequired',  true);
-      show('confirmRequired',   true);
-      setRequired('password',        true);
-      setRequired('confirmPassword', true);
+      show('passwordSection',true); show('passwordFieldWrapper',true);
+      show('confirmPasswordFieldWrapper',true);
+      show('passwordRequired',true); show('confirmRequired',true);
+      setReq('password',true); setReq('confirmPassword',true);
       document.getElementById('passwordHint').textContent = 'Minimum 8 characters. Required.';
-
       document.getElementById('enabled').checked = true;
     };
 
-    /* ════════════════════════════════════════════════════════════════════════
-       PUBLIC: populateEditForm
-    ════════════════════════════════════════════════════════════════════════ */
-    window.populateEditForm = function (u) {
-      if (!form) return;
-      isEditMode = true;
-      hsResetForm(form);
+    // ── PUBLIC: populateEditForm ────────────────────────────────────────────
 
+    window.populateEditForm = function (u) {
+      isEditMode = true;
+      if (form) hsResetForm(form);
       document.getElementById('asgModalLabel').innerHTML =
         '<i class="fa fa-pencil me-1 text-warning"></i> Edit User';
-      btnText.textContent = 'Update User';
+      if (btnText) btnText.textContent = 'Update User';
 
       setVal('id',               u.id);
       setVal('username',         u.username);
@@ -485,186 +349,136 @@
       setMulti('costCenterIds',   toNumArr(u.costCenterIds));
       setMulti('warehouseIds',    toNumArr(u.warehouseIds));
 
-      /* ✅ FIX 2: pre-fill default context single-selects */
-      setVal('defaultOrganizationId', u.defaultOrganizationId || '');
-      setVal('defaultBusinessUnitId', u.defaultBusinessUnitId || '');
-      setVal('defaultCostCenterId',   u.defaultCostCenterId   || '');
-      setVal('defaultWarehouseId',    u.defaultWarehouseId    || '');
+      // Pre-fill default context with cascade
+      var defOrgId = u.defaultOrganizationId || null;
+      var defBuId  = u.defaultBusinessUnitId  || null;
+      var defCcId  = u.defaultCostCenterId    || null;
+      var defWhId  = u.defaultWarehouseId     || null;
 
-      /* Trigger Select2 change if used */
-      ['defaultOrganizationId','defaultBusinessUnitId',
-       'defaultCostCenterId','defaultWarehouseId'].forEach(function (id) {
-        if (typeof $ !== 'undefined' && $.fn.select2) {
-          $('#' + id).trigger('change');
-        }
+      s2val('defaultOrgId', defOrgId);
+      rebuildDefaultBu(defOrgId, function () {
+        s2val('defaultBuId', defBuId);
+        rebuildDefaultCcWh(defBuId, function () {
+          s2val('defaultCcId', defCcId);
+          s2val('defaultWhId', defWhId);
+        });
       });
 
-      setDisplay('passwordSection',             true);
-      setDisplay('passwordFieldWrapper',        true);
-      setDisplay('confirmPasswordFieldWrapper', true);
-      show('passwordRequired', false);
-      show('confirmRequired',  false);
-      setRequired('password',        false);
-      setRequired('confirmPassword', false);
+      show('passwordSection',true); show('passwordFieldWrapper',true);
+      show('confirmPasswordFieldWrapper',true);
+      show('passwordRequired',false); show('confirmRequired',false);
+      setReq('password',false); setReq('confirmPassword',false);
       document.getElementById('passwordHint').textContent =
-        'Leave blank to keep current password. Fill both fields to change.';
+        'Leave blank to keep current password.';
     };
 
-    /* ════════════════════════════════════════════════════════════════════════
-       REFERENCE DATA LOADERS
-    ════════════════════════════════════════════════════════════════════════ */
+    // ── Default context list loading ──────────────────────────────────────
 
-    function loadRefData(url, selectId, labelFn) {
-      secureFetch(url).then(function (data) {
-        var el = document.getElementById(selectId);
-        if (!el) return;
-        data.forEach(function (item) {
-          var opt   = document.createElement('option');
-          opt.value = item.id;
-          opt.text  = labelFn(item);
-          el.appendChild(opt);
-        });
-        initSelect2Multi(el);
-      }).catch(function (err) {
-        console.warn('[users-form] ' + url + ':', err.message);
+    function loadDefaultContextLists() {
+      secureFetch('/users/organizations/all').then(function (data) {
+        var el = document.getElementById('defaultOrgId');
+        clearAndBlank(el);
+        data.forEach(function (o) { addOpt(el, o.id, labelOrg(o)); });
+        initS2Single(el);
       });
+      secureFetch('/users/business-units/all').then(function (d) { _allBus = d; });
+      secureFetch('/users/cost-centers/all').then(function (d)   { _allCcs = d; });
+      secureFetch('/users/warehouses/all').then(function (d)     { _allWhs = d; });
     }
 
-    /* ✅ FIX 2: Load context dropdowns (single-select with blank option) */
-    function loadContextDropdown(url, selectId, labelFn) {
+    function rebuildDefaultBu(orgId, cb) {
+      var el = document.getElementById('defaultBuId');
+      clearAndBlank(el);
+      (_allBus.filter(function (b) { return !orgId || b.organizationId === orgId; }))
+        .forEach(function (b) { addOpt(el, b.id, labelOrg(b)); });
+      initS2Single(el);
+      if (cb) cb();
+    }
+
+    function rebuildDefaultCcWh(buId, cb) {
+      var cc = document.getElementById('defaultCcId');
+      var wh = document.getElementById('defaultWhId');
+      clearAndBlank(cc); clearAndBlank(wh);
+      (_allCcs.filter(function (c) { return !buId || c.businessUnitId === buId; }))
+        .forEach(function (c) { addOpt(cc, c.id, labelOrg(c)); });
+      (_allWhs.filter(function (w) { return !buId || w.businessUnitId === buId; }))
+        .forEach(function (w) { addOpt(wh, w.id, labelOrg(w)); });
+      initS2Single(cc); initS2Single(wh);
+      if (cb) cb();
+    }
+
+    // ── Reference data loaders ────────────────────────────────────────────
+
+    function loadMulti(selectId, url, labelFn) {
       secureFetch(url).then(function (data) {
         var el = document.getElementById(selectId);
-        if (!el) return;
-        data.forEach(function (item) {
-          var opt   = document.createElement('option');
-          opt.value = item.id;
-          opt.text  = labelFn(item);
-          el.appendChild(opt);
-        });
-        /* Init as Select2 single-select if available */
-        if (typeof $ !== 'undefined' && $.fn.select2) {
-          var $el = $(el);
-          if ($el.hasClass('select2-hidden-accessible')) $el.select2('destroy');
-          $el.select2({
-            dropdownParent: $('#defaultModal'),
-            width:          '100%',
-            placeholder:    '— Select —',
-            allowClear:     true
-          });
-        }
-      }).catch(function (err) {
-        console.warn('[users-form] ' + url + ':', err.message);
-      });
+        data.forEach(function (item) { addOpt(el, item.id, labelFn(item)); });
+        initS2Multi(el);
+      }).catch(function (e) { console.warn('[users-form]', url, e.message); });
     }
 
     function loadDashboards() {
       secureFetch('/users/dashboards/all').then(function (data) {
         var el = document.getElementById('defaultDashboard');
-        if (!el) return;
         while (el.options.length) el.remove(0);
-        data.forEach(function (d) {
-          var opt   = document.createElement('option');
-          opt.value = d.name;
-          opt.text  = d.displayName;
-          el.appendChild(opt);
-        });
-      }).catch(function (err) {
-        console.warn('[users-form] dashboards:', err.message);
+        data.forEach(function (d) { addOpt(el, d.name, d.displayName); });
       });
     }
 
-    function labelRole(r) {
-      return r.name + (r.description ? ' — ' + r.description : '');
+    // ── Select2 helpers ───────────────────────────────────────────────────
+
+    function initS2Multi(el) {
+      if (typeof $ === 'undefined' || !$.fn.select2) return;
+      $(el).select2({ dropdownParent: $('#defaultModal'), width: '100%',
+                      placeholder: 'Select…', allowClear: true });
     }
 
-    function labelOrg(r) {
-      return (r.code ? r.code + ' — ' : '') + r.name;
-    }
-
-    function initSelect2Multi(el) {
+    function initS2Single(el) {
       if (typeof $ === 'undefined' || !$.fn.select2) return;
       var $el = $(el);
       if ($el.hasClass('select2-hidden-accessible')) $el.select2('destroy');
-      $el.select2({
-        dropdownParent: $('#defaultModal'),
-        width:          '100%',
-        placeholder:    'Select…',
-        allowClear:     true
+      $el.select2({ dropdownParent: $('#defaultModal'), width: '100%',
+                    placeholder: '— Select —', allowClear: true });
+    }
+
+    function s2val(id, v) {
+      if (typeof $ !== 'undefined' && $.fn.select2) $('#' + id).val(v || '').trigger('change');
+      else { var e = document.getElementById(id); if (e) e.value = v || ''; }
+    }
+
+    function clearS2All(ids) {
+      ids.forEach(function (id) {
+        if (typeof $ !== 'undefined' && $.fn.select2) $('#' + id).val(null).trigger('change');
       });
-    }
-
-    /* ════════════════════════════════════════════════════════════════════════
-       HELPERS
-    ════════════════════════════════════════════════════════════════════════ */
-
-    function val(id)     { var e = document.getElementById(id); return e ? e.value : ''; }
-    function setVal(id, v) { var e = document.getElementById(id); if (e) e.value = v || ''; }
-    function checked(id) { var e = document.getElementById(id); return e ? e.checked : false; }
-
-    function numOrNull(v) { var n = parseInt(v, 10); return isNaN(n) ? null : n; }
-
-    function multiIds(id) {
-      var el = document.getElementById(id);
-      if (!el) return [];
-      return Array.from(el.selectedOptions)
-                  .map(function (o) { return Number(o.value); })
-                  .filter(Boolean);
-    }
-
-    function clearMulti(id) {
-      if (typeof $ !== 'undefined' && $.fn.select2) {
-        $('#' + id).val(null).trigger('change');
-      }
-    }
-
-    function clearSingle(id) {
-      if (typeof $ !== 'undefined' && $.fn.select2) {
-        $('#' + id).val('').trigger('change');
-      } else {
-        var el = document.getElementById(id);
-        if (el) el.value = '';
-      }
     }
 
     function setMulti(id, ids) {
       if (!ids || !ids.length) return;
-      if (typeof $ !== 'undefined' && $.fn.select2) {
-        $('#' + id).val(ids).trigger('change');
-      } else {
-        var el = document.getElementById(id);
-        if (!el) return;
-        Array.from(el.options).forEach(function (o) {
-          o.selected = ids.includes(Number(o.value));
-        });
-      }
+      if (typeof $ !== 'undefined' && $.fn.select2) $('#' + id).val(ids).trigger('change');
     }
 
-    function toNumArr(arr) {
-      if (!arr) return [];
-      return (Array.isArray(arr) ? arr : Array.from(arr))
-               .map(Number).filter(Boolean);
-    }
+    // ── DOM helpers ───────────────────────────────────────────────────────
 
-    function setDisplay(id, visible) {
-      var el = document.getElementById(id);
-      if (el) el.style.display = visible ? '' : 'none';
+    function val(id)        { var e = document.getElementById(id); return e ? e.value : ''; }
+    function setVal(id, v)  { var e = document.getElementById(id); if (e) e.value = v || ''; }
+    function multiIds(id)   {
+      var el = document.getElementById(id); if (!el) return [];
+      return Array.from(el.selectedOptions).map(function (o) { return Number(o.value); }).filter(Boolean);
     }
-
-    function show(id, visible) {
-      var el = document.getElementById(id);
-      if (el) el.style.display = visible ? '' : 'none';
+    function numOrNull(v)   { var n = parseInt(v, 10); return isNaN(n) ? null : n; }
+    function toNumArr(a)    { if (!a) return []; return (Array.isArray(a) ? a : Array.from(a)).map(Number).filter(Boolean); }
+    function show(id, v)    { var e = document.getElementById(id); if (e) e.style.display = v ? '' : 'none'; }
+    function setReq(id, r)  { var e = document.getElementById(id); if (!e) return; r ? e.setAttribute('required','required') : e.removeAttribute('required'); }
+    function addOpt(el, v, t) { var o = document.createElement('option'); o.value = v; o.text = t; el.appendChild(o); }
+    function clearAndBlank(el) {
+      while (el.options.length) el.remove(0);
+      var o = document.createElement('option'); o.value = ''; o.text = '— Select —'; el.appendChild(o);
     }
-
-    function setRequired(id, req) {
-      var el = document.getElementById(id);
-      if (!el) return;
-      if (req) el.setAttribute('required', 'required');
-      else     el.removeAttribute('required');
-    }
+    function labelOrg(r) { return (r.code ? r.code + ' — ' : '') + r.name; }
 
   })();
   </script>
 
-</div><!-- /th:fragment -->
+</div>
 </body>
 </html>

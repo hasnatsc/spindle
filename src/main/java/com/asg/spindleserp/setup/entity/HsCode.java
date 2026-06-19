@@ -22,9 +22,6 @@ public class HsCode extends BaseEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "organization_id", nullable = false)
-    private Long organizationId;
-
     @Column(nullable = false, length = 20)
     private String hsCode;
 

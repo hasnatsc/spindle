@@ -24,9 +24,6 @@ public class AutoJournalTemplate extends BaseEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "organization_id", nullable = false)
-    private Long organizationId;
-
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "accounts_policy_id")
     private AccountsPolicy accountsPolicy;

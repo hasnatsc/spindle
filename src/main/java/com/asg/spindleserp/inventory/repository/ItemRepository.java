@@ -23,18 +23,18 @@ public interface ItemRepository extends JpaRepository<Item, Long>, JpaSpecificat
 
     boolean existsByOrganizationIdAndItemName(Long orgId, String name);
 
-    @Query("SELECT i FROM Item i WHERE i.organizationId = :orgId AND i.isActive = true " +
+    @Query("SELECT i FROM Item i WHERE i.organization.id = :orgId AND i.isActive = true " +
             "AND (LOWER(i.itemCode) LIKE LOWER(CONCAT('%',:q,'%')) " +
             "OR   LOWER(i.itemName) LIKE LOWER(CONCAT('%',:q,'%')))")
     Page<Item> search(@Param("orgId") Long orgId, @Param("q") String q, Pageable p);
 
     // Commonly needed for production BOM dropdowns — only raw materials and consumables
-    @Query("SELECT i FROM Item i WHERE i.organizationId = :orgId AND i.isActive = true " +
+    @Query("SELECT i FROM Item i WHERE i.organization.id = :orgId AND i.isActive = true " +
             "AND i.itemType IN ('RAW_MATERIAL','SEMI_FINISHED','CONSUMABLE','MRO')")
     List<Item> findProductionInputItems(@Param("orgId") Long orgId);
 
     // Only finished goods — for production output and sales
-    @Query("SELECT i FROM Item i WHERE i.organizationId = :orgId AND i.isActive = true " +
+    @Query("SELECT i FROM Item i WHERE i.organization.id = :orgId AND i.isActive = true " +
             "AND i.itemType IN ('FINISHED_GOOD','SEMI_FINISHED')")
     List<Item> findFinishedItems(@Param("orgId") Long orgId);
 }

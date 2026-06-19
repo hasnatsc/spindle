@@ -22,10 +22,6 @@ public class AccountsMapping extends BaseEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-
-    @Column(name = "organization_id", nullable = false)
-    private Long organizationId;
-
     @Column(nullable = false, length = 30)
     private String mappingCode;
     @Column(nullable = false, length = 200)

@@ -18,6 +18,6 @@ public interface InventoryStockBalanceRepository extends JpaRepository<Inventory
 
     List<InventoryStockBalance> findByWarehouseId(Long warehouseId);
 
-    @Query("SELECT s FROM InventoryStockBalance s WHERE s.item.organizationId = :orgId AND s.quantity > 0")
+    @Query("SELECT s FROM InventoryStockBalance s WHERE s.item.organization.id = :orgId AND s.quantity > 0")
     List<InventoryStockBalance> findAllPositiveByOrg(@Param("orgId") Long orgId);
 }

@@ -20,9 +20,6 @@ public class Designation extends BaseEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "organization_id", nullable = false)
-    private Long organizationId;
-
     @Column(nullable = false, length = 50)
     private String designationCode;
     @Column(nullable = false, length = 200)

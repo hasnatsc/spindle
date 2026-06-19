@@ -16,7 +16,7 @@ public interface ApprovalRequestRepository extends JpaRepository<ApprovalRequest
 
     List<ApprovalRequest> findByCurrentApproverUserIdAndStatus(Long userId, String status);
 
-    @Query("SELECT ar FROM ApprovalRequest ar WHERE ar.organizationId = :orgId " +
+    @Query("SELECT ar FROM ApprovalRequest ar WHERE ar.organization.id = :orgId " +
             "AND ar.status IN ('IN_APPROVAL','SUBMITTED') " +
             "AND ar.currentApproverUser.id = :userId")
     List<ApprovalRequest> findInbox(@Param("orgId") Long orgId, @Param("userId") Long userId);

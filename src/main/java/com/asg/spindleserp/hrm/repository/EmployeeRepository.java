@@ -32,7 +32,7 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long>, JpaSp
 
     boolean existsByEmployeeCode(String code);
 
-    @Query("SELECT e FROM Employee e WHERE e.organizationId = :orgId AND e.status = 'ACTIVE' " +
+    @Query("SELECT e FROM Employee e WHERE e.organization.id = :orgId AND e.status = 'ACTIVE' " +
             "AND (LOWER(e.firstName) LIKE LOWER(CONCAT('%',:q,'%')) " +
             "OR   LOWER(e.lastName)  LIKE LOWER(CONCAT('%',:q,'%')) " +
             "OR   LOWER(e.employeeCode) LIKE LOWER(CONCAT('%',:q,'%')))")

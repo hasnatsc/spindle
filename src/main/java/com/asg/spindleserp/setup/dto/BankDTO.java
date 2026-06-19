@@ -10,9 +10,6 @@ public class BankDTO {
 
     private Long id;
 
-    @NotNull(message = "Organisation is required")
-    private Long organizationId;
-
     @NotBlank(message = "Bank code is required")
     @Size(max = 20, message = "Code must not exceed 20 characters")
     private String bankCode;

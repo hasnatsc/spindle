@@ -20,9 +20,6 @@ public class BudgetApprovalPolicy {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "organization_id", nullable = false)
-    private Long organizationId;
-
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "approval_config_id")
     private ApprovalConfig approvalConfig;

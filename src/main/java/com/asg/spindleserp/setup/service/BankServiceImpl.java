@@ -2,6 +2,7 @@ package com.asg.spindleserp.setup.service;
 
 import com.asg.spindleserp.common.dto.DataTableResponse;
 import com.asg.spindleserp.common.util.CommonUtils;
+import com.asg.spindleserp.security.auth.ContextProvider;
 import com.asg.spindleserp.setup.dto.BankDTO;
 import com.asg.spindleserp.setup.entity.Bank;
 import com.asg.spindleserp.setup.repository.BankRepository;
@@ -28,13 +29,12 @@ public class BankServiceImpl implements BankService {
 
     @Override
     public BankDTO create(BankDTO dto) {
-        Long orgId = dto.getOrganizationId();
+        Long orgId = ContextProvider.getOrganizationId();
         String code = dto.getBankCode().trim().toUpperCase();
         if (bankRepository.existsByOrganizationIdAndBankCode(orgId, code))
             throw new IllegalArgumentException("Bank code '" + code + "' already exists in this organisation.");
 
         Bank entity = Bank.builder()
-                .organizationId(orgId)
                 .bankCode(code)
                 .bankName(dto.getBankName().trim())
                 .bankNameLocal(dto.getBankNameLocal())
@@ -70,14 +70,12 @@ public class BankServiceImpl implements BankService {
     @Override
     public BankDTO update(Long id, BankDTO dto) {
         Bank entity = findEntityById(id);
-        Long orgId  = dto.getOrganizationId();
         String code = dto.getBankCode().trim().toUpperCase();
 
-        if (!entity.getBankCode().equalsIgnoreCase(code)
-                && bankRepository.existsByOrganizationIdAndBankCodeAndIdNot(orgId, code, id))
-            throw new IllegalArgumentException("Bank code '" + code + "' already exists in this organisation.");
+//        if (!entity.getBankCode().equalsIgnoreCase(code)
+//                && bankRepository.existsByOrganizationIdAndBankCodeAndIdNot(orgId, code, id))
+//            throw new IllegalArgumentException("Bank code '" + code + "' already exists in this organisation.");
 
-        entity.setOrganizationId(orgId);
         entity.setBankCode(code);
         entity.setBankName(dto.getBankName().trim());
         entity.setBankNameLocal(dto.getBankNameLocal());
@@ -189,7 +187,7 @@ public class BankServiceImpl implements BankService {
     public BankDTO toDTO(Bank e) {
         return BankDTO.builder()
                 .id(e.getId())
-                .organizationId(e.getOrganizationId())
+//                .organizationId(e.getOrganizationId())
                 .bankCode(e.getBankCode())
                 .bankName(e.getBankName())
                 .bankNameLocal(e.getBankNameLocal())

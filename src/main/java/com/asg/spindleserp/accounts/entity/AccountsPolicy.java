@@ -22,9 +22,6 @@ public class AccountsPolicy extends BaseEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "organization_id", nullable = false)
-    private Long organizationId;
-
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "accounts_mapping_id")
     private AccountsMapping accountsMapping;

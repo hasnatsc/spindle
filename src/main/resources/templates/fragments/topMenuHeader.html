@@ -1,395 +1,284 @@
 <!DOCTYPE html>
 <!--
-  ╔══════════════════════════════════════════════════════════════════════╗
-  ║  fragments/topMenuHeader.html                                         ║
-  ║  Path: src/main/resources/templates/fragments/topMenuHeader.html    ║
-  ║                                                                       ║
-  ║  Fragment : topMenuHeader                                             ║
-  ║  Usage    : <div th:replace="~{fragments/topMenuHeader              ║
-  ║                               :: topMenuHeader}"></div>             ║
-  ║                                                                       ║
-  ║  FIXES over uploaded version:                                         ║
-  ║  1. changePasswordBtn addEventListener fires BEFORE DOMContentLoaded ║
-  ║     when the script executes during HTML parse → btn is null.       ║
-  ║     Fixed: wrapped in DOMContentLoaded listener.                    ║
-  ║  2. The inline script that reads Swal / secureFetch runs before      ║
-  ║     application.js is parsed (both in <head>). Fixed: script        ║
-  ║     deferred to DOMContentLoaded so all libs are ready.             ║
-  ║  3. Context-switcher loadContext() called immediately outside        ║
-  ║     DOMContentLoaded guard — race condition on fast connections.     ║
-  ║     Fixed: unified into single DOMContentLoaded callback.           ║
-  ║  4. esc() function duplicated in both script blocks. Fixed:          ║
-  ║     moved to shared scope inside the IIFE.                          ║
-  ║  5. th:text on <div> with sec:authentication doubled username.      ║
-  ║     Fixed: removed redundant sec:authentication attribute.          ║
-  ╚══════════════════════════════════════════════════════════════════════╝
+  topMenuHeader.html — fragment: topMenuHeader
+  Path: src/main/resources/templates/fragments/topMenuHeader.html
+  Include: <div th:replace="~{fragments/topMenuHeader :: topMenuHeader}">
+
+  Context switcher:
+  • DOMContentLoaded → GET /user-context/allowed/context
+    All data comes from the session-cached UserContextDTO — zero extra DB.
+  • BU dropdown is filtered client-side by parentId === currentOrgId.
+  • CC and WH are filtered by parentId === currentBuId.
+  • POST /user-context/switch/{type}/{id} on each click.
+  • Server re-runs UserContextService.loadContext() and returns success.
+  • Client calls loadContext() again to re-render with fresh data.
 -->
+<html lang="en" xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head><meta charset="UTF-8"><title>Header</title></head>
+<body>
+
 <div th:fragment="topMenuHeader" id="topMenuHeader" class="app-header">
 
-  <!-- ── Brand ──────────────────────────────────────────────────────── -->
+  <!-- Brand -->
   <div class="navbar-header">
-    <a th:href="@{/dashboard}" class="navbar-brand">
-      <span class="navbar-logo"></span>
-      <b class="me-3px">Optimum</b> ERP
+    <a href="/dashboard" class="navbar-brand">
+      <span class="navbar-logo"></span> <b class="me-3px">Spindle</b> ERP
     </a>
-    <!-- Mobile toggler for top-menu -->
-    <button type="button" class="navbar-mobile-toggler"
-            data-toggle="app-top-menu-mobile">
-      <span class="icon-bar"></span>
-      <span class="icon-bar"></span>
-      <span class="icon-bar"></span>
+    <button type="button" class="navbar-mobile-toggler" data-toggle="app-top-menu-mobile">
+      <span class="icon-bar"></span><span class="icon-bar"></span><span class="icon-bar"></span>
     </button>
   </div>
 
-  <!-- ── Navbar nav ─────────────────────────────────────────────────── -->
+  <!-- Nav -->
   <div class="navbar-nav">
 
-    <!-- ── Context switchers ─────────────────────────────────────────── -->
-    <div class="navbar-item" id="contextSwitchers">
+    <!-- ═══ Context Switchers ══════════════════════════════════════════════ -->
+    <div class="navbar-item d-flex align-items-center gap-2 me-2" id="contextSwitchers">
 
       <!-- Organization -->
-      <div class="dropdown d-inline-block me-1">
-        <button class="btn btn-sm btn-outline-theme dropdown-toggle"
-                type="button" id="orgDropdown"
-                data-bs-toggle="dropdown" aria-expanded="false">
-          <i class="fa fa-building me-1"></i>
-          <span id="currentOrgName">Organization</span>
+      <div class="dropdown">
+        <button class="btn btn-sm btn-outline-theme dropdown-toggle px-2"
+                id="orgDropdown" data-bs-toggle="dropdown" type="button">
+          <i class="fa fa-building me-1"></i><span id="currentOrgName">Loading…</span>
         </button>
-        <ul class="dropdown-menu shadow-sm" id="orgList">
-          <li><a class="dropdown-item disabled text-muted">Loading…</a></li>
-        </ul>
+        <ul class="dropdown-menu shadow" id="orgList" aria-labelledby="orgDropdown"></ul>
       </div>
 
-      <!-- Business Unit -->
-      <div class="dropdown d-inline-block me-1">
-        <button class="btn btn-sm btn-outline-theme dropdown-toggle"
-                type="button" id="buDropdown"
-                data-bs-toggle="dropdown" aria-expanded="false">
-          <i class="fa fa-briefcase me-1"></i>
-          <span id="currentBuName">Business Unit</span>
+      <!-- Business Unit (filtered by active org) -->
+      <div class="dropdown">
+        <button class="btn btn-sm btn-outline-theme dropdown-toggle px-2"
+                id="buDropdown" data-bs-toggle="dropdown" type="button">
+          <i class="fa fa-briefcase me-1"></i><span id="currentBuName">—</span>
         </button>
-        <ul class="dropdown-menu shadow-sm" id="buList">
-          <li><a class="dropdown-item disabled text-muted">Loading…</a></li>
-        </ul>
+        <ul class="dropdown-menu shadow" id="buList" aria-labelledby="buDropdown"></ul>
       </div>
 
-      <!-- Cost Center -->
-      <div class="dropdown d-inline-block me-1">
-        <button class="btn btn-sm btn-outline-theme dropdown-toggle"
-                type="button" id="ccDropdown"
-                data-bs-toggle="dropdown" aria-expanded="false">
-          <i class="fa fa-chart-pie me-1"></i>
-          <span id="currentCcName">Cost Center</span>
+      <!-- Cost Center (filtered by active BU) -->
+      <div class="dropdown">
+        <button class="btn btn-sm btn-outline-theme dropdown-toggle px-2"
+                id="ccDropdown" data-bs-toggle="dropdown" type="button">
+          <i class="fa fa-chart-pie me-1"></i><span id="currentCcName">—</span>
         </button>
-        <ul class="dropdown-menu shadow-sm" id="ccList">
-          <li><a class="dropdown-item disabled text-muted">Loading…</a></li>
-        </ul>
+        <ul class="dropdown-menu shadow" id="ccList" aria-labelledby="ccDropdown"></ul>
       </div>
 
-      <!-- Warehouse -->
-      <div class="dropdown d-inline-block me-2">
-        <button class="btn btn-sm btn-outline-theme dropdown-toggle"
-                type="button" id="whDropdown"
-                data-bs-toggle="dropdown" aria-expanded="false">
-          <i class="fa fa-warehouse me-1"></i>
-          <span id="currentWhName">Warehouse</span>
+      <!-- Warehouse (filtered by active BU) -->
+      <div class="dropdown">
+        <button class="btn btn-sm btn-outline-theme dropdown-toggle px-2"
+                id="whDropdown" data-bs-toggle="dropdown" type="button">
+          <i class="fa fa-warehouse me-1"></i><span id="currentWhName">—</span>
         </button>
-        <ul class="dropdown-menu shadow-sm" id="whList">
-          <li><a class="dropdown-item disabled text-muted">Loading…</a></li>
-        </ul>
+        <ul class="dropdown-menu shadow" id="whList" aria-labelledby="whDropdown"></ul>
       </div>
 
     </div>
-    <!-- END context switchers -->
+    <!-- ═══ END Context Switchers ═══════════════════════════════════════════ -->
 
-    <!-- ── Global search ──────────────────────────────────────────────── -->
-    <div class="navbar-item navbar-form d-none d-sm-block">
-      <form action="" method="GET" name="search" role="search">
-        <div class="form-group mb-0">
-          <input type="text" class="form-control"
-                 placeholder="Search…" aria-label="Search">
-          <button type="submit" class="btn btn-search">
-            <i class="fa fa-search"></i>
-          </button>
-        </div>
-      </form>
-    </div>
-
-    <!-- ── Notifications ─────────────────────────────────────────────── -->
+    <!-- Notifications badge -->
     <div class="navbar-item dropdown">
-      <a href="#" data-bs-toggle="dropdown"
-         class="navbar-link dropdown-toggle icon" aria-label="Notifications">
+      <a href="#" data-bs-toggle="dropdown" class="navbar-link dropdown-toggle icon">
         <i class="fa fa-bell"></i>
-        <span class="badge" id="notifBadge">0</span>
+        <span class="badge" id="notifBadge" style="display:none">0</span>
       </a>
-      <div class="dropdown-menu media-list dropdown-menu-end shadow">
-        <div class="dropdown-header d-flex align-items-center justify-content-between">
-          <span>NOTIFICATIONS</span>
-          <a href="#" class="text-decoration-none fs-10px">Mark all read</a>
-        </div>
-        <div id="notifList">
-          <a href="javascript:;" class="dropdown-item media">
-            <div class="media-left">
-              <i class="fa fa-bell media-object bg-theme"></i>
-            </div>
-            <div class="media-body">
-              <h6 class="media-heading">Welcome to Optimum ERP</h6>
-              <div class="text-muted fs-10px">Just now</div>
-            </div>
-          </a>
-        </div>
+      <div class="dropdown-menu media-list dropdown-menu-end">
+        <div class="dropdown-header">NOTIFICATIONS</div>
         <div class="dropdown-footer text-center">
-          <a th:href="@{/notifications}" class="text-decoration-none">View all</a>
+          <a href="/notifications" class="text-decoration-none">View all</a>
         </div>
       </div>
     </div>
 
-    <!-- ── User menu ──────────────────────────────────────────────────── -->
-    <div class="navbar-item navbar-user dropdown"
-         sec:authorize="isAuthenticated()">
-      <a href="#"
-         class="navbar-link dropdown-toggle d-flex align-items-center"
-         data-bs-toggle="dropdown" aria-label="User menu">
-        <img th:src="@{/img/user/user-13.jpg}" alt="User"
-             class="rounded-circle" width="32" height="32"
-             style="object-fit:cover">
-        <span class="ms-2">
-          <!-- ✅ FIX #5: removed duplicate sec:authentication attribute -->
-          <span class="d-none d-md-inline fw-600"
-                th:text="${#authentication.name}">User</span>
-          <b class="caret ms-1"></b>
+    <!-- User menu -->
+    <div class="navbar-item navbar-user dropdown" sec:authorize="isAuthenticated()">
+      <a href="#" class="navbar-link dropdown-toggle d-flex align-items-center"
+         data-bs-toggle="dropdown">
+        <img th:src="@{/img/user/user-13.jpg}" alt="User">
+        <span>
+          <span class="d-none d-md-inline" sec:authentication="name">User</span>
+          <b class="caret"></b>
         </span>
       </a>
-      <div class="dropdown-menu dropdown-menu-end me-1 shadow">
-        <!-- User info header -->
-        <div class="dropdown-header d-flex align-items-center gap-2 py-2">
-          <div class="bg-theme text-white rounded-circle d-flex align-items-center justify-content-center"
-               style="width:32px;height:32px;font-size:12px;font-weight:700;"
-               th:text="${#strings.substring(#authentication.name, 0, 2).toUpperCase()}">SA</div>
-          <div>
-            <div class="fw-600 fs-13px"
-                 th:text="${#authentication.name}">User</div>
-            <div class="text-muted fs-10px">System Administrator</div>
-          </div>
-        </div>
-        <div class="dropdown-divider m-0"></div>
-        <a th:href="@{/profile}" class="dropdown-item">
-          <i class="fa fa-user me-2 text-muted"></i>Edit Profile
-        </a>
-        <a th:href="@{/inbox}" class="dropdown-item d-flex align-items-center">
-          <i class="fa fa-envelope me-2 text-muted"></i>
-          Inbox
-          <span class="badge bg-danger rounded-pill ms-auto">2</span>
-        </a>
+      <div class="dropdown-menu dropdown-menu-end me-1">
+        <a href="/profile"  class="dropdown-item"><i class="fa fa-user me-2"></i>Edit Profile</a>
         <a href="javascript:;" class="dropdown-item" id="changePasswordBtn">
-          <i class="fa fa-key me-2 text-muted"></i>Change Password
+          <i class="fa fa-key me-2"></i>Change Password
         </a>
         <div class="dropdown-divider"></div>
-        <form th:action="@{/logout}" method="post" class="d-inline">
-          <input type="hidden"
-                 th:name="${_csrf.parameterName}"
-                 th:value="${_csrf.token}">
-          <button type="submit" class="dropdown-item text-danger">
+        <form action="/logout" method="post">
+          <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+          <button type="submit" class="dropdown-item">
             <i class="fa fa-sign-out-alt me-2"></i>Log Out
           </button>
         </form>
       </div>
     </div>
-    <!-- END user menu -->
 
   </div>
-  <!-- END navbar-nav -->
 
-  <!-- ══════════════════════════════════════════════════════════════════
-       SCRIPTS
-       ✅ FIX #1 #2 #3: unified inside DOMContentLoaded so Swal,
-          secureFetch, and all DOM elements are guaranteed to exist.
-  ══════════════════════════════════════════════════════════════════ -->
   <script th:inline="javascript">
-  /*<![CDATA[*/
   (function () {
     'use strict';
 
-    /* ── shared HTML-escape util ──────────────────────────────────────── */
-    function esc(s) {
-      if (!s) return '';
-      return String(s).replace(/[&<>"']/g, function (c) {
-        return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;' }[c];
-      });
-    }
+    // In-memory copies of allowed scopes (from session via server)
+    var _all = { orgs: [], bus: [], ccs: [], whs: [] };
+    var _cur = { orgId: null, buId: null, ccId: null, whId: null };
 
-    /* ── DOMContentLoaded: everything runs after the DOM + scripts ready */
     document.addEventListener('DOMContentLoaded', function () {
-
-      /* ══════════════════════════════════════════════════════════════
-         CHANGE PASSWORD (SweetAlert2 inline form)
-         ✅ FIX #1: was running outside DOMContentLoaded — btn was null
-      ══════════════════════════════════════════════════════════════ */
-      var cpBtn = document.getElementById('changePasswordBtn');
-      if (cpBtn) {
-        cpBtn.addEventListener('click', function () {
-          Swal.fire({
-            title: 'Change Password',
-            html: '<div style="display:flex;flex-direction:column;gap:12px;margin-top:10px;text-align:left;">' +
-              '<div style="position:relative;">' +
-                '<input type="password" id="swalNewPwd"' +
-                  ' placeholder="New Password (min 8 chars)"' +
-                  ' style="width:100%;padding:10px 36px 10px 12px;border-radius:8px;border:1px solid #ccc;font-size:14px;">' +
-                '<i class="fa fa-eye" id="swalToggleNew"' +
-                  ' style="position:absolute;right:12px;top:50%;transform:translateY(-50%);cursor:pointer;color:#999;"></i>' +
-              '</div>' +
-              '<div style="position:relative;">' +
-                '<input type="password" id="swalConfirmPwd"' +
-                  ' placeholder="Confirm New Password"' +
-                  ' style="width:100%;padding:10px 36px 10px 12px;border-radius:8px;border:1px solid #ccc;font-size:14px;">' +
-                '<i class="fa fa-eye" id="swalToggleConfirm"' +
-                  ' style="position:absolute;right:12px;top:50%;transform:translateY(-50%);cursor:pointer;color:#999;"></i>' +
-              '</div>' +
-            '</div>',
-            showCancelButton:  true,
-            confirmButtonText: 'Update Password',
-            cancelButtonText:  'Cancel',
-            focusConfirm: false,
-            didOpen: function () {
-              var togNew = document.getElementById('swalToggleNew');
-              var togCfm = document.getElementById('swalToggleConfirm');
-              if (togNew) {
-                togNew.addEventListener('click', function () {
-                  var inp = document.getElementById('swalNewPwd');
-                  if (inp) inp.type = (inp.type === 'password') ? 'text' : 'password';
-                });
-              }
-              if (togCfm) {
-                togCfm.addEventListener('click', function () {
-                  var inp = document.getElementById('swalConfirmPwd');
-                  if (inp) inp.type = (inp.type === 'password') ? 'text' : 'password';
-                });
-              }
-            },
-            preConfirm: function () {
-              var p1El = document.getElementById('swalNewPwd');
-              var p2El = document.getElementById('swalConfirmPwd');
-              var p1 = p1El ? p1El.value.trim() : '';
-              var p2 = p2El ? p2El.value.trim() : '';
-              if (!p1 || !p2) { Swal.showValidationMessage('Both fields are required.'); return false; }
-              if (p1.length < 8) { Swal.showValidationMessage('Password must be at least 8 characters.'); return false; }
-              if (p1 !== p2) { Swal.showValidationMessage('Passwords do not match.'); return false; }
-              return p1;
-            }
-          }).then(function (result) {
-            if (!result.isConfirmed) return;
-            secureFetch('/openApi/menus/change-password', {
-              method: 'POST',
-              body:   JSON.stringify({ password: result.value })
-            })
-            .then(function (data) {
-              if (data.success !== false) {
-                Swal.fire({ icon: 'success', title: 'Done!', text: 'Password updated successfully.', timer: 2000, showConfirmButton: false });
-              } else {
-                Swal.fire({ icon: 'error', title: 'Error', text: data.message || 'Update failed.' });
-              }
-            })
-            .catch(function () {
-              Swal.fire({ icon: 'error', title: 'Error', text: 'Request failed. Please try again.' });
-            });
-          });
-        });
-      }
-
-      /* ══════════════════════════════════════════════════════════════
-         CONTEXT SWITCHER (Org / BU / Cost Center / Warehouse)
-         ✅ FIX #3: loadContext() is now safely inside DOMContentLoaded
-      ══════════════════════════════════════════════════════════════ */
       loadContext();
+      document.getElementById('changePasswordBtn')
+              .addEventListener('click', showChangePasswordModal);
+    });
 
-    }); // end DOMContentLoaded
-
-
-    /* ═══════════════════════════════════════════════════════════════════
-       CONTEXT SWITCHER IMPLEMENTATION
-    ═══════════════════════════════════════════════════════════════════ */
+    // ── Load context from server (reads from HTTP session — zero extra DB) ──
 
     function loadContext() {
-      if (typeof secureFetch !== 'function') {
-        // application.js not yet ready — retry once after a tick
-        setTimeout(loadContext, 100);
-        return;
-      }
       secureFetch('/user-context/allowed/context')
         .then(function (data) {
-          var ctx = data.current || {};
-          setText('currentOrgName', ctx.organizationName || 'Organization');
-          setText('currentBuName',  ctx.businessUnitName || 'Business Unit');
-          setText('currentCcName',  ctx.costCenterName   || 'Cost Center');
-          setText('currentWhName',  ctx.warehouseName    || 'Warehouse');
-          renderDropdown('orgList', data.organizations, ctx.organizationId,  switchOrg);
-          renderDropdown('buList',  data.businessUnits, ctx.businessUnitId,  switchBU);
-          renderDropdown('ccList',  data.costCenters,   ctx.costCenterId,    switchCC);
-          renderDropdown('whList',  data.warehouses,    ctx.warehouseId,     switchWH);
+          var c = data.current || {};
+          _cur.orgId = c.organizationId || null;
+          _cur.buId  = c.businessUnitId || null;
+          _cur.ccId  = c.costCenterId   || null;
+          _cur.whId  = c.warehouseId    || null;
+          _all.orgs  = data.organizations  || [];
+          _all.bus   = data.businessUnits  || [];
+          _all.ccs   = data.costCenters    || [];
+          _all.whs   = data.warehouses     || [];
+          renderAll();
+          updateBadge(data.pendingCount, data.unreadNotifications, data.showBadge);
         })
-        .catch(function (e) {
-          console.error('[topMenuHeader] Context load failed:', e.message);
-        });
+        .catch(function (e) { console.warn('Context load error:', e); });
     }
 
-    function renderDropdown(listId, items, selectedId, handler) {
+    // ── Render labels + filtered dropdown lists ───────────────────────────
+
+    function renderAll() {
+      setText('currentOrgName', name(_all.orgs, _cur.orgId) || 'Select Org');
+      setText('currentBuName',  name(_all.bus,  _cur.buId)  || '—');
+      setText('currentCcName',  name(_all.ccs,  _cur.ccId)  || '—');
+      setText('currentWhName',  name(_all.whs,  _cur.whId)  || '—');
+
+      renderList('orgList', _all.orgs, _cur.orgId, switchOrg);
+
+      renderList('buList',
+        _all.bus.filter(function (b) { return !_cur.orgId || b.parentId === _cur.orgId; }),
+        _cur.buId, switchBU);
+
+      renderList('ccList',
+        _all.ccs.filter(function (c) { return !_cur.buId  || c.parentId === _cur.buId; }),
+        _cur.ccId, switchCC);
+
+      renderList('whList',
+        _all.whs.filter(function (w) { return !_cur.buId  || w.parentId === _cur.buId; }),
+        _cur.whId, switchWH);
+    }
+
+    function renderList(listId, items, selectedId, handler) {
       var ul = document.getElementById(listId);
-      if (!ul) return;
       ul.innerHTML = '';
-      if (!items || items.length === 0) {
-        ul.innerHTML = '<li><a class="dropdown-item disabled text-muted">None assigned</a></li>';
+      if (!items || !items.length) {
+        ul.innerHTML = '<li><a class="dropdown-item text-muted disabled">None available</a></li>';
         return;
       }
       items.forEach(function (item) {
-        var li = document.createElement('li');
         var a  = document.createElement('a');
-        a.className = 'dropdown-item d-flex align-items-center justify-content-between';
-        a.href      = '#';
-        a.innerHTML = '<span>' + esc(item.code || '') + (item.code ? ' — ' : '') + esc(item.name) + '</span>'
-          + (item.id === selectedId ? '<i class="fa fa-check text-theme ms-2"></i>' : '');
+        a.className = 'dropdown-item d-flex justify-content-between align-items-center';
+        a.href = '#';
+        a.textContent = (item.code ? item.code + ' — ' : '') + item.name;
+        if (item.id === selectedId) {
+          var ic = document.createElement('i');
+          ic.className = 'fa fa-check text-success ms-2 flex-shrink-0';
+          a.appendChild(ic);
+          a.classList.add('fw-semibold');
+        }
         a.addEventListener('click', function (e) { e.preventDefault(); handler(item.id); });
+        var li = document.createElement('li');
         li.appendChild(a);
         ul.appendChild(li);
       });
     }
 
+    // ── Switch handlers ───────────────────────────────────────────────────
+
+    function switchOrg(id) { doSwitch('/user-context/switch/organization/' + id); }
+    function switchBU(id)  { doSwitch('/user-context/switch/business-unit/' + id); }
+    function switchCC(id)  { doSwitch('/user-context/switch/cost-center/' + id); }
+    function switchWH(id)  { doSwitch('/user-context/switch/warehouse/' + id); }
+
     function doSwitch(url) {
       secureFetch(url, { method: 'POST' })
-        .then(function (res) {
-          if (res.success) {
-            showToast('Switched', res.message, 'success');
-            loadContext();
-          } else {
-            showToast('Error', res.message || 'Switch failed.', 'error');
-          }
+        .then(function (r) {
+          if (r.success) { toast(r.message, '', 'success'); loadContext(); }
+          else             toast(r.message, '', 'error');
         })
-        .catch(function () { showToast('Error', 'Request failed.', 'error'); });
+        .catch(function (e) { toast('Switch failed', e.message || '', 'error'); });
     }
 
-    function switchOrg(id) { doSwitch('/user-context/switch/organization/'  + id); }
-    function switchBU(id)   { doSwitch('/user-context/switch/business-unit/' + id); }
-    function switchCC(id)   { doSwitch('/user-context/switch/cost-center/'   + id); }
-    function switchWH(id)   { doSwitch('/user-context/switch/warehouse/'     + id); }
+    // ── Notification badge ────────────────────────────────────────────────
 
-    function setText(id, txt) {
-      var el = document.getElementById(id);
-      if (el) el.textContent = txt;
+    function updateBadge(pending, unread, show) {
+      var el = document.getElementById('notifBadge');
+      if (!el) return;
+      var total = (pending || 0) + (unread || 0);
+      if (show && total > 0) { el.textContent = total > 99 ? '99+' : total; el.style.display = ''; }
+      else el.style.display = 'none';
     }
 
-    function showToast(title, msg, type) {
-      if (typeof Swal !== 'undefined') {
-        Swal.fire({
-          icon: type, title: title, text: msg,
-          toast: true, position: 'top-end',
-          timer: 2500, timerProgressBar: true,
-          showConfirmButton: false
-        });
-      }
+    // ── Helpers ───────────────────────────────────────────────────────────
+
+    function name(list, id) {
+      if (!id || !list) return null;
+      var f = list.find(function (i) { return i.id === id; });
+      return f ? f.name : null;
+    }
+
+    function setText(id, t) { var e = document.getElementById(id); if (e) e.textContent = t; }
+
+    function toast(title, msg, type) {
+      if (window.Swal) Swal.fire({ icon: type, title: title, text: msg,
+          toast: true, position: 'top-end', timer: 2500,
+          showConfirmButton: false, timerProgressBar: true });
+    }
+
+    // ── Change Password modal ─────────────────────────────────────────────
+
+    function showChangePasswordModal() {
+      Swal.fire({
+        title: 'Change Password',
+        html: '<div style="display:flex;flex-direction:column;gap:12px;margin-top:10px;">'
+            + '<div style="position:relative;"><input type="password" id="newPwd" placeholder="New Password" class="swal2-input" style="width:92%"><i class="fa fa-eye" id="tog1" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);cursor:pointer;color:#666;"></i></div>'
+            + '<div style="position:relative;"><input type="password" id="cnfPwd" placeholder="Confirm Password" class="swal2-input" style="width:92%"><i class="fa fa-eye" id="tog2" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);cursor:pointer;color:#666;"></i></div>'
+            + '</div>',
+        showCancelButton: true, confirmButtonText: 'Update', focusConfirm: false,
+        didOpen: function () {
+          ['tog1','tog2'].forEach(function (tid, i) {
+            document.getElementById(tid).addEventListener('click', function () {
+              var inp = document.getElementById(i === 0 ? 'newPwd' : 'cnfPwd');
+              inp.type = inp.type === 'password' ? 'text' : 'password';
+            });
+          });
+        },
+        preConfirm: function () {
+          var p1 = document.getElementById('newPwd').value;
+          var p2 = document.getElementById('cnfPwd').value;
+          if (!p1 || !p2)   { Swal.showValidationMessage('Both fields required');   return false; }
+          if (p1.length < 6){ Swal.showValidationMessage('Minimum 6 characters');   return false; }
+          if (p1 !== p2)    { Swal.showValidationMessage('Passwords do not match'); return false; }
+          return p1;
+        }
+      }).then(function (r) {
+        if (!r.isConfirmed) return;
+        secureFetch('/openApi/menus/change-password', {
+          method: 'POST', body: JSON.stringify({ password: r.value })
+        })
+        .then(function () { Swal.fire('Success', 'Password updated', 'success'); })
+        .catch(function () { Swal.fire('Error', 'Update failed', 'error'); });
+      });
     }
 
   })();
-  /*]]>*/
   </script>
 
 </div>
-
+</body>
+</html>

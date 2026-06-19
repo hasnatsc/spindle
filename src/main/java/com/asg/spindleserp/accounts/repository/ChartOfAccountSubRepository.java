@@ -18,7 +18,7 @@ public interface ChartOfAccountSubRepository extends JpaRepository<ChartOfAccoun
 
     List<ChartOfAccountSub> findByOrganizationIdAndIsActiveTrue(Long orgId);
 
-    @Query("SELECT s FROM ChartOfAccountSub s WHERE s.organizationId = :orgId " +
+    @Query("SELECT s FROM ChartOfAccountSub s WHERE s.organization.id = :orgId " +
 //            "AND s.subAccountType = :type AND s.isActive = true " +
             "AND (LOWER(s.subAccountCode) LIKE LOWER(CONCAT('%',:q,'%')) " +
             "OR   LOWER(s.subAccountName) LIKE LOWER(CONCAT('%',:q,'%')))")

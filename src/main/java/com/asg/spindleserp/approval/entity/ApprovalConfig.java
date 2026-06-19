@@ -23,9 +23,6 @@ public class ApprovalConfig extends BaseEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "organization_id", nullable = false)
-    private Long organizationId;
-
     @Column(nullable = false, unique = true, length = 50)
     private String code;
     @Column(nullable = false, length = 200)

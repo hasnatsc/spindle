@@ -11,36 +11,23 @@ import java.util.Set;
 /**
  * UserDTO — create / update / view.
  *
- * ══════════════════════════════════════════════════════════════════════
- * FIX 1 — Boolean (wrapper) not boolean (primitive) for flag fields
- * ══════════════════════════════════════════════════════════════════════
+ * Two additions over the prior version:
  *
- * ROOT CAUSE:
- *   The form only submits ONE flag: "enabled" (from the checkbox).
- *   The other three flags (accountNonExpired, accountNonLocked,
- *   credentialsNonExpired) are not present in the JSON payload at all,
- *   so Jackson receives null for those fields.
+ *   1. Boolean (wrapper) for account flags — avoids
+ *      "Cannot map null into boolean" when the form omits them.
+ *      Null-safe isXxx() helpers return true by default.
  *
- *   With primitive boolean:  null → cannot be mapped → EXCEPTION
- *     "Cannot map `null` into type `boolean`"
- *
- *   With wrapper Boolean: null → field stays null → no exception.
- *   The service then treats null as "use the existing entity value"
- *   (for update) or the safe default true (for create).
- *
- * PATTERN:
- *   Boolean fields in DTOs that come from JSON must use wrapper Boolean.
- *   The "is" prefix on field names is also dropped so Jackson maps
- *   JSON key "enabled" → field "enabled" cleanly (no getIsEnabled mess).
+ *   2. Default working context fields:
+ *      defaultOrganizationId / defaultBusinessUnitId /
+ *      defaultCostCenterId   / defaultWarehouseId
+ *      These are submitted by users-form and persisted to user_context
+ *      by UserService → UserContextService.saveDefaultContext().
+ *      On the user's next login, loadContext() picks them up as the
+ *      active context.
  *
  * Access-control fields (organizationIds, businessUnitIds, costCenterIds,
- * warehouseIds) are stored in sec_user_access_scopes (soft-link table).
- * They are resolved and passed through the DTO so the form can pre-populate
- * and the service can persist them in one shot.
- *
- * Added: defaultOrganizationId, defaultBusinessUnitId, defaultCostCenterId,
- * defaultWarehouseId — these map to the user_context table and give every
- * module a zero-DB way to seed new documents with the user's working context.
+ * warehouseIds) are stored in sec_user_organizations etc. via the User's
+ * @ManyToMany sets and persisted by UserService.persistScopes().
  */
 @Getter
 @Setter
@@ -51,7 +38,7 @@ public class UserDTO {
 
     private Long id;
 
-    // ── Identity ──────────────────────────────────────────────────────────────
+    // ── Identity ──────────────────────────────────────────────────────────
 
     @NotBlank(message = "Username is required")
     @Size(min = 3, max = 80, message = "Username must be 3–80 characters")
@@ -68,58 +55,53 @@ public class UserDTO {
     @Size(max = 200, message = "Full name cannot exceed 200 characters")
     private String fullName;
 
-    // ── Password ──────────────────────────────────────────────────────────────
-    // Required on create (≥8 chars), ignored when blank on update
+    // ── Password ──────────────────────────────────────────────────────────
 
     @Size(min = 8, message = "Password must be at least 8 characters")
     private String password;
 
-    // ── Preferences ───────────────────────────────────────────────────────────
+    // ── Preferences ───────────────────────────────────────────────────────
 
     private User.DefaultDashboard defaultDashboard;
 
-    // ── Account flags ─────────────────────────────────────────────────────────
-    // ✅ FIX 1: Boolean (wrapper) — accepts null from JSON without exception.
-    //    When the form omits these fields Jackson deserializes them as null.
-    //    The service checks for null and applies a safe default (true).
-    //    Using primitive boolean causes:
-    //      "Cannot map `null` into type `boolean`" on the first POST.
+    // ── Account flags — Boolean (wrapper) not boolean (primitive) ─────────
+    // When the form omits these fields Jackson sets them to null.
+    // Primitive boolean cannot hold null → HttpMessageNotReadableException.
+    // The isXxx() helpers below treat null as true (safe default).
 
     @Builder.Default private Boolean enabled               = Boolean.TRUE;
     @Builder.Default private Boolean accountNonExpired     = Boolean.TRUE;
     @Builder.Default private Boolean accountNonLocked      = Boolean.TRUE;
     @Builder.Default private Boolean credentialsNonExpired = Boolean.TRUE;
 
-    // ── Roles ─────────────────────────────────────────────────────────────────
+    // ── Roles ─────────────────────────────────────────────────────────────
 
     @Builder.Default private Set<Long>   roleIds   = new HashSet<>();
     @Builder.Default private Set<String> roleNames = new HashSet<>();
     private Integer roleCount;
 
-    // ── Access Control ────────────────────────────────────────────────────────
-    // IDs of orgs / BUs / cost-centers / warehouses the user is allowed to use.
-    // Empty = unrestricted (super-admin / org-admin behaviour).
+    // ── Allowed scope IDs (stored in sec_user_organizations etc.) ─────────
+    // These are the MULTI-select "access control" sets — which orgs/BU/CC/WH
+    // the user is PERMITTED to switch to. Stored via User's @ManyToMany.
 
-    @Builder.Default private Set<Long> organizationIds  = new HashSet<>();
-    @Builder.Default private Set<Long> businessUnitIds  = new HashSet<>();
-    @Builder.Default private Set<Long> costCenterIds    = new HashSet<>();
-    @Builder.Default private Set<Long> warehouseIds     = new HashSet<>();
+    @Builder.Default private Set<Long>   organizationIds   = new HashSet<>();
+    @Builder.Default private Set<Long>   businessUnitIds   = new HashSet<>();
+    @Builder.Default private Set<Long>   costCenterIds     = new HashSet<>();
+    @Builder.Default private Set<Long>   warehouseIds      = new HashSet<>();
 
-    // Display names — populated on read, ignored on write
-    @Builder.Default private Set<String> organizationNames  = new HashSet<>();
-    @Builder.Default private Set<String> businessUnitNames  = new HashSet<>();
-    @Builder.Default private Set<String> costCenterNames    = new HashSet<>();
-    @Builder.Default private Set<String> warehouseNames     = new HashSet<>();
+    // Display names for the view modal (populated on read, ignored on write)
+    @Builder.Default private Set<String> organizationNames = new HashSet<>();
+    @Builder.Default private Set<String> businessUnitNames = new HashSet<>();
+    @Builder.Default private Set<String> costCenterNames   = new HashSet<>();
+    @Builder.Default private Set<String> warehouseNames    = new HashSet<>();
 
-    // ── Default Working Context ───────────────────────────────────────────────
-    // Stored in user_context table.
-    // Any module reads these via ContextProvider.currentContext() — zero DB hits.
-    // Example usage in a service:
-    //   UserContextDTO ctx = ContextProvider.currentContext();
-    //   Long orgId = ctx.getDefaultOrganizationId();
+    // ── Default working context (stored in user_context table) ────────────
+    // Single-select — the org/BU/CC/WH that will be auto-selected for the
+    // user on login. Set by admin via the users-form "Default Context" section.
+    // Submitted as part of the save payload, persisted by UserContextService.
 
     private Long   defaultOrganizationId;
-    private String defaultOrganizationName;
+    private String defaultOrganizationName;   // read-only, populated on load
 
     private Long   defaultBusinessUnitId;
     private String defaultBusinessUnitName;
@@ -130,19 +112,20 @@ public class UserDTO {
     private Long   defaultWarehouseId;
     private String defaultWarehouseName;
 
-    // ── Audit ─────────────────────────────────────────────────────────────────
+    // ── Audit ─────────────────────────────────────────────────────────────
 
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private LocalDateTime lastLoginAt;
 
-    // ── Helpers ───────────────────────────────────────────────────────────────
+    // ── Null-safe Boolean helpers (used by UserServiceImpl) ───────────────
 
-    /** Safe null-guard accessor used by the service when building the entity */
-    public boolean isEnabled()               { return enabled               == null || Boolean.TRUE.equals(enabled); }
-    public boolean isAccountNonExpired()     { return accountNonExpired     == null || Boolean.TRUE.equals(accountNonExpired); }
-    public boolean isAccountNonLocked()      { return accountNonLocked      == null || Boolean.TRUE.equals(accountNonLocked); }
-    public boolean isCredentialsNonExpired() { return credentialsNonExpired == null || Boolean.TRUE.equals(credentialsNonExpired); }
+    public boolean isEnabled()               { return !Boolean.FALSE.equals(enabled); }
+    public boolean isAccountNonExpired()     { return !Boolean.FALSE.equals(accountNonExpired); }
+    public boolean isAccountNonLocked()      { return !Boolean.FALSE.equals(accountNonLocked); }
+    public boolean isCredentialsNonExpired() { return !Boolean.FALSE.equals(credentialsNonExpired); }
+
+    // ── Misc helpers ──────────────────────────────────────────────────────
 
     public String getDefaultDashboardLabel() {
         if (defaultDashboard == null) return "Default";

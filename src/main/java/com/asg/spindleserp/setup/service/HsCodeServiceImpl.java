@@ -33,7 +33,6 @@ public class HsCodeServiceImpl implements HsCodeService {
         if (hsCodeRepository.existsByOrganizationIdAndHsCode(orgId, code)) throw new IllegalArgumentException("HS Code '" + code + "' already exists in this organisation.");
 
         HsCode entity = HsCode.builder()
-                .organizationId(orgId)
                 .hsCode(code)
                 .description(dto.getDescription().trim())
                 .shortDescription(dto.getShortDescription())
@@ -61,7 +60,6 @@ public class HsCodeServiceImpl implements HsCodeService {
         if (!entity.getHsCode().equals(code) && hsCodeRepository.existsByOrganizationIdAndHsCodeAndIdNot(orgId, code, id))
             throw new IllegalArgumentException("HS Code '" + code + "' already exists in this organisation.");
 
-        entity.setOrganizationId(orgId);
         entity.setHsCode(code);
         entity.setDescription(dto.getDescription().trim());
         entity.setShortDescription(dto.getShortDescription());
@@ -153,7 +151,6 @@ public class HsCodeServiceImpl implements HsCodeService {
     public HsCodeDTO toDTO(HsCode e) {
         return HsCodeDTO.builder()
                 .id(e.getId())
-                .organizationId(e.getOrganizationId())
                 .hsCode(e.getHsCode())
                 .description(e.getDescription())
                 .shortDescription(e.getShortDescription())

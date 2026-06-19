@@ -12,12 +12,9 @@ import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface DocumentSequenceRepository
-        extends JpaRepository<DocumentSequence, Long>,
-                JpaSpecificationExecutor<DocumentSequence> {
+public interface DocumentSequenceRepository extends JpaRepository<DocumentSequence, Long>, JpaSpecificationExecutor<DocumentSequence> {
 
-    Optional<DocumentSequence> findByOrganizationIdAndPrefixAndYearCode(
-            Long orgId, String prefix, String yearCode);
+    Optional<DocumentSequence> findByOrganizationIdAndPrefixAndYearCode(Long orgId, String prefix, String yearCode);
 
     List<DocumentSequence> findByOrganizationIdOrderByPrefixAscYearCodeDesc(Long orgId);
 

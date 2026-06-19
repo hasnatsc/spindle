@@ -1,8 +1,8 @@
 package com.asg.spindleserp;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.EntityListeners;
-import jakarta.persistence.MappedSuperclass;
+import com.asg.spindleserp.organization.entity.Organization;
+import com.asg.spindleserp.security.auth.ContextProvider;
+import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 import org.springframework.data.annotation.CreatedBy;
@@ -18,6 +18,10 @@ import java.time.LocalDateTime;
 @Getter
 @Setter
 public abstract class BaseEntity {
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "organization_id", nullable = false, updatable = false)
+    private Organization organization = ContextProvider.getOrganizationReference();
 
     @CreatedBy
     @Column(name = "created_by", length = 100, updatable = false)

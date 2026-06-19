@@ -24,8 +24,6 @@ public class Opportunity extends BaseEntity {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "organization_id", nullable = false) private Long organizationId;
-
     @ManyToOne(fetch = FetchType.LAZY) @JoinColumn(name = "customer_id")    private ChartOfAccountSub customer;
     @ManyToOne(fetch = FetchType.LAZY) @JoinColumn(name = "lead_id")        private Lead lead;
     @ManyToOne(fetch = FetchType.LAZY) @JoinColumn(name = "assigned_to_id") private User assignedTo;

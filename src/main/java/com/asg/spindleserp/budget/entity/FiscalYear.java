@@ -31,8 +31,6 @@ public class FiscalYear extends BaseEntity {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "organization_id", nullable = false) private Long organizationId;
-
     @Column(nullable = false, length = 20)  private String yearCode;
     @Column(nullable = false, length = 100) private String yearName;
     @Column(nullable = false) private LocalDate startDate;

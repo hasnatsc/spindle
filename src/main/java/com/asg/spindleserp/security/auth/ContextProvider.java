@@ -1,142 +1,204 @@
 package com.asg.spindleserp.security.auth;
 
-import com.asg.spindleserp.organization.entity.UserContext;
-import com.asg.spindleserp.organization.repository.UserContextRepository;
+import com.asg.spindleserp.organization.entity.*;
+import com.asg.spindleserp.organization.repository.*;
+import com.asg.spindleserp.security.dto.UserContextDTO;
+import com.asg.spindleserp.security.entity.Role;
+import com.asg.spindleserp.security.entity.User;
 import com.asg.spindleserp.security.repository.UserRepository;
-import lombok.extern.slf4j.Slf4j;
+import com.asg.spindleserp.security.session.UserContextHolder;
+import jakarta.annotation.PostConstruct;
 import org.springframework.stereotype.Component;
-import org.springframework.web.context.annotation.SessionScope;
 
-import java.io.Serial;
-import java.io.Serializable;
+import java.util.Collections;
+import java.util.List;
+import java.util.stream.Collectors;
 
 /**
- * ContextProvider — session-scoped, serializable Spring bean.
+ * ContextProvider — static utility for reading the current user's context.
  *
  * ══════════════════════════════════════════════════════════════════════
- * PURPOSE
+ * ZERO DATABASE PER CALL
  * ══════════════════════════════════════════════════════════════════════
- * Provides the current user's *default working context* (org / BU /
- * cost-center / warehouse) with ZERO database hits after the first
- * access per session.
+ * All data was loaded at login by UserContextService.loadContext() and
+ * cached in UserContextHolder (session-scoped). Every static method
+ * below just reads from that in-memory DTO.
+ *
+ * The only exceptions are:
+ *   getOrganizationReference()  → getReferenceById() = JPA proxy, no SQL
+ *   getCurrentUser() / getUser() → findById() fires ONE SELECT (use sparingly)
+ *   getCurrentUserRoles()        → findByIdWithRoles() fires ONE SELECT
  *
  * ══════════════════════════════════════════════════════════════════════
- * HOW IT WORKS
+ * USAGE EXAMPLES
  * ══════════════════════════════════════════════════════════════════════
- * 1. The bean is @SessionScope — Spring creates one instance per HTTP
- *    session and stores it in the session (serialized by Spring Session JDBC).
- * 2. On the first call to getContext() within a session, the bean
- *    queries user_context once and caches the row.
- * 3. All subsequent calls within the same session return the cached value.
- * 4. After the user saves a new context via /users/context/save, the
- *    controller calls refresh() so the next read re-queries.
+ *   // In a service — seed FK fields on a new entity:
+ *   entity.setOrganization(ContextProvider.getOrganizationReference());
+ *   entity.setBusinessUnit(ContextProvider.getBusinessUnitReference());
+ *   entity.setCreatedBy(ContextProvider.getCurrentUsername());
  *
- * ══════════════════════════════════════════════════════════════════════
- * USAGE IN SERVICES / CONTROLLERS
- * ══════════════════════════════════════════════════════════════════════
- *   @Autowired private ContextProvider contextProvider;
+ *   // In a service — filter a query:
+ *   Long orgId = ContextProvider.getOrganizationId();
  *
- *   // --- In a controller ---
- *   Long orgId = contextProvider.getOrganizationId();
- *
- *   // --- In an entity builder (static pattern like ContextProvider.getOrgId()) ---
- *   // Inject ContextProvider via constructor or @Autowired in the service,
- *   // then use instance methods — do NOT use static calls.
- *
- *   // ✅ Correct pattern (service has @Autowired ContextProvider):
- *   Organization org = organizationRepository
- *       .getReferenceById(contextProvider.getOrganizationId());
- *
- * ══════════════════════════════════════════════════════════════════════
- * SERIALIZATION NOTE
- * ══════════════════════════════════════════════════════════════════════
- * Must implement Serializable because Spring Session JDBC serializes
- * the entire session (including all session-scoped beans) to the DB.
- * The repository fields are marked transient — they are re-injected by
- * Spring after deserialization via the bean lifecycle.
+ *   // In a service — get full user object (fires DB):
+ *   User me = ContextProvider.getCurrentUser();
  */
 @Component
-@SessionScope
-@Slf4j
-public class ContextProvider implements Serializable {
+public class ContextProvider {
 
-    @Serial
-    private static final long serialVersionUID = 1L;
+    // Static backplane (set once at startup via @PostConstruct)
+    private static UserContextHolder     holder;
+    private static OrganizationRepository orgRepo;
+    private static BusinessUnitRepository buRepo;
+    private static CostCenterRepository   ccRepo;
+    private static WarehouseRepository    whRepo;
+    private static UserRepository         userRepo;
 
-    // Transient — re-injected after deserialization
-    private final transient UserContextRepository contextRepository;
-    private final transient UserRepository        userRepository;
+    // Injected instance fields
+    private final UserContextHolder     _holder;
+    private final OrganizationRepository _orgRepo;
+    private final BusinessUnitRepository _buRepo;
+    private final CostCenterRepository   _ccRepo;
+    private final WarehouseRepository    _whRepo;
+    private final UserRepository         _userRepo;
 
-    // Cached context for this session
-    private volatile UserContext cachedContext;
-
-    public ContextProvider(UserContextRepository contextRepository,
-                           UserRepository userRepository) {
-        this.contextRepository = contextRepository;
-        this.userRepository    = userRepository;
+    public ContextProvider(UserContextHolder holder,
+                           OrganizationRepository orgRepo,
+                           BusinessUnitRepository buRepo,
+                           CostCenterRepository ccRepo,
+                           WarehouseRepository whRepo,
+                           UserRepository userRepo) {
+        this._holder   = holder;
+        this._orgRepo  = orgRepo;
+        this._buRepo   = buRepo;
+        this._ccRepo   = ccRepo;
+        this._whRepo   = whRepo;
+        this._userRepo = userRepo;
     }
 
-    // ── Public API ────────────────────────────────────────────────────────────
+    @PostConstruct
+    private void init() {
+        ContextProvider.holder   = _holder;
+        ContextProvider.orgRepo  = _orgRepo;
+        ContextProvider.buRepo   = _buRepo;
+        ContextProvider.ccRepo   = _ccRepo;
+        ContextProvider.whRepo   = _whRepo;
+        ContextProvider.userRepo = _userRepo;
+    }
+
+    // ── Private shortcut ─────────────────────────────────────────────────
+    private static UserContextDTO ctx() { return holder != null ? holder.get() : null; }
+
+    // ── Organization ──────────────────────────────────────────────────────
+
+    /** Active org ID from session — zero DB. */
+    public static Long getOrganizationId() {
+        UserContextDTO c = ctx(); return c != null ? c.getOrganizationId() : null;
+    }
+
+    /** JPA reference proxy — cheap FK assignment, NO SQL fired. */
+    public static Organization getOrganizationReference() {
+        Long id = getOrganizationId(); return id != null ? orgRepo.getReferenceById(id) : null;
+    }
+
+    public static String getOrganizationName() {
+        UserContextDTO c = ctx(); return c != null ? c.getOrganizationName() : null;
+    }
+
+    // ── Business Unit ─────────────────────────────────────────────────────
+
+    public static Long getBusinessUnitId() {
+        UserContextDTO c = ctx(); return c != null ? c.getBusinessUnitId() : null;
+    }
+
+    public static BusinessUnit getBusinessUnitReference() {
+        Long id = getBusinessUnitId(); return id != null ? buRepo.getReferenceById(id) : null;
+    }
+
+    public static String getBusinessUnitName() {
+        UserContextDTO c = ctx(); return c != null ? c.getBusinessUnitName() : null;
+    }
+
+    // ── Cost Center ───────────────────────────────────────────────────────
+
+    public static Long getCostCenterId() {
+        UserContextDTO c = ctx(); return c != null ? c.getCostCenterId() : null;
+    }
+
+    public static CostCenter getCostCenterReference() {
+        Long id = getCostCenterId(); return id != null ? ccRepo.getReferenceById(id) : null;
+    }
+
+    // ── Warehouse ─────────────────────────────────────────────────────────
+
+    public static Long getWarehouseId() {
+        UserContextDTO c = ctx(); return c != null ? c.getWarehouseId() : null;
+    }
+
+    public static Warehouse getWarehouseReference() {
+        Long id = getWarehouseId();
+        if (id == null) return null;
+        return whRepo.findById(id)
+                .orElseThrow(() -> new IllegalStateException("Warehouse #" + id + " not found."));
+    }
+
+    // ── User ──────────────────────────────────────────────────────────────
+
+    public static Long getUserId() {
+        UserContextDTO c = ctx(); return c != null ? c.getUserId() : null;
+    }
+
+    /** Alias for getUserId() — used by ApprovalServiceImpl. */
+    public static Long getCurrentUserId() { return getUserId(); }
+
+    public static String getUsername() {
+        UserContextDTO c = ctx(); return c != null ? c.getUsername() : null;
+    }
+
+    /** Never null — falls back to "SYSTEM" for audit fields. */
+    public static String getCurrentUsername() {
+        UserContextDTO c = ctx();
+        return (c != null && c.getUsername() != null) ? c.getUsername() : "SYSTEM";
+    }
+
+    /** JPA reference proxy — cheap, no SQL. Use only for FK assignment. */
+    public static User getUserReference() {
+        Long id = getUserId(); return id != null ? userRepo.getReferenceById(id) : null;
+    }
+
+    /** Fully loaded User — fires ONE SELECT. Use only when you need to read fields. */
+    public static User getCurrentUser() {
+        Long id = getUserId(); return id != null ? userRepo.findById(id).orElse(null) : null;
+    }
+
+    /** Alias for getCurrentUser(). */
+    public static User getUser() { return getCurrentUser(); }
 
     /**
-     * Returns the full UserContext for the current user.
-     * Loads from DB on first call; cached on subsequent calls.
+     * Role names for the current user — fires ONE SELECT.
+     * Returns empty list (never null) when context is not loaded.
      */
-    public UserContext getContext() {
-        if (cachedContext == null) {
-            reload();
-        }
-        return cachedContext;
+    public static List<String> getCurrentUserRoles() {
+        Long id = getUserId();
+        if (id == null) return Collections.emptyList();
+        return userRepo.findByIdWithRoles(id)
+                .map(u -> u.getRoles().stream().map(Role::getName).collect(Collectors.toList()))
+                .orElse(Collections.emptyList());
     }
 
-    /** Default org ID — falls back to the user's primary org if not set. */
-    public Long getOrganizationId() {
-        UserContext ctx = getContext();
-        if (ctx.getOrganizationId() != null) return ctx.getOrganizationId();
-        // fallback: the org the user was created under
-        return SecurityHelper.currentUser()
-                .map(CustomUserDetails::getOrganizationId)
-                .orElse(null);
+    // ── Approval shortcuts ─────────────────────────────────────────────────
+
+    public static Integer getPendingApprovalsCount() {
+        UserContextDTO c = ctx();
+        return (c != null && c.getPendingApprovalsCount() != null) ? c.getPendingApprovalsCount() : 0;
     }
 
-    public Long getBusinessUnitId() { return getContext().getBusinessUnitId(); }
-    public Long getCostCenterId()   { return getContext().getCostCenterId();   }
-    public Long getWarehouseId()    { return getContext().getWarehouseId();    }
-
-    /**
-     * Force a re-load from the database.
-     * Call this after saving a new context so the session cache is fresh.
-     */
-    public void refresh() {
-        cachedContext = null;
-        log.debug("ContextProvider cache cleared for user={}",
-                SecurityHelper.currentUsername().orElse("unknown"));
+    public static Integer getUnreadNotificationsCount() {
+        UserContextDTO c = ctx();
+        return (c != null && c.getUnreadNotificationsCount() != null) ? c.getUnreadNotificationsCount() : 0;
     }
 
-    // ── Internal ─────────────────────────────────────────────────────────────
-
-    private void reload() {
-        Long userId = SecurityHelper.currentUser()
-                .map(CustomUserDetails::getUserId)
-                .orElse(null);
-
-        if (userId == null) {
-            cachedContext = new UserContext();   // empty — unauthenticated
-            return;
-        }
-
-        cachedContext = contextRepository.findByUserId(userId)
-                .orElseGet(() -> {
-                    UserContext empty = new UserContext();
-                    empty.setUserId(userId);
-                    return empty;
-                });
-
-        log.debug("ContextProvider loaded: userId={} org={} bu={} cc={} wh={}",
-                userId,
-                cachedContext.getOrganizationId(),
-                cachedContext.getBusinessUnitId(),
-                cachedContext.getCostCenterId(),
-                cachedContext.getWarehouseId());
+    public static boolean canApprove() {
+        UserContextDTO c = ctx(); return c != null && Boolean.TRUE.equals(c.getCanApprove());
     }
 }

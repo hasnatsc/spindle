@@ -31,9 +31,6 @@ public class Employee extends BaseEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "organization_id", nullable = false)
-    private Long organizationId;
-
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "department_id", nullable = false)
     private Department department;
@@ -132,4 +129,10 @@ public class Employee extends BaseEntity {
     public enum EmployeeType {PERMANENT, CONTRACT, TEMPORARY, INTERN, PART_TIME, CONSULTANT}
 
     public enum EmployeeStatus {ACTIVE, INACTIVE, ON_LEAVE, SUSPENDED, TERMINATED, RESIGNED, RETIRED}
+
+    @Transient
+    public String getFullName() {
+        return ((firstName != null ? firstName : "") + " " +
+                (lastName != null ? lastName : "")).trim();
+    }
 }

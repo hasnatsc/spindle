@@ -39,9 +39,6 @@ public class Bom extends BaseEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "organization_id", nullable = false)
-    private Long organizationId;
-
     /**
      * The finished product this BOM produces
      */

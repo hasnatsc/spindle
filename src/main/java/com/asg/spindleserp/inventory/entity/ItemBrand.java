@@ -20,9 +20,6 @@ public class ItemBrand extends BaseEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "organization_id", nullable = false)
-    private Long organizationId;
-
     @Column(nullable = false, length = 30)
     private String brandCode;
     @Column(nullable = false, length = 150)

@@ -1,24 +1,12 @@
 package com.asg.spindleserp.security.service;
 
 import com.asg.spindleserp.common.dto.DataTableResponse;
-import com.asg.spindleserp.organization.entity.BusinessUnit;
-import com.asg.spindleserp.organization.entity.CostCenter;
-import com.asg.spindleserp.organization.entity.Organization;
-import com.asg.spindleserp.organization.entity.UserContext;
-import com.asg.spindleserp.organization.entity.Warehouse;
-import com.asg.spindleserp.organization.repository.BusinessUnitRepository;
-import com.asg.spindleserp.organization.repository.CostCenterRepository;
-import com.asg.spindleserp.organization.repository.OrganizationRepository;
-import com.asg.spindleserp.organization.repository.UserContextRepository;
-import com.asg.spindleserp.organization.repository.WarehouseRepository;
-import com.asg.spindleserp.organization.service.UserContextService;
+import com.asg.spindleserp.organization.entity.*;
+import com.asg.spindleserp.organization.repository.*;
 import com.asg.spindleserp.security.dto.UserDTO;
 import com.asg.spindleserp.security.entity.Role;
 import com.asg.spindleserp.security.entity.User;
-import com.asg.spindleserp.security.entity.UserAccessScope;
-import com.asg.spindleserp.security.entity.UserAccessScope.ScopeType;
 import com.asg.spindleserp.security.repository.RoleRepository;
-import com.asg.spindleserp.security.repository.UserAccessScopeRepository;
 import com.asg.spindleserp.security.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -37,18 +25,22 @@ import java.util.stream.Collectors;
  *
  * Changes over the uploaded version:
  *
- * FIX 1 — Boolean (wrapper) null-safety
- *   UserDTO now uses Boolean (wrapper) for enabled/accountNonExpired/
- *   accountNonLocked/credentialsNonExpired. When the form omits those
- *   fields Jackson sends null; the DTO's isXxx() helpers return true
- *   as the safe default so the entity is always set correctly.
+ *   1. persistScopes() now writes to the User's @ManyToMany sets
+ *      (User.organizations, allowedBusinessUnits, allowedCostCenters,
+ *      allowedWarehouses) — stored in sec_user_organizations etc.
+ *      The previous sec_user_access_scopes flat table is NOT used here.
  *
- * FIX 2 — Default user context persistence
- *   After createUser / updateUser the service also persists the
- *   defaultOrganizationId / defaultBusinessUnitId / defaultCostCenterId /
- *   defaultWarehouseId from the DTO into the user_context table via
- *   UserContextService. toDTO() populates those fields on read so the
- *   form can pre-fill them.
+ *   2. After create/update, UserContextService.saveDefaultContext() is
+ *      called if the DTO contains any defaultXxxId field.
+ *      This writes the chosen default to user_context so the user's
+ *      session starts with the right org/BU/CC/WH on next login.
+ *
+ *   3. Boolean (wrapper) flags — dto.isEnabled() etc. now use null-safe
+ *      helpers so null → true (safe default), preventing the JSON parse
+ *      error "Cannot map null into boolean".
+ *
+ *   4. toDTO() reads the default context back from UserContextService
+ *      so the edit form can pre-fill the default context dropdowns.
  */
 @Slf4j
 @Service
@@ -56,33 +48,30 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class UserServiceImpl implements UserService {
 
-    private final UserRepository            userRepository;
-    private final RoleRepository            roleRepository;
-    private final UserAccessScopeRepository scopeRepository;
-    private final OrganizationRepository    orgRepository;
-    private final BusinessUnitRepository    buRepository;
-    private final CostCenterRepository      ccRepository;
-    private final WarehouseRepository       whRepository;
-    private final PasswordEncoder           passwordEncoder;
-    private final UserContextService        userContextService;      // ← NEW
-    private final UserContextRepository     userContextRepository;   // ← NEW (for toDTO read)
+    private final UserRepository         userRepository;
+    private final RoleRepository         roleRepository;
+    private final OrganizationRepository orgRepository;
+    private final BusinessUnitRepository buRepository;
+    private final CostCenterRepository   ccRepository;
+    private final WarehouseRepository    whRepository;
+    private final PasswordEncoder        passwordEncoder;
+    private final UserContextService     userContextService;   // ← for default context
 
     private static final DateTimeFormatter DT = DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm");
 
-    // ─────────────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────
     // CREATE
-    // ─────────────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────
 
     @Override
     public UserDTO createUser(UserDTO dto) {
         validate(dto, null);
-
         String actor = currentUsername();
+
         User currentUser = userRepository
                 .findByUsernameWithRolesAndPermissions(actor)
                 .orElseThrow(() -> new IllegalStateException("Current user not found: " + actor));
 
-        // ✅ FIX 1: dto.isEnabled() etc. now use null-safe Boolean wrapper helpers
         User user = User.builder()
                 .organization(currentUser.getOrganization())
                 .username(dto.getUsername().trim().toLowerCase())
@@ -90,7 +79,7 @@ public class UserServiceImpl implements UserService {
                 .phone(dto.getPhone() != null ? dto.getPhone().trim() : null)
                 .fullName(dto.getFullName())
                 .password(passwordEncoder.encode(dto.getPassword()))
-                .enabled(dto.isEnabled())                            // null-safe Boolean helper
+                .enabled(dto.isEnabled())
                 .accountNonExpired(dto.isAccountNonExpired())
                 .accountNonLocked(dto.isAccountNonLocked())
                 .credentialsNonExpired(dto.isCredentialsNonExpired())
@@ -101,16 +90,20 @@ public class UserServiceImpl implements UserService {
                 .build();
 
         User saved = userRepository.save(user);
+
+        // Persist allowed scope sets into sec_user_organizations etc.
         persistScopes(saved, dto);
-        persistDefaultContext(saved.getId(), dto);   // ✅ FIX 2
+
+        // Persist default context into user_context table
+        persistDefaultContext(saved.getId(), dto);
 
         log.info("User '{}' created by {}", saved.getUsername(), actor);
         return toDTO(saved);
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────
     // READ
-    // ─────────────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────
 
     @Override
     @Transactional(readOnly = true)
@@ -118,43 +111,35 @@ public class UserServiceImpl implements UserService {
         return userRepository.findByIdWithRoles(id).map(this::toDTO);
     }
 
-    @Override
-    @Transactional(readOnly = true)
+    @Override @Transactional(readOnly = true)
     public List<UserDTO> findAll() {
-        return userRepository.findAllByDeletedFalseOrderByCreatedAtDesc()
-                .stream().map(this::toDTO).toList();
+        return userRepository.findAllByDeletedFalseOrderByCreatedAtDesc().stream().map(this::toDTO).toList();
     }
 
-    @Override
-    @Transactional(readOnly = true)
+    @Override @Transactional(readOnly = true)
     public List<UserDTO> findEnabled() {
-        return userRepository.findAllByEnabledTrueAndDeletedFalse()
-                .stream().map(this::toDTO).toList();
+        return userRepository.findAllByEnabledTrueAndDeletedFalse().stream().map(this::toDTO).toList();
     }
 
-    @Override
-    @Transactional(readOnly = true)
-    public List<UserDTO> search(String query) {
-        return userRepository.searchActive(query)
-                .stream().map(this::toDTO).toList();
+    @Override @Transactional(readOnly = true)
+    public List<UserDTO> search(String q) {
+        return userRepository.searchActive(q).stream().map(this::toDTO).toList();
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────
     // UPDATE
-    // ─────────────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────
 
     @Override
     public UserDTO updateUser(Long id, UserDTO dto) {
         User user = userRepository.findByIdWithRoles(id)
                 .orElseThrow(() -> new IllegalArgumentException("User #" + id + " not found."));
-
         validate(dto, id);
 
         user.setUsername(dto.getUsername().trim().toLowerCase());
         user.setEmail(dto.getEmail().trim().toLowerCase());
         user.setPhone(dto.getPhone() != null ? dto.getPhone().trim() : null);
         user.setFullName(dto.getFullName());
-        // ✅ FIX 1: null-safe Boolean helpers
         user.setEnabled(dto.isEnabled());
         user.setAccountNonExpired(dto.isAccountNonExpired());
         user.setAccountNonLocked(dto.isAccountNonLocked());
@@ -163,7 +148,6 @@ public class UserServiceImpl implements UserService {
         user.setRoles(resolveRoles(dto.getRoleIds()));
         user.setUpdatedBy(currentUsername());
 
-        // Password — only when provided on update
         if (dto.getPassword() != null && !dto.getPassword().isBlank()) {
             if (dto.getPassword().length() < 8)
                 throw new IllegalArgumentException("Password must be at least 8 characters.");
@@ -172,22 +156,21 @@ public class UserServiceImpl implements UserService {
 
         User saved = userRepository.save(user);
         persistScopes(saved, dto);
-        persistDefaultContext(saved.getId(), dto);   // ✅ FIX 2
+        persistDefaultContext(saved.getId(), dto);
 
         log.info("User '{}' updated by {}", saved.getUsername(), currentUsername());
         return toDTO(saved);
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────
     // DELETE (soft)
-    // ─────────────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────
 
     @Override
     public void deleteUser(Long id) {
         User user = userRepository.findByIdAndDeletedFalse(id)
                 .orElseThrow(() -> new IllegalArgumentException("User #" + id + " not found."));
         guardSuperAdmin(user);
-
         user.setDeleted(true);
         user.setEnabled(false);
         user.setUpdatedBy(currentUsername());
@@ -195,27 +178,23 @@ public class UserServiceImpl implements UserService {
         log.info("User #{} '{}' soft-deleted by {}", id, user.getUsername(), currentUsername());
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────
     // TOGGLE STATUS
-    // ─────────────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────
 
     @Override
     public UserDTO toggleStatus(Long id) {
         User user = userRepository.findByIdAndDeletedFalse(id)
                 .orElseThrow(() -> new IllegalArgumentException("User #" + id + " not found."));
         guardSuperAdmin(user);
-
         user.setEnabled(!user.isEnabled());
         user.setUpdatedBy(currentUsername());
-        UserDTO result = toDTO(userRepository.save(user));
-        log.info("User #{} '{}' {} by {}", id, user.getUsername(),
-                result.isEnabled() ? "enabled" : "disabled", currentUsername());
-        return result;
+        return toDTO(userRepository.save(user));
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────
     // CHANGE PASSWORD
-    // ─────────────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────
 
     @Override
     public UserDTO changePassword(Long id, String newPassword) {
@@ -223,42 +202,36 @@ public class UserServiceImpl implements UserService {
             throw new IllegalArgumentException("New password is required.");
         if (newPassword.length() < 8)
             throw new IllegalArgumentException("Password must be at least 8 characters.");
-
         User user = userRepository.findByIdAndDeletedFalse(id)
                 .orElseThrow(() -> new IllegalArgumentException("User #" + id + " not found."));
-
         user.setPassword(passwordEncoder.encode(newPassword));
         user.setUpdatedBy(currentUsername());
-        log.info("Password changed for user #{} by {}", id, currentUsername());
         return toDTO(userRepository.save(user));
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────
     // RECORD LOGIN
-    // ─────────────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────
 
     @Override
     public void recordLogin(String username) {
         userRepository.updateLastLogin(username, LocalDateTime.now());
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────
     // DATATABLE
-    // ─────────────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────
 
     @Override
     @Transactional(readOnly = true)
     public DataTableResponse datatableList(int draw, int start, int length, String search) {
-
         String q = (search == null) ? "" : search.trim();
-
         List<User> all = q.isBlank()
                 ? userRepository.findAllByDeletedFalseOrderByCreatedAtDesc()
                 : userRepository.searchActive(q);
 
         long total    = userRepository.countByDeletedFalse();
         long filtered = q.isBlank() ? total : all.size();
-
         List<User> page = all.stream().skip(start).limit(length).toList();
 
         List<Map<String, Object>> rows = new ArrayList<>();
@@ -274,35 +247,32 @@ public class UserServiceImpl implements UserService {
             row.put("status",     u.isEnabled()
                     ? "<span class='badge bg-success'>Active</span>"
                     : "<span class='badge bg-danger'>Disabled</span>");
-            row.put("created_at", u.getCreatedAt() != null
-                    ? u.getCreatedAt().format(DT) : "—");
+            row.put("created_at", u.getCreatedAt() != null ? u.getCreatedAt().format(DT) : "—");
             row.put("actions",    buildActions(u.getId(), u.isEnabled()));
             rows.add(row);
         }
-
         return DataTableResponse.of(draw, total, filtered, rows);
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // CONVERSION — toDTO
-    // ─────────────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────
+    // toDTO
+    // ─────────────────────────────────────────────────────────────────────
 
     @Override
     @Transactional(readOnly = true)
     public UserDTO toDTO(User u) {
-        // Access scope IDs
-        Set<Long> orgIds = scopeRepository
-                .findReferenceIdsByUserIdAndScopeType(u.getId(), ScopeType.ORGANIZATION);
-        Set<Long> buIds  = scopeRepository
-                .findReferenceIdsByUserIdAndScopeType(u.getId(), ScopeType.BUSINESS_UNIT);
-        Set<Long> ccIds  = scopeRepository
-                .findReferenceIdsByUserIdAndScopeType(u.getId(), ScopeType.COST_CENTER);
-        Set<Long> whIds  = scopeRepository
-                .findReferenceIdsByUserIdAndScopeType(u.getId(), ScopeType.WAREHOUSE);
+        // Resolve allowed scope IDs from the User's ManyToMany sets
+        // (re-load with context to get the sets if needed)
+        User full = userRepository.findByUsernameWithAllContext(u.getUsername())
+                .orElse(u);  // fallback to what we have
 
-        // Default working context (user_context table)
-        UserContext ctx = userContextRepository.findByUserId(u.getId())
-                .orElse(null);
+        Set<Long> orgIds = full.getOrganizations().stream().map(Organization::getId).collect(Collectors.toSet());
+        Set<Long> buIds  = full.getAllowedBusinessUnits().stream().map(BusinessUnit::getId).collect(Collectors.toSet());
+        Set<Long> ccIds  = full.getAllowedCostCenters().stream().map(CostCenter::getId).collect(Collectors.toSet());
+        Set<Long> whIds  = full.getAllowedWarehouses().stream().map(Warehouse::getId).collect(Collectors.toSet());
+
+        // Read default context from user_context table
+        var ctxOpt = userContextService.findContextByUserId(u.getId());
 
         UserDTO.UserDTOBuilder b = UserDTO.builder()
                 .id(u.getId())
@@ -322,38 +292,37 @@ public class UserServiceImpl implements UserService {
                 .businessUnitIds(buIds)
                 .costCenterIds(ccIds)
                 .warehouseIds(whIds)
-                .organizationNames(resolveOrgNames(orgIds))
-                .businessUnitNames(resolveBuNames(buIds))
-                .costCenterNames(resolveCcNames(ccIds))
-                .warehouseNames(resolveWhNames(whIds))
+                .organizationNames(orgIds.isEmpty() ? new HashSet<>() :
+                        orgRepository.findAllById(orgIds).stream().map(Organization::getName).collect(Collectors.toSet()))
+                .businessUnitNames(buIds.isEmpty() ? new HashSet<>() :
+                        buRepository.findAllById(buIds).stream().map(BusinessUnit::getName).collect(Collectors.toSet()))
+                .costCenterNames(ccIds.isEmpty() ? new HashSet<>() :
+                        ccRepository.findAllById(ccIds).stream().map(CostCenter::getCostCenterName).collect(Collectors.toSet()))
+                .warehouseNames(whIds.isEmpty() ? new HashSet<>() :
+                        whRepository.findAllById(whIds).stream().map(Warehouse::getWarehouseName).collect(Collectors.toSet()))
                 .createdAt(u.getCreatedAt())
                 .updatedAt(u.getUpdatedAt())
                 .lastLoginAt(u.getLastLoginAt());
 
-        // ✅ FIX 2: populate default context fields from user_context
-        if (ctx != null) {
-            b.defaultOrganizationId(ctx.getOrganizationId());
-            b.defaultBusinessUnitId(ctx.getBusinessUnitId());
-            b.defaultCostCenterId(ctx.getCostCenterId());
-            b.defaultWarehouseId(ctx.getWarehouseId());
-            // Resolve display names for the form
-            if (ctx.getOrganizationId() != null) {
-                orgRepository.findById(ctx.getOrganizationId())
-                        .ifPresent(o -> b.defaultOrganizationName(o.getName()));
+        // Populate default context fields (from user_context row)
+        ctxOpt.ifPresent(ctx -> {
+            if (ctx.getOrganization() != null) {
+                b.defaultOrganizationId(ctx.getOrganization().getId());
+                b.defaultOrganizationName(ctx.getOrganization().getName());
             }
-            if (ctx.getBusinessUnitId() != null) {
-                buRepository.findById(ctx.getBusinessUnitId())
-                        .ifPresent(o -> b.defaultBusinessUnitName(o.getName()));
+            if (ctx.getBusinessUnit() != null) {
+                b.defaultBusinessUnitId(ctx.getBusinessUnit().getId());
+                b.defaultBusinessUnitName(ctx.getBusinessUnit().getName());
             }
-            if (ctx.getCostCenterId() != null) {
-                ccRepository.findById(ctx.getCostCenterId())
-                        .ifPresent(o -> b.defaultCostCenterName(o.getCostCenterName()));
+            if (ctx.getCostCenter() != null) {
+                b.defaultCostCenterId(ctx.getCostCenter().getId());
+                b.defaultCostCenterName(ctx.getCostCenter().getCostCenterName());
             }
-            if (ctx.getWarehouseId() != null) {
-                whRepository.findById(ctx.getWarehouseId())
-                        .ifPresent(o -> b.defaultWarehouseName(o.getWarehouseName()));
+            if (ctx.getWarehouse() != null) {
+                b.defaultWarehouseId(ctx.getWarehouse().getId());
+                b.defaultWarehouseName(ctx.getWarehouse().getWarehouseName());
             }
-        }
+        });
 
         return b.build();
     }
@@ -371,92 +340,69 @@ public class UserServiceImpl implements UserService {
                 .build();
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // PRIVATE — DEFAULT CONTEXT PERSISTENCE
-    // ─────────────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────
+    // PRIVATE — SCOPE PERSISTENCE (ManyToMany sets)
+    // ─────────────────────────────────────────────────────────────────────
 
     /**
-     * ✅ FIX 2: Persist defaultOrg/BU/CC/WH from the DTO into user_context.
-     * Called after createUser and updateUser.
-     * If all four are null, the existing row is preserved (no overwrite).
+     * Replaces the User's allowed-scope sets with the new values from the DTO.
+     * JPA's @ManyToMany cascade handles the junction-table inserts/deletes.
+     * Called inside createUser() and updateUser() (same transaction).
      */
+    private void persistScopes(User user, UserDTO dto) {
+        // Organizations
+        Set<Organization> orgs = dto.getOrganizationIds().isEmpty()
+                ? new LinkedHashSet<>()
+                : new LinkedHashSet<>(orgRepository.findAllById(dto.getOrganizationIds()));
+        user.setOrganizations(orgs);
+
+        // Business Units
+        Set<BusinessUnit> bus = dto.getBusinessUnitIds().isEmpty()
+                ? new LinkedHashSet<>()
+                : new LinkedHashSet<>(buRepository.findAllById(dto.getBusinessUnitIds()));
+        user.setAllowedBusinessUnits(bus);
+
+        // Cost Centers
+        Set<CostCenter> ccs = dto.getCostCenterIds().isEmpty()
+                ? new LinkedHashSet<>()
+                : new LinkedHashSet<>(ccRepository.findAllById(dto.getCostCenterIds()));
+        user.setAllowedCostCenters(ccs);
+
+        // Warehouses
+        Set<Warehouse> whs = dto.getWarehouseIds().isEmpty()
+                ? new LinkedHashSet<>()
+                : new LinkedHashSet<>(whRepository.findAllById(dto.getWarehouseIds()));
+        user.setAllowedWarehouses(whs);
+
+        userRepository.save(user);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // PRIVATE — DEFAULT CONTEXT PERSISTENCE
+    // ─────────────────────────────────────────────────────────────────────
+
     private void persistDefaultContext(Long userId, UserDTO dto) {
         boolean anySet = dto.getDefaultOrganizationId() != null
                       || dto.getDefaultBusinessUnitId()  != null
                       || dto.getDefaultCostCenterId()    != null
                       || dto.getDefaultWarehouseId()     != null;
-        if (!anySet) return;   // form didn't send context — don't clear existing row
+        if (!anySet) return;   // admin didn't set a default — leave existing row intact
 
-        userContextService.saveContextForUser(
-                userId,
-                dto.getDefaultOrganizationId(),
-                dto.getDefaultBusinessUnitId(),
-                dto.getDefaultCostCenterId(),
-                dto.getDefaultWarehouseId()
-        );
+        Organization org = dto.getDefaultOrganizationId() != null
+                ? orgRepository.getReferenceById(dto.getDefaultOrganizationId()) : null;
+        BusinessUnit bu  = dto.getDefaultBusinessUnitId()  != null
+                ? buRepository.getReferenceById(dto.getDefaultBusinessUnitId())  : null;
+        CostCenter   cc  = dto.getDefaultCostCenterId()    != null
+                ? ccRepository.getReferenceById(dto.getDefaultCostCenterId())    : null;
+        Warehouse    wh  = dto.getDefaultWarehouseId()     != null
+                ? whRepository.getReferenceById(dto.getDefaultWarehouseId())     : null;
+
+        userContextService.saveDefaultContext(userId, org, bu, cc, wh);
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // PRIVATE — ACCESS SCOPES
-    // ─────────────────────────────────────────────────────────────────────────
-
-    private void persistScopes(User user, UserDTO dto) {
-        scopeRepository.deleteAllByUserId(user.getId());
-
-        List<UserAccessScope> scopes = new ArrayList<>();
-        addScopes(scopes, user, ScopeType.ORGANIZATION,  dto.getOrganizationIds());
-        addScopes(scopes, user, ScopeType.BUSINESS_UNIT, dto.getBusinessUnitIds());
-        addScopes(scopes, user, ScopeType.COST_CENTER,   dto.getCostCenterIds());
-        addScopes(scopes, user, ScopeType.WAREHOUSE,     dto.getWarehouseIds());
-
-        if (!scopes.isEmpty()) {
-            scopeRepository.saveAll(scopes);
-        }
-    }
-
-    private void addScopes(List<UserAccessScope> list, User user,
-                            ScopeType type, Set<Long> ids) {
-        if (ids == null || ids.isEmpty()) return;
-        for (Long refId : ids) {
-            list.add(UserAccessScope.builder()
-                    .user(user)
-                    .scopeType(type)
-                    .referenceId(refId)
-                    .build());
-        }
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // PRIVATE — DISPLAY NAME RESOLVERS
-    // ─────────────────────────────────────────────────────────────────────────
-
-    private Set<String> resolveOrgNames(Set<Long> ids) {
-        if (ids == null || ids.isEmpty()) return new HashSet<>();
-        return orgRepository.findAllById(ids).stream()
-                .map(Organization::getName).collect(Collectors.toSet());
-    }
-
-    private Set<String> resolveBuNames(Set<Long> ids) {
-        if (ids == null || ids.isEmpty()) return new HashSet<>();
-        return buRepository.findAllById(ids).stream()
-                .map(BusinessUnit::getName).collect(Collectors.toSet());
-    }
-
-    private Set<String> resolveCcNames(Set<Long> ids) {
-        if (ids == null || ids.isEmpty()) return new HashSet<>();
-        return ccRepository.findAllById(ids).stream()
-                .map(CostCenter::getCostCenterName).collect(Collectors.toSet());
-    }
-
-    private Set<String> resolveWhNames(Set<Long> ids) {
-        if (ids == null || ids.isEmpty()) return new HashSet<>();
-        return whRepository.findAllById(ids).stream()
-                .map(Warehouse::getWarehouseName).collect(Collectors.toSet());
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // PRIVATE — VALIDATION
-    // ─────────────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────
+    // PRIVATE — MISC
+    // ─────────────────────────────────────────────────────────────────────
 
     private void validate(UserDTO dto, Long excludeId) {
         String uname = dto.getUsername().trim().toLowerCase();
@@ -482,14 +428,10 @@ public class UserServiceImpl implements UserService {
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // PRIVATE — MISC
-    // ─────────────────────────────────────────────────────────────────────────
-
     private void guardSuperAdmin(User user) {
-        boolean isSuperAdmin = user.getRoles().stream()
+        boolean isSA = user.getRoles().stream()
                 .anyMatch(r -> "ROLE_SUPER_ADMIN".equals(r.getName()));
-        if (isSuperAdmin && !user.getUsername().equals(currentUsername()))
+        if (isSA && !user.getUsername().equals(currentUsername()))
             throw new IllegalArgumentException(
                     "The superadmin account cannot be modified through this interface.");
     }
@@ -503,14 +445,11 @@ public class UserServiceImpl implements UserService {
         try {
             var auth = SecurityContextHolder.getContext().getAuthentication();
             return (auth != null) ? auth.getName() : "system";
-        } catch (Exception e) {
-            return "system";
-        }
+        } catch (Exception e) { return "system"; }
     }
 
     private String buildRolesBadges(User u) {
-        if (u.getRoles().isEmpty())
-            return "<span class='badge bg-secondary'>No Roles</span>";
+        if (u.getRoles().isEmpty()) return "<span class='badge bg-secondary'>No Roles</span>";
         return u.getRoles().stream()
                 .map(r -> "<span class='badge bg-primary me-1'>"
                         + r.getName().replace("ROLE_", "") + "</span>")
@@ -518,26 +457,22 @@ public class UserServiceImpl implements UserService {
     }
 
     private String buildActions(Long id, boolean enabled) {
-        String toggleIcon  = enabled ? "fa-toggle-on text-success" : "fa-toggle-off text-muted";
-        String toggleTitle = enabled ? "Disable" : "Enable";
-        return "<div class='btn-group btn-group-sm' role='group'>"
-             + btn("info",    "fa-eye",    "View",           "userShow("   + id + ")")
-             + btn("warning", "fa-pencil", "Edit",           "userEdit("   + id + ")")
-             + "<button class='btn btn-outline-secondary' title='" + toggleTitle + "' "
-             +   "onclick='userToggle(" + id + ")'>"
-             +   "<i class='fa " + toggleIcon + "'></i></button>"
-             + btn("primary", "fa-key",   "Change Password", "userPwd("    + id + ")")
-             + btn("danger",  "fa-trash", "Delete",          "userDelete(" + id + ")")
+        String icon  = enabled ? "fa-toggle-on text-success" : "fa-toggle-off text-muted";
+        String title = enabled ? "Disable" : "Enable";
+        return "<div class='btn-group btn-group-sm'>"
+             + btn("info",    "fa-eye",    "View",     "userShow("   + id + ")")
+             + btn("warning", "fa-pencil", "Edit",     "userEdit("   + id + ")")
+             + "<button class='btn btn-outline-secondary' title='" + title + "' onclick='userToggle(" + id + ")'>"
+             + "<i class='fa " + icon + "'></i></button>"
+             + btn("primary", "fa-key",   "Password", "userPwd("    + id + ")")
+             + btn("danger",  "fa-trash", "Delete",   "userDelete(" + id + ")")
              + "</div>";
     }
 
-    private String btn(String color, String icon, String title, String onclick) {
-        return "<button class='btn btn-outline-" + color + "' title='" + title + "' "
-             + "onclick='" + onclick + "'>"
+    private String btn(String c, String icon, String title, String onclick) {
+        return "<button class='btn btn-outline-" + c + "' title='" + title + "' onclick='" + onclick + "'>"
              + "<i class='fa " + icon + "'></i></button>";
     }
 
-    private static String orDash(String v) {
-        return (v != null && !v.isBlank()) ? v : "—";
-    }
+    private static String orDash(String v) { return (v != null && !v.isBlank()) ? v : "—"; }
 }

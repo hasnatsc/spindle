@@ -1,6 +1,7 @@
 package com.asg.spindleserp.setup.entity;
 
 import com.asg.spindleserp.BaseEntity;
+import com.asg.spindleserp.security.auth.ContextProvider;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -18,9 +19,6 @@ public class Bank extends BaseEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-
-    @Column(name = "organization_id", nullable = false)
-    private Long organizationId;
 
     @Column(nullable = false, length = 20)
     private String bankCode;
