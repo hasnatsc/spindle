@@ -161,12 +161,10 @@ public class StockMovementServiceImpl implements StockMovementService {
         Warehouse    src  = resolveWarehouse(dto.getSourceWarehouseId());
         if (dest.getId().equals(src.getId()))
             throw new IllegalArgumentException("Source and destination warehouses must be different.");
-        if (org.getId().equals(src.getId()))
-            throw new IllegalArgumentException("Source and destination warehouses must be different.");
-        if (!org.equals(dest.getOrganization()))
-            throw new IllegalArgumentException("Selected warehouse does not belong to your organization.");
-        if (!org.equals(src.getOrganization()))
-            throw new IllegalArgumentException("Selected warehouse does not belong to your organization.");
+        if (!(org.getId().equals(src.getOrganization().getId())))
+            throw new IllegalArgumentException("Source warehouses not under organization.");
+        if (!(org.getId().equals(dest.getOrganization().getId())))
+            throw new IllegalArgumentException("Destination warehouses not under organization.");
 
         String docNo = seqService.nextDocumentNumber(orgId, "STR", LocalDate.now().format(YY_FMT));
 

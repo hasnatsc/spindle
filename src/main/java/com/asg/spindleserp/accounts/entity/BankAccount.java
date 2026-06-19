@@ -7,7 +7,7 @@ import lombok.Builder;
 // ── STI subclasses ─────────────────────────────────────────────────────────
 @Entity
 @DiscriminatorValue("BANK")
-class BankAccount extends ChartOfAccountSub {
+public class BankAccount extends ChartOfAccountSub {
     @Builder
     public BankAccount() {
         super();

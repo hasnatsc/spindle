@@ -6,7 +6,7 @@ import lombok.Builder;
 
 @Entity
 @DiscriminatorValue("CUSTOMER")
-class CustomerAccount extends ChartOfAccountSub {
+public class CustomerAccount extends ChartOfAccountSub {
     @Builder
     public CustomerAccount() {
         super();

@@ -38,6 +38,10 @@ public abstract class ChartOfAccountSub extends BaseEntity {
     @Column(nullable = false, length = 200)
     private String subAccountName;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "sub_account_type_enum",nullable = false, length = 25)
+    private SubAccountType subAccountType;
+
     @Column(precision = 18, scale = 2)
     private BigDecimal openingBalance;
     @Column(precision = 18, scale = 2)
@@ -205,4 +209,14 @@ public abstract class ChartOfAccountSub extends BaseEntity {
     // stub FKs — resolved at application layer
     private Long customerId;
     private Long supplierId;
+
+    @Getter
+    public enum SubAccountType {
+        BANK,
+        CASH,
+        CUSTOMER,
+        SUPPLIER,
+        EMPLOYEE,
+        LC
+    }
 }

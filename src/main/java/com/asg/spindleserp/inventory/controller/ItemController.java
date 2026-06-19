@@ -13,10 +13,14 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * ItemController  /items
  * JS fns: itemShow / itemEdit / itemToggle / itemDelete / itemOpenCreate
+ *
+ * NEW: GET /items/search?search=&page=&pageSize=   → {items:[{id,text,code,name,uom}], hasMore}
+ *      Used by AJAX Select2 on adjustment, transfer, stock-balance, stock-ledger pages.
  */
 @Slf4j
 @Controller
@@ -84,7 +88,9 @@ public class ItemController {
         return res;
     }
 
-    /** All active items for current org */
+    // ── Lookup endpoints ──────────────────────────────────────────────────────
+
+    /** All active items for current org (flat list — legacy use) */
     @GetMapping("/active")
     @ResponseBody
     public List<Map<String, Object>> active() {
@@ -98,6 +104,55 @@ public class ItemController {
             m.put("uom",      i.getUnitOfMeasure());
             return m;
         }).toList();
+    }
+
+    /**
+     * AJAX Select2 search endpoint.
+     * Returns: { items: [{id, text, code, name, uom, itemType}], hasMore }
+     *
+     * text = "{code} — {name}" — ready for Select2 templateSelection.
+     * Supports pagination: page (1-based), pageSize (default 30).
+     * Search is applied against itemCode + itemName (case-insensitive contains).
+     */
+    @GetMapping("/search")
+    @ResponseBody
+    public Map<String, Object> search(
+            @RequestParam(defaultValue = "")   String search,
+            @RequestParam(defaultValue = "1")  int    page,
+            @RequestParam(defaultValue = "30") int    pageSize) {
+
+        Long orgId = SecurityHelper.requireOrgId();
+
+        List<ItemDTO> all = itemService.findActiveByOrg(orgId);
+
+        // In-memory filter (fast enough; org item sets are small)
+        String q = search.trim().toLowerCase();
+        List<ItemDTO> filtered = q.isEmpty() ? all
+                : all.stream()
+                    .filter(i -> (i.getItemCode() != null && i.getItemCode().toLowerCase().contains(q)) || (i.getItemName() != null && i.getItemName().toLowerCase().contains(q)))
+                    .collect(Collectors.toList());
+
+        // Paginate
+        int from    = (page - 1) * pageSize;
+        int to      = Math.min(from + pageSize, filtered.size());
+        boolean hasMore = to < filtered.size();
+        List<ItemDTO> paged = (from >= filtered.size()) ? List.of() : filtered.subList(from, to);
+
+        List<Map<String, Object>> items = paged.stream().map(i -> {
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("id",       i.getId());
+            m.put("text",     (i.getItemCode() != null ? i.getItemCode() : "") + " — " + (i.getItemName() != null ? i.getItemName() : ""));
+            m.put("code",     i.getItemCode());
+            m.put("name",     i.getItemName());
+            m.put("uom",      i.getUnitOfMeasure());
+            m.put("itemType", i.getItemType());
+            return m;
+        }).toList();
+
+        Map<String, Object> res = new LinkedHashMap<>();
+        res.put("items",   items);
+        res.put("hasMore", hasMore);
+        return res;
     }
 
     /** Production BOM inputs: RAW_MATERIAL, SEMI_FINISHED, CONSUMABLE, MRO */
@@ -123,10 +178,10 @@ public class ItemController {
         Long orgId = SecurityHelper.requireOrgId();
         return itemService.findFinishedGoods(orgId).stream().map(i -> {
             Map<String, Object> m = new LinkedHashMap<>();
-            m.put("id",       i.getId());
-            m.put("code",     i.getItemCode());
-            m.put("name",     i.getItemName());
-            m.put("uom",      i.getUnitOfMeasure());
+            m.put("id",        i.getId());
+            m.put("code",      i.getItemCode());
+            m.put("name",      i.getItemName());
+            m.put("uom",       i.getUnitOfMeasure());
             m.put("unitPrice", i.getUnitPrice());
             return m;
         }).toList();

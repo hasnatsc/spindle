@@ -6,7 +6,7 @@ import lombok.Builder;
 
 @Entity
 @DiscriminatorValue("LC")
-class LetterOfCredit extends ChartOfAccountSub {
+public class LetterOfCredit extends ChartOfAccountSub {
     @Builder
     public LetterOfCredit() {
         super();

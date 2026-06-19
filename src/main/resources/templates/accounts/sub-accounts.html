@@ -1,0 +1,797 @@
+<!DOCTYPE html>
+<!--
+  accounts/sub-accounts.html    GET /accounts/sub-accounts
+  Unified page for all ChartOfAccountSub sub-types.
+  Per-type pages (bank-accounts.html etc.) use th:replace to embed this template.
+
+  AJAX Select2:
+    Main Account  → /accounts/chart/search
+    Bank          → /banks/search  (for Bank type)
+-->
+<html th:replace="~{layout/base :: layout('Sub-Ledger Accounts', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
+<section>
+
+  <ol class="breadcrumb float-xl-end">
+    <li class="breadcrumb-item"><a th:href="@{/dashboard}">Home</a></li>
+    <li class="breadcrumb-item">Accounts</li>
+    <li class="breadcrumb-item active">Sub-Ledger Accounts</li>
+  </ol>
+  <h1 class="page-header">Sub-Ledger Accounts <small>banks, cash, customers, suppliers &amp; more</small></h1>
+
+  <!-- Type filter tabs -->
+  <ul class="nav nav-tabs mb-3" id="subTypeTabs">
+    <li class="nav-item"><a class="nav-link active" href="javascript:;" data-type="" onclick="switchType('')">All</a></li>
+    <li class="nav-item"><a class="nav-link" href="javascript:;" data-type="BANK"     onclick="switchType('BANK')"><i class="fas fa-building-columns me-1"></i>Bank</a></li>
+    <li class="nav-item"><a class="nav-link" href="javascript:;" data-type="CASH"     onclick="switchType('CASH')"><i class="fas fa-vault me-1"></i>Cash</a></li>
+    <li class="nav-item"><a class="nav-link" href="javascript:;" data-type="CUSTOMER" onclick="switchType('CUSTOMER')"><i class="fas fa-user-tie me-1"></i>Customer</a></li>
+    <li class="nav-item"><a class="nav-link" href="javascript:;" data-type="SUPPLIER" onclick="switchType('SUPPLIER')"><i class="fas fa-truck me-1"></i>Supplier</a></li>
+    <li class="nav-item"><a class="nav-link" href="javascript:;" data-type="EMPLOYEE" onclick="switchType('EMPLOYEE')"><i class="fas fa-id-badge me-1"></i>Employee</a></li>
+    <li class="nav-item"><a class="nav-link" href="javascript:;" data-type="LC"       onclick="switchType('LC')"><i class="fas fa-file-contract me-1"></i>LC</a></li>
+    <li class="nav-item"><a class="nav-link" href="javascript:;" data-type="GENERAL"  onclick="switchType('GENERAL')"><i class="fas fa-circle-nodes me-1"></i>General</a></li>
+  </ul>
+
+  <div class="panel panel-inverse">
+    <div class="panel-heading">
+      <div class="panel-title">
+        <a href="javascript:;" onclick="subOpenCreate()">
+          <span class="badge btn btn-outline-success"><i class="fa fa-plus me-1"></i> New Sub-Account</span>
+        </a>
+      </div>
+      <div class="panel-heading-btn">
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-default" data-toggle="panel-expand"><i class="fa fa-expand"></i></a>
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-success" data-toggle="panel-reload"><i class="fa fa-redo"></i></a>
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-warning" data-toggle="panel-collapse"><i class="fa fa-minus"></i></a>
+      </div>
+    </div>
+    <div class="panel-body">
+      <table id="subTable" width="100%" class="table table-striped table-bordered align-middle">
+        <thead><tr>
+          <th width="1%">SL</th><th>Type</th>
+          <th>Code</th><th>Name</th><th>Main Account</th>
+          <th>Contact</th><th>Phone</th>
+          <th class="text-end">Balance</th>
+          <th>Created</th><th>Status</th>
+          <th class="text-center" width="13%">Actions</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <!-- CREATE / EDIT MODAL -->
+    <div tabindex="-1" id="subModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="subModalTitle"><i class="fa fa-plus me-1 text-success"></i> New Sub-Account</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <form id="subForm" novalidate>
+            <div class="modal-body">
+              <div class="hs-box">
+                <input type="hidden" id="subId">
+
+                <!-- ── COMMON FIELDS ──────────────────────────────────────── -->
+                <div class="row g-2 mb-3">
+                  <div class="col-md-4 view-group">
+                    <select id="subType" class="form-select hs_span_view" required onchange="onTypeChange(this.value)">
+                      <option value="">— Sub-Account Type —</option>
+                      <option value="BANK">BANK</option>
+                      <option value="CASH">CASH</option>
+                      <option value="CUSTOMER">CUSTOMER</option>
+                      <option value="SUPPLIER">SUPPLIER</option>
+                      <option value="EMPLOYEE">EMPLOYEE</option>
+                      <option value="LC">LC</option>
+                      <option value="GENERAL">GENERAL</option>
+                      <option value="INTER_COMPANY">INTER COMPANY</option>
+                    </select>
+                    <label for="subType" class="input-label">Type <span class="text-danger">*</span></label>
+                  </div>
+
+                  <!-- Main account — AJAX Select2 -->
+                  <div class="col-md-8 view-group">
+                    <select id="subMainAccountId" class="form-select hs_span_view"></select>
+                    <label for="subMainAccountId" class="input-label">Main Account <span class="text-danger">*</span></label>
+                  </div>
+
+                  <div class="col-md-4 view-group">
+                    <input id="subCode" type="text" class="form-control hs_span_view text-uppercase" maxlength="50" required placeholder="Sub-account code">
+                    <label for="subCode" class="input-label">Code <span class="text-danger">*</span></label>
+                  </div>
+                  <div class="col-md-8 view-group">
+                    <input id="subName" type="text" class="form-control hs_span_view" maxlength="200" required placeholder="Sub-account name">
+                    <label for="subName" class="input-label">Name <span class="text-danger">*</span></label>
+                  </div>
+
+                  <div class="col-md-4 view-group">
+                    <input id="subCurrency" type="text" class="form-control hs_span_view" maxlength="20" placeholder="BDT">
+                    <label for="subCurrency" class="input-label">Currency</label>
+                  </div>
+                  <div class="col-md-4 view-group">
+                    <input id="subOpeningBal" type="number" step="0.01" class="form-control hs_span_view text-end" placeholder="0.00">
+                    <label for="subOpeningBal" class="input-label">Opening Balance</label>
+                  </div>
+                  <div class="col-md-4 view-group">
+                    <input id="subTaxId" type="text" class="form-control hs_span_view" maxlength="50">
+                    <label for="subTaxId" class="input-label">Tax ID / BIN</label>
+                  </div>
+
+                  <!-- Contact -->
+                  <div class="col-md-4 view-group">
+                    <input id="subContactPerson" type="text" class="form-control hs_span_view" maxlength="200">
+                    <label for="subContactPerson" class="input-label">Contact Person</label>
+                  </div>
+                  <div class="col-md-4 view-group">
+                    <input id="subContactPhone" type="text" class="form-control hs_span_view" maxlength="20">
+                    <label for="subContactPhone" class="input-label">Phone</label>
+                  </div>
+                  <div class="col-md-4 view-group">
+                    <input id="subContactEmail" type="email" class="form-control hs_span_view" maxlength="100">
+                    <label for="subContactEmail" class="input-label">Email</label>
+                  </div>
+                  <div class="col-12 view-group">
+                    <input id="subAddress" type="text" class="form-control hs_span_view" maxlength="500" placeholder="Address">
+                    <label for="subAddress" class="input-label">Address</label>
+                  </div>
+                  <div class="col-md-3 view-group">
+                    <input id="subCity" type="text" class="form-control hs_span_view" maxlength="50">
+                    <label for="subCity" class="input-label">City</label>
+                  </div>
+                  <div class="col-md-3 view-group">
+                    <input id="subState" type="text" class="form-control hs_span_view" maxlength="50">
+                    <label for="subState" class="input-label">State</label>
+                  </div>
+                  <div class="col-md-3 view-group">
+                    <input id="subCountry" type="text" class="form-control hs_span_view" maxlength="50">
+                    <label for="subCountry" class="input-label">Country</label>
+                  </div>
+                  <div class="col-md-3 view-group">
+                    <input id="subVatNo" type="text" class="form-control hs_span_view" maxlength="50">
+                    <label for="subVatNo" class="input-label">VAT Reg. No</label>
+                  </div>
+                  <div class="col-12 view-group">
+                    <textarea id="subRemarks" class="form-control hs_span_view" rows="2" placeholder="Remarks…"></textarea>
+                    <label for="subRemarks" class="input-label">Remarks</label>
+                  </div>
+                </div>
+
+                <!-- ── BANK-SPECIFIC ──────────────────────────────────────── -->
+                <div id="bankSection" class="type-section d-none">
+                  <h6 class="text-muted border-bottom pb-1 mt-1 mb-2"><i class="fas fa-building-columns me-1"></i> Bank Details</h6>
+                  <div class="row g-2">
+                    <div class="col-md-6 view-group">
+                      <select id="subBankId" class="form-select hs_span_view"></select>
+                      <label for="subBankId" class="input-label">Bank (AJAX Search)</label>
+                    </div>
+                    <div class="col-md-6 view-group">
+                      <input id="subAccountNumber" type="text" class="form-control hs_span_view" maxlength="50" placeholder="Account number">
+                      <label for="subAccountNumber" class="input-label">Account Number</label>
+                    </div>
+                    <div class="col-md-6 view-group">
+                      <input id="subAccountTitle" type="text" class="form-control hs_span_view" maxlength="200">
+                      <label for="subAccountTitle" class="input-label">Account Title</label>
+                    </div>
+                    <div class="col-md-6 view-group">
+                      <select id="subBankAccType" class="form-select hs_span_view">
+                        <option value="">— Bank Account Type —</option>
+                        <option value="CURRENT">CURRENT</option>
+                        <option value="SAVINGS">SAVINGS</option>
+                        <option value="STD">STD</option>
+                        <option value="LOAN">LOAN</option>
+                        <option value="OD">OVERDRAFT</option>
+                      </select>
+                      <label for="subBankAccType" class="input-label">Account Type</label>
+                    </div>
+                    <div class="col-md-4 view-group">
+                      <input id="subBranchName" type="text" class="form-control hs_span_view" maxlength="100">
+                      <label for="subBranchName" class="input-label">Branch Name</label>
+                    </div>
+                    <div class="col-md-4 view-group">
+                      <input id="subRoutingNo" type="text" class="form-control hs_span_view" maxlength="9">
+                      <label for="subRoutingNo" class="input-label">Routing No</label>
+                    </div>
+                    <div class="col-md-4 view-group">
+                      <input id="subSwiftCode" type="text" class="form-control hs_span_view" maxlength="11">
+                      <label for="subSwiftCode" class="input-label">SWIFT Code</label>
+                    </div>
+                    <div class="col-md-4 view-group">
+                      <input id="subOverdraftLimit" type="number" step="0.01" class="form-control hs_span_view text-end">
+                      <label for="subOverdraftLimit" class="input-label">Overdraft Limit</label>
+                    </div>
+                    <div class="col-md-4 view-group">
+                      <input id="subInterestRate" type="number" step="0.0001" class="form-control hs_span_view text-end">
+                      <label for="subInterestRate" class="input-label">Interest Rate %</label>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- ── CASH-SPECIFIC ──────────────────────────────────────── -->
+                <div id="cashSection" class="type-section d-none">
+                  <h6 class="text-muted border-bottom pb-1 mt-1 mb-2"><i class="fas fa-vault me-1"></i> Cash Details</h6>
+                  <div class="row g-2">
+                    <div class="col-md-6 view-group">
+                      <input id="subCashCode" type="text" class="form-control hs_span_view" maxlength="50">
+                      <label for="subCashCode" class="input-label">Cash Account Code</label>
+                    </div>
+                    <div class="col-md-6 view-group">
+                      <input id="subLocation" type="text" class="form-control hs_span_view" maxlength="100">
+                      <label for="subLocation" class="input-label">Location</label>
+                    </div>
+                    <div class="col-md-6 view-group">
+                      <input id="subCustodian" type="text" class="form-control hs_span_view" maxlength="100">
+                      <label for="subCustodian" class="input-label">Custodian</label>
+                    </div>
+                    <div class="col-md-6 view-group">
+                      <input id="subMaxLimit" type="number" step="0.01" class="form-control hs_span_view text-end">
+                      <label for="subMaxLimit" class="input-label">Maximum Limit</label>
+                    </div>
+                    <div class="col-md-6 view-group">
+                      <input id="subApprovalLimit" type="number" step="0.01" class="form-control hs_span_view text-end">
+                      <label for="subApprovalLimit" class="input-label">Approval Limit</label>
+                    </div>
+                    <div class="col-md-6">
+                      <div class="form-check form-switch mt-2">
+                        <input class="form-check-input" type="checkbox" id="subRequiresApproval">
+                        <label class="form-check-label" for="subRequiresApproval">Requires Approval</label>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- ── CUSTOMER-SPECIFIC ──────────────────────────────────── -->
+                <div id="customerSection" class="type-section d-none">
+                  <h6 class="text-muted border-bottom pb-1 mt-1 mb-2"><i class="fas fa-user-tie me-1"></i> Customer Details</h6>
+                  <div class="row g-2">
+                    <div class="col-md-4 view-group">
+                      <input id="subCustomerCode" type="text" class="form-control hs_span_view" maxlength="50">
+                      <label for="subCustomerCode" class="input-label">Customer Code</label>
+                    </div>
+                    <div class="col-md-4 view-group">
+                      <input id="subCreditLimit" type="number" step="0.01" class="form-control hs_span_view text-end">
+                      <label for="subCreditLimit" class="input-label">Credit Limit</label>
+                    </div>
+                    <div class="col-md-4 view-group">
+                      <input id="subCreditDays" type="number" class="form-control hs_span_view">
+                      <label for="subCreditDays" class="input-label">Credit Days</label>
+                    </div>
+                    <div class="col-md-4 view-group">
+                      <input id="subPaymentTerms" type="text" class="form-control hs_span_view" maxlength="100">
+                      <label for="subPaymentTerms" class="input-label">Payment Terms</label>
+                    </div>
+                    <div class="col-md-4 view-group">
+                      <input id="subSalesRep" type="text" class="form-control hs_span_view" maxlength="100">
+                      <label for="subSalesRep" class="input-label">Sales Rep</label>
+                    </div>
+                    <div class="col-md-4 view-group">
+                      <input id="subCustomerGroup" type="text" class="form-control hs_span_view" maxlength="50">
+                      <label for="subCustomerGroup" class="input-label">Customer Group</label>
+                    </div>
+                    <div class="col-md-4">
+                      <div class="form-check form-switch mt-2">
+                        <input class="form-check-input" type="checkbox" id="subIsExport">
+                        <label class="form-check-label" for="subIsExport">Export Customer</label>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- ── SUPPLIER-SPECIFIC ──────────────────────────────────── -->
+                <div id="supplierSection" class="type-section d-none">
+                  <h6 class="text-muted border-bottom pb-1 mt-1 mb-2"><i class="fas fa-truck me-1"></i> Supplier Details</h6>
+                  <div class="row g-2">
+                    <div class="col-md-4 view-group">
+                      <input id="subSupplierCode" type="text" class="form-control hs_span_view" maxlength="50">
+                      <label for="subSupplierCode" class="input-label">Supplier Code</label>
+                    </div>
+                    <div class="col-md-4 view-group">
+                      <input id="subLeadTime" type="number" class="form-control hs_span_view">
+                      <label for="subLeadTime" class="input-label">Lead Time (days)</label>
+                    </div>
+                    <div class="col-md-4 view-group">
+                      <input id="subPrefCurrency" type="text" class="form-control hs_span_view" maxlength="3" placeholder="USD">
+                      <label for="subPrefCurrency" class="input-label">Preferred Currency</label>
+                    </div>
+                    <div class="col-md-4">
+                      <div class="form-check form-switch mt-2">
+                        <input class="form-check-input" type="checkbox" id="subIsImport">
+                        <label class="form-check-label" for="subIsImport">Import Supplier</label>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- ── LC-SPECIFIC ────────────────────────────────────────── -->
+                <div id="lcSection" class="type-section d-none">
+                  <h6 class="text-muted border-bottom pb-1 mt-1 mb-2"><i class="fas fa-file-contract me-1"></i> Letter of Credit Details</h6>
+                  <div class="row g-2">
+                    <div class="col-md-4 view-group">
+                      <input id="subLcNumber" type="text" class="form-control hs_span_view" maxlength="100">
+                      <label for="subLcNumber" class="input-label">LC Number (Auto)</label>
+                    </div>
+                    <div class="col-md-4 view-group">
+                      <input id="subManualLcNo" type="text" class="form-control hs_span_view" maxlength="100">
+                      <label for="subManualLcNo" class="input-label">Manual LC No</label>
+                    </div>
+                    <div class="col-md-4 view-group">
+                      <select id="subLcType" class="form-select hs_span_view">
+                        <option value="">— LC Type —</option>
+                        <option value="BTB">BTB (Back-to-Back)</option>
+                        <option value="MASTER">MASTER</option>
+                        <option value="SIGHT">SIGHT</option>
+                        <option value="USANCE">USANCE</option>
+                        <option value="RED_CLAUSE">RED CLAUSE</option>
+                      </select>
+                      <label for="subLcType" class="input-label">LC Type</label>
+                    </div>
+                    <div class="col-md-4 view-group">
+                      <select id="subLcStatus" class="form-select hs_span_view">
+                        <option value="OPEN">OPEN</option>
+                        <option value="SHIPPED">SHIPPED</option>
+                        <option value="SETTLED">SETTLED</option>
+                        <option value="EXPIRED">EXPIRED</option>
+                        <option value="CANCELLED">CANCELLED</option>
+                      </select>
+                      <label for="subLcStatus" class="input-label">LC Status</label>
+                    </div>
+                    <div class="col-md-4 view-group">
+                      <input id="subLcAmount" type="number" step="0.01" class="form-control hs_span_view text-end">
+                      <label for="subLcAmount" class="input-label">LC Amount</label>
+                    </div>
+                    <div class="col-md-4 view-group">
+                      <input id="subExRate" type="number" step="0.0001" class="form-control hs_span_view text-end">
+                      <label for="subExRate" class="input-label">Exchange Rate</label>
+                    </div>
+                    <div class="col-md-4 view-group">
+                      <input id="subTxCurrency" type="text" class="form-control hs_span_view" maxlength="20" placeholder="USD">
+                      <label for="subTxCurrency" class="input-label">Transaction Currency</label>
+                    </div>
+                    <div class="col-md-4 view-group">
+                      <input id="subIssueDate" type="date" class="form-control hs_span_view">
+                      <label for="subIssueDate" class="input-label">Issue Date</label>
+                    </div>
+                    <div class="col-md-4 view-group">
+                      <input id="subExpiryDate" type="date" class="form-control hs_span_view">
+                      <label for="subExpiryDate" class="input-label">Expiry Date</label>
+                    </div>
+                    <div class="col-md-4 view-group">
+                      <input id="subShipmentDate" type="date" class="form-control hs_span_view">
+                      <label for="subShipmentDate" class="input-label">Shipment Date</label>
+                    </div>
+                    <div class="col-md-4 view-group">
+                      <input id="subTenureDays" type="number" class="form-control hs_span_view">
+                      <label for="subTenureDays" class="input-label">Tenure (days)</label>
+                    </div>
+                    <div class="col-md-4 view-group">
+                      <input id="subMasterLcNo" type="text" class="form-control hs_span_view" maxlength="100">
+                      <label for="subMasterLcNo" class="input-label">Master LC No</label>
+                    </div>
+                    <div class="col-md-4 view-group">
+                      <input id="subBtbLcNo" type="text" class="form-control hs_span_view" maxlength="100">
+                      <label for="subBtbLcNo" class="input-label">BTB LC No</label>
+                    </div>
+                    <div class="col-md-4 view-group">
+                      <select id="subPaymentTerm" class="form-select hs_span_view">
+                        <option value="">— Payment Term —</option>
+                        <option value="AT_SIGHT">AT SIGHT</option>
+                        <option value="DEFERRED">DEFERRED</option>
+                        <option value="USANCE">USANCE</option>
+                        <option value="NEGOTIATION">NEGOTIATION</option>
+                      </select>
+                      <label for="subPaymentTerm" class="input-label">Payment Term</label>
+                    </div>
+                    <div class="col-md-4 view-group">
+                      <select id="subShipmentMode" class="form-select hs_span_view">
+                        <option value="">— Shipment Mode —</option>
+                        <option value="SEA">SEA</option>
+                        <option value="AIR">AIR</option>
+                        <option value="ROAD">ROAD</option>
+                        <option value="MULTIMODAL">MULTIMODAL</option>
+                      </select>
+                      <label for="subShipmentMode" class="input-label">Shipment Mode</label>
+                    </div>
+                    <div class="col-md-4">
+                      <div class="d-flex gap-3 mt-2">
+                        <div class="form-check form-switch">
+                          <input class="form-check-input" type="checkbox" id="subPartialShipment">
+                          <label class="form-check-label" for="subPartialShipment">Partial Shipment</label>
+                        </div>
+                        <div class="form-check form-switch">
+                          <input class="form-check-input" type="checkbox" id="subBtma">
+                          <label class="form-check-label" for="subBtma">BTMA Cert.</label>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Active flag -->
+                <div class="mt-3">
+                  <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="subActive" checked>
+                    <label class="form-check-label" for="subActive">Active</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-success" type="submit" id="subSubmitBtn">
+                <span class="spinner-border spinner-border-sm me-2 d-none" id="subSpinner"></span>
+                <span id="subBtnText">Save</span>
+              </button>
+              <button type="button" class="btn btn-white" data-bs-dismiss="modal">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- VIEW MODAL -->
+    <div tabindex="-1" id="subViewModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title"><i class="fa fa-list me-1 text-primary"></i> Sub-Account Details</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body" id="subViewBody"></div>
+          <div class="modal-footer"><button type="button" class="btn btn-white" data-bs-dismiss="modal">Close</button></div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /panel -->
+
+  <script th:inline="none">
+  (function () {
+    'use strict';
+    const BASE        = '/accounts/sub-accounts';
+    const COA_URL     = '/accounts/chart/search';
+    const BANK_URL    = '/banks/search';    // expects {items:[{id,text,...}], hasMore}
+    var dt, _currentType = '';
+
+    // ── DataTable ─────────────────────────────────────────────────────────
+
+    document.addEventListener('DOMContentLoaded', function () {
+      dt = $('#subTable').DataTable({
+        processing: true, serverSide: false, responsive: true, pageLength: 25,
+        ajax: { url: BASE + '/list', type: 'GET', data: function (d) {
+          if (_currentType) d.subAccountType = _currentType;
+        }},
+        columns: [
+          { data: 'sl', orderable: false, width: '40px' },
+          { data: 'sub_account_type', render: function (d) {
+            var icons = { BANK:'building-columns', CASH:'vault', CUSTOMER:'user-tie', SUPPLIER:'truck',
+                          EMPLOYEE:'id-badge', LC:'file-contract', GENERAL:'circle-nodes', INTER_COMPANY:'network-wired' };
+            return '<i class="fas fa-' + (icons[d]||'circle') + ' me-1"></i>' + (d||'');
+          }},
+          { data: 'sub_account_code' }, { data: 'sub_account_name' },
+          { data: 'main_account', defaultContent: '—' },
+          { data: 'contact_person', defaultContent: '—' },
+          { data: 'contact_phone',  defaultContent: '—' },
+          { data: 'current_balance', className: 'text-end', defaultContent: '—' },
+          { data: 'created_at',  defaultContent: '—' },
+          { data: 'status', orderable: false, className: 'text-center' },
+          { data: 'actions', orderable: false, className: 'text-center' }
+        ],
+        language: { emptyTable: 'No sub-accounts found.', processing: '<span class="spinner-border spinner-border-sm me-2"></span> Loading…' }
+      });
+
+      document.getElementById('subForm').addEventListener('submit', _onSubmit);
+      _initMainAccS2(null, null);
+      _initBankS2(null, null);
+    });
+
+    // ── Type tab switch ────────────────────────────────────────────────────
+
+    window.switchType = function (type) {
+      _currentType = type;
+      document.querySelectorAll('#subTypeTabs .nav-link').forEach(function (a) {
+        a.classList.toggle('active', a.dataset.type === type);
+      });
+      dt.ajax.reload();
+    };
+
+    // ── Type change in form ────────────────────────────────────────────────
+
+    window.onTypeChange = function (type) {
+      document.querySelectorAll('.type-section').forEach(function (el) { el.classList.add('d-none'); });
+      var map = { BANK: 'bankSection', CASH: 'cashSection', CUSTOMER: 'customerSection',
+                  SUPPLIER: 'supplierSection', LC: 'lcSection' };
+      if (map[type]) document.getElementById(map[type]).classList.remove('d-none');
+    };
+
+    // ── AJAX Select2: Main Account ─────────────────────────────────────────
+
+    function _initMainAccS2(preId, preText) {
+      var $el = $('#subMainAccountId');
+      if ($el.hasClass('select2-hidden-accessible')) $el.select2('destroy');
+      $el.select2({
+        dropdownParent: $('#subModal'), width: '100%',
+        placeholder: '— Search Main Account —', allowClear: true, minimumInputLength: 0,
+        ajax: {
+          url: COA_URL, dataType: 'json', delay: 250,
+          data: function (params) { return { search: params.term || '', page: params.page || 1 }; },
+          processResults: function (data, params) {
+            params.page = params.page || 1;
+            return {
+              results:    (data.items || []).map(function (i) { return { id: i.id, text: i.text, accountType: i.accountType }; }),
+              pagination: { more: data.hasMore || false }
+            };
+          }, cache: true
+        },
+        templateResult: function (r) {
+          if (r.loading) return r.text;
+          return $('<div><strong>' + nullCheck(r.text) + '</strong>'
+                 + (r.accountType ? ' <span class="badge bg-secondary ms-1">' + r.accountType + '</span>' : '')
+                 + '</div>');
+        },
+        templateSelection: function (r) { return r.text || r.id; }
+      });
+      if (preId) $el.append(new Option(preText || '', preId, true, true)).trigger('change');
+    }
+
+    // ── AJAX Select2: Bank ─────────────────────────────────────────────────
+
+    function _initBankS2(preId, preText) {
+      var $el = $('#subBankId');
+      if ($el.hasClass('select2-hidden-accessible')) $el.select2('destroy');
+      $el.select2({
+        dropdownParent: $('#subModal'), width: '100%',
+        placeholder: '— Search Bank —', allowClear: true, minimumInputLength: 0,
+        ajax: {
+          url: BANK_URL, dataType: 'json', delay: 250,
+          data: function (params) { return { search: params.term || '', page: params.page || 1 }; },
+          processResults: function (data, params) {
+            params.page = params.page || 1;
+            return {
+              results:    (data.items || []).map(function (i) { return { id: i.id, text: i.text }; }),
+              pagination: { more: data.hasMore || false }
+            };
+          }, cache: true
+        },
+        templateResult:    function (r) { return r.loading ? r.text : r.text; },
+        templateSelection: function (r) { return r.text || r.id; }
+      });
+      if (preId) $el.append(new Option(preText || '', preId, true, true)).trigger('change');
+    }
+
+    // ── Open create ────────────────────────────────────────────────────────
+
+    window.subOpenCreate = function () {
+      _resetForm();
+      if (_currentType) {
+        document.getElementById('subType').value = _currentType;
+        onTypeChange(_currentType);
+      }
+      document.getElementById('subModalTitle').innerHTML = '<i class="fa fa-plus me-1 text-success"></i> New Sub-Account';
+      document.getElementById('subBtnText').textContent  = 'Save';
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('subModal')).show();
+    };
+
+    // ── Show (view modal) ─────────────────────────────────────────────────
+
+    window.bankShow = window.cashShow = window.custShow = window.suppShow =
+    window.empShow  = window.lcShow   = window.subShow  = function (id) {
+      secureFetch(BASE + '/show/' + id).then(function (res) {
+        if (!res.success) { Swal.fire('Error', res.message, 'error'); return; }
+        var o = res.obj.defaultData;
+        var html = '<div class="hs-box"><div class="row g-2">'
+          + _vf('Type', o.subAccountType)        + _vf('Code', o.subAccountCode)
+          + _vf('Name', o.subAccountName)        + _vf('Main Account', o.mainAccountDisplay || '—')
+          + _vf('Currency', o.currency || '—')   + _vf('Opening Bal', o.openingBalance || '—')
+          + _vf('Contact', o.contactPerson||'—') + _vf('Phone', o.contactPhone || '—')
+          + _vf('Email', o.contactEmail || '—')  + _vf('Status', o.active ? 'Active' : 'Inactive')
+          + '</div></div>';
+        document.getElementById('subViewBody').innerHTML = html;
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('subViewModal')).show();
+      });
+    };
+
+    // ── Edit ──────────────────────────────────────────────────────────────
+
+    window.bankEdit = window.cashEdit = window.custEdit = window.suppEdit =
+    window.empEdit  = window.lcEdit   = window.subEdit  = function (id) {
+      secureFetch(BASE + '/show/' + id).then(function (res) {
+        if (!res.success) { Swal.fire('Error', res.message, 'error'); return; }
+        var o = res.obj.defaultData;
+        _resetForm();
+        document.getElementById('subId').value              = o.id;
+        document.getElementById('subType').value            = o.subAccountType || '';
+        document.getElementById('subCode').value            = o.subAccountCode || '';
+        document.getElementById('subName').value            = o.subAccountName || '';
+        document.getElementById('subCurrency').value        = o.currency || '';
+        document.getElementById('subOpeningBal').value      = o.openingBalance || '';
+        document.getElementById('subTaxId').value           = o.taxId || '';
+        document.getElementById('subContactPerson').value   = o.contactPerson || '';
+        document.getElementById('subContactPhone').value    = o.contactPhone || '';
+        document.getElementById('subContactEmail').value    = o.contactEmail || '';
+        document.getElementById('subAddress').value         = o.address || '';
+        document.getElementById('subCity').value            = o.city || '';
+        document.getElementById('subState').value           = o.state || '';
+        document.getElementById('subCountry').value         = o.country || '';
+        document.getElementById('subVatNo').value           = o.vatRegistrationNo || '';
+        document.getElementById('subRemarks').value         = o.remarks || '';
+        document.getElementById('subActive').checked        = o.active !== false;
+        _initMainAccS2(o.mainAccountId, o.mainAccountDisplay);
+        onTypeChange(o.subAccountType || '');
+        // Type-specific
+        if (o.subAccountType === 'BANK') {
+          _initBankS2(o.bankId, o.bankName);
+          document.getElementById('subAccountNumber').value = o.accountNumber || '';
+          document.getElementById('subAccountTitle').value  = o.accountTitle  || '';
+          document.getElementById('subBankAccType').value   = o.bankAccountType|| '';
+          document.getElementById('subBranchName').value    = o.branchName    || '';
+          document.getElementById('subRoutingNo').value     = o.routingNumber || '';
+          document.getElementById('subSwiftCode').value     = o.swiftCode     || '';
+          document.getElementById('subOverdraftLimit').value= o.overdraftLimit|| '';
+          document.getElementById('subInterestRate').value  = o.interestRate  || '';
+        } else if (o.subAccountType === 'CASH') {
+          document.getElementById('subCashCode').value      = o.cashAccountCode|| '';
+          document.getElementById('subLocation').value      = o.location       || '';
+          document.getElementById('subCustodian').value     = o.custodian      || '';
+          document.getElementById('subMaxLimit').value      = o.maximumLimit   || '';
+          document.getElementById('subApprovalLimit').value = o.approvalLimit  || '';
+          document.getElementById('subRequiresApproval').checked = !!o.requiresApproval;
+        } else if (o.subAccountType === 'CUSTOMER') {
+          document.getElementById('subCustomerCode').value  = o.customerCode   || '';
+          document.getElementById('subCreditLimit').value   = o.creditLimit    || '';
+          document.getElementById('subCreditDays').value    = o.creditDays     || '';
+          document.getElementById('subPaymentTerms').value  = o.paymentTerms   || '';
+          document.getElementById('subSalesRep').value      = o.salesRepresentative|| '';
+          document.getElementById('subCustomerGroup').value = o.customerGroup  || '';
+          document.getElementById('subIsExport').checked    = !!o.isExportCustomer;
+        } else if (o.subAccountType === 'SUPPLIER') {
+          document.getElementById('subSupplierCode').value  = o.supplierCode   || '';
+          document.getElementById('subLeadTime').value      = o.leadTimeDays   || '';
+          document.getElementById('subPrefCurrency').value  = o.preferredCurrency|| '';
+          document.getElementById('subIsImport').checked    = !!o.isImportSupplier;
+        } else if (o.subAccountType === 'LC') {
+          document.getElementById('subLcNumber').value      = o.lcNumber       || '';
+          document.getElementById('subManualLcNo').value    = o.manualLcNumber || '';
+          document.getElementById('subLcType').value        = o.lcType         || '';
+          document.getElementById('subLcStatus').value      = o.lcStatus       || 'OPEN';
+          document.getElementById('subLcAmount').value      = o.lcAmount       || '';
+          document.getElementById('subExRate').value        = o.exchangeRate   || '';
+          document.getElementById('subTxCurrency').value    = o.transactionCurrency|| '';
+          document.getElementById('subIssueDate').value     = o.issueDate      || '';
+          document.getElementById('subExpiryDate').value    = o.expiryDate     || '';
+          document.getElementById('subShipmentDate').value  = o.shipmentDate   || '';
+          document.getElementById('subTenureDays').value    = o.tenureDays     || '';
+          document.getElementById('subMasterLcNo').value    = o.masterLcNo     || '';
+          document.getElementById('subBtbLcNo').value       = o.btbLcNo        || '';
+          document.getElementById('subPaymentTerm').value   = o.paymentTerm    || '';
+          document.getElementById('subShipmentMode').value  = o.shipmentMode   || '';
+          document.getElementById('subPartialShipment').checked = !!o.partialShipmentAllowed;
+          document.getElementById('subBtma').checked            = !!o.btmaCertificateRequired;
+        }
+        document.getElementById('subModalTitle').innerHTML = '<i class="fa fa-pencil me-1 text-warning"></i> Edit Sub-Account';
+        document.getElementById('subBtnText').textContent  = 'Update';
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('subModal')).show();
+      });
+    };
+
+    // ── Toggle / Delete ───────────────────────────────────────────────────
+
+    window.bankToggle = window.cashToggle = window.custToggle = window.suppToggle =
+    window.empToggle  = window.lcToggle   = window.subToggle  = function (id) { hsChangeStatus(BASE + '/toggle/' + id, dt); };
+    window.bankDelete = window.cashDelete = window.custDelete = window.suppDelete =
+    window.empDelete  = window.lcDelete   = window.subDelete  = function (id) { hsConfirmDelete(BASE + '/delete/' + id, dt); };
+
+    // ── Submit ────────────────────────────────────────────────────────────
+
+    function _onSubmit(e) {
+      e.preventDefault();
+      var type = document.getElementById('subType').value;
+      var sb = document.getElementById('subSubmitBtn'), sp = document.getElementById('subSpinner'), bt = document.getElementById('subBtnText');
+      hsDisableButton(sb, sp, bt);
+
+      var payload = {
+        id             : document.getElementById('subId').value || null,
+        subAccountType : type,
+        mainAccountId  : $('#subMainAccountId').val() || null,
+        subAccountCode : document.getElementById('subCode').value,
+        subAccountName : document.getElementById('subName').value,
+        currency       : document.getElementById('subCurrency').value || null,
+        openingBalance : parseFloat(document.getElementById('subOpeningBal').value) || null,
+        taxId          : document.getElementById('subTaxId').value || null,
+        contactPerson  : document.getElementById('subContactPerson').value || null,
+        contactPhone   : document.getElementById('subContactPhone').value  || null,
+        contactEmail   : document.getElementById('subContactEmail').value  || null,
+        address        : document.getElementById('subAddress').value  || null,
+        city           : document.getElementById('subCity').value     || null,
+        state          : document.getElementById('subState').value    || null,
+        country        : document.getElementById('subCountry').value  || null,
+        vatRegistrationNo: document.getElementById('subVatNo').value  || null,
+        remarks        : document.getElementById('subRemarks').value  || null,
+        active         : document.getElementById('subActive').checked
+      };
+
+      if (type === 'BANK') {
+        Object.assign(payload, {
+          bankId         : $('#subBankId').val() || null,
+          accountNumber  : document.getElementById('subAccountNumber').value || null,
+          accountTitle   : document.getElementById('subAccountTitle').value  || null,
+          bankAccountType: document.getElementById('subBankAccType').value   || null,
+          branchName     : document.getElementById('subBranchName').value    || null,
+          routingNumber  : document.getElementById('subRoutingNo').value     || null,
+          swiftCode      : document.getElementById('subSwiftCode').value     || null,
+          overdraftLimit : parseFloat(document.getElementById('subOverdraftLimit').value) || null,
+          interestRate   : parseFloat(document.getElementById('subInterestRate').value)   || null
+        });
+      } else if (type === 'CASH') {
+        Object.assign(payload, {
+          cashAccountCode  : document.getElementById('subCashCode').value    || null,
+          location         : document.getElementById('subLocation').value    || null,
+          custodian        : document.getElementById('subCustodian').value   || null,
+          maximumLimit     : parseFloat(document.getElementById('subMaxLimit').value)      || null,
+          approvalLimit    : parseFloat(document.getElementById('subApprovalLimit').value) || null,
+          requiresApproval : document.getElementById('subRequiresApproval').checked
+        });
+      } else if (type === 'CUSTOMER') {
+        Object.assign(payload, {
+          customerCode        : document.getElementById('subCustomerCode').value  || null,
+          creditLimit         : parseFloat(document.getElementById('subCreditLimit').value)  || null,
+          creditDays          : parseInt(document.getElementById('subCreditDays').value)     || null,
+          paymentTerms        : document.getElementById('subPaymentTerms').value || null,
+          salesRepresentative : document.getElementById('subSalesRep').value     || null,
+          customerGroup       : document.getElementById('subCustomerGroup').value|| null,
+          isExportCustomer    : document.getElementById('subIsExport').checked
+        });
+      } else if (type === 'SUPPLIER') {
+        Object.assign(payload, {
+          supplierCode     : document.getElementById('subSupplierCode').value || null,
+          leadTimeDays     : parseInt(document.getElementById('subLeadTime').value) || null,
+          preferredCurrency: document.getElementById('subPrefCurrency').value || null,
+          isImportSupplier : document.getElementById('subIsImport').checked
+        });
+      } else if (type === 'LC') {
+        Object.assign(payload, {
+          lcNumber                 : document.getElementById('subLcNumber').value     || null,
+          manualLcNumber           : document.getElementById('subManualLcNo').value   || null,
+          lcType                   : document.getElementById('subLcType').value       || null,
+          lcStatus                 : document.getElementById('subLcStatus').value     || 'OPEN',
+          lcAmount                 : parseFloat(document.getElementById('subLcAmount').value)   || null,
+          exchangeRate             : parseFloat(document.getElementById('subExRate').value)      || null,
+          transactionCurrency      : document.getElementById('subTxCurrency').value   || null,
+          issueDate                : document.getElementById('subIssueDate').value    || null,
+          expiryDate               : document.getElementById('subExpiryDate').value   || null,
+          shipmentDate             : document.getElementById('subShipmentDate').value || null,
+          tenureDays               : parseInt(document.getElementById('subTenureDays').value)   || null,
+          masterLcNo               : document.getElementById('subMasterLcNo').value   || null,
+          btbLcNo                  : document.getElementById('subBtbLcNo').value      || null,
+          paymentTerm              : document.getElementById('subPaymentTerm').value  || null,
+          shipmentMode             : document.getElementById('subShipmentMode').value || null,
+          partialShipmentAllowed   : document.getElementById('subPartialShipment').checked,
+          btmaCertificateRequired  : document.getElementById('subBtma').checked
+        });
+      }
+
+      secureFetch(BASE + '/save', { method: 'POST', body: JSON.stringify(payload) })
+        .then(function (d) {
+          hsAfterSaveMessages(d, dt);
+          if (d.success) bootstrap.Modal.getOrCreateInstance(document.getElementById('subModal')).hide();
+        }).catch(function (err) { Swal.fire('Error', err.message || 'Request failed.', 'error'); })
+        .finally(function () { hsEnableButton(sb, sp, bt); });
+    }
+
+    // ── Helpers ───────────────────────────────────────────────────────────
+
+    function _resetForm() {
+      ['subMainAccountId','subBankId'].forEach(function (s) {
+        if ($('#'+s).hasClass('select2-hidden-accessible')) $('#'+s).select2('destroy');
+      });
+      document.getElementById('subForm').reset();
+      document.getElementById('subId').value  = '';
+      document.getElementById('subActive').checked = true;
+      document.querySelectorAll('.type-section').forEach(function (el) { el.classList.add('d-none'); });
+      _initMainAccS2(null, null);
+      _initBankS2(null, null);
+    }
+
+    function _vf(label, value) {
+      return '<div class="col-md-4 view-group"><label class="view-label">' + label + '</label>'
+           + '<span class="form-control hs_span_show">' + (value !== null && value !== undefined ? value : '—') + '</span></div>';
+    }
+  })();
+  </script>
+</section>
+</html>

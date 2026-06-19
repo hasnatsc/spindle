@@ -3,6 +3,8 @@
   inventory/stock-balance.html    GET /inventory/stocks
   Shows current stock position per item × warehouse × lot.
   Also provides link to full transaction ledger.
+
+  ITEM FILTER → AJAX Select2 via /items/search
 -->
 <html th:replace="~{layout/base :: layout('Stock Balance', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
 <section>
@@ -23,12 +25,19 @@
     <div class="panel-heading">
       <!-- Filter bar -->
       <div class="panel-title d-flex align-items-center flex-nowrap gap-2 mb-0">
+
+        <!-- Warehouse: plain select (small, finite list) -->
         <select id="filterWarehouse" class="form-select form-select-sm" style="width:220px">
           <option value="">All Warehouses</option>
         </select>
-        <select id="filterItem" class="form-select form-select-sm" style="width:260px">
-          <option value="">All Items</option>
-        </select>
+
+        <!-- Item: AJAX Select2 -->
+        <div style="width:280px">
+          <select id="filterItem" class="form-select form-select-sm">
+            <option value="">All Items</option>
+          </select>
+        </div>
+
         <button class="btn btn-sm btn-primary" onclick="applyFilter()">
           <i class="fa fa-filter me-1"></i> Filter
         </button>
@@ -73,10 +82,13 @@
   <script th:inline="none">
   (function () {
     'use strict';
-    const BASE = '/inventory/stocks';
+    const BASE     = '/inventory/stocks';
+    const ITEM_URL = '/items/search';
     var dt, _whId = null, _itemId = null;
 
     document.addEventListener('DOMContentLoaded', function () {
+
+      // ── DataTable ───────────────────────────────────────────────────────
       dt = $('#balanceTable').DataTable({
         processing: true, serverSide: false, responsive: true, pageLength: 25,
         ajax: { url: BASE + '/balance/list', type: 'GET', data: function (d) {
@@ -90,48 +102,87 @@
           { data: 'unit_code' },
           { data: 'warehouse_name' },
           { data: 'lot_number', defaultContent: '—' },
-          { data: 'quantity',          className: 'text-end' },
-          { data: 'reserved_quantity', className: 'text-end' },
-          { data: 'available_quantity',className: 'text-end fw-bold' },
+          { data: 'quantity',           className: 'text-end' },
+          { data: 'reserved_quantity',  className: 'text-end' },
+          { data: 'available_quantity', className: 'text-end fw-bold' },
           { data: 'average_cost',  defaultContent: '—', className: 'text-end' },
           { data: 'stock_value',   defaultContent: '—', className: 'text-end' },
           { data: 'last_transaction_time', defaultContent: '—' }
         ],
         footerCallback: function () {
           var api = this.api();
-          var sum = function (col) { return api.column(col, { page: 'current' }).data().reduce(function (a, b) { return (parseFloat(a) || 0) + (parseFloat(b) || 0); }, 0).toFixed(3); };
+          var sum = function (col) {
+            return api.column(col, { page: 'current' }).data()
+              .reduce(function (a, b) { return (parseFloat(a) || 0) + (parseFloat(b) || 0); }, 0).toFixed(3);
+          };
           document.getElementById('ftQty').textContent   = sum(7);
           document.getElementById('ftRes').textContent   = sum(8);
           document.getElementById('ftAvail').textContent = sum(9);
-          document.getElementById('ftValue').textContent = api.column(11, { page: 'current' }).data().reduce(function (a, b) { var n = parseFloat(b); return a + (isNaN(n) ? 0 : n); }, 0).toFixed(2);
+          document.getElementById('ftValue').textContent = api.column(11, { page: 'current' }).data()
+            .reduce(function (a, b) { var n = parseFloat(b); return a + (isNaN(n) ? 0 : n); }, 0).toFixed(2);
         },
         language: { emptyTable: 'No stock found.', processing: '<span class="spinner-border spinner-border-sm me-2"></span> Loading…' }
       });
 
-      // Load warehouse filter
+      // ── Warehouse filter (plain select) ─────────────────────────────────
       secureFetch('/warehouses/active').then(function (data) {
         var sel = document.getElementById('filterWarehouse');
         (data || []).forEach(function (w) {
-          var opt = document.createElement('option'); opt.value = w.id; opt.textContent = w.name + ' (' + w.code + ')'; sel.appendChild(opt);
+          var opt = document.createElement('option');
+          opt.value = w.id;
+          opt.textContent = w.name + ' (' + w.code + ')';
+          sel.appendChild(opt);
         });
       });
-      // Load item filter
-      secureFetch('/items/active').then(function (data) {
-        var sel = document.getElementById('filterItem');
-        (data || []).forEach(function (i) {
-          var opt = document.createElement('option'); opt.value = i.id; opt.textContent = i.code + ' — ' + i.name; sel.appendChild(opt);
-        });
+
+      // ── Item filter (AJAX Select2) ───────────────────────────────────────
+      $('#filterItem').select2({
+        width:              '100%',
+        placeholder:        '— All Items —',
+        allowClear:         true,
+        minimumInputLength: 0,
+        ajax: {
+          url:      ITEM_URL,
+          dataType: 'json',
+          delay:    250,
+          data: function (params) {
+            return { search: params.term || '', page: params.page || 1 };
+          },
+          processResults: function (data, params) {
+            params.page = params.page || 1;
+            return {
+              results:    (data.items || []).map(function (i) {
+                return { id: i.id, text: i.text, code: i.code, name: i.name, uom: i.uom };
+              }),
+              pagination: { more: data.hasMore || false }
+            };
+          },
+          cache: true
+        },
+        templateResult: function (repo) {
+          if (repo.loading) return repo.text;
+          return $('<div><strong>' + nullCheck(repo.code) + '</strong>'
+                 + ' <span class="text-muted">— ' + nullCheck(repo.name) + '</span>'
+                 + (repo.uom ? '<small class="text-info ms-1">(' + repo.uom + ')</small>' : '')
+                 + '</div>');
+        },
+        templateSelection: function (repo) {
+          return repo.text || repo.id;
+        }
       });
     });
 
+    // ── Filter actions ────────────────────────────────────────────────────
+
     window.applyFilter = function () {
       _whId   = document.getElementById('filterWarehouse').value || null;
-      _itemId = document.getElementById('filterItem').value      || null;
+      _itemId = $('#filterItem').val() || null;
       dt.ajax.reload();
     };
+
     window.clearFilter = function () {
       document.getElementById('filterWarehouse').value = '';
-      document.getElementById('filterItem').value      = '';
+      $('#filterItem').val(null).trigger('change');
       _whId = null; _itemId = null;
       dt.ajax.reload();
     };
