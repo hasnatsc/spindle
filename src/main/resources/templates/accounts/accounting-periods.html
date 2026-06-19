@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<!--
+  accounts/accounting-periods.html    GET /accounts/periods
+  JS fns: periodShow / periodEdit / periodToggle / periodClose / periodDelete
+-->
+<html th:replace="~{layout/base :: layout('Accounting Periods', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
+<section>
+
+  <ol class="breadcrumb float-xl-end">
+    <li class="breadcrumb-item"><a th:href="@{/dashboard}">Home</a></li>
+    <li class="breadcrumb-item">Accounts</li>
+    <li class="breadcrumb-item active">Accounting Periods</li>
+  </ol>
+  <h1 class="page-header">Accounting Periods <small>fiscal calendar management</small></h1>
+
+  <div class="panel panel-inverse">
+    <div class="panel-heading">
+      <div class="panel-title">
+        <a href="javascript:;" onclick="periodOpenCreate()">
+          <span class="badge btn btn-outline-success"><i class="fa fa-plus me-1"></i> New Period</span>
+        </a>
+      </div>
+      <div class="panel-heading-btn">
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-default" data-toggle="panel-expand"><i class="fa fa-expand"></i></a>
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-success" data-toggle="panel-reload"><i class="fa fa-redo"></i></a>
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-warning" data-toggle="panel-collapse"><i class="fa fa-minus"></i></a>
+      </div>
+    </div>
+    <div class="panel-body">
+      <table id="periodTable" width="100%" class="table table-striped table-bordered align-middle">
+        <thead><tr>
+          <th width="1%">SL</th><th>Period Name</th><th>Type</th>
+          <th>FY</th><th>Start Date</th><th>End Date</th>
+          <th>Closed By</th><th>Close Date</th>
+          <th>Created</th><th>Status</th>
+          <th class="text-center" width="15%">Actions</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <!-- CREATE / EDIT MODAL -->
+    <div tabindex="-1" id="periodModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="periodModalTitle"><i class="fa fa-calendar-days me-1 text-success"></i> New Period</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <form id="periodForm" novalidate>
+            <div class="modal-body">
+              <div class="hs-box">
+                <input type="hidden" id="periodId">
+                <div class="row g-2">
+                  <div class="col-md-8 view-group">
+                    <input id="periodName" type="text" class="form-control hs_span_view" maxlength="50" required placeholder="e.g. FY2025-Q1">
+                    <label for="periodName" class="input-label">Period Name <span class="text-danger">*</span></label>
+                  </div>
+                  <div class="col-md-4 view-group">
+                    <select id="periodType" class="form-select hs_span_view" required>
+                      <option value="">— Period Type —</option>
+                      <option value="MONTHLY">MONTHLY</option>
+                      <option value="QUARTERLY">QUARTERLY</option>
+                      <option value="YEARLY">YEARLY</option>
+                      <option value="WEEKLY">WEEKLY</option>
+                      <option value="DAILY">DAILY</option>
+                      <option value="CUSTOM">CUSTOM</option>
+                    </select>
+                    <label for="periodType" class="input-label">Type <span class="text-danger">*</span></label>
+                  </div>
+                  <div class="col-md-4 view-group">
+                    <input id="periodFY" type="number" class="form-control hs_span_view" required placeholder="e.g. 2025" min="2000" max="2099">
+                    <label for="periodFY" class="input-label">Fiscal Year <span class="text-danger">*</span></label>
+                  </div>
+                  <div class="col-md-4 view-group">
+                    <input id="periodStart" type="date" class="form-control hs_span_view" required>
+                    <label for="periodStart" class="input-label">Start Date <span class="text-danger">*</span></label>
+                  </div>
+                  <div class="col-md-4 view-group">
+                    <input id="periodEnd" type="date" class="form-control hs_span_view" required>
+                    <label for="periodEnd" class="input-label">End Date <span class="text-danger">*</span></label>
+                  </div>
+                  <div class="col-12 view-group">
+                    <textarea id="periodDesc" class="form-control hs_span_view" rows="2" placeholder="Description…"></textarea>
+                    <label for="periodDesc" class="input-label">Description</label>
+                  </div>
+                  <div class="col-12">
+                    <div class="form-check form-switch">
+                      <input class="form-check-input" type="checkbox" id="periodActive" checked>
+                      <label class="form-check-label" for="periodActive">Active</label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-success" type="submit" id="periodSubmitBtn">
+                <span class="spinner-border spinner-border-sm me-2 d-none" id="periodSpinner"></span>
+                <span id="periodBtnText">Save</span>
+              </button>
+              <button type="button" class="btn btn-white" data-bs-dismiss="modal">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- VIEW MODAL -->
+    <div tabindex="-1" id="periodViewModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title"><i class="fa fa-calendar-days me-1 text-primary"></i> Period Details</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body" id="periodViewBody"></div>
+          <div class="modal-footer"><button type="button" class="btn btn-white" data-bs-dismiss="modal">Close</button></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script th:inline="none">
+  (function () {
+    'use strict';
+    const BASE = '/accounts/periods';
+    var dt;
+
+    document.addEventListener('DOMContentLoaded', function () {
+      dt = $('#periodTable').DataTable({
+        processing: true, serverSide: false, responsive: true, pageLength: 25,
+        ajax: { url: BASE + '/list', type: 'GET' },
+        columns: [
+          { data: 'sl', orderable: false, width: '40px' },
+          { data: 'period_name' }, { data: 'period_type' }, { data: 'fiscal_year', className: 'text-center' },
+          { data: 'start_date' }, { data: 'end_date' },
+          { data: 'closed_by', defaultContent: '—' }, { data: 'closed_date', defaultContent: '—' },
+          { data: 'created_at', defaultContent: '—' },
+          { data: 'status', orderable: false, className: 'text-center' },
+          { data: 'actions', orderable: false, className: 'text-center' }
+        ],
+        language: { emptyTable: 'No periods found.', processing: '<span class="spinner-border spinner-border-sm me-2"></span> Loading…' }
+      });
+      document.getElementById('periodForm').addEventListener('submit', _onSubmit);
+    });
+
+    window.periodOpenCreate = function () {
+      _resetForm();
+      document.getElementById('periodModalTitle').innerHTML = '<i class="fa fa-plus me-1 text-success"></i> New Period';
+      document.getElementById('periodBtnText').textContent  = 'Save';
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('periodModal')).show();
+    };
+
+    window.periodShow = function (id) {
+      secureFetch(BASE + '/show/' + id).then(function (res) {
+        if (!res.success) { Swal.fire('Error', res.message, 'error'); return; }
+        var o = res.obj.defaultData;
+        var html = '<div class="hs-box"><div class="row g-2">'
+          + _vf('Period Name', o.periodName)  + _vf('Type', o.periodType)
+          + _vf('Fiscal Year', o.fiscalYear)  + _vf('Start Date', o.startDate)
+          + _vf('End Date',    o.endDate)     + _vf('Active', o.active ? 'Yes' : 'No')
+          + _vf('Closed',      o.closed ? '<span class="badge bg-dark">Yes</span>' : '<span class="badge bg-success">No</span>')
+          + (o.closed ? _vf('Closed By', o.closedBy || '—') + _vf('Closed Date', o.closedDate || '—') : '')
+          + (o.description ? '<div class="col-12 view-group"><label class="view-label">Description</label><span class="form-control hs_span_show">' + o.description + '</span></div>' : '')
+          + '</div></div>';
+        document.getElementById('periodViewBody').innerHTML = html;
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('periodViewModal')).show();
+      });
+    };
+
+    window.periodEdit = function (id) {
+      secureFetch(BASE + '/show/' + id).then(function (res) {
+        if (!res.success) { Swal.fire('Error', res.message, 'error'); return; }
+        var o = res.obj.defaultData;
+        if (o.closed) { Swal.fire('Closed Period', 'Closed periods cannot be edited.', 'warning'); return; }
+        _resetForm();
+        document.getElementById('periodId').value    = o.id;
+        document.getElementById('periodName').value  = o.periodName || '';
+        document.getElementById('periodType').value  = o.periodType || '';
+        document.getElementById('periodFY').value    = o.fiscalYear || '';
+        document.getElementById('periodStart').value = o.startDate  || '';
+        document.getElementById('periodEnd').value   = o.endDate    || '';
+        document.getElementById('periodDesc').value  = o.description|| '';
+        document.getElementById('periodActive').checked = o.active !== false;
+        document.getElementById('periodModalTitle').innerHTML = '<i class="fa fa-pencil me-1 text-warning"></i> Edit Period';
+        document.getElementById('periodBtnText').textContent  = 'Update';
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('periodModal')).show();
+      });
+    };
+
+    window.periodClose = function (id) {
+      Swal.fire({ title: 'Close Period?', text: 'This will lock the period permanently. All entries within will be frozen.',
+        icon: 'warning', showCancelButton: true, confirmButtonText: 'Yes, Close It!', confirmButtonColor: '#dc3545' })
+        .then(function (result) {
+          if (!result.isConfirmed) return;
+          secureFetch(BASE + '/close/' + id, { method: 'POST' }).then(function (res) {
+            if (res.success) { Swal.fire({ icon: 'success', title: 'Closed!', text: res.message, timer: 1600, showConfirmButton: false }); dt.ajax.reload(null, false); }
+            else              { Swal.fire('Error', res.message, 'error'); }
+          });
+        });
+    };
+
+    window.periodToggle = function (id) { hsChangeStatus(BASE + '/toggle/' + id, dt); };
+    window.periodDelete = function (id) { hsConfirmDelete(BASE + '/delete/' + id, dt); };
+
+    function _onSubmit(e) {
+      e.preventDefault();
+      var sb = document.getElementById('periodSubmitBtn'), sp = document.getElementById('periodSpinner'), bt = document.getElementById('periodBtnText');
+      hsDisableButton(sb, sp, bt);
+      secureFetch(BASE + '/save', { method: 'POST', body: JSON.stringify({
+        id         : document.getElementById('periodId').value  || null,
+        periodName : document.getElementById('periodName').value,
+        periodType : document.getElementById('periodType').value,
+        fiscalYear : parseInt(document.getElementById('periodFY').value)  || null,
+        startDate  : document.getElementById('periodStart').value || null,
+        endDate    : document.getElementById('periodEnd').value   || null,
+        description: document.getElementById('periodDesc').value  || null,
+        active     : document.getElementById('periodActive').checked
+      })}).then(function (d) {
+        hsAfterSaveMessages(d, dt);
+        if (d.success) bootstrap.Modal.getOrCreateInstance(document.getElementById('periodModal')).hide();
+      }).catch(function (err) { Swal.fire('Error', err.message || 'Request failed.', 'error'); })
+        .finally(function () { hsEnableButton(sb, sp, bt); });
+    }
+
+    function _resetForm() {
+      document.getElementById('periodForm').reset();
+      document.getElementById('periodId').value = '';
+      document.getElementById('periodActive').checked = true;
+    }
+
+    function _vf(label, value) {
+      return '<div class="col-md-4 view-group"><label class="view-label">' + label + '</label>'
+           + '<span class="form-control hs_span_show">' + (value !== null && value !== undefined ? value : '—') + '</span></div>';
+    }
+  })();
+  </script>
+</section>
+</html>

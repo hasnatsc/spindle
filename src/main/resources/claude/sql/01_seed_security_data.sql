@@ -958,9 +958,11 @@ SELECT 'ACC_BAL_SHEET', 'Balance Sheet',     '/accounts/balance-sheet','fa fa-fi
 
 -- ── ACCOUNTS CONFIG leaves ────────────────────────────────────────────────────
 INSERT INTO app_menus (menu_code, menu_name, menu_url, icon, parent_id, display_order, menu_type, module_name, required_permission, target, active, visible, deleted, created_at, updated_at)
-SELECT 'ACC_MAPPING',   'Account Mappings',  '/accounts/mappings',    'fa fa-link', g.id, 10, 'LEAF', 'ACCOUNTS', 'ACC.MAPPING.VIEW',  '_self', true, true, false, NOW(), NOW() FROM app_menus g WHERE g.menu_code = 'GRP_ACC_CONFIG' ON CONFLICT (menu_code) DO NOTHING;
+SELECT 'ACC_MAPPING',   'Account Mappings',  '/accounts/mapping',    'fa fa-link', g.id, 10, 'LEAF', 'ACCOUNTS', 'ACC.MAPPING.VIEW',  '_self', true, true, false, NOW(), NOW() FROM app_menus g WHERE g.menu_code = 'GRP_ACC_CONFIG' ON CONFLICT (menu_code) DO NOTHING;
 INSERT INTO app_menus (menu_code, menu_name, menu_url, icon, parent_id, display_order, menu_type, module_name, required_permission, target, active, visible, deleted, created_at, updated_at)
-SELECT 'ACC_POLICY',    'Accounts Policies', '/accounts/policies',    'fa fa-clipboard', g.id, 20, 'LEAF', 'ACCOUNTS', 'ACC.POLICY.VIEW',   '_self', true, true, false, NOW(), NOW() FROM app_menus g WHERE g.menu_code = 'GRP_ACC_CONFIG' ON CONFLICT (menu_code) DO NOTHING;
+SELECT 'ACC_POLICY',    'Accounts Policies', '/accounts/policy',    'fa fa-clipboard', g.id, 20, 'LEAF', 'ACCOUNTS', 'ACC.POLICY.VIEW',   '_self', true, true, false, NOW(), NOW() FROM app_menus g WHERE g.menu_code = 'GRP_ACC_CONFIG' ON CONFLICT (menu_code) DO NOTHING;
+INSERT INTO app_menus ( menu_code, menu_name, menu_url, icon, parent_id, display_order, menu_type, module_name, required_permission, target, active, visible, deleted, created_at, updated_at)
+SELECT 'ACC_PERIODS', 'Accounting Periods', '/accounts/periods', 'fa fa-calendar-alt', g.id, 30, 'LEAF', 'ACCOUNTS', 'ACC.PERIOD.VIEW', '_self', true, true, false, NOW(), NOW() FROM app_menus g WHERE g.menu_code = 'GRP_ACC_CONFIG' ON CONFLICT (menu_code) DO NOTHING;
 
 -- ── HRM MASTER leaves ─────────────────────────────────────────────────────────
 INSERT INTO app_menus (menu_code, menu_name, menu_url, icon, parent_id, display_order, menu_type, module_name, required_permission, target, active, visible, deleted, created_at, updated_at)
