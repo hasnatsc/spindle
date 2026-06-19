@@ -1,5 +1,6 @@
 package com.asg.spindleserp.inventory.entity;
 
+import com.asg.spindleserp.security.auth.ContextProvider;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -15,8 +16,9 @@ public class ItemUom {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "organization_id", nullable = false)
-    private Long organizationId;
+    @Builder.Default
+    @Column(name = "organization_id", nullable = false, updatable = false)
+    private Long organizationId = ContextProvider.getOrganizationId();
 
     @Column(nullable = false, length = 20)  private String code;
     @Column(nullable = false, length = 100) private String name;

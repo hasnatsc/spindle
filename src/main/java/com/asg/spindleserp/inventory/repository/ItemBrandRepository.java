@@ -2,16 +2,22 @@ package com.asg.spindleserp.inventory.repository;
 
 import com.asg.spindleserp.inventory.entity.ItemBrand;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface ItemBrandRepository extends JpaRepository<ItemBrand, Long> {
+public interface ItemBrandRepository
+        extends JpaRepository<ItemBrand, Long>,
+                JpaSpecificationExecutor<ItemBrand> {
+
     List<ItemBrand> findByOrganizationIdAndIsActiveTrue(Long orgId);
 
     Optional<ItemBrand> findByOrganizationIdAndBrandCode(Long orgId, String code);
 
     boolean existsByOrganizationIdAndBrandCode(Long orgId, String code);
+
+    boolean existsByOrganizationIdAndBrandCodeAndIdNot(Long orgId, String code, Long id);
 }

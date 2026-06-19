@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<!--
+  inventory/brand-index.html   GET /item-brands
+  JS fns: brandShow / brandEdit / brandToggle / brandDelete / brandOpenCreate
+-->
+<html th:replace="~{layout/base :: layout('Item Brands', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
+<section>
+
+  <ol class="breadcrumb float-xl-end">
+    <li class="breadcrumb-item"><a th:href="@{/dashboard}">Home</a></li>
+    <li class="breadcrumb-item">Inventory</li>
+    <li class="breadcrumb-item active">Item Brands</li>
+  </ol>
+  <h1 class="page-header">Item Brands <small>manage product brands</small></h1>
+
+  <div class="panel panel-inverse">
+    <div class="panel-heading">
+      <div class="panel-title">
+        <a href="javascript:;" onclick="brandOpenCreate()">
+          <span class="badge btn btn-outline-success"><i class="fa fa-plus me-1"></i> Add Brand</span>
+        </a>
+      </div>
+      <div class="panel-heading-btn">
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-default" data-toggle="panel-expand"><i class="fa fa-expand"></i></a>
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-success" data-toggle="panel-reload"><i class="fa fa-redo"></i></a>
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-warning" data-toggle="panel-collapse"><i class="fa fa-minus"></i></a>
+      </div>
+    </div>
+    <div class="panel-body">
+      <table id="brandTable" width="100%" class="table table-striped table-bordered align-middle">
+        <thead><tr>
+          <th width="1%">SL</th><th>Code</th><th>Name</th><th>Description</th>
+          <th class="text-center" width="7%">Status</th><th>Created</th>
+          <th class="text-center" width="12%">Actions</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <!-- CREATE / EDIT MODAL -->
+    <div tabindex="-1" id="brandModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="brandModalTitle"><i class="fa fa-tag me-1 text-success"></i> Add Brand</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <form id="brandForm" novalidate>
+            <div class="modal-body">
+              <div class="hs-box"><div class="row g-2">
+                <input type="hidden" id="brandId">
+                <div class="col-md-4 view-group">
+                  <input id="brandCode" type="text" placeholder="e.g. NIKE" class="form-control hs_span_view text-uppercase" required maxlength="30">
+                  <label for="brandCode" class="input-label">Code <span class="text-danger">*</span></label>
+                </div>
+                <div class="col-md-8 view-group">
+                  <input id="brandName" type="text" placeholder="Brand Name" class="form-control hs_span_view" required maxlength="150">
+                  <label for="brandName" class="input-label">Name <span class="text-danger">*</span></label>
+                </div>
+                <div class="col-12 view-group">
+                  <textarea id="brandDesc" class="form-control hs_span_view" rows="2" placeholder="Optional description…"></textarea>
+                  <label for="brandDesc" class="input-label">Description</label>
+                </div>
+                <div class="col-12 mt-1"><div class="form-check form-switch">
+                  <input type="checkbox" id="brandActive" class="form-check-input" checked>
+                  <label class="form-check-label" for="brandActive"><strong>Active</strong></label>
+                </div></div>
+              </div></div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-success" type="submit" id="brandSubmitBtn">
+                <span class="spinner-border spinner-border-sm me-2 d-none" id="brandSpinner"></span>
+                <span id="brandBtnText">Save</span>
+              </button>
+              <button type="button" class="btn btn-white" data-bs-dismiss="modal">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- VIEW MODAL -->
+    <div tabindex="-1" id="brandViewModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-md">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title"><i class="fa fa-tag me-1 text-primary"></i> Brand Details</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <div class="hs-box"><div class="row g-2">
+              <div class="col-md-4 view-group"><label class="view-label">Code</label><span id="bv_code" class="form-control hs_span_show"></span></div>
+              <div class="col-md-8 view-group"><label class="view-label">Name</label><span id="bv_name" class="form-control hs_span_show"></span></div>
+              <div class="col-12 view-group"><label class="view-label">Description</label><span id="bv_desc" class="form-control hs_span_show" style="min-height:38px"></span></div>
+              <div class="col-md-4 view-group"><label class="view-label">Status</label><span id="bv_status" class="form-control hs_span_show"></span></div>
+              <div class="col-md-4 view-group"><label class="view-label">Created</label><span id="bv_createdAt" class="form-control hs_span_show"></span></div>
+              <div class="col-md-4 view-group"><label class="view-label">Updated By</label><span id="bv_updatedBy" class="form-control hs_span_show"></span></div>
+            </div></div>
+          </div>
+          <div class="modal-footer"><button type="button" class="btn btn-white" data-bs-dismiss="modal">Close</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script th:inline="none">
+  (function () {
+    'use strict';
+    const BASE = '/item-brands';
+    var dt;
+    document.addEventListener('DOMContentLoaded', function () {
+      dt = $('#brandTable').DataTable({
+        processing: true, serverSide: false, responsive: true, pageLength: 25,
+        ajax: { url: BASE + '/list', type: 'GET' },
+        columns: [
+          { data: 'sl', orderable: false, width: '40px' },
+          { data: 'brand_code' }, { data: 'brand_name' },
+          { data: 'description', defaultContent: '—' },
+          { data: 'status', orderable: false, className: 'text-center' },
+          { data: 'created_at', defaultContent: '—' },
+          { data: 'actions', orderable: false, className: 'text-center' }
+        ],
+        language: { emptyTable: 'No brands found.', processing: '<span class="spinner-border spinner-border-sm me-2"></span> Loading…' }
+      });
+      document.getElementById('brandForm').addEventListener('submit', _onSubmit);
+    });
+
+    window.brandOpenCreate = function () {
+      _reset(); document.getElementById('brandModalTitle').innerHTML = '<i class="fa fa-plus me-1 text-success"></i> Add Brand';
+      document.getElementById('brandBtnText').textContent = 'Save';
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('brandModal')).show();
+    };
+    window.brandShow = function (id) {
+      secureFetch(BASE + '/show/' + id).then(function (res) {
+        if (!res.success) { Swal.fire('Error', res.message, 'error'); return; }
+        var o = res.obj.defaultData;
+        _st('bv_code', o.brandCode); _st('bv_name', o.brandName); _st('bv_desc', o.description);
+        _st('bv_createdAt', o.createdAt); _st('bv_updatedBy', o.updatedBy);
+        document.getElementById('bv_status').innerHTML = o.active ? "<span class='badge bg-success'>Active</span>" : "<span class='badge bg-danger'>Inactive</span>";
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('brandViewModal')).show();
+      });
+    };
+    window.brandEdit = function (id) {
+      secureFetch(BASE + '/show/' + id).then(function (res) {
+        if (!res.success) { Swal.fire('Error', res.message, 'error'); return; }
+        var o = res.obj.defaultData; _reset();
+        _v('brandId', o.id); _v('brandCode', o.brandCode); _v('brandName', o.brandName); _v('brandDesc', o.description || '');
+        document.getElementById('brandActive').checked = o.active;
+        document.getElementById('brandModalTitle').innerHTML = '<i class="fa fa-pencil me-1 text-warning"></i> Edit Brand';
+        document.getElementById('brandBtnText').textContent = 'Update';
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('brandModal')).show();
+      });
+    };
+    window.brandToggle = function (id) { hsChangeStatus(BASE + '/toggle/' + id, dt, 'Brand'); };
+    window.brandDelete = function (id) { hsConfirmDelete(BASE + '/delete/' + id, dt); };
+
+    function _onSubmit(e) {
+      e.preventDefault();
+      var sb = document.getElementById('brandSubmitBtn'), sp = document.getElementById('brandSpinner'), bt = document.getElementById('brandBtnText');
+      hsDisableButton(sb, sp, bt);
+      secureFetch(BASE + '/save', { method: 'POST', body: JSON.stringify({
+        id: document.getElementById('brandId').value || null,
+        brandCode: document.getElementById('brandCode').value,
+        brandName: document.getElementById('brandName').value,
+        description: document.getElementById('brandDesc').value,
+        active: document.getElementById('brandActive').checked
+      })}).then(function (d) {
+        if (d.success) { Swal.fire({ icon: 'success', title: 'Saved!', text: d.message, timer: 1600, showConfirmButton: false });
+          bootstrap.Modal.getOrCreateInstance(document.getElementById('brandModal')).hide(); dt.ajax.reload(null, false);
+        } else { Swal.fire('Error', d.message, 'error'); }
+      }).catch(function (err) { Swal.fire('Error', err.message || 'Request failed.', 'error'); })
+        .finally(function () { hsEnableButton(sb, sp, bt); });
+    }
+    function _reset() { document.getElementById('brandForm').reset(); document.getElementById('brandId').value = ''; document.getElementById('brandActive').checked = true; }
+    function _v(id, v) { var e = document.getElementById(id); if (e) e.value = v || ''; }
+    function _st(id, v) { var e = document.getElementById(id); if (e) e.textContent = v || '—'; }
+  })();
+  </script>
+</section>
+</html>

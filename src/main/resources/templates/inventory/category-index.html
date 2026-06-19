@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<!--
+  inventory/category-index.html   GET /item-categories
+  JS fns: catShow / catEdit / catToggle / catDelete / catOpenCreate
+-->
+<html th:replace="~{layout/base :: layout('Item Categories', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
+<section>
+
+  <ol class="breadcrumb float-xl-end">
+    <li class="breadcrumb-item"><a th:href="@{/dashboard}">Home</a></li>
+    <li class="breadcrumb-item">Inventory</li>
+    <li class="breadcrumb-item active">Item Categories</li>
+  </ol>
+  <h1 class="page-header">Item Categories <small>manage category hierarchy per item type</small></h1>
+
+  <div class="panel panel-inverse">
+    <div class="panel-heading">
+      <div class="panel-title">
+        <a href="javascript:;" onclick="catOpenCreate()">
+          <span class="badge btn btn-outline-success"><i class="fa fa-plus me-1"></i> Add Category</span>
+        </a>
+      </div>
+      <div class="panel-heading-btn">
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-default" data-toggle="panel-expand"><i class="fa fa-expand"></i></a>
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-success" data-toggle="panel-reload"><i class="fa fa-redo"></i></a>
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-warning" data-toggle="panel-collapse"><i class="fa fa-minus"></i></a>
+      </div>
+    </div>
+    <div class="panel-body">
+      <table id="catTable" width="100%" class="table table-striped table-bordered align-middle">
+        <thead><tr>
+          <th width="1%">SL</th><th>Code</th><th>Name</th><th>Item Type</th>
+          <th>Layer</th><th>Parent</th><th class="text-center" width="7%">Status</th>
+          <th>Created</th><th class="text-center" width="12%">Actions</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <!-- CREATE / EDIT MODAL -->
+    <div tabindex="-1" id="catModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="catModalTitle"><i class="fa fa-folder me-1 text-success"></i> Add Category</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <form id="catForm" novalidate>
+            <div class="modal-body">
+              <div class="hs-box"><div class="row g-2">
+                <input type="hidden" id="catId">
+                <div class="col-md-3 view-group">
+                  <input id="catCode" type="text" placeholder="e.g. RAW-001" class="form-control hs_span_view text-uppercase" required maxlength="50">
+                  <label for="catCode" class="input-label">Code <span class="text-danger">*</span></label>
+                </div>
+                <div class="col-md-5 view-group">
+                  <input id="catName" type="text" placeholder="Category Name" class="form-control hs_span_view" required maxlength="100">
+                  <label for="catName" class="input-label">Name <span class="text-danger">*</span></label>
+                </div>
+                <div class="col-md-4 view-group">
+                  <select id="catItemType" class="form-select hs_span_view">
+                    <option value="">— Item Type (optional) —</option>
+                  </select>
+                  <label for="catItemType" class="input-label">Item Type</label>
+                </div>
+                <div class="col-md-4 view-group">
+                  <select id="catLayerType" class="form-select hs_span_view">
+                    <option value="ITEM">ITEM</option>
+                    <option value="GROUP">GROUP</option>
+                    <option value="ROOT">ROOT</option>
+                  </select>
+                  <label for="catLayerType" class="input-label">Layer Type</label>
+                </div>
+                <div class="col-md-8 view-group">
+                  <select id="catParentId" class="form-select hs_span_view hsSelectTwo">
+                    <option value="">— No Parent (Root) —</option>
+                  </select>
+                  <label for="catParentId" class="input-label">Parent Category</label>
+                </div>
+                <div class="col-12 view-group">
+                  <textarea id="catDesc" class="form-control hs_span_view" rows="2" placeholder="Optional description…"></textarea>
+                  <label for="catDesc" class="input-label">Description</label>
+                </div>
+                <div class="col-12 mt-1"><div class="form-check form-switch">
+                  <input type="checkbox" id="catActive" class="form-check-input" checked>
+                  <label class="form-check-label" for="catActive"><strong>Active</strong></label>
+                </div></div>
+              </div></div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-success" type="submit" id="catSubmitBtn">
+                <span class="spinner-border spinner-border-sm me-2 d-none" id="catSpinner"></span>
+                <span id="catBtnText">Save</span>
+              </button>
+              <button type="button" class="btn btn-white" data-bs-dismiss="modal">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- VIEW MODAL -->
+    <div tabindex="-1" id="catViewModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title"><i class="fa fa-folder me-1 text-primary"></i> Category Details</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <div class="hs-box"><div class="row g-2">
+              <div class="col-md-3 view-group"><label class="view-label">Code</label><span id="catv_code" class="form-control hs_span_show"></span></div>
+              <div class="col-md-5 view-group"><label class="view-label">Name</label><span id="catv_name" class="form-control hs_span_show"></span></div>
+              <div class="col-md-4 view-group"><label class="view-label">Item Type</label><span id="catv_itemType" class="form-control hs_span_show"></span></div>
+              <div class="col-md-4 view-group"><label class="view-label">Layer</label><span id="catv_layer" class="form-control hs_span_show"></span></div>
+              <div class="col-md-8 view-group"><label class="view-label">Parent</label><span id="catv_parent" class="form-control hs_span_show"></span></div>
+              <div class="col-12 view-group"><label class="view-label">Description</label><span id="catv_desc" class="form-control hs_span_show" style="min-height:38px"></span></div>
+              <div class="col-md-4 view-group"><label class="view-label">Status</label><span id="catv_status" class="form-control hs_span_show"></span></div>
+            </div></div>
+          </div>
+          <div class="modal-footer"><button type="button" class="btn btn-white" data-bs-dismiss="modal">Close</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script th:inline="none">
+  (function () {
+    'use strict';
+    const BASE = '/item-categories';
+    var dt;
+    document.addEventListener('DOMContentLoaded', function () {
+      dt = $('#catTable').DataTable({
+        processing: true, serverSide: false, responsive: true, pageLength: 25,
+        ajax: { url: BASE + '/list', type: 'GET' },
+        columns: [
+          { data: 'sl', orderable: false, width: '40px' },
+          { data: 'category_code' }, { data: 'category_name' },
+          { data: 'item_type', defaultContent: '—' },
+          { data: 'layer_type', defaultContent: '—' },
+          { data: 'parent_name', defaultContent: '—' },
+          { data: 'status', orderable: false, className: 'text-center' },
+          { data: 'created_at', defaultContent: '—' },
+          { data: 'actions', orderable: false, className: 'text-center' }
+        ],
+        language: { emptyTable: 'No categories found.', processing: '<span class="spinner-border spinner-border-sm me-2"></span> Loading…' }
+      });
+      _loadItemTypes();
+      document.getElementById('catForm').addEventListener('submit', _onSubmit);
+    });
+
+    function _loadItemTypes() {
+      secureFetch(BASE + '/item-types').then(function (types) {
+        var sel = document.getElementById('catItemType');
+        while (sel.options.length > 1) sel.remove(1);
+        types.forEach(function (t) {
+          var opt = document.createElement('option'); opt.value = t; opt.textContent = t.replace(/_/g,' '); sel.appendChild(opt);
+        });
+      });
+    }
+
+    function _loadParents(excludeId) {
+      secureFetch(BASE + '/parents/all?excludeId=' + (excludeId || 0)).then(function (data) {
+        var sel = document.getElementById('catParentId');
+        while (sel.options.length > 1) sel.remove(1);
+        (data || []).forEach(function (c) {
+          var opt = document.createElement('option'); opt.value = c.id;
+          opt.textContent = c.name + ' (' + c.code + ')'; sel.appendChild(opt);
+        });
+      });
+    }
+
+    window.catOpenCreate = function () {
+      _reset(); _loadParents(0);
+      document.getElementById('catModalTitle').innerHTML = '<i class="fa fa-plus me-1 text-success"></i> Add Category';
+      document.getElementById('catBtnText').textContent = 'Save';
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('catModal')).show();
+    };
+    window.catShow = function (id) {
+      secureFetch(BASE + '/show/' + id).then(function (res) {
+        if (!res.success) { Swal.fire('Error', res.message, 'error'); return; }
+        var o = res.obj.defaultData;
+        _st('catv_code', o.categoryCode); _st('catv_name', o.categoryName);
+        _st('catv_itemType', o.itemType); _st('catv_layer', o.layerType);
+        _st('catv_parent', o.parentCategoryName); _st('catv_desc', o.description);
+        document.getElementById('catv_status').innerHTML = o.active ? "<span class='badge bg-success'>Active</span>" : "<span class='badge bg-danger'>Inactive</span>";
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('catViewModal')).show();
+      });
+    };
+    window.catEdit = function (id) {
+      secureFetch(BASE + '/show/' + id).then(function (res) {
+        if (!res.success) { Swal.fire('Error', res.message, 'error'); return; }
+        var o = res.obj.defaultData; _reset();
+        _loadParents(o.id);
+        _v('catId', o.id); _v('catCode', o.categoryCode); _v('catName', o.categoryName); _v('catDesc', o.description || '');
+        document.getElementById('catItemType').value  = o.itemType   || '';
+        document.getElementById('catParentId').value = o.parentCategoryId || '';
+        $('#catParentId').trigger('change');
+        document.getElementById('catLayerType').value = o.layerType  || 'ITEM';
+        document.getElementById('catActive').checked  = o.active;
+        document.getElementById('catModalTitle').innerHTML = '<i class="fa fa-pencil me-1 text-warning"></i> Edit Category';
+        document.getElementById('catBtnText').textContent = 'Update';
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('catModal')).show();
+      });
+    };
+    window.catToggle = function (id) { hsChangeStatus(BASE + '/toggle/' + id, dt, 'Category'); };
+    window.catDelete = function (id) { hsConfirmDelete(BASE + '/delete/' + id, dt); };
+
+    function _onSubmit(e) {
+      e.preventDefault();
+      var sb = document.getElementById('catSubmitBtn'), sp = document.getElementById('catSpinner'), bt = document.getElementById('catBtnText');
+      hsDisableButton(sb, sp, bt);
+      secureFetch(BASE + '/save', { method: 'POST', body: JSON.stringify({
+        id: document.getElementById('catId').value || null,
+        categoryCode: document.getElementById('catCode').value,
+        categoryName: document.getElementById('catName').value,
+        description: document.getElementById('catDesc').value,
+        itemType: document.getElementById('catItemType').value || null,
+        layerType: document.getElementById('catLayerType').value,
+        parentCategoryId: document.getElementById('catParentId').value || null,
+        active: document.getElementById('catActive').checked
+      })}).then(function (d) {
+        if (d.success) { Swal.fire({ icon: 'success', title: 'Saved!', text: d.message, timer: 1600, showConfirmButton: false });
+          bootstrap.Modal.getOrCreateInstance(document.getElementById('catModal')).hide(); dt.ajax.reload(null, false);
+        } else { Swal.fire('Error', d.message, 'error'); }
+      }).catch(function (err) { Swal.fire('Error', err.message || 'Request failed.', 'error'); })
+        .finally(function () { hsEnableButton(sb, sp, bt); });
+    }
+    function _reset() { document.getElementById('catForm').reset(); document.getElementById('catId').value = ''; document.getElementById('catActive').checked = true; }
+    function _v(id, v) { var e = document.getElementById(id); if (e) e.value = v || ''; }
+    function _st(id, v) { var e = document.getElementById(id); if (e) e.textContent = v || '—'; }
+  })();
+  </script>
+</section>
+</html>

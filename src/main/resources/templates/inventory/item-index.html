@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<!--
+  inventory/item-index.html   GET /items
+  JS fns: itemShow / itemEdit / itemToggle / itemDelete / itemOpenCreate
+-->
+<html th:replace="~{layout/base :: layout('Items', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
+<section>
+
+  <ol class="breadcrumb float-xl-end">
+    <li class="breadcrumb-item"><a th:href="@{/dashboard}">Home</a></li>
+    <li class="breadcrumb-item">Inventory</li>
+    <li class="breadcrumb-item active">Items</li>
+  </ol>
+  <h1 class="page-header">Items <small>manage product / material master</small></h1>
+
+  <div class="panel panel-inverse">
+    <div class="panel-heading">
+      <div class="panel-title">
+        <a href="javascript:;" onclick="itemOpenCreate()">
+          <span class="badge btn btn-outline-success"><i class="fa fa-plus me-1"></i> Add Item</span>
+        </a>
+      </div>
+      <div class="panel-heading-btn">
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-default" data-toggle="panel-expand"><i class="fa fa-expand"></i></a>
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-success" data-toggle="panel-reload"><i class="fa fa-redo"></i></a>
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-warning" data-toggle="panel-collapse"><i class="fa fa-minus"></i></a>
+      </div>
+    </div>
+    <div class="panel-body">
+      <table id="itemTable" width="100%" class="table table-striped table-bordered align-middle">
+        <thead><tr>
+          <th width="1%">SL</th><th>Code</th><th>Name</th><th>Type</th>
+          <th>Category</th><th>UOM</th><th>Brand</th>
+          <th>Price</th><th>Approval</th>
+          <th class="text-center" width="7%">Status</th><th>Created</th>
+          <th class="text-center" width="12%">Actions</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <!-- CREATE / EDIT MODAL — tabbed -->
+    <div tabindex="-1" id="itemModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="itemModalTitle"><i class="fa fa-box me-1 text-success"></i> Add Item</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <form id="itemForm" novalidate>
+            <div class="modal-body">
+              <input type="hidden" id="itemId">
+              <ul class="nav nav-tabs mb-3 bg-gray-700" id="itemTabs">
+                <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#itab1">Basic</a></li>
+                <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#itab2">Units &amp; Stock</a></li>
+                <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#itab3">Costing</a></li>
+                <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#itab4">Production</a></li>
+                <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#itab5">Advanced</a></li>
+              </ul>
+              <div class="tab-content hs-box">
+
+                <!-- TAB 1: BASIC -->
+                <div class="tab-pane fade show active" id="itab1">
+                  <div class="row g-2">
+                    <div class="col-md-3 view-group">
+                      <input id="itemCode" type="text" placeholder="e.g. RM-001" class="form-control hs_span_view text-uppercase" required maxlength="50">
+                      <label for="itemCode" class="input-label">Code <span class="text-danger">*</span></label>
+                    </div>
+                    <div class="col-md-5 view-group">
+                      <input id="itemName" type="text" placeholder="Item Name" class="form-control hs_span_view" required maxlength="200">
+                      <label for="itemName" class="input-label">Name <span class="text-danger">*</span></label>
+                    </div>
+                    <div class="col-md-4 view-group">
+                      <input id="itemNameBn" type="text" placeholder="নাম (বাংলা)" class="form-control hs_span_view" maxlength="200">
+                      <label for="itemNameBn" class="input-label">Name (BN)</label>
+                    </div>
+                    <div class="col-md-4 view-group">
+                      <select id="itemType" class="form-select hs_span_view" required>
+                        <option value="">— Item Type —</option>
+                      </select>
+                      <label for="itemType" class="input-label">Item Type <span class="text-danger">*</span></label>
+                    </div>
+                    <div class="col-md-4 view-group">
+                      <select id="itemCategoryId" class="form-select hs_span_view hsSelectTwo" required>
+                        <option value="">— Category —</option>
+                      </select>
+                      <label for="itemCategoryId" class="input-label">Category <span class="text-danger">*</span></label>
+                    </div>
+                    <div class="col-md-4 view-group">
+                      <select id="itemBrandId" class="form-select hs_span_view hsSelectTwo">
+                        <option value="">— Brand (optional) —</option>
+                      </select>
+                      <label for="itemBrandId" class="input-label">Brand</label>
+                    </div>
+                    <div class="col-md-4 view-group">
+                      <select id="itemModelId" class="form-select hs_span_view hsSelectTwo">
+                        <option value="">— Model (optional) —</option>
+                      </select>
+                      <label for="itemModelId" class="input-label">Model</label>
+                    </div>
+                    <div class="col-md-4 view-group">
+                      <input id="itemSku" type="text" placeholder="SKU" class="form-control hs_span_view" maxlength="100">
+                      <label for="itemSku" class="input-label">SKU</label>
+                    </div>
+                    <div class="col-md-4 view-group">
+                      <input id="itemBarcode" type="text" placeholder="Barcode" class="form-control hs_span_view" maxlength="100">
+                      <label for="itemBarcode" class="input-label">Barcode</label>
+                    </div>
+                    <div class="col-12 view-group">
+                      <textarea id="itemDesc" class="form-control hs_span_view" rows="2" placeholder="Item description…"></textarea>
+                      <label for="itemDesc" class="input-label">Description</label>
+                    </div>
+                    <div class="col-md-3 mt-1"><div class="form-check form-switch"><input type="checkbox" id="itemActive" class="form-check-input" checked><label class="form-check-label" for="itemActive"><strong>Active</strong></label></div></div>
+                    <div class="col-md-3 mt-1"><div class="form-check form-switch"><input type="checkbox" id="itemApproved" class="form-check-input"><label class="form-check-label" for="itemApproved"><strong>Approved</strong></label></div></div>
+                  </div>
+                </div>
+
+                <!-- TAB 2: UNITS & STOCK -->
+                <div class="tab-pane fade" id="itab2">
+                  <div class="row g-2">
+                    <div class="col-md-4 view-group">
+                      <select id="itemPurchaseUnitId" class="form-select hs_span_view" required>
+                        <option value="">— Purchase UOM —</option>
+                      </select>
+                      <label for="itemPurchaseUnitId" class="input-label">Purchase Unit <span class="text-danger">*</span></label>
+                    </div>
+                    <div class="col-md-4 view-group">
+                      <select id="itemSalesUnitId" class="form-select hs_span_view" required>
+                        <option value="">— Sales UOM —</option>
+                      </select>
+                      <label for="itemSalesUnitId" class="input-label">Sales Unit <span class="text-danger">*</span></label>
+                    </div>
+                    <div class="col-md-4 view-group">
+                      <select id="itemOperationUnitId" class="form-select hs_span_view" required>
+                        <option value="">— Operation UOM —</option>
+                      </select>
+                      <label for="itemOperationUnitId" class="input-label">Operation Unit <span class="text-danger">*</span></label>
+                    </div>
+                    <div class="col-md-4 view-group">
+                      <input id="itemMinStock" type="number" step="0.001" min="0" placeholder="0.000" class="form-control hs_span_view">
+                      <label for="itemMinStock" class="input-label">Min Stock</label>
+                    </div>
+                    <div class="col-md-4 view-group">
+                      <input id="itemMaxStock" type="number" step="0.001" min="0" placeholder="0.000" class="form-control hs_span_view">
+                      <label for="itemMaxStock" class="input-label">Max Stock</label>
+                    </div>
+                    <div class="col-md-4 view-group">
+                      <input id="itemReorderLevel" type="number" step="0.001" min="0" placeholder="0.000" class="form-control hs_span_view">
+                      <label for="itemReorderLevel" class="input-label">Reorder Level</label>
+                    </div>
+                    <div class="col-md-4 view-group">
+                      <input id="itemShelfLife" type="number" min="0" placeholder="Days" class="form-control hs_span_view">
+                      <label for="itemShelfLife" class="input-label">Shelf Life (days)</label>
+                    </div>
+                    <div class="col-md-4 view-group">
+                      <input id="itemExpiryDate" type="date" class="form-control hs_span_view">
+                      <label for="itemExpiryDate" class="input-label">Expiry Date</label>
+                    </div>
+                    <div class="col-md-2 mt-1"><div class="form-check form-switch pt-3"><input type="checkbox" id="itemHasLot" class="form-check-input"><label class="form-check-label" for="itemHasLot">Lot Tracking</label></div></div>
+                    <div class="col-md-2 mt-1"><div class="form-check form-switch pt-3"><input type="checkbox" id="itemHasSerial" class="form-check-input"><label class="form-check-label" for="itemHasSerial">Serial</label></div></div>
+                  </div>
+                </div>
+
+                <!-- TAB 3: COSTING -->
+                <div class="tab-pane fade" id="itab3">
+                  <div class="row g-2">
+                    <div class="col-md-3 view-group">
+                      <input id="itemCostPrice" type="number" step="0.0001" min="0" placeholder="0.0000" class="form-control hs_span_view">
+                      <label for="itemCostPrice" class="input-label">Cost Price</label>
+                    </div>
+                    <div class="col-md-3 view-group">
+                      <input id="itemUnitPrice" type="number" step="0.0001" min="0" placeholder="0.0000" class="form-control hs_span_view">
+                      <label for="itemUnitPrice" class="input-label">Unit / Sale Price</label>
+                    </div>
+                    <div class="col-md-3 view-group">
+                      <input id="itemStandardCost" type="number" step="0.0001" min="0" placeholder="0.0000" class="form-control hs_span_view">
+                      <label for="itemStandardCost" class="input-label">Standard Cost</label>
+                    </div>
+                    <div class="col-md-3 view-group">
+                      <input id="itemTaxRate" type="number" step="0.01" min="0" max="100" placeholder="0.00" class="form-control hs_span_view">
+                      <label for="itemTaxRate" class="input-label">Tax Rate %</label>
+                    </div>
+                    <div class="col-md-6 view-group">
+                      <input id="itemWeight" type="number" step="0.0001" min="0" placeholder="kg per unit" class="form-control hs_span_view">
+                      <label for="itemWeight" class="input-label">Weight (kg)</label>
+                    </div>
+                    <div class="col-md-6 view-group">
+                      <input id="itemVolume" type="number" step="0.0001" min="0" placeholder="litres per unit" class="form-control hs_span_view">
+                      <label for="itemVolume" class="input-label">Volume (L)</label>
+                    </div>
+                    <div class="col-md-6 view-group">
+                      <input id="itemDimensions" type="text" placeholder="e.g. 30x20x10 cm" class="form-control hs_span_view" maxlength="100">
+                      <label for="itemDimensions" class="input-label">Dimensions</label>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- TAB 4: PRODUCTION -->
+                <div class="tab-pane fade" id="itab4">
+                  <div class="row g-2">
+                    <div class="col-md-4 view-group">
+                      <input id="itemYield" type="number" step="0.01" min="0" max="100" placeholder="0.00" class="form-control hs_span_view">
+                      <label for="itemYield" class="input-label">Yield %</label>
+                    </div>
+                    <div class="col-md-4 view-group">
+                      <input id="itemProcessLoss" type="number" step="0.01" min="0" max="100" placeholder="0.00" class="form-control hs_span_view">
+                      <label for="itemProcessLoss" class="input-label">Process Loss %</label>
+                    </div>
+                    <div class="col-12"><div class="alert alert-info py-2 mb-0 small">
+                      <i class="fa fa-info-circle me-1"></i> BOM / production recipes are managed in the <strong>Production</strong> module.
+                    </div></div>
+                  </div>
+                </div>
+
+                <!-- TAB 5: ADVANCED -->
+                <div class="tab-pane fade" id="itab5">
+                  <div class="row g-2">
+                    <div class="col-md-4 view-group">
+                      <input id="itemSerialNum" type="text" placeholder="Serial Number" class="form-control hs_span_view" maxlength="100">
+                      <label for="itemSerialNum" class="input-label">Serial Number</label>
+                    </div>
+                    <div class="col-md-4 view-group">
+                      <input id="itemManufacturer" type="text" placeholder="Manufacturer" class="form-control hs_span_view" maxlength="100">
+                      <label for="itemManufacturer" class="input-label">Manufacturer</label>
+                    </div>
+                    <div class="col-md-2 view-group">
+                      <input id="itemWarranty" type="number" min="0" placeholder="Months" class="form-control hs_span_view">
+                      <label for="itemWarranty" class="input-label">Warranty (mo.)</label>
+                    </div>
+                    <div class="col-md-2 view-group">
+                      <input id="itemDeprRate" type="number" step="0.01" min="0" max="100" placeholder="0.00" class="form-control hs_span_view">
+                      <label for="itemDeprRate" class="input-label">Depr. Rate %</label>
+                    </div>
+                    <div class="col-md-4 view-group">
+                      <input id="itemCasNumber" type="text" placeholder="CAS Number" class="form-control hs_span_view" maxlength="50">
+                      <label for="itemCasNumber" class="input-label">CAS Number</label>
+                    </div>
+                    <div class="col-md-8 view-group">
+                      <input id="itemSds" type="text" placeholder="Safety Data Sheet URL" class="form-control hs_span_view" maxlength="255">
+                      <label for="itemSds" class="input-label">Safety Data Sheet</label>
+                    </div>
+                    <div class="col-12 view-group">
+                      <textarea id="itemNotes" class="form-control hs_span_view" rows="2" placeholder="Internal notes…"></textarea>
+                      <label for="itemNotes" class="input-label">Internal Notes</label>
+                    </div>
+                    <div class="col-md-3 mt-1"><div class="form-check form-switch"><input type="checkbox" id="itemHazardous" class="form-check-input"><label class="form-check-label" for="itemHazardous">Hazardous</label></div></div>
+                  </div>
+                </div>
+
+              </div><!-- /tab-content -->
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-success" type="submit" id="itemSubmitBtn">
+                <span class="spinner-border spinner-border-sm me-2 d-none" id="itemSpinner"></span>
+                <span id="itemBtnText">Save</span>
+              </button>
+              <button type="button" class="btn btn-white" data-bs-dismiss="modal">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- VIEW MODAL -->
+    <div tabindex="-1" id="itemViewModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title"><i class="fa fa-box me-1 text-primary"></i> Item Details</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <div class="hs-box"><div class="row g-2">
+              <div class="col-md-2 view-group"><label class="view-label">Code</label><span id="iv_code" class="form-control hs_span_show"></span></div>
+              <div class="col-md-5 view-group"><label class="view-label">Name</label><span id="iv_name" class="form-control hs_span_show"></span></div>
+              <div class="col-md-5 view-group"><label class="view-label">Name (BN)</label><span id="iv_nameBn" class="form-control hs_span_show"></span></div>
+              <div class="col-md-3 view-group"><label class="view-label">Item Type</label><span id="iv_type" class="form-control hs_span_show"></span></div>
+              <div class="col-md-3 view-group"><label class="view-label">Category</label><span id="iv_cat" class="form-control hs_span_show"></span></div>
+              <div class="col-md-3 view-group"><label class="view-label">Brand</label><span id="iv_brand" class="form-control hs_span_show"></span></div>
+              <div class="col-md-3 view-group"><label class="view-label">Operation UOM</label><span id="iv_uom" class="form-control hs_span_show"></span></div>
+              <div class="col-md-3 view-group"><label class="view-label">Purchase UOM</label><span id="iv_puom" class="form-control hs_span_show"></span></div>
+              <div class="col-md-3 view-group"><label class="view-label">Sales UOM</label><span id="iv_suom" class="form-control hs_span_show"></span></div>
+              <div class="col-md-3 view-group"><label class="view-label">Cost Price</label><span id="iv_costPrice" class="form-control hs_span_show"></span></div>
+              <div class="col-md-3 view-group"><label class="view-label">Unit Price</label><span id="iv_unitPrice" class="form-control hs_span_show"></span></div>
+              <div class="col-md-3 view-group"><label class="view-label">Min Stock</label><span id="iv_minStock" class="form-control hs_span_show"></span></div>
+              <div class="col-md-3 view-group"><label class="view-label">Reorder</label><span id="iv_reorder" class="form-control hs_span_show"></span></div>
+              <div class="col-12 view-group"><label class="view-label">Description</label><span id="iv_desc" class="form-control hs_span_show" style="min-height:38px"></span></div>
+              <div class="col-md-3 view-group"><label class="view-label">Status</label><span id="iv_status" class="form-control hs_span_show"></span></div>
+              <div class="col-md-3 view-group"><label class="view-label">Approval</label><span id="iv_approval" class="form-control hs_span_show"></span></div>
+              <div class="col-md-3 view-group"><label class="view-label">Created</label><span id="iv_createdAt" class="form-control hs_span_show"></span></div>
+              <div class="col-md-3 view-group"><label class="view-label">Updated By</label><span id="iv_updatedBy" class="form-control hs_span_show"></span></div>
+            </div></div>
+          </div>
+          <div class="modal-footer"><button type="button" class="btn btn-white" data-bs-dismiss="modal">Close</button></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script th:inline="none">
+  (function () {
+    'use strict';
+    const BASE = '/items';
+    var dt;
+
+    document.addEventListener('DOMContentLoaded', function () {
+      dt = $('#itemTable').DataTable({
+        processing: true, serverSide: false, responsive: true, pageLength: 25,
+        ajax: { url: BASE + '/list', type: 'GET' },
+        columns: [
+          { data: 'sl', orderable: false, width: '40px' },
+          { data: 'item_code' }, { data: 'item_name' },
+          { data: 'item_type', orderable: false },
+          { data: 'category_name' },
+          { data: 'unit_of_measure' },
+          { data: 'brand_name', defaultContent: '—' },
+          { data: 'unit_price', defaultContent: '—', className: 'text-end' },
+          { data: 'approval_status', orderable: false, className: 'text-center' },
+          { data: 'status', orderable: false, className: 'text-center' },
+          { data: 'created_at', defaultContent: '—' },
+          { data: 'actions', orderable: false, className: 'text-center' }
+        ],
+        language: { emptyTable: 'No items found.', processing: '<span class="spinner-border spinner-border-sm me-2"></span> Loading…' }
+      });
+
+      _loadStaticDropdowns();
+      document.getElementById('itemForm').addEventListener('submit', _onSubmit);
+      document.getElementById('itemBrandId').addEventListener('change', function () { _loadModelsByBrand(this.value); });
+    });
+
+    function _loadStaticDropdowns() {
+      // Item types
+      secureFetch(BASE + '/item-types').then(function (types) {
+        var sel = document.getElementById('itemType'); sel.innerHTML = '<option value="">— Item Type —</option>';
+        types.forEach(function (t) { sel.innerHTML += '<option value="' + t + '">' + t.replace(/_/g,' ') + '</option>'; });
+      });
+      // Categories
+      secureFetch('/item-categories/active').then(function (data) {
+        var sel = document.getElementById('itemCategoryId');
+        while (sel.options.length > 1) sel.remove(1);
+        (data || []).forEach(function (c) {
+          var opt = document.createElement('option'); opt.value = c.id; opt.textContent = c.name + ' (' + c.code + ')'; sel.appendChild(opt);
+        });
+      });
+      // Brands
+      secureFetch('/item-brands/active').then(function (data) {
+        var sel = document.getElementById('itemBrandId');
+        while (sel.options.length > 1) sel.remove(1);
+        (data || []).forEach(function (b) {
+          var opt = document.createElement('option'); opt.value = b.id; opt.textContent = b.name; sel.appendChild(opt);
+        });
+      });
+      // UOMs
+      secureFetch('/item-uoms/active').then(function (data) {
+        ['itemPurchaseUnitId', 'itemSalesUnitId', 'itemOperationUnitId'].forEach(function (selId) {
+          var sel = document.getElementById(selId);
+          while (sel.options.length > 1) sel.remove(1);
+          (data || []).forEach(function (u) {
+            var opt = document.createElement('option'); opt.value = u.id;
+            opt.textContent = u.code + ' — ' + u.name + (u.symbol ? ' (' + u.symbol + ')' : ''); sel.appendChild(opt);
+          });
+        });
+      });
+    }
+
+    function _loadModelsByBrand(brandId) {
+      var sel = document.getElementById('itemModelId');
+      sel.innerHTML = '<option value="">— Model (optional) —</option>';
+      if (!brandId) return;
+      secureFetch('/item-models/by-brand/' + brandId).then(function (data) {
+        (data || []).forEach(function (m) {
+          var opt = document.createElement('option'); opt.value = m.id; opt.textContent = m.name; sel.appendChild(opt);
+        });
+      });
+    }
+
+    window.itemOpenCreate = function () {
+      _reset(); document.getElementById('itemModalTitle').innerHTML = '<i class="fa fa-plus me-1 text-success"></i> Add Item';
+      document.getElementById('itemBtnText').textContent = 'Save';
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('itemModal')).show();
+    };
+
+    window.itemShow = function (id) {
+      secureFetch(BASE + '/show/' + id).then(function (res) {
+        if (!res.success) { Swal.fire('Error', res.message, 'error'); return; }
+        var o = res.obj.defaultData;
+        _st('iv_code', o.itemCode); _st('iv_name', o.itemName); _st('iv_nameBn', o.itemNameBn);
+        _st('iv_type', o.itemType); _st('iv_cat', o.categoryName); _st('iv_brand', o.brandName);
+        _st('iv_uom', o.operationUnitCode); _st('iv_puom', o.purchaseUnitCode); _st('iv_suom', o.salesUnitCode);
+        _st('iv_costPrice', o.costPrice); _st('iv_unitPrice', o.unitPrice);
+        _st('iv_minStock', o.minimumStock); _st('iv_reorder', o.reorderLevel);
+        _st('iv_desc', o.description); _st('iv_createdAt', o.createdAt); _st('iv_updatedBy', o.updatedBy);
+        document.getElementById('iv_status').innerHTML   = o.active     ? "<span class='badge bg-success'>Active</span>" : "<span class='badge bg-danger'>Inactive</span>";
+        document.getElementById('iv_approval').innerHTML = o.isApproved ? "<span class='badge bg-success'>Approved</span>" : "<span class='badge bg-secondary'>Pending</span>";
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('itemViewModal')).show();
+      });
+    };
+
+    window.itemEdit = function (id) {
+      secureFetch(BASE + '/show/' + id).then(function (res) {
+        if (!res.success) { Swal.fire('Error', res.message, 'error'); return; }
+        var o = res.obj.defaultData; _reset();
+        _v('itemId', o.id); _v('itemCode', o.itemCode); _v('itemName', o.itemName); _v('itemNameBn', o.itemNameBn || '');
+        _v('itemSku', o.sku || ''); _v('itemBarcode', o.barcode || ''); _v('itemDesc', o.description || '');
+        _v('itemCostPrice', o.costPrice || ''); _v('itemUnitPrice', o.unitPrice || '');
+        _v('itemStandardCost', o.standardCost || ''); _v('itemTaxRate', o.taxRate || '');
+        _v('itemMinStock', o.minimumStock || ''); _v('itemMaxStock', o.maximumStock || '');
+        _v('itemReorderLevel', o.reorderLevel || ''); _v('itemShelfLife', o.shelfLifeDays || '');
+        _v('itemExpiryDate', o.expiryDate || ''); _v('itemYield', o.yieldPercent || '');
+        _v('itemProcessLoss', o.processLossPct || ''); _v('itemWeight', o.weight || '');
+        _v('itemVolume', o.volume || ''); _v('itemDimensions', o.dimensions || '');
+        _v('itemSerialNum', o.serialNumber || ''); _v('itemManufacturer', o.manufacturer || '');
+        _v('itemWarranty', o.warrantyMonths || ''); _v('itemDeprRate', o.depreciationRate || '');
+        _v('itemCasNumber', o.casNumber || ''); _v('itemSds', o.safetyDataSheet || '');
+        _v('itemNotes', o.internalNotes || '');
+        document.getElementById('itemType').value              = o.itemType         || '';
+        document.getElementById('itemCategoryId').value        = o.categoryId       || '';
+        document.getElementById('itemBrandId').value           = o.brandId          || '';
+        document.getElementById('itemPurchaseUnitId').value    = o.purchaseUnitId   || '';
+        document.getElementById('itemSalesUnitId').value       = o.salesUnitId      || '';
+        document.getElementById('itemOperationUnitId').value   = o.operationUnitId  || '';
+        document.getElementById('itemActive').checked   = o.active;
+        document.getElementById('itemApproved').checked = o.isApproved;
+        document.getElementById('itemHasLot').checked   = o.hasLotTracking;
+        document.getElementById('itemHasSerial').checked = o.hasSerial;
+        document.getElementById('itemHazardous').checked = o.isHazardous;
+        if (o.brandId) { _loadModelsByBrand(o.brandId); setTimeout(function () { document.getElementById('itemModelId').value = o.modelId || ''; }, 300); }
+        document.getElementById('itemModalTitle').innerHTML = '<i class="fa fa-pencil me-1 text-warning"></i> Edit Item';
+        document.getElementById('itemBtnText').textContent = 'Update';
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('itemModal')).show();
+      });
+    };
+
+    window.itemToggle = function (id) { hsChangeStatus(BASE + '/toggle/' + id, dt, 'Item'); };
+    window.itemDelete = function (id) { hsConfirmDelete(BASE + '/delete/' + id, dt); };
+
+    function _onSubmit(e) {
+      e.preventDefault();
+      var sb = document.getElementById('itemSubmitBtn'), sp = document.getElementById('itemSpinner'), bt = document.getElementById('itemBtnText');
+      hsDisableButton(sb, sp, bt);
+      secureFetch(BASE + '/save', { method: 'POST', body: JSON.stringify({
+        id: document.getElementById('itemId').value || null,
+        itemCode: document.getElementById('itemCode').value,
+        itemName: document.getElementById('itemName').value,
+        itemNameBn: document.getElementById('itemNameBn').value,
+        itemType: document.getElementById('itemType').value,
+        categoryId: document.getElementById('itemCategoryId').value,
+        brandId: document.getElementById('itemBrandId').value || null,
+        modelId: document.getElementById('itemModelId').value || null,
+        purchaseUnitId: document.getElementById('itemPurchaseUnitId').value,
+        salesUnitId: document.getElementById('itemSalesUnitId').value,
+        operationUnitId: document.getElementById('itemOperationUnitId').value,
+        sku: document.getElementById('itemSku').value,
+        barcode: document.getElementById('itemBarcode').value,
+        description: document.getElementById('itemDesc').value,
+        costPrice: document.getElementById('itemCostPrice').value || null,
+        unitPrice: document.getElementById('itemUnitPrice').value || null,
+        standardCost: document.getElementById('itemStandardCost').value || null,
+        taxRate: document.getElementById('itemTaxRate').value || null,
+        minimumStock: document.getElementById('itemMinStock').value || null,
+        maximumStock: document.getElementById('itemMaxStock').value || null,
+        reorderLevel: document.getElementById('itemReorderLevel').value || null,
+        shelfLifeDays: document.getElementById('itemShelfLife').value || null,
+        expiryDate: document.getElementById('itemExpiryDate').value || null,
+        yieldPercent: document.getElementById('itemYield').value || null,
+        processLossPct: document.getElementById('itemProcessLoss').value || null,
+        weight: document.getElementById('itemWeight').value || null,
+        volume: document.getElementById('itemVolume').value || null,
+        dimensions: document.getElementById('itemDimensions').value,
+        serialNumber: document.getElementById('itemSerialNum').value,
+        manufacturer: document.getElementById('itemManufacturer').value,
+        warrantyMonths: document.getElementById('itemWarranty').value || null,
+        depreciationRate: document.getElementById('itemDeprRate').value || null,
+        casNumber: document.getElementById('itemCasNumber').value,
+        safetyDataSheet: document.getElementById('itemSds').value,
+        internalNotes: document.getElementById('itemNotes').value,
+        active: document.getElementById('itemActive').checked,
+        isApproved: document.getElementById('itemApproved').checked,
+        hasLotTracking: document.getElementById('itemHasLot').checked,
+        hasSerial: document.getElementById('itemHasSerial').checked,
+        isHazardous: document.getElementById('itemHazardous').checked
+      })}).then(function (d) {
+        if (d.success) { Swal.fire({ icon: 'success', title: 'Saved!', text: d.message, timer: 1600, showConfirmButton: false });
+          bootstrap.Modal.getOrCreateInstance(document.getElementById('itemModal')).hide(); dt.ajax.reload(null, false);
+        } else { Swal.fire('Error', d.message, 'error'); }
+      }).catch(function (err) { Swal.fire('Error', err.message || 'Request failed.', 'error'); })
+        .finally(function () { hsEnableButton(sb, sp, bt); });
+    }
+
+    function _reset() {
+      document.getElementById('itemForm').reset();
+      document.getElementById('itemId').value = '';
+      document.getElementById('itemActive').checked = true;
+      ['itemApproved','itemHasLot','itemHasSerial','itemHazardous'].forEach(function(id){ document.getElementById(id).checked = false; });
+    }
+    function _v(id, v) { var e = document.getElementById(id); if (e) e.value = (v !== null && v !== undefined) ? v : ''; }
+    function _st(id, v) { var e = document.getElementById(id); if (e) e.textContent = (v !== null && v !== undefined) ? v : '—'; }
+  })();
+  </script>
+</section>
+</html>

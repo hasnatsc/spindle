@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<!--
+  inventory/uom-index.html   GET /item-uoms
+  JS fns: uomShow / uomEdit / uomToggle / uomDelete / uomOpenCreate
+-->
+<html th:replace="~{layout/base :: layout('Units of Measure', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
+<section>
+
+  <ol class="breadcrumb float-xl-end">
+    <li class="breadcrumb-item"><a th:href="@{/dashboard}">Home</a></li>
+    <li class="breadcrumb-item">Inventory</li>
+    <li class="breadcrumb-item active">Units of Measure</li>
+  </ol>
+  <h1 class="page-header">Units of Measure <small>manage UOM codes and conversion factors</small></h1>
+
+  <div class="panel panel-inverse">
+    <div class="panel-heading">
+      <div class="panel-title">
+        <a href="javascript:;" onclick="uomOpenCreate()">
+          <span class="badge btn btn-outline-success"><i class="fa fa-plus me-1"></i> Add UOM</span>
+        </a>
+      </div>
+      <div class="panel-heading-btn">
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-default" data-toggle="panel-expand"><i class="fa fa-expand"></i></a>
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-success" data-toggle="panel-reload"><i class="fa fa-redo"></i></a>
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-warning" data-toggle="panel-collapse"><i class="fa fa-minus"></i></a>
+      </div>
+    </div>
+    <div class="panel-body">
+      <table id="uomTable" width="100%" class="table table-striped table-bordered align-middle">
+        <thead><tr>
+          <th width="1%">SL</th><th>Code</th><th>Name</th><th>Symbol</th>
+          <th>Category</th><th>Conv. Factor</th><th>Base</th>
+          <th class="text-center" width="7%">Status</th><th class="text-center" width="12%">Actions</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <!-- CREATE / EDIT MODAL -->
+    <div tabindex="-1" id="uomModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="uomModalTitle"><i class="fa fa-ruler me-1 text-success"></i> Add UOM</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <form id="uomForm" novalidate>
+            <div class="modal-body">
+              <div class="hs-box"><div class="row g-2">
+                <input type="hidden" id="uomId">
+                <div class="col-md-3 view-group">
+                  <input id="uomCode" type="text" placeholder="e.g. KG" class="form-control hs_span_view text-uppercase" required maxlength="20">
+                  <label for="uomCode" class="input-label">Code <span class="text-danger">*</span></label>
+                </div>
+                <div class="col-md-5 view-group">
+                  <input id="uomName" type="text" placeholder="UOM Name" class="form-control hs_span_view" required maxlength="100">
+                  <label for="uomName" class="input-label">Name <span class="text-danger">*</span></label>
+                </div>
+                <div class="col-md-2 view-group">
+                  <input id="uomSymbol" type="text" placeholder="kg" class="form-control hs_span_view" maxlength="20">
+                  <label for="uomSymbol" class="input-label">Symbol</label>
+                </div>
+                <div class="col-md-2 view-group">
+                  <input id="uomFactor" type="number" step="0.000001" min="0" value="1" class="form-control hs_span_view">
+                  <label for="uomFactor" class="input-label">Conv. Factor</label>
+                </div>
+                <div class="col-md-6 view-group">
+                  <select id="uomCategory" class="form-select hs_span_view" required>
+                    <option value="">— Select Category —</option>
+                  </select>
+                  <label for="uomCategory" class="input-label">Category <span class="text-danger">*</span></label>
+                </div>
+                <div class="col-md-3 mt-1"><div class="form-check form-switch pt-3">
+                  <input type="checkbox" id="uomActive" class="form-check-input" checked>
+                  <label class="form-check-label" for="uomActive"><strong>Active</strong></label>
+                </div></div>
+                <div class="col-md-3 mt-1"><div class="form-check form-switch pt-3">
+                  <input type="checkbox" id="uomBase" class="form-check-input">
+                  <label class="form-check-label" for="uomBase"><strong>Base Unit</strong></label>
+                </div></div>
+              </div></div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-success" type="submit" id="uomSubmitBtn">
+                <span class="spinner-border spinner-border-sm me-2 d-none" id="uomSpinner"></span>
+                <span id="uomBtnText">Save</span>
+              </button>
+              <button type="button" class="btn btn-white" data-bs-dismiss="modal">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- VIEW MODAL -->
+    <div tabindex="-1" id="uomViewModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title"><i class="fa fa-ruler me-1 text-primary"></i> UOM Details</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <div class="hs-box"><div class="row g-2">
+              <div class="col-md-3 view-group"><label class="view-label">Code</label><span id="uv_code" class="form-control hs_span_show"></span></div>
+              <div class="col-md-5 view-group"><label class="view-label">Name</label><span id="uv_name" class="form-control hs_span_show"></span></div>
+              <div class="col-md-2 view-group"><label class="view-label">Symbol</label><span id="uv_symbol" class="form-control hs_span_show"></span></div>
+              <div class="col-md-2 view-group"><label class="view-label">Factor</label><span id="uv_factor" class="form-control hs_span_show"></span></div>
+              <div class="col-md-4 view-group"><label class="view-label">Category</label><span id="uv_category" class="form-control hs_span_show"></span></div>
+              <div class="col-md-4 view-group"><label class="view-label">Base Unit</label><span id="uv_base" class="form-control hs_span_show"></span></div>
+              <div class="col-md-4 view-group"><label class="view-label">Status</label><span id="uv_status" class="form-control hs_span_show"></span></div>
+            </div></div>
+          </div>
+          <div class="modal-footer"><button type="button" class="btn btn-white" data-bs-dismiss="modal">Close</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script th:inline="none">
+  (function () {
+    'use strict';
+    const BASE = '/item-uoms';
+    var dt;
+    document.addEventListener('DOMContentLoaded', function () {
+      dt = $('#uomTable').DataTable({
+        processing: true, serverSide: false, responsive: true, pageLength: 25,
+        ajax: { url: BASE + '/list', type: 'GET' },
+        columns: [
+          { data: 'sl', orderable: false, width: '40px' },
+          { data: 'code' }, { data: 'name' },
+          { data: 'symbol', defaultContent: '—' },
+          { data: 'category' },
+          { data: 'conversion_factor', className: 'text-end' },
+          { data: 'base_flag', orderable: false, className: 'text-center' },
+          { data: 'status', orderable: false, className: 'text-center' },
+          { data: 'actions', orderable: false, className: 'text-center' }
+        ],
+        language: { emptyTable: 'No UOMs found.', processing: '<span class="spinner-border spinner-border-sm me-2"></span> Loading…' }
+      });
+      _loadCategories();
+      document.getElementById('uomForm').addEventListener('submit', _onSubmit);
+    });
+
+    function _loadCategories() {
+      secureFetch(BASE + '/categories').then(function (data) {
+        var sel = document.getElementById('uomCategory');
+        while (sel.options.length > 1) sel.remove(1);
+        (data || []).forEach(function (c) {
+          var opt = document.createElement('option'); opt.value = c; opt.textContent = c.replace(/_/g, ' '); sel.appendChild(opt);
+        });
+      });
+    }
+
+    window.uomOpenCreate = function () {
+      _reset(); document.getElementById('uomModalTitle').innerHTML = '<i class="fa fa-plus me-1 text-success"></i> Add UOM';
+      document.getElementById('uomBtnText').textContent = 'Save';
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('uomModal')).show();
+    };
+    window.uomShow = function (id) {
+      secureFetch(BASE + '/show/' + id).then(function (res) {
+        if (!res.success) { Swal.fire('Error', res.message, 'error'); return; }
+        var o = res.obj.defaultData;
+        _st('uv_code', o.code); _st('uv_name', o.name); _st('uv_symbol', o.symbol);
+        _st('uv_factor', o.conversionFactor); _st('uv_category', o.category);
+        document.getElementById('uv_base').innerHTML   = o.isBaseUnit ? "<span class='badge bg-info text-dark'>Yes</span>" : "<span class='badge bg-secondary'>No</span>";
+        document.getElementById('uv_status').innerHTML = o.active ? "<span class='badge bg-success'>Active</span>" : "<span class='badge bg-danger'>Inactive</span>";
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('uomViewModal')).show();
+      });
+    };
+    window.uomEdit = function (id) {
+      secureFetch(BASE + '/show/' + id).then(function (res) {
+        if (!res.success) { Swal.fire('Error', res.message, 'error'); return; }
+        var o = res.obj.defaultData; _reset();
+        _v('uomId', o.id); _v('uomCode', o.code); _v('uomName', o.name);
+        _v('uomSymbol', o.symbol || ''); _v('uomFactor', o.conversionFactor || 1);
+        document.getElementById('uomCategory').value = o.category || '';
+        document.getElementById('uomActive').checked = o.active;
+        document.getElementById('uomBase').checked   = o.isBaseUnit;
+        document.getElementById('uomModalTitle').innerHTML = '<i class="fa fa-pencil me-1 text-warning"></i> Edit UOM';
+        document.getElementById('uomBtnText').textContent = 'Update';
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('uomModal')).show();
+      });
+    };
+    window.uomToggle = function (id) { hsChangeStatus(BASE + '/toggle/' + id, dt, 'UOM'); };
+    window.uomDelete = function (id) { hsConfirmDelete(BASE + '/delete/' + id, dt); };
+
+    function _onSubmit(e) {
+      e.preventDefault();
+      var sb = document.getElementById('uomSubmitBtn'), sp = document.getElementById('uomSpinner'), bt = document.getElementById('uomBtnText');
+      hsDisableButton(sb, sp, bt);
+      secureFetch(BASE + '/save', { method: 'POST', body: JSON.stringify({
+        id: document.getElementById('uomId').value || null,
+        code: document.getElementById('uomCode').value,
+        name: document.getElementById('uomName').value,
+        symbol: document.getElementById('uomSymbol').value,
+        category: document.getElementById('uomCategory').value,
+        conversionFactor: parseFloat(document.getElementById('uomFactor').value) || 1,
+        isBaseUnit: document.getElementById('uomBase').checked,
+        active: document.getElementById('uomActive').checked
+      })}).then(function (d) {
+        if (d.success) { Swal.fire({ icon: 'success', title: 'Saved!', text: d.message, timer: 1600, showConfirmButton: false });
+          bootstrap.Modal.getOrCreateInstance(document.getElementById('uomModal')).hide(); dt.ajax.reload(null, false);
+        } else { Swal.fire('Error', d.message, 'error'); }
+      }).catch(function (err) { Swal.fire('Error', err.message || 'Request failed.', 'error'); })
+        .finally(function () { hsEnableButton(sb, sp, bt); });
+    }
+    function _reset() { document.getElementById('uomForm').reset(); document.getElementById('uomId').value = ''; document.getElementById('uomActive').checked = true; document.getElementById('uomBase').checked = false; document.getElementById('uomFactor').value = 1; }
+    function _v(id, v) { var e = document.getElementById(id); if (e) e.value = (v !== null && v !== undefined) ? v : ''; }
+    function _st(id, v) { var e = document.getElementById(id); if (e) e.textContent = (v !== null && v !== undefined) ? v : '—'; }
+  })();
+  </script>
+</section>
+</html>
