@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<!--
+  accounts/journal-voucher.html    GET /accounts/journals
+  voucherType = JOURNAL_VOUCHER
+  JS prefix: jv
+-->
+<html th:replace="~{layout/base :: layout('Journal Voucher', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
+<section>
+
+  <ol class="breadcrumb float-xl-end">
+    <li class="breadcrumb-item"><a th:href="@{/dashboard}">Home</a></li>
+    <li class="breadcrumb-item">Accounts</li>
+    <li class="breadcrumb-item active">Journal Voucher</li>
+  </ol>
+  <h1 class="page-header">Journal Voucher <small>general ledger entries — debit / credit balanced</small></h1>
+
+  <div class="panel panel-inverse">
+    <div class="panel-heading">
+      <div class="panel-title">
+        <a href="javascript:;" onclick="jvOpenCreate()">
+          <span class="badge btn btn-outline-success"><i class="fa fa-plus me-1"></i> New Journal Voucher</span>
+        </a>
+      </div>
+      <div class="panel-heading-btn">
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-default" data-toggle="panel-expand"><i class="fa fa-expand"></i></a>
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-success" data-toggle="panel-reload"><i class="fa fa-redo"></i></a>
+      </div>
+    </div>
+    <div class="panel-body">
+      <table id="jvTable" width="100%" class="table table-striped table-bordered align-middle">
+        <thead><tr>
+          <th width="1%">SL</th><th>Voucher No</th><th>Date</th>
+          <th class="text-end">Total DR</th><th class="text-end">Total CR</th>
+          <th>Reference</th><th>Narration</th>
+          <th>Created By</th><th>Status</th>
+          <th class="text-center" width="15%">Actions</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <!-- CREATE / EDIT MODAL -->
+    <div tabindex="-1" id="jvModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="jvModalTitle"><i class="fa fa-book-open me-1 text-success"></i> New Journal Voucher</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <form id="jvForm" novalidate>
+            <div class="modal-body">
+              <div class="hs-box">
+                <input type="hidden" id="jvId">
+                <div class="row g-2 mb-3">
+                  <div class="col-md-3 view-group">
+                    <input id="jvNo" type="text" class="form-control hs_span_view bg-light" readonly placeholder="Auto-generated">
+                    <label class="input-label">Voucher No</label>
+                  </div>
+                  <div class="col-md-3 view-group">
+                    <input id="jvDate" type="date" class="form-control hs_span_view" required>
+                    <label class="input-label">Voucher Date <span class="text-danger">*</span></label>
+                  </div>
+                  <div class="col-md-3 view-group">
+                    <input id="jvRef" type="text" class="form-control hs_span_view" maxlength="100">
+                    <label class="input-label">Reference No</label>
+                  </div>
+                  <div class="col-12 view-group">
+                    <textarea id="jvNarration" class="form-control hs_span_view" rows="1" placeholder="Narration…"></textarea>
+                    <label class="input-label">Narration</label>
+                  </div>
+                </div>
+
+                <!-- BALANCE DISPLAY -->
+                <div class="row mb-2">
+                  <div class="col-6">
+                    <div class="alert alert-light py-1 mb-0 d-flex justify-content-between">
+                      <span>Total Debit</span>
+                      <strong id="jvTotalDr" class="text-danger">0.00</strong>
+                    </div>
+                  </div>
+                  <div class="col-6">
+                    <div class="alert alert-light py-1 mb-0 d-flex justify-content-between">
+                      <span>Total Credit</span>
+                      <strong id="jvTotalCr" class="text-success">0.00</strong>
+                    </div>
+                  </div>
+                </div>
+                <div id="jvBalanceAlert" class="alert alert-danger py-1 d-none mb-2">
+                  <i class="fa fa-exclamation-triangle me-1"></i> Voucher is not balanced!
+                </div>
+
+                <!-- GL LINES -->
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                  <strong>GL Lines</strong>
+                  <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-sm btn-outline-danger"  onclick="jvAddLine('DEBIT')"><i class="fa fa-plus me-1"></i>DR Line</button>
+                    <button type="button" class="btn btn-sm btn-outline-success" onclick="jvAddLine('CREDIT')"><i class="fa fa-plus me-1"></i>CR Line</button>
+                  </div>
+                </div>
+                <div class="table-responsive">
+                  <table class="table table-sm table-bordered" id="jvLineTable">
+                    <thead class="table-light"><tr>
+                      <th width="3%">#</th>
+                      <th width="28%">Account <span class="text-danger">*</span></th>
+                      <th width="18%">Sub-Account</th>
+                      <th width="10%">Dr/Cr</th>
+                      <th width="12%">Amount <span class="text-danger">*</span></th>
+                      <th width="15%">Narration</th>
+                      <th width="10%">Cost Center</th>
+                      <th width="4%"></th>
+                    </tr></thead>
+                    <tbody id="jvLineBody"></tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-warning" type="button" id="jvPostBtn" onclick="jvPost()" style="display:none">
+                <i class="fas fa-check-circle me-1"></i> Post
+              </button>
+              <button class="btn btn-success" type="submit" id="jvSubmitBtn">
+                <span class="spinner-border spinner-border-sm me-2 d-none" id="jvSpinner"></span>
+                <span id="jvBtnText">Save Draft</span>
+              </button>
+              <button type="button" class="btn btn-white" data-bs-dismiss="modal">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- VIEW MODAL -->
+    <div tabindex="-1" id="jvViewModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title"><i class="fa fa-book-open me-1 text-primary"></i> Journal Voucher Details</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body" id="jvViewBody"></div>
+          <div class="modal-footer"><button type="button" class="btn btn-white" data-bs-dismiss="modal">Close</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script th:inline="none">
+  (function () {
+    'use strict';
+    const BASE     = '/accounts/vouchers';
+    const COA_URL  = '/accounts/chart/search';
+    const SUB_URL  = '/accounts/sub-accounts/search';
+    var dt, _lineCount = 0, _editId = null;
+
+    document.addEventListener('DOMContentLoaded', function () {
+      dt = $('#jvTable').DataTable({
+        processing: true, serverSide: false, responsive: true, pageLength: 25,
+        ajax: { url: BASE + '/list?voucherType=JOURNAL_VOUCHER', type: 'GET' },
+        columns: [
+          { data: 'sl', orderable: false, width: '40px' },
+          { data: 'voucher_no', defaultContent: '—' },
+          { data: 'voucher_date' },
+          { data: 'total_amount',     className: 'text-end fw-bold',  defaultContent: '0.00',
+            render: function(d){ return parseFloat(d||0).toFixed(2); }},
+          { data: 'total_amount',     className: 'text-end text-success', defaultContent: '0.00',
+            render: function(d){ return parseFloat(d||0).toFixed(2); }},
+          { data: 'reference_no', defaultContent: '—' },
+          { data: 'narration',    defaultContent: '—', render: function(d){ return d ? (d.length>40?d.substring(0,40)+'…':d) : '—'; }},
+          { data: 'created_by',   defaultContent: '—' },
+          { data: 'status_badge', orderable: false, className: 'text-center' },
+          { data: 'actions',      orderable: false, className: 'text-center' }
+        ],
+        language: { emptyTable: 'No journal vouchers.', processing: '<span class="spinner-border spinner-border-sm me-2"></span> Loading…' }
+      });
+      document.getElementById('jvDate').value = new Date().toISOString().substring(0,10);
+      document.getElementById('jvForm').addEventListener('submit', _onSubmit);
+    });
+
+    // ── S2 helpers ────────────────────────────────────────────────────────
+
+    function _initCoaS2(el, preId, preText) {
+      var $el = $(el);
+      if ($el.hasClass('select2-hidden-accessible')) $el.select2('destroy');
+      $el.select2({
+        dropdownParent: $('#jvModal'), width: '100%',
+        placeholder: '— Account —', allowClear: true, minimumInputLength: 0,
+        ajax: {
+          url: COA_URL, dataType: 'json', delay: 250,
+          data: function(p){ return { search: p.term||'', page: p.page||1 }; },
+          processResults: function(data, p){ p.page=p.page||1; return { results:(data.items||[]).map(function(i){return{id:i.id,text:i.text};}), pagination:{more:data.hasMore||false} }; },
+          cache: true
+        },
+        templateResult: function(r){ return r.loading ? r.text : r.text; },
+        templateSelection: function(r){ return r.text||r.id; }
+      });
+      if (preId) $el.append(new Option(preText||'', preId, true, true)).trigger('change');
+      $el.on('select2:select select2:clear', function(){ var tr=el.closest('tr'); if(tr){ var h=tr.querySelector('[data-field="accountId"]'); if(h) h.value=$el.val()||''; } });
+    }
+
+    function _initSubS2(el, preId, preText) {
+      var $el = $(el);
+      if ($el.hasClass('select2-hidden-accessible')) $el.select2('destroy');
+      $el.select2({
+        dropdownParent: $('#jvModal'), width: '100%',
+        placeholder: '— Sub-Account (opt.) —', allowClear: true, minimumInputLength: 0,
+        ajax: {
+          url: SUB_URL, dataType: 'json', delay: 250,
+          data: function(p){ return { search: p.term||'', page: p.page||1 }; },
+          processResults: function(data, p){ p.page=p.page||1; return { results:(data.items||[]).map(function(i){return{id:i.id,text:i.text};}), pagination:{more:data.hasMore||false} }; },
+          cache: true
+        },
+        templateResult: function(r){ return r.loading ? r.text : r.text; },
+        templateSelection: function(r){ return r.text||r.id; }
+      });
+      if (preId) $el.append(new Option(preText||'', preId, true, true)).trigger('change');
+      $el.on('select2:select select2:clear', function(){ var tr=el.closest('tr'); if(tr){ var h=tr.querySelector('[data-field="subAccountId"]'); if(h) h.value=$el.val()||''; } });
+    }
+
+    // ── Line management ───────────────────────────────────────────────────
+
+    window.jvAddLine = function(entryType, data) {
+      _lineCount++;
+      var n = _lineCount;
+      var cls = entryType === 'DEBIT' ? 'table-danger' : 'table-success';
+      var html = '<tr id="jvLine_' + n + '" class="' + cls + '">'
+        + '<td>' + n + '</td>'
+        + '<td><input type="hidden" data-field="accountId" value="' + (data?data.accountId||'':'') + '">'
+        +   '<select class="form-select form-select-sm jv-coa-s2"></select></td>'
+        + '<td><input type="hidden" data-field="subAccountId" value="' + (data?data.subAccountId||'':'') + '">'
+        +   '<select class="form-select form-select-sm jv-sub-s2"></select></td>'
+        + '<td><span class="badge ' + (entryType==='DEBIT'?'bg-danger':'bg-success') + '">' + entryType + '</span>'
+        +   '<input type="hidden" data-field="entryType" value="' + entryType + '"></td>'
+        + '<td><input type="number" step="0.01" min="0" class="form-control form-control-sm text-end" data-field="amount" required value="' + (data?data.amount||'':'') + '" oninput="jvRecalcBalance()"></td>'
+        + '<td><input type="text" class="form-control form-control-sm" data-field="narration" value="' + (data?data.narration||'':'') + '"></td>'
+        + '<td><input type="text" class="form-control form-control-sm" data-field="costCenter" value="' + (data?data.costCenterDisplay||'':'') + '" placeholder="CC…"></td>'
+        + '<td><button type="button" class="btn btn-sm btn-outline-danger" onclick="jvRemoveLine(' + n + ')"><i class="fa fa-times"></i></button></td>'
+        + '</tr>';
+      document.getElementById('jvLineBody').insertAdjacentHTML('beforeend', html);
+      var coaSel = document.querySelector('#jvLine_' + n + ' .jv-coa-s2');
+      var subSel = document.querySelector('#jvLine_' + n + ' .jv-sub-s2');
+      _initCoaS2(coaSel, data?data.accountId:null, data?data.accountDisplay:null);
+      _initSubS2(subSel, data?data.subAccountId:null, data?data.subAccountDisplay:null);
+    };
+
+    window.jvRemoveLine = function(n) {
+      var row = document.getElementById('jvLine_' + n);
+      if (row) {
+        row.querySelectorAll('.jv-coa-s2, .jv-sub-s2').forEach(function(el){
+          if($(el).hasClass('select2-hidden-accessible')) $(el).select2('destroy');
+        });
+        row.remove();
+      }
+      jvRecalcBalance();
+    };
+
+    window.jvRecalcBalance = function() {
+      var dr = 0, cr = 0;
+      document.querySelectorAll('#jvLineBody tr').forEach(function(tr){
+        var type = tr.querySelector('[data-field="entryType"]').value;
+        var amt  = parseFloat(tr.querySelector('[data-field="amount"]').value) || 0;
+        if (type === 'DEBIT') dr += amt; else cr += amt;
+      });
+      document.getElementById('jvTotalDr').textContent = dr.toFixed(2);
+      document.getElementById('jvTotalCr').textContent = cr.toFixed(2);
+      var balanced = Math.abs(dr - cr) < 0.01;
+      document.getElementById('jvBalanceAlert').classList.toggle('d-none', balanced);
+    };
+
+    // ── CRUD ──────────────────────────────────────────────────────────────
+
+    window.jvOpenCreate = function() {
+      _resetForm();
+      document.getElementById('jvModalTitle').innerHTML = '<i class="fa fa-plus me-1 text-success"></i> New Journal Voucher';
+      document.getElementById('jvBtnText').textContent  = 'Save Draft';
+      document.getElementById('jvPostBtn').style.display = 'none';
+      jvAddLine('DEBIT');
+      jvAddLine('CREDIT');
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('jvModal')).show();
+    };
+
+    window.jvShow = function(id) {
+      secureFetch(BASE + '/show/' + id).then(function(res) {
+        if (!res.success) { Swal.fire('Error', res.message, 'error'); return; }
+        var o = res.obj.defaultData;
+        var html = '<div class="hs-box"><div class="row g-2">'
+          + _vf('Voucher No', o.voucherNo||'—') + _vf('Date', o.voucherDate) + _vf('Status', o.voucherStatus)
+          + _vf('Reference', o.referenceNo||'—') + _vf('Total DR', parseFloat(o.totalDebit||0).toFixed(2))
+          + _vf('Total CR', parseFloat(o.totalCredit||0).toFixed(2))
+          + '<div class="col-12 view-group"><label class="view-label">Narration</label><span class="form-control hs_span_show">' + (o.narration||'—') + '</span></div>'
+          + '</div>'
+          + '<table class="table table-sm table-bordered mt-3"><thead class="table-light"><tr>'
+          + '<th>#</th><th>Account</th><th>Sub-Account</th><th>Dr/Cr</th><th class="text-end">Amount</th><th>Narration</th>'
+          + '</tr></thead><tbody>';
+        (o.lines||[]).forEach(function(l,i){
+          html += '<tr><td>'+(i+1)+'</td><td>'+(l.accountDisplay||'—')+'</td><td>'+(l.subAccountDisplay||'—')+'</td>'
+                + '<td><span class="badge '+(l.entryType==='DEBIT'?'bg-danger':'bg-success')+'">'+(l.entryType||'')+'</span></td>'
+                + '<td class="text-end fw-bold">'+parseFloat(l.amount||0).toFixed(2)+'</td>'
+                + '<td>'+(l.narration||'—')+'</td></tr>';
+        });
+        html += '</tbody></table></div>';
+        document.getElementById('jvViewBody').innerHTML = html;
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('jvViewModal')).show();
+      });
+    };
+
+    window.jvEdit = function(id) {
+      secureFetch(BASE + '/show/' + id).then(function(res) {
+        if (!res.success) { Swal.fire('Error', res.message, 'error'); return; }
+        var o = res.obj.defaultData;
+        _resetForm();
+        _editId = o.id;
+        document.getElementById('jvId').value     = o.id;
+        document.getElementById('jvNo').value     = o.voucherNo||'';
+        document.getElementById('jvDate').value   = o.voucherDate||'';
+        document.getElementById('jvRef').value    = o.referenceNo||'';
+        document.getElementById('jvNarration').value = o.narration||'';
+        (o.lines||[]).forEach(function(l){ jvAddLine(l.entryType, l); });
+        jvRecalcBalance();
+        document.getElementById('jvModalTitle').innerHTML = '<i class="fa fa-pencil me-1 text-warning"></i> Edit Journal Voucher';
+        document.getElementById('jvBtnText').textContent  = 'Update Draft';
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('jvModal')).show();
+      });
+    };
+
+    window.jvPost = function(id) {
+      var vId = id || document.getElementById('jvId').value;
+      if (!vId) { Swal.fire('Error','Save the voucher first before posting.','warning'); return; }
+      Swal.fire({ title:'Post Voucher?', text:'This will lock the voucher and update GL balances. Cannot be edited after posting.',
+        icon:'warning', showCancelButton:true, confirmButtonText:'Yes, Post It!', confirmButtonColor:'#0d6efd' })
+        .then(function(r){
+          if (!r.isConfirmed) return;
+          secureFetch(BASE + '/post/' + vId, { method:'POST', body:'{}' }).then(function(d){
+            if (d.success) {
+              Swal.fire({ icon:'success', title:'Posted!', text:d.message, timer:1800, showConfirmButton:false });
+              bootstrap.Modal.getOrCreateInstance(document.getElementById('jvModal')).hide();
+              dt.ajax.reload(null, false);
+            } else { Swal.fire('Error', d.message, 'error'); }
+          });
+        });
+    };
+
+    window.jvReverse = function(id) {
+      Swal.fire({ title:'Reverse Voucher?', text:'A mirror reversal entry will be created.',
+        icon:'warning', showCancelButton:true, confirmButtonText:'Yes, Reverse!', confirmButtonColor:'#dc3545',
+        input:'text', inputPlaceholder:'Reversal reason (optional)' })
+        .then(function(r){
+          if (!r.isConfirmed) return;
+          secureFetch(BASE + '/reverse/' + id + '?narration=' + encodeURIComponent(r.value||''), { method:'POST' })
+            .then(function(d){
+              if (d.success) {
+                Swal.fire({ icon:'success', title:'Reversed!', text:d.message, timer:1800, showConfirmButton:false });
+                dt.ajax.reload(null, false);
+              } else { Swal.fire('Error', d.message, 'error'); }
+            });
+        });
+    };
+
+    window.jvDelete = function(id) { hsConfirmDelete(BASE + '/delete/' + id, dt); };
+
+    function _onSubmit(e) {
+      e.preventDefault();
+      var sb = document.getElementById('jvSubmitBtn'), sp = document.getElementById('jvSpinner'), bt = document.getElementById('jvBtnText');
+      hsDisableButton(sb, sp, bt);
+      var lines = [];
+      document.querySelectorAll('#jvLineBody tr').forEach(function(tr, idx){
+        lines.push({
+          lineNumber : idx+1,
+          accountId  : tr.querySelector('[data-field="accountId"]').value || null,
+          subAccountId: tr.querySelector('[data-field="subAccountId"]').value || null,
+          entryType  : tr.querySelector('[data-field="entryType"]').value,
+          amount     : parseFloat(tr.querySelector('[data-field="amount"]').value) || null,
+          narration  : tr.querySelector('[data-field="narration"]').value || null
+        });
+      });
+      secureFetch(BASE + '/save', { method:'POST', body: JSON.stringify({
+        id          : document.getElementById('jvId').value || null,
+        voucherType : 'JOURNAL_VOUCHER',
+        voucherDate : document.getElementById('jvDate').value,
+        referenceNo : document.getElementById('jvRef').value || null,
+        narration   : document.getElementById('jvNarration').value || null,
+        lines       : lines
+      })}).then(function(d){
+        if (d.success) {
+          document.getElementById('jvId').value = d.id;
+          _editId = d.id;
+          document.getElementById('jvPostBtn').style.display = '';
+          Swal.fire({ icon:'success', title:'Saved!', text:d.message, timer:1400, showConfirmButton:false });
+          dt.ajax.reload(null, false);
+        } else { Swal.fire('Error', d.message, 'error'); }
+      }).catch(function(err){ Swal.fire('Error', err.message||'Request failed.', 'error'); })
+        .finally(function(){ hsEnableButton(sb, sp, bt); });
+    }
+
+    function _resetForm() {
+      document.querySelectorAll('.jv-coa-s2, .jv-sub-s2').forEach(function(el){
+        if($(el).hasClass('select2-hidden-accessible')) $(el).select2('destroy');
+      });
+      document.getElementById('jvForm').reset();
+      document.getElementById('jvId').value = '';
+      document.getElementById('jvLineBody').innerHTML = '';
+      document.getElementById('jvTotalDr').textContent = '0.00';
+      document.getElementById('jvTotalCr').textContent = '0.00';
+      document.getElementById('jvBalanceAlert').classList.add('d-none');
+      document.getElementById('jvPostBtn').style.display = 'none';
+      _lineCount = 0; _editId = null;
+      document.getElementById('jvDate').value = new Date().toISOString().substring(0,10);
+    }
+
+    function _vf(label, value) {
+      return '<div class="col-md-4 view-group"><label class="view-label">' + label + '</label>'
+           + '<span class="form-control hs_span_show">' + (value!=null?value:'—') + '</span></div>';
+    }
+  })();
+  </script>
+</section>
+</html>
