@@ -291,7 +291,7 @@
 
     function _onSubmit(e) {
       e.preventDefault();
-      var sb = document.getElementById('coaSubmitBtn'), sp = document.getElementById('coaSpinner'), bt = document.getElementById('coaBtnText');
+      var sb = document.getElementById('coaSubmitBtn'), sp = document.getElementById('coaSpinner'), bt = document.getElementById('coaBtnText'), fm = document.getElementById('coaForm');
       hsDisableButton(sb, sp, bt);
       secureFetch(BASE + '/save', { method: 'POST', body: JSON.stringify({
         id              : document.getElementById('coaId').value || null,
@@ -308,7 +308,7 @@
         isControlAccount: document.getElementById('coaIsControl').checked,
         active          : document.getElementById('coaActive').checked
       })}).then(function (d) {
-        hsAfterSaveMessages(d, dt);
+        hsAfterSaveMessages(d.success, d.message, fm, dt);
         if (d.success) bootstrap.Modal.getOrCreateInstance(document.getElementById('coaModal')).hide();
       }).catch(function (err) { Swal.fire('Error', err.message || 'Request failed.', 'error'); })
         .finally(function () { hsEnableButton(sb, sp, bt); });

@@ -681,7 +681,7 @@
     function _onSubmit(e) {
       e.preventDefault();
       var type = document.getElementById('subType').value;
-      var sb = document.getElementById('subSubmitBtn'), sp = document.getElementById('subSpinner'), bt = document.getElementById('subBtnText');
+      var sb = document.getElementById('subSubmitBtn'), sp = document.getElementById('subSpinner'), bt = document.getElementById('subBtnText'), fm = document.getElementById('coaForm');
       hsDisableButton(sb, sp, bt);
 
       var payload = {
@@ -767,7 +767,7 @@
 
       secureFetch(BASE + '/save', { method: 'POST', body: JSON.stringify(payload) })
         .then(function (d) {
-          hsAfterSaveMessages(d, dt);
+          hsAfterSaveMessages(d.success, d.message, fm, dt);
           if (d.success) bootstrap.Modal.getOrCreateInstance(document.getElementById('subModal')).hide();
         }).catch(function (err) { Swal.fire('Error', err.message || 'Request failed.', 'error'); })
         .finally(function () { hsEnableButton(sb, sp, bt); });
