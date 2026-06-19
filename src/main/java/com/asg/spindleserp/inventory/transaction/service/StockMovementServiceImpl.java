@@ -111,9 +111,7 @@ public class StockMovementServiceImpl implements StockMovementService {
         guardDraft(doc);
 
         for (BusinessDocumentLine line : doc.getLines()) {
-            MovementType mt = MovementType.valueOf(
-                    line.getRemarks() != null && line.getRemarks().startsWith("ADJ_OUT")
-                            ? "ADJUSTMENT_OUT" : "ADJUSTMENT_IN");
+            MovementType mt = MovementType.valueOf(line.getRemarks() != null && line.getRemarks().startsWith("ADJ_OUT") ? "ADJUSTMENT_OUT" : "ADJUSTMENT_IN");
             postInventoryTransaction(doc, line, mt, doc.getWarehouse());
         }
 
@@ -146,7 +144,7 @@ public class StockMovementServiceImpl implements StockMovementService {
     @Override
     @Transactional(readOnly = true)
     public DataTableResponse adjustmentDatatableList(int draw, int start, int length, String search) {
-        return docDatatable(draw, start, length, search, "STOCK_ADJUSTMENT", "adjShow", "adjEdit", "adjDelete");
+        return docDatatable(draw, start, length, search, "STOCK_ADJUSTMENT", "adjShow", "adjEdit", "adjConfirm", "adjDelete");
     }
 
     // ═════════════════════════════════════════════════════════════════════════
@@ -285,7 +283,7 @@ public class StockMovementServiceImpl implements StockMovementService {
     @Override
     @Transactional(readOnly = true)
     public DataTableResponse transferDatatableList(int draw, int start, int length, String search) {
-        return docDatatable(draw, start, length, search, "STOCK_TRANSFER", "trShow", "trEdit", "trDelete");
+        return docDatatable(draw, start, length, search, "STOCK_TRANSFER", "trShow", "trEdit", "trConfirm", "trDelete");
     }
 
     // ═════════════════════════════════════════════════════════════════════════
@@ -296,10 +294,7 @@ public class StockMovementServiceImpl implements StockMovementService {
      * Posts one InventoryTransaction and updates InventoryStockBalance atomically.
      * Inbound movements increase balance; outbound decrease.
      */
-    private void postInventoryTransaction(BusinessDocument doc,
-                                          BusinessDocumentLine line,
-                                          MovementType movementType,
-                                          Warehouse warehouse) {
+    private void postInventoryTransaction(BusinessDocument doc, BusinessDocumentLine line, MovementType movementType, Warehouse warehouse) {
         boolean isInbound = isInbound(movementType);
         BigDecimal qty = isInbound ? line.getQuantity() : line.getQuantity().negate();
 
@@ -319,10 +314,7 @@ public class StockMovementServiceImpl implements StockMovementService {
 
         BigDecimal newQty = balance.getQuantity().add(qty);
         if (!isInbound && newQty.compareTo(BigDecimal.ZERO) < 0)
-            throw new IllegalArgumentException(
-                    "Negative stock would result for item '" + line.getItemCode()
-                    + "' in warehouse '" + warehouse.getWarehouseCode() + "'.");
-
+            throw new IllegalArgumentException("Negative stock would result for item '" + line.getItemCode() + "' in warehouse '" + warehouse.getWarehouseCode() + "'.");
         balance.setQuantity(newQty);
         balance.setLastTransactionTime(LocalDateTime.now());
         if (line.getUnitPrice() != null && isInbound) {
@@ -444,7 +436,7 @@ public class StockMovementServiceImpl implements StockMovementService {
     // DATATABLE
     // ═════════════════════════════════════════════════════════════════════════
 
-    private DataTableResponse docDatatable(int draw, int start, int length, String search, String docType, String fnShow, String fnEdit, String fnDelete) {
+    private DataTableResponse docDatatable(int draw, int start, int length, String search, String docType, String fnShow, String fnEdit, String fnConfirm, String fnDelete) {
         Long orgId = SecurityHelper.currentOrgId().orElse(null);
         Long warehouseId = ContextProvider.getWarehouseId();
         String where = "WHERE d.document_type = '" + docType + "' AND d.is_deleted = false AND d.organization_id = " + warehouseId + " "
@@ -475,6 +467,9 @@ public class StockMovementServiceImpl implements StockMovementService {
                          '<a href="javascript:;" onclick="%s(' || d.id || ')" class="btn btn-white btn-sm" title="Edit"><i class="fa-regular fa-pen-to-square text-warning"></i></a>'
                        ELSE '' END
                     || CASE WHEN d.status = 'DRAFT' THEN
+                         '<a href="javascript:;" onclick="%s(' || d.id || ')" class="btn btn-white btn-sm" title="Confirm"><i class="fa fa-check-circle text-primary"></i></a>'
+                       ELSE '' END
+                    || CASE WHEN d.status = 'DRAFT' THEN
                          '<a href="javascript:;" onclick="%s(' || d.id || ')" class="btn btn-white btn-sm" title="Delete"><i class="fa-regular fa-trash-can text-danger"></i></a>'
                        ELSE '' END
                     || '</div>'                              AS actions
@@ -483,7 +478,7 @@ public class StockMovementServiceImpl implements StockMovementService {
             %s
             ORDER BY d.id DESC
             OFFSET %d LIMIT %d
-            """, fnShow, fnEdit, fnDelete, where, start, length);
+            """, fnShow, fnEdit, fnConfirm, fnDelete, where, start, length);
 
         List<Map<String, Object>> rows = jdbcTemplate.queryForList(sql);
         long total = rows.isEmpty() ? 0L : CommonUtils.toLong(rows.getFirst().get("full_count"));
