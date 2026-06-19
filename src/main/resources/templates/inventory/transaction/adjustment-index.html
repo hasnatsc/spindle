@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<!--
+  inventory/adjustment-index.html    GET /inventory/adjustments
+  JS fns: adjShow / adjEdit / adjDelete / adjOpenCreate
+  + inline confirm / cancel buttons on each row
+-->
+<html th:replace="~{layout/base :: layout('Stock Adjustments', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
+<section>
+
+  <ol class="breadcrumb float-xl-end">
+    <li class="breadcrumb-item"><a th:href="@{/dashboard}">Home</a></li>
+    <li class="breadcrumb-item">Inventory</li>
+    <li class="breadcrumb-item active">Stock Adjustments</li>
+  </ol>
+  <h1 class="page-header">Stock Adjustments <small>increase or decrease stock quantities</small></h1>
+
+  <div class="panel panel-inverse">
+    <div class="panel-heading">
+      <div class="panel-title">
+        <a href="javascript:;" onclick="adjOpenCreate()">
+          <span class="badge btn btn-outline-success"><i class="fa fa-plus me-1"></i> New Adjustment</span>
+        </a>
+      </div>
+      <div class="panel-heading-btn">
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-default" data-toggle="panel-expand"><i class="fa fa-expand"></i></a>
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-success" data-toggle="panel-reload"><i class="fa fa-redo"></i></a>
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-warning" data-toggle="panel-collapse"><i class="fa fa-minus"></i></a>
+      </div>
+    </div>
+    <div class="panel-body">
+      <table id="adjTable" width="100%" class="table table-striped table-bordered align-middle">
+        <thead><tr>
+          <th width="1%">SL</th><th>Doc No</th><th>Date</th>
+          <th>Warehouse</th><th>Lines</th><th>Ref No</th>
+          <th>Status</th><th>Created</th><th>By</th>
+          <th class="text-center" width="16%">Actions</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <!-- CREATE / EDIT MODAL -->
+    <div tabindex="-1" id="adjModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="adjModalTitle"><i class="fa fa-sliders me-1 text-success"></i> New Stock Adjustment</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <form id="adjForm" novalidate>
+            <div class="modal-body">
+              <div class="hs-box">
+                <input type="hidden" id="adjId">
+                <div class="row g-2 mb-3">
+                  <div class="col-md-3 view-group">
+                    <input id="adjDocNo" type="text" class="form-control hs_span_view bg-light" readonly placeholder="Auto-generated">
+                    <label for="adjDocNo" class="input-label">Doc No</label>
+                  </div>
+                  <div class="col-md-3 view-group">
+                    <input id="adjDate" type="date" class="form-control hs_span_view" required>
+                    <label for="adjDate" class="input-label">Date <span class="text-danger">*</span></label>
+                  </div>
+                  <div class="col-md-4 view-group">
+                    <select id="adjWarehouseId" class="form-select hs_span_view" required>
+                      <option value="">— Select Warehouse —</option>
+                    </select>
+                    <label for="adjWarehouseId" class="input-label">Warehouse <span class="text-danger">*</span></label>
+                  </div>
+                  <div class="col-md-2 view-group">
+                    <input id="adjRefNo" type="text" class="form-control hs_span_view" maxlength="100" placeholder="Optional">
+                    <label for="adjRefNo" class="input-label">Reference No</label>
+                  </div>
+                  <div class="col-12 view-group">
+                    <textarea id="adjRemarks" class="form-control hs_span_view" rows="1" placeholder="Remarks…"></textarea>
+                    <label for="adjRemarks" class="input-label">Remarks</label>
+                  </div>
+                </div>
+
+                <!-- Lines -->
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                  <strong>Adjustment Lines</strong>
+                  <button type="button" class="btn btn-sm btn-outline-primary" onclick="adjAddLine()">
+                    <i class="fa fa-plus me-1"></i> Add Line
+                  </button>
+                </div>
+                <div class="table-responsive">
+                  <table class="table table-sm table-bordered" id="adjLinesTable">
+                    <thead class="table-light"><tr>
+                      <th width="3%">#</th>
+                      <th width="25%">Item <span class="text-danger">*</span></th>
+                      <th width="12%">Lot</th>
+                      <th width="15%">Movement <span class="text-danger">*</span></th>
+                      <th width="10%">Qty <span class="text-danger">*</span></th>
+                      <th width="10%">Unit Cost</th>
+                      <th width="10%">Line Amount</th>
+                      <th width="12%">Remarks</th>
+                      <th width="3%"></th>
+                    </tr></thead>
+                    <tbody id="adjLineBody"></tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-success" type="submit" id="adjSubmitBtn">
+                <span class="spinner-border spinner-border-sm me-2 d-none" id="adjSpinner"></span>
+                <span id="adjBtnText">Save Draft</span>
+              </button>
+              <button type="button" class="btn btn-white" data-bs-dismiss="modal">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- VIEW MODAL -->
+    <div tabindex="-1" id="adjViewModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title"><i class="fa fa-sliders me-1 text-primary"></i> Adjustment Details</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body" id="adjViewBody"><!-- filled by adjShow() --></div>
+          <div class="modal-footer"><button type="button" class="btn btn-white" data-bs-dismiss="modal">Close</button></div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /panel -->
+
+  <script th:inline="none">
+  (function () {
+    'use strict';
+    const BASE = '/inventory/adjustments';
+    var dt;
+    var _items = [], _warehouses = [], _lineCount = 0;
+
+    document.addEventListener('DOMContentLoaded', function () {
+      dt = $('#adjTable').DataTable({
+        processing: true, serverSide: false, responsive: true, pageLength: 25,
+        ajax: { url: BASE + '/list', type: 'GET' },
+        columns: [
+          { data: 'sl', orderable: false, width: '40px' },
+          { data: 'document_no' }, { data: 'document_date' },
+          { data: 'warehouse_name', defaultContent: '—' },
+          { data: 'line_count', className: 'text-center' },
+          { data: 'reference_no', defaultContent: '—' },
+          { data: 'status_badge', orderable: false, className: 'text-center' },
+          { data: 'created_at', defaultContent: '—' },
+          { data: 'created_by', defaultContent: '—' },
+          { data: 'actions', orderable: false, className: 'text-center' }
+        ],
+        language: { emptyTable: 'No adjustments found.', processing: '<span class="spinner-border spinner-border-sm me-2"></span> Loading…' }
+      });
+
+      _loadWarehouses();
+      _loadItems();
+
+      // Set today as default date
+      document.getElementById('adjDate').value = new Date().toISOString().substring(0, 10);
+      document.getElementById('adjForm').addEventListener('submit', _onSubmit);
+    });
+
+    function _loadWarehouses() {
+      secureFetch('/warehouses/active').then(function (data) {
+        _warehouses = data || [];
+        var sel = document.getElementById('adjWarehouseId');
+        while (sel.options.length > 1) sel.remove(1);
+        _warehouses.forEach(function (w) {
+          var opt = document.createElement('option'); opt.value = w.id; opt.textContent = w.name + ' (' + w.code + ')'; sel.appendChild(opt);
+        });
+      });
+    }
+
+    function _loadItems() {
+      secureFetch('/items/active').then(function (data) { _items = data || []; });
+    }
+
+    window.adjOpenCreate = function () {
+      _resetForm();
+      document.getElementById('adjModalTitle').innerHTML = '<i class="fa fa-plus me-1 text-success"></i> New Stock Adjustment';
+      document.getElementById('adjBtnText').textContent = 'Save Draft';
+      adjAddLine(); // start with one empty line
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('adjModal')).show();
+    };
+
+    window.adjShow = function (id) {
+      secureFetch(BASE + '/show/' + id).then(function (res) {
+        if (!res.success) { Swal.fire('Error', res.message, 'error'); return; }
+        var o = res.obj.defaultData;
+        var html = '<div class="hs-box"><div class="row g-2">'
+          + _viewField('Doc No',    o.documentNo) + _viewField('Date', o.documentDate)
+          + _viewField('Warehouse', o.warehouseName) + _viewField('Status', o.status)
+          + _viewField('Reference', o.referenceNo) + _viewField('Remarks', o.remarks)
+          + '</div>'
+          + '<table class="table table-sm table-bordered mt-3"><thead class="table-light"><tr>'
+          + '<th>#</th><th>Item</th><th>Lot</th><th>Movement</th><th>Qty</th><th>Unit Cost</th><th>Amount</th><th>Remarks</th>'
+          + '</tr></thead><tbody>';
+        (o.lines || []).forEach(function (l, i) {
+          html += '<tr><td>' + (i+1) + '</td><td>' + (l.itemCode||'') + ' — ' + (l.itemName||'') + '</td><td>' + (l.lotNumber||'—') + '</td>'
+                + '<td><span class="badge ' + (l.movementType === 'ADJUSTMENT_IN' ? 'bg-success' : 'bg-danger') + '">' + (l.movementType||'') + '</span></td>'
+                + '<td class="text-end">' + (l.quantity||0) + '</td><td class="text-end">' + (l.unitCost||'—') + '</td><td class="text-end">' + (l.lineAmount||'—') + '</td><td>' + (l.remarks||'') + '</td></tr>';
+        });
+        html += '</tbody></table></div>';
+        document.getElementById('adjViewBody').innerHTML = html;
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('adjViewModal')).show();
+      });
+    };
+
+    window.adjEdit = function (id) {
+      secureFetch(BASE + '/show/' + id).then(function (res) {
+        if (!res.success) { Swal.fire('Error', res.message, 'error'); return; }
+        var o = res.obj.defaultData;
+        _resetForm();
+        document.getElementById('adjId').value             = o.id;
+        document.getElementById('adjDocNo').value          = o.documentNo || '';
+        document.getElementById('adjDate').value           = o.documentDate || '';
+        document.getElementById('adjWarehouseId').value    = o.warehouseId || '';
+        document.getElementById('adjRefNo').value          = o.referenceNo || '';
+        document.getElementById('adjRemarks').value        = o.remarks || '';
+        (o.lines || []).forEach(function (l) { adjAddLine(l); });
+        document.getElementById('adjModalTitle').innerHTML = '<i class="fa fa-pencil me-1 text-warning"></i> Edit Adjustment';
+        document.getElementById('adjBtnText').textContent = 'Update';
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('adjModal')).show();
+      });
+    };
+
+    window.adjAddLine = function (data) {
+      _lineCount++;
+      var n = _lineCount;
+      var itemOpts = '<option value="">— Item —</option>' + _items.map(function (i) {
+        return '<option value="' + i.id + '" ' + (data && String(data.itemId) === String(i.id) ? 'selected' : '') + '>' + i.code + ' — ' + i.name + '</option>';
+      }).join('');
+      var html = '<tr id="adjLine_' + n + '">'
+        + '<td>' + n + '</td>'
+        + '<td><select class="form-select form-select-sm" data-field="itemId" required>' + itemOpts + '</select></td>'
+        + '<td><input type="text" class="form-control form-control-sm" data-field="lotNumber" placeholder="Lot No" value="' + (data ? data.lotNumber || '' : '') + '"></td>'
+        + '<td><select class="form-select form-select-sm" data-field="movementType" required>'
+        +   '<option value="ADJUSTMENT_IN" ' + (!data || data.movementType === 'ADJUSTMENT_IN' ? 'selected' : '') + '>IN (+)</option>'
+        +   '<option value="ADJUSTMENT_OUT" ' + (data && data.movementType === 'ADJUSTMENT_OUT' ? 'selected' : '') + '>OUT (−)</option>'
+        + '</select></td>'
+        + '<td><input type="number" step="0.001" min="0" class="form-control form-control-sm text-end" data-field="quantity" required value="' + (data ? data.quantity || '' : '') + '"></td>'
+        + '<td><input type="number" step="0.0001" min="0" class="form-control form-control-sm text-end" data-field="unitCost" value="' + (data ? data.unitCost || '' : '') + '" oninput="adjCalcLine(this)"></td>'
+        + '<td><input type="text" class="form-control form-control-sm text-end bg-light" data-field="lineAmount" readonly value="' + (data ? data.lineAmount || '' : '') + '"></td>'
+        + '<td><input type="text" class="form-control form-control-sm" data-field="remarks" value="' + (data ? data.remarks || '' : '') + '"></td>'
+        + '<td><button type="button" class="btn btn-sm btn-outline-danger" onclick="adjRemoveLine(' + n + ')"><i class="fa fa-times"></i></button></td>'
+        + '</tr>';
+      document.getElementById('adjLineBody').insertAdjacentHTML('beforeend', html);
+    };
+
+    window.adjCalcLine = function (el) {
+      var tr = el.closest('tr');
+      var qty  = parseFloat(tr.querySelector('[data-field="quantity"]').value) || 0;
+      var cost = parseFloat(el.value) || 0;
+      tr.querySelector('[data-field="lineAmount"]').value = (qty * cost).toFixed(2);
+    };
+
+    window.adjRemoveLine = function (n) {
+      var row = document.getElementById('adjLine_' + n);
+      if (row) row.remove();
+    };
+
+    // Confirm
+    document.addEventListener('click', function (e) {
+      if (e.target.closest('[data-adj-confirm]')) {
+        var id = e.target.closest('[data-adj-confirm]').dataset.adjConfirm;
+        Swal.fire({ title: 'Confirm Adjustment?', text: 'Stock will be posted and cannot be undone.', icon: 'warning',
+          showCancelButton: true, confirmButtonText: 'Yes, Confirm!' }).then(function (r) {
+          if (!r.isConfirmed) return;
+          secureFetch(BASE + '/confirm/' + id, { method: 'POST' }).then(function (d) {
+            if (d.success) { Swal.fire({ icon: 'success', title: 'Confirmed!', text: d.message, timer: 1800, showConfirmButton: false }); dt.ajax.reload(null, false); }
+            else Swal.fire('Error', d.message, 'error');
+          });
+        });
+      }
+    });
+
+    window.adjDelete = function (id) { hsConfirmDelete(BASE + '/delete/' + id, dt); };
+
+    function _onSubmit(e) {
+      e.preventDefault();
+      var sb = document.getElementById('adjSubmitBtn'), sp = document.getElementById('adjSpinner'), bt = document.getElementById('adjBtnText');
+      hsDisableButton(sb, sp, bt);
+      var lines = [];
+      document.querySelectorAll('#adjLineBody tr').forEach(function (tr, idx) {
+        lines.push({
+          lineNumber  : idx + 1,
+          itemId      : tr.querySelector('[data-field="itemId"]').value || null,
+          lotNumber   : tr.querySelector('[data-field="lotNumber"]').value || null,
+          movementType: tr.querySelector('[data-field="movementType"]').value,
+          quantity    : parseFloat(tr.querySelector('[data-field="quantity"]').value) || null,
+          unitCost    : parseFloat(tr.querySelector('[data-field="unitCost"]').value) || null,
+          lineAmount  : parseFloat(tr.querySelector('[data-field="lineAmount"]').value) || null,
+          remarks     : tr.querySelector('[data-field="remarks"]').value || null
+        });
+      });
+      secureFetch(BASE + '/save', { method: 'POST', body: JSON.stringify({
+        id          : document.getElementById('adjId').value || null,
+        documentDate: document.getElementById('adjDate').value,
+        warehouseId : document.getElementById('adjWarehouseId').value,
+        referenceNo : document.getElementById('adjRefNo').value,
+        remarks     : document.getElementById('adjRemarks').value,
+        lines       : lines
+      })}).then(function (d) {
+        if (d.success) { Swal.fire({ icon: 'success', title: 'Saved!', text: d.message, timer: 1600, showConfirmButton: false });
+          bootstrap.Modal.getOrCreateInstance(document.getElementById('adjModal')).hide(); dt.ajax.reload(null, false);
+        } else Swal.fire('Error', d.message, 'error');
+      }).catch(function (err) { Swal.fire('Error', err.message || 'Request failed.', 'error'); })
+        .finally(function () { hsEnableButton(sb, sp, bt); });
+    }
+
+    function _resetForm() {
+      document.getElementById('adjForm').reset();
+      document.getElementById('adjId').value = '';
+      document.getElementById('adjLineBody').innerHTML = '';
+      _lineCount = 0;
+      document.getElementById('adjDate').value = new Date().toISOString().substring(0, 10);
+    }
+
+    function _viewField(label, value) {
+      return '<div class="col-md-4 view-group"><label class="view-label">' + label + '</label>'
+           + '<span class="form-control hs_span_show">' + (value || '—') + '</span></div>';
+    }
+  })();
+  </script>
+</section>
+</html>

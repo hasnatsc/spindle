@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<!--
+  inventory/stock-balance.html    GET /inventory/stocks
+  Shows current stock position per item × warehouse × lot.
+  Also provides link to full transaction ledger.
+-->
+<html th:replace="~{layout/base :: layout('Stock Balance', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
+<section>
+
+  <ol class="breadcrumb float-xl-end">
+    <li class="breadcrumb-item"><a th:href="@{/dashboard}">Home</a></li>
+    <li class="breadcrumb-item">Inventory</li>
+    <li class="breadcrumb-item active">Stock Balance</li>
+  </ol>
+  <h1 class="page-header">Stock Balance
+    <small>current on-hand quantities by item &amp; warehouse</small>
+    <a th:href="@{/inventory/stocks/ledger}" class="btn btn-sm btn-outline-info ms-3">
+      <i class="fa fa-history me-1"></i> View Transaction Ledger
+    </a>
+  </h1>
+
+  <div class="panel panel-inverse">
+    <div class="panel-heading">
+      <!-- Filter bar -->
+      <div class="panel-title d-flex gap-2 flex-wrap align-items-center">
+        <select id="filterWarehouse" class="form-select form-select-sm" style="width:220px">
+          <option value="">All Warehouses</option>
+        </select>
+        <select id="filterItem" class="form-select form-select-sm hsSelectTwo" style="width:260px">
+          <option value="">All Items</option>
+        </select>
+        <button class="btn btn-sm btn-primary" onclick="applyFilter()">
+          <i class="fa fa-filter me-1"></i> Filter
+        </button>
+        <button class="btn btn-sm btn-secondary" onclick="clearFilter()">
+          <i class="fa fa-times me-1"></i> Clear
+        </button>
+      </div>
+      <div class="panel-heading-btn">
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-default" data-toggle="panel-expand"><i class="fa fa-expand"></i></a>
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-success" data-toggle="panel-reload"><i class="fa fa-redo"></i></a>
+      </div>
+    </div>
+    <div class="panel-body">
+      <table id="balanceTable" width="100%" class="table table-striped table-bordered align-middle text-nowrap">
+        <thead><tr>
+          <th width="1%">SL</th>
+          <th>Item Code</th><th>Item Name</th><th>Type</th><th>UOM</th>
+          <th>Warehouse</th><th>Lot</th>
+          <th class="text-end">Qty</th>
+          <th class="text-end">Reserved</th>
+          <th class="text-end">Available</th>
+          <th class="text-end">Avg Cost</th>
+          <th class="text-end">Stock Value</th>
+          <th>Last Movement</th>
+        </tr></thead>
+        <tbody></tbody>
+        <tfoot>
+          <tr class="fw-bold bg-light">
+            <td colspan="7" class="text-end">Totals:</td>
+            <td id="ftQty"   class="text-end">0</td>
+            <td id="ftRes"   class="text-end">0</td>
+            <td id="ftAvail" class="text-end">0</td>
+            <td></td>
+            <td id="ftValue" class="text-end">0</td>
+            <td></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+
+  <script th:inline="none">
+  (function () {
+    'use strict';
+    const BASE = '/inventory/stocks';
+    var dt, _whId = null, _itemId = null;
+
+    document.addEventListener('DOMContentLoaded', function () {
+      dt = $('#balanceTable').DataTable({
+        processing: true, serverSide: false, responsive: true, pageLength: 25,
+        ajax: { url: BASE + '/balance/list', type: 'GET', data: function (d) {
+          if (_whId)   d.warehouseId = _whId;
+          if (_itemId) d.itemId      = _itemId;
+        }},
+        columns: [
+          { data: 'sl', orderable: false, width: '40px' },
+          { data: 'item_code' }, { data: 'item_name' },
+          { data: 'item_type', defaultContent: '—' },
+          { data: 'unit_code' },
+          { data: 'warehouse_name' },
+          { data: 'lot_number', defaultContent: '—' },
+          { data: 'quantity',          className: 'text-end' },
+          { data: 'reserved_quantity', className: 'text-end' },
+          { data: 'available_quantity',className: 'text-end fw-bold' },
+          { data: 'average_cost',  defaultContent: '—', className: 'text-end' },
+          { data: 'stock_value',   defaultContent: '—', className: 'text-end' },
+          { data: 'last_transaction_time', defaultContent: '—' }
+        ],
+        footerCallback: function () {
+          var api = this.api();
+          var sum = function (col) { return api.column(col, { page: 'current' }).data().reduce(function (a, b) { return (parseFloat(a) || 0) + (parseFloat(b) || 0); }, 0).toFixed(3); };
+          document.getElementById('ftQty').textContent   = sum(7);
+          document.getElementById('ftRes').textContent   = sum(8);
+          document.getElementById('ftAvail').textContent = sum(9);
+          document.getElementById('ftValue').textContent = api.column(11, { page: 'current' }).data().reduce(function (a, b) { var n = parseFloat(b); return a + (isNaN(n) ? 0 : n); }, 0).toFixed(2);
+        },
+        language: { emptyTable: 'No stock found.', processing: '<span class="spinner-border spinner-border-sm me-2"></span> Loading…' }
+      });
+
+      // Load warehouse filter
+      secureFetch('/warehouses/active').then(function (data) {
+        var sel = document.getElementById('filterWarehouse');
+        (data || []).forEach(function (w) {
+          var opt = document.createElement('option'); opt.value = w.id; opt.textContent = w.name + ' (' + w.code + ')'; sel.appendChild(opt);
+        });
+      });
+      // Load item filter
+      secureFetch('/items/active').then(function (data) {
+        var sel = document.getElementById('filterItem');
+        (data || []).forEach(function (i) {
+          var opt = document.createElement('option'); opt.value = i.id; opt.textContent = i.code + ' — ' + i.name; sel.appendChild(opt);
+        });
+      });
+    });
+
+    window.applyFilter = function () {
+      _whId   = document.getElementById('filterWarehouse').value || null;
+      _itemId = document.getElementById('filterItem').value      || null;
+      dt.ajax.reload();
+    };
+    window.clearFilter = function () {
+      document.getElementById('filterWarehouse').value = '';
+      document.getElementById('filterItem').value      = '';
+      _whId = null; _itemId = null;
+      dt.ajax.reload();
+    };
+  })();
+  </script>
+</section>
+</html>

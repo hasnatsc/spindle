@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<!--
+  inventory/transfer-index.html    GET /inventory/transfers
+  JS fns: trShow / trEdit / trDelete / trOpenCreate
+  + inline confirm / cancel buttons on each row
+-->
+<html th:replace="~{layout/base :: layout('Stock Transfers', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
+<section>
+
+  <ol class="breadcrumb float-xl-end">
+    <li class="breadcrumb-item"><a th:href="@{/dashboard}">Home</a></li>
+    <li class="breadcrumb-item">Inventory</li>
+    <li class="breadcrumb-item active">Stock Transfers</li>
+  </ol>
+  <h1 class="page-header">Stock Transfers <small>move stock between warehouses</small></h1>
+
+  <div class="panel panel-inverse">
+    <div class="panel-heading">
+      <div class="panel-title">
+        <a href="javascript:;" onclick="trOpenCreate()">
+          <span class="badge btn btn-outline-success"><i class="fa fa-plus me-1"></i> New Transfer</span>
+        </a>
+      </div>
+      <div class="panel-heading-btn">
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-default" data-toggle="panel-expand"><i class="fa fa-expand"></i></a>
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-success" data-toggle="panel-reload"><i class="fa fa-redo"></i></a>
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-warning" data-toggle="panel-collapse"><i class="fa fa-minus"></i></a>
+      </div>
+    </div>
+    <div class="panel-body">
+      <table id="trTable" width="100%" class="table table-striped table-bordered align-middle">
+        <thead><tr>
+          <th width="1%">SL</th><th>Doc No</th><th>Date</th>
+          <th>Destination WH</th><th>Lines</th><th>Ref No</th>
+          <th>Vehicle</th><th>Status</th><th>Created</th>
+          <th class="text-center" width="16%">Actions</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <!-- CREATE / EDIT MODAL -->
+    <div tabindex="-1" id="trModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="trModalTitle"><i class="fa fa-truck me-1 text-success"></i> New Stock Transfer</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <form id="trForm" novalidate>
+            <div class="modal-body">
+              <div class="hs-box">
+                <input type="hidden" id="trId">
+                <div class="row g-2 mb-3">
+                  <div class="col-md-2 view-group">
+                    <input id="trDocNo" type="text" class="form-control hs_span_view bg-light" readonly placeholder="Auto-generated">
+                    <label for="trDocNo" class="input-label">Doc No</label>
+                  </div>
+                  <div class="col-md-2 view-group">
+                    <input id="trDate" type="date" class="form-control hs_span_view" required>
+                    <label for="trDate" class="input-label">Date <span class="text-danger">*</span></label>
+                  </div>
+                  <div class="col-md-3 view-group">
+                    <select id="trSrcWarehouseId" class="form-select hs_span_view" required>
+                      <option value="">— Source Warehouse —</option>
+                    </select>
+                    <label for="trSrcWarehouseId" class="input-label">From <span class="text-danger">*</span></label>
+                  </div>
+                  <div class="col-md-3 view-group">
+                    <select id="trDestWarehouseId" class="form-select hs_span_view" required>
+                      <option value="">— Destination Warehouse —</option>
+                    </select>
+                    <label for="trDestWarehouseId" class="input-label">To <span class="text-danger">*</span></label>
+                  </div>
+                  <div class="col-md-2 view-group">
+                    <input id="trRefNo" type="text" class="form-control hs_span_view" maxlength="100" placeholder="Ref No">
+                    <label for="trRefNo" class="input-label">Reference No</label>
+                  </div>
+                  <div class="col-md-3 view-group">
+                    <input id="trVehicle" type="text" class="form-control hs_span_view" maxlength="100" placeholder="Vehicle No">
+                    <label for="trVehicle" class="input-label">Vehicle No</label>
+                  </div>
+                  <div class="col-md-3 view-group">
+                    <input id="trDriver" type="text" class="form-control hs_span_view" maxlength="100" placeholder="Driver Name">
+                    <label for="trDriver" class="input-label">Driver</label>
+                  </div>
+                  <div class="col-md-6 view-group">
+                    <textarea id="trRemarks" class="form-control hs_span_view" rows="1" placeholder="Remarks…"></textarea>
+                    <label for="trRemarks" class="input-label">Remarks</label>
+                  </div>
+                </div>
+
+                <!-- Lines -->
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                  <strong>Transfer Lines</strong>
+                  <button type="button" class="btn btn-sm btn-outline-primary" onclick="trAddLine()">
+                    <i class="fa fa-plus me-1"></i> Add Line
+                  </button>
+                </div>
+                <div class="table-responsive">
+                  <table class="table table-sm table-bordered" id="trLinesTable">
+                    <thead class="table-light"><tr>
+                      <th width="4%">#</th>
+                      <th width="35%">Item <span class="text-danger">*</span></th>
+                      <th width="15%">Lot No</th>
+                      <th width="12%">Qty <span class="text-danger">*</span></th>
+                      <th width="10%">Gross Wt.</th>
+                      <th width="10%">Net Wt.</th>
+                      <th width="12%">Remarks</th>
+                      <th width="2%"></th>
+                    </tr></thead>
+                    <tbody id="trLineBody"></tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-success" type="submit" id="trSubmitBtn">
+                <span class="spinner-border spinner-border-sm me-2 d-none" id="trSpinner"></span>
+                <span id="trBtnText">Save Draft</span>
+              </button>
+              <button type="button" class="btn btn-white" data-bs-dismiss="modal">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- VIEW MODAL -->
+    <div tabindex="-1" id="trViewModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title"><i class="fa fa-truck me-1 text-primary"></i> Transfer Details</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body" id="trViewBody"></div>
+          <div class="modal-footer"><button type="button" class="btn btn-white" data-bs-dismiss="modal">Close</button></div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /panel -->
+
+  <script th:inline="none">
+  (function () {
+    'use strict';
+    const BASE = '/inventory/transfers';
+    var dt;
+    var _items = [], _lineCount = 0;
+
+    document.addEventListener('DOMContentLoaded', function () {
+      dt = $('#trTable').DataTable({
+        processing: true, serverSide: false, responsive: true, pageLength: 25,
+        ajax: { url: BASE + '/list', type: 'GET' },
+        columns: [
+          { data: 'sl', orderable: false, width: '40px' },
+          { data: 'document_no' }, { data: 'document_date' },
+          { data: 'warehouse_name', defaultContent: '—' },
+          { data: 'line_count', className: 'text-center' },
+          { data: 'reference_no', defaultContent: '—' },
+          { data: 'vehicle_number', defaultContent: '—' },
+          { data: 'status_badge', orderable: false, className: 'text-center' },
+          { data: 'created_at', defaultContent: '—' },
+          { data: 'actions', orderable: false, className: 'text-center' }
+        ],
+        language: { emptyTable: 'No transfers found.', processing: '<span class="spinner-border spinner-border-sm me-2"></span> Loading…' }
+      });
+
+      _loadWarehouses();
+      secureFetch('/items/active').then(function (data) { _items = data || []; });
+      document.getElementById('trDate').value = new Date().toISOString().substring(0, 10);
+      document.getElementById('trForm').addEventListener('submit', _onSubmit);
+    });
+
+    function _loadWarehouses() {
+      secureFetch('/warehouses/active').then(function (data) {
+        ['trSrcWarehouseId','trDestWarehouseId'].forEach(function (selId) {
+          var sel = document.getElementById(selId);
+          while (sel.options.length > 1) sel.remove(1);
+          (data || []).forEach(function (w) {
+            var opt = document.createElement('option'); opt.value = w.id; opt.textContent = w.name + ' (' + w.code + ')'; sel.appendChild(opt);
+          });
+        });
+      });
+    }
+
+    window.trOpenCreate = function () {
+      _resetForm();
+      document.getElementById('trModalTitle').innerHTML = '<i class="fa fa-plus me-1 text-success"></i> New Stock Transfer';
+      document.getElementById('trBtnText').textContent = 'Save Draft';
+      trAddLine();
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('trModal')).show();
+    };
+
+    window.trShow = function (id) {
+      secureFetch(BASE + '/show/' + id).then(function (res) {
+        if (!res.success) { Swal.fire('Error', res.message, 'error'); return; }
+        var o = res.obj.defaultData;
+        var arrow = ' <i class="fa fa-arrow-right text-muted mx-1"></i> ';
+        var html = '<div class="hs-box"><div class="row g-2">'
+          + _vf('Doc No', o.documentNo) + _vf('Date', o.documentDate)
+          + _vf('From', o.sourceWarehouseName) + _vf('To', o.warehouseName)
+          + _vf('Status', o.status) + _vf('Reference', o.referenceNo)
+          + _vf('Vehicle', o.vehicleNumber) + _vf('Driver', o.driverName)
+          + _vf('Remarks', o.remarks)
+          + '</div>'
+          + '<table class="table table-sm table-bordered mt-3"><thead class="table-light"><tr>'
+          + '<th>#</th><th>Item</th><th>Lot</th><th class="text-end">Qty</th><th>Remarks</th>'
+          + '</tr></thead><tbody>';
+        (o.lines || []).forEach(function (l, i) {
+          html += '<tr><td>' + (i+1) + '</td><td>' + (l.itemCode||'') + ' — ' + (l.itemName||'') + '</td>'
+                + '<td>' + (l.lotNumber||'—') + '</td>'
+                + '<td class="text-end fw-bold">' + (l.quantity||0) + '</td>'
+                + '<td>' + (l.remarks||'') + '</td></tr>';
+        });
+        html += '</tbody></table></div>';
+        document.getElementById('trViewBody').innerHTML = html;
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('trViewModal')).show();
+      });
+    };
+
+    window.trEdit = function (id) {
+      secureFetch(BASE + '/show/' + id).then(function (res) {
+        if (!res.success) { Swal.fire('Error', res.message, 'error'); return; }
+        var o = res.obj.defaultData;
+        _resetForm();
+        document.getElementById('trId').value             = o.id;
+        document.getElementById('trDocNo').value          = o.documentNo || '';
+        document.getElementById('trDate').value           = o.documentDate || '';
+        document.getElementById('trSrcWarehouseId').value = o.sourceWarehouseId || '';
+        document.getElementById('trDestWarehouseId').value= o.warehouseId || '';
+        document.getElementById('trRefNo').value          = o.referenceNo || '';
+        document.getElementById('trVehicle').value        = o.vehicleNumber || '';
+        document.getElementById('trDriver').value         = o.driverName || '';
+        document.getElementById('trRemarks').value        = o.remarks || '';
+        (o.lines || []).forEach(function (l) { trAddLine(l); });
+        document.getElementById('trModalTitle').innerHTML = '<i class="fa fa-pencil me-1 text-warning"></i> Edit Transfer';
+        document.getElementById('trBtnText').textContent  = 'Update';
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('trModal')).show();
+      });
+    };
+
+    window.trAddLine = function (data) {
+      _lineCount++;
+      var n = _lineCount;
+      var itemOpts = '<option value="">— Item —</option>' + _items.map(function (i) {
+        return '<option value="' + i.id + '" ' + (data && String(data.itemId) === String(i.id) ? 'selected' : '') + '>' + i.code + ' — ' + i.name + '</option>';
+      }).join('');
+      var html = '<tr id="trLine_' + n + '">'
+        + '<td>' + n + '</td>'
+        + '<td><select class="form-select form-select-sm" data-field="itemId" required>' + itemOpts + '</select></td>'
+        + '<td><input type="text" class="form-control form-control-sm" data-field="lotNumber" placeholder="Lot No" value="' + (data ? data.lotNumber || '' : '') + '"></td>'
+        + '<td><input type="number" step="0.001" min="0" class="form-control form-control-sm text-end" data-field="quantity" required value="' + (data ? data.quantity || '' : '') + '"></td>'
+        + '<td><input type="number" step="0.001" class="form-control form-control-sm text-end" data-field="grossWeight" value="' + (data ? data.grossWeight || '' : '') + '"></td>'
+        + '<td><input type="number" step="0.001" class="form-control form-control-sm text-end" data-field="netWeight" value="' + (data ? data.netWeight || '' : '') + '"></td>'
+        + '<td><input type="text" class="form-control form-control-sm" data-field="remarks" value="' + (data ? data.remarks || '' : '') + '"></td>'
+        + '<td><button type="button" class="btn btn-sm btn-outline-danger" onclick="trRemoveLine(' + n + ')"><i class="fa fa-times"></i></button></td>'
+        + '</tr>';
+      document.getElementById('trLineBody').insertAdjacentHTML('beforeend', html);
+    };
+
+    window.trRemoveLine = function (n) {
+      var row = document.getElementById('trLine_' + n);
+      if (row) row.remove();
+    };
+
+    // Confirm transfer
+    document.addEventListener('click', function (e) {
+      if (e.target.closest('[data-tr-confirm]')) {
+        var id = e.target.closest('[data-tr-confirm]').dataset.trConfirm;
+        Swal.fire({ title: 'Confirm Transfer?', text: 'Stock will move between warehouses and cannot be undone.', icon: 'warning',
+          showCancelButton: true, confirmButtonText: 'Yes, Transfer!' }).then(function (r) {
+          if (!r.isConfirmed) return;
+          secureFetch(BASE + '/confirm/' + id, { method: 'POST' }).then(function (d) {
+            if (d.success) { Swal.fire({ icon: 'success', title: 'Confirmed!', text: d.message, timer: 1800, showConfirmButton: false }); dt.ajax.reload(null, false); }
+            else Swal.fire('Error', d.message, 'error');
+          });
+        });
+      }
+    });
+
+    window.trDelete = function (id) { hsConfirmDelete(BASE + '/delete/' + id, dt); };
+
+    function _onSubmit(e) {
+      e.preventDefault();
+      var sb = document.getElementById('trSubmitBtn'), sp = document.getElementById('trSpinner'), bt = document.getElementById('trBtnText');
+      hsDisableButton(sb, sp, bt);
+      var lines = [];
+      document.querySelectorAll('#trLineBody tr').forEach(function (tr, idx) {
+        lines.push({
+          lineNumber  : idx + 1,
+          itemId      : tr.querySelector('[data-field="itemId"]').value || null,
+          lotNumber   : tr.querySelector('[data-field="lotNumber"]').value || null,
+          quantity    : parseFloat(tr.querySelector('[data-field="quantity"]').value) || null,
+          grossWeight : parseFloat(tr.querySelector('[data-field="grossWeight"]').value) || null,
+          netWeight   : parseFloat(tr.querySelector('[data-field="netWeight"]').value) || null,
+          remarks     : tr.querySelector('[data-field="remarks"]').value || null
+        });
+      });
+      secureFetch(BASE + '/save', { method: 'POST', body: JSON.stringify({
+        id               : document.getElementById('trId').value || null,
+        documentDate     : document.getElementById('trDate').value,
+        sourceWarehouseId: document.getElementById('trSrcWarehouseId').value,
+        warehouseId      : document.getElementById('trDestWarehouseId').value,
+        referenceNo      : document.getElementById('trRefNo').value,
+        vehicleNumber    : document.getElementById('trVehicle').value,
+        driverName       : document.getElementById('trDriver').value,
+        remarks          : document.getElementById('trRemarks').value,
+        lines            : lines
+      })}).then(function (d) {
+        if (d.success) { Swal.fire({ icon: 'success', title: 'Saved!', text: d.message, timer: 1600, showConfirmButton: false });
+          bootstrap.Modal.getOrCreateInstance(document.getElementById('trModal')).hide(); dt.ajax.reload(null, false);
+        } else Swal.fire('Error', d.message, 'error');
+      }).catch(function (err) { Swal.fire('Error', err.message || 'Request failed.', 'error'); })
+        .finally(function () { hsEnableButton(sb, sp, bt); });
+    }
+
+    function _resetForm() {
+      document.getElementById('trForm').reset();
+      document.getElementById('trId').value = '';
+      document.getElementById('trLineBody').innerHTML = '';
+      _lineCount = 0;
+      document.getElementById('trDate').value = new Date().toISOString().substring(0, 10);
+    }
+    function _vf(label, value) {
+      return '<div class="col-md-4 view-group"><label class="view-label">' + label + '</label>'
+           + '<span class="form-control hs_span_show">' + (value || '—') + '</span></div>';
+    }
+  })();
+  </script>
+</section>
+</html>

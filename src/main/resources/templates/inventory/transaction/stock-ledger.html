@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<!--
+  inventory/stock-ledger.html    GET /inventory/stocks/ledger
+  Full inventory transaction history with date / item / warehouse filters.
+-->
+<html th:replace="~{layout/base :: layout('Stock Ledger', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
+<section>
+
+  <ol class="breadcrumb float-xl-end">
+    <li class="breadcrumb-item"><a th:href="@{/dashboard}">Home</a></li>
+    <li class="breadcrumb-item"><a th:href="@{/inventory/stocks}">Stock Balance</a></li>
+    <li class="breadcrumb-item active">Transaction Ledger</li>
+  </ol>
+  <h1 class="page-header">Stock Transaction Ledger <small>all inventory movements</small></h1>
+
+  <div class="panel panel-inverse">
+    <div class="panel-heading">
+      <div class="panel-title d-flex gap-2 flex-wrap align-items-center">
+        <select id="ledgerWarehouse" class="form-select form-select-sm" style="width:200px">
+          <option value="">All Warehouses</option>
+        </select>
+        <select id="ledgerItem" class="form-select form-select-sm hsSelectTwo" style="width:240px">
+          <option value="">All Items</option>
+        </select>
+        <input type="date" id="ledgerFrom" class="form-control form-control-sm" style="width:140px" placeholder="From">
+        <input type="date" id="ledgerTo"   class="form-control form-control-sm" style="width:140px" placeholder="To">
+        <button class="btn btn-sm btn-primary" onclick="applyFilter()">
+          <i class="fa fa-filter me-1"></i> Filter
+        </button>
+        <button class="btn btn-sm btn-secondary" onclick="clearFilter()">
+          <i class="fa fa-times me-1"></i> Clear
+        </button>
+      </div>
+      <div class="panel-heading-btn">
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-default" data-toggle="panel-expand"><i class="fa fa-expand"></i></a>
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-success" data-toggle="panel-reload"><i class="fa fa-redo"></i></a>
+      </div>
+    </div>
+    <div class="panel-body">
+      <table id="ledgerTable" width="100%" class="table table-striped table-bordered align-middle text-nowrap">
+        <thead><tr>
+          <th width="1%">SL</th>
+          <th>Doc No</th><th>Doc Type</th><th>Movement</th>
+          <th>Date</th><th>Warehouse</th>
+          <th>Item Code</th><th>Item Name</th><th>UOM</th><th>Lot</th>
+          <th class="text-end">Qty</th>
+          <th class="text-end">Unit Cost</th>
+          <th class="text-end">Total Cost</th>
+          <th class="text-end">Balance</th>
+          <th>Remarks</th><th>Created</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
+  <script th:inline="none">
+  (function () {
+    'use strict';
+    const BASE = '/inventory/stocks/ledger';
+    var dt, _whId = null, _itemId = null, _from = null, _to = null;
+
+    document.addEventListener('DOMContentLoaded', function () {
+      dt = $('#ledgerTable').DataTable({
+        processing: true, serverSide: false, responsive: true, pageLength: 25,
+        ajax: { url: BASE + '/list', type: 'GET', data: function (d) {
+          if (_whId)   d.warehouseId = _whId;
+          if (_itemId) d.itemId      = _itemId;
+          if (_from)   d.from        = _from;
+          if (_to)     d.to          = _to;
+        }},
+        columns: [
+          { data: 'sl',            orderable: false, width: '40px' },
+          { data: 'document_no' }, { data: 'document_type' },
+          { data: 'movement_type' }, { data: 'transaction_date' },
+          { data: 'warehouse_name' }, { data: 'item_code' }, { data: 'item_name' },
+          { data: 'unit_code' }, { data: 'lot_number', defaultContent: '—' },
+          { data: 'quantity',   className: 'text-end fw-bold' },
+          { data: 'unit_cost',  className: 'text-end', defaultContent: '—' },
+          { data: 'total_cost', className: 'text-end', defaultContent: '—' },
+          { data: 'balance_after', className: 'text-end' },
+          { data: 'remarks',    defaultContent: '—' },
+          { data: 'created_at', defaultContent: '—' }
+        ],
+        language: { emptyTable: 'No transactions found.', processing: '<span class="spinner-border spinner-border-sm me-2"></span> Loading…' }
+      });
+
+      secureFetch('/warehouses/active').then(function (data) {
+        var sel = document.getElementById('ledgerWarehouse');
+        (data || []).forEach(function (w) {
+          var opt = document.createElement('option'); opt.value = w.id; opt.textContent = w.name + ' (' + w.code + ')'; sel.appendChild(opt);
+        });
+      });
+      secureFetch('/items/active').then(function (data) {
+        var sel = document.getElementById('ledgerItem');
+        (data || []).forEach(function (i) {
+          var opt = document.createElement('option'); opt.value = i.id; opt.textContent = i.code + ' — ' + i.name; sel.appendChild(opt);
+        });
+      });
+    });
+
+    window.applyFilter = function () {
+      _whId   = document.getElementById('ledgerWarehouse').value || null;
+      _itemId = document.getElementById('ledgerItem').value      || null;
+      _from   = document.getElementById('ledgerFrom').value      || null;
+      _to     = document.getElementById('ledgerTo').value        || null;
+      dt.ajax.reload();
+    };
+    window.clearFilter = function () {
+      ['ledgerWarehouse','ledgerItem','ledgerFrom','ledgerTo'].forEach(function(id){ document.getElementById(id).value = ''; });
+      _whId = _itemId = _from = _to = null;
+      dt.ajax.reload();
+    };
+  })();
+  </script>
+</section>
+</html>
