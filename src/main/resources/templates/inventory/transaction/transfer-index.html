@@ -174,7 +174,7 @@
     });
 
     function _loadWarehouses() {
-      secureFetch('/warehouses/active').then(function (data) {
+      secureFetch('/warehouses/active-org').then(function (data) {
         ['trSrcWarehouseId','trDestWarehouseId'].forEach(function (selId) {
           var sel = document.getElementById(selId);
           while (sel.options.length > 1) sel.remove(1);

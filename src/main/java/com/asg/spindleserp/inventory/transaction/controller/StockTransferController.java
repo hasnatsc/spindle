@@ -39,7 +39,7 @@ public class StockTransferController {
     @GetMapping
     public String index(Model model) {
         model.addAttribute("activePage", "stock-transfers");
-        return "inventory/transfer-index";
+        return "inventory/transaction/transfer-index";
     }
 
     // ── DataTable ─────────────────────────────────────────────────────────────

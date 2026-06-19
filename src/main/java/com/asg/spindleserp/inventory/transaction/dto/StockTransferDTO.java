@@ -25,9 +25,6 @@ public class StockTransferDTO {
     private Long id;
     private String documentNo;
 
-    @NotNull(message = "Organisation is required")
-    private Long organizationId;
-
     /** Destination warehouse */
     @NotNull(message = "Destination warehouse is required")
     private Long warehouseId;

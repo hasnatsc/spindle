@@ -33,13 +33,13 @@ public class StockLedgerController {
     @GetMapping
     public String balancePage(Model model) {
         model.addAttribute("activePage", "stock-balance");
-        return "inventory/stock-balance";
+        return "inventory/transaction/stock-balance";
     }
 
     @GetMapping("/ledger")
     public String ledgerPage(Model model) {
         model.addAttribute("activePage", "stock-ledger");
-        return "inventory/stock-ledger";
+        return "inventory/transaction/stock-ledger";
     }
 
     // ── Balance DataTable ─────────────────────────────────────────────────────

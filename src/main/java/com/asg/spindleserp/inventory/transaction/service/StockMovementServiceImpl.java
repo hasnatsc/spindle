@@ -14,6 +14,7 @@ import com.asg.spindleserp.organization.entity.Organization;
 import com.asg.spindleserp.organization.entity.Warehouse;
 import com.asg.spindleserp.organization.repository.OrganizationRepository;
 import com.asg.spindleserp.organization.repository.WarehouseRepository;
+import com.asg.spindleserp.security.auth.ContextProvider;
 import com.asg.spindleserp.security.auth.SecurityHelper;
 import com.asg.spindleserp.setup.service.DocumentSequenceService;
 import lombok.RequiredArgsConstructor;
@@ -56,9 +57,13 @@ public class StockMovementServiceImpl implements StockMovementService {
 
     @Override
     public StockAdjustmentDTO createAdjustment(StockAdjustmentDTO dto) {
-        Long orgId = SecurityHelper.requireOrgId();
+        Long orgId = ContextProvider.getOrganizationId();
+        if (orgId == null)
+            throw new IllegalArgumentException("Organization context is required to create adjustment.");
         Organization org  = orgRepo.findById(orgId).orElseThrow(() -> new IllegalArgumentException("Organisation not found."));
         Warehouse    wh   = resolveWarehouse(dto.getWarehouseId());
+        if (!org.equals(wh.getOrganization()))
+            throw new IllegalArgumentException("Selected warehouse does not belong to your organization.");
         String       docNo = seqService.nextDocumentNumber(orgId, "ADJ", LocalDate.now().format(YY_FMT));
 
         BusinessDocument doc = BusinessDocument.builder()
@@ -150,12 +155,20 @@ public class StockMovementServiceImpl implements StockMovementService {
 
     @Override
     public StockTransferDTO createTransfer(StockTransferDTO dto) {
-        Long orgId = SecurityHelper.requireOrgId();
+        Long orgId = ContextProvider.getOrganizationId();
+        if (orgId == null)
+            throw new IllegalArgumentException("Organization context is required to create adjustment.");
         Organization org  = orgRepo.findById(orgId).orElseThrow(() -> new IllegalArgumentException("Organisation not found."));
         Warehouse    dest = resolveWarehouse(dto.getWarehouseId());
         Warehouse    src  = resolveWarehouse(dto.getSourceWarehouseId());
         if (dest.getId().equals(src.getId()))
             throw new IllegalArgumentException("Source and destination warehouses must be different.");
+        if (org.getId().equals(src.getId()))
+            throw new IllegalArgumentException("Source and destination warehouses must be different.");
+        if (!org.equals(dest.getOrganization()))
+            throw new IllegalArgumentException("Selected warehouse does not belong to your organization.");
+        if (!org.equals(src.getOrganization()))
+            throw new IllegalArgumentException("Selected warehouse does not belong to your organization.");
 
         String docNo = seqService.nextDocumentNumber(orgId, "STR", LocalDate.now().format(YY_FMT));
 
@@ -431,13 +444,12 @@ public class StockMovementServiceImpl implements StockMovementService {
     // DATATABLE
     // ═════════════════════════════════════════════════════════════════════════
 
-    private DataTableResponse docDatatable(int draw, int start, int length, String search,
-                                           String docType, String fnShow, String fnEdit, String fnDelete) {
+    private DataTableResponse docDatatable(int draw, int start, int length, String search, String docType, String fnShow, String fnEdit, String fnDelete) {
         Long orgId = SecurityHelper.currentOrgId().orElse(null);
-        String where = "WHERE d.document_type = '" + docType + "' AND d.is_deleted = false "
+        Long warehouseId = ContextProvider.getWarehouseId();
+        String where = "WHERE d.document_type = '" + docType + "' AND d.is_deleted = false AND d.organization_id = " + warehouseId + " "
                 + (orgId != null ? " AND d.organization_id = " + orgId : "")
-                + CommonUtils.searchILike(search, Arrays.asList(
-                        "d.document_no", "d.reference_no", "w.warehouse_name"));
+                + CommonUtils.searchILike(search, Arrays.asList("d.document_no", "d.reference_no", "w.warehouse_name"));
 
         String sql = String.format("""
             SELECT
@@ -459,10 +471,10 @@ public class StockMovementServiceImpl implements StockMovementService {
                 END AS status_badge,
                 '<div class="btn-group">'
                     || '<a href="javascript:;" onclick="%s(' || d.id || ')" class="btn btn-white btn-sm" title="View"><i class="fas fa-eye text-success"></i></a>'
-                    || CASE WHEN d.status = ''DRAFT'' THEN
+                    || CASE WHEN d.status = 'DRAFT' THEN
                          '<a href="javascript:;" onclick="%s(' || d.id || ')" class="btn btn-white btn-sm" title="Edit"><i class="fa-regular fa-pen-to-square text-warning"></i></a>'
                        ELSE '' END
-                    || CASE WHEN d.status = ''DRAFT'' THEN
+                    || CASE WHEN d.status = 'DRAFT' THEN
                          '<a href="javascript:;" onclick="%s(' || d.id || ')" class="btn btn-white btn-sm" title="Delete"><i class="fa-regular fa-trash-can text-danger"></i></a>'
                        ELSE '' END
                     || '</div>'                              AS actions
@@ -474,7 +486,7 @@ public class StockMovementServiceImpl implements StockMovementService {
             """, fnShow, fnEdit, fnDelete, where, start, length);
 
         List<Map<String, Object>> rows = jdbcTemplate.queryForList(sql);
-        long total = rows.isEmpty() ? 0L : CommonUtils.toLong(rows.get(0).get("full_count"));
+        long total = rows.isEmpty() ? 0L : CommonUtils.toLong(rows.getFirst().get("full_count"));
         return DataTableResponse.of(draw, total, total, rows);
     }
 
@@ -500,7 +512,6 @@ public class StockMovementServiceImpl implements StockMovementService {
         }
         return StockAdjustmentDTO.builder()
                 .id(doc.getId()).documentNo(doc.getDocumentNo())
-                .organizationId(doc.getOrganization().getId())
                 .warehouseId(doc.getWarehouse() != null ? doc.getWarehouse().getId() : null)
                 .warehouseName(doc.getWarehouse() != null ? doc.getWarehouse().getWarehouseName() : null)
                 .documentDate(doc.getDocumentDate()).status(doc.getStatus())
@@ -525,7 +536,6 @@ public class StockMovementServiceImpl implements StockMovementService {
         }
         return StockTransferDTO.builder()
                 .id(doc.getId()).documentNo(doc.getDocumentNo())
-                .organizationId(doc.getOrganization().getId())
                 .warehouseId(doc.getWarehouse() != null ? doc.getWarehouse().getId() : null)
                 .warehouseName(doc.getWarehouse() != null ? doc.getWarehouse().getWarehouseName() : null)
                 .sourceWarehouseId(srcWh != null ? srcWh.getId() : null)

@@ -3,6 +3,7 @@ package com.asg.spindleserp.inventory.transaction.controller;
 import com.asg.spindleserp.common.dto.DataTableResponse;
 import com.asg.spindleserp.inventory.transaction.dto.StockAdjustmentDTO;
 import com.asg.spindleserp.inventory.transaction.service.StockMovementService;
+import com.asg.spindleserp.security.auth.ContextProvider;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -39,7 +40,7 @@ public class StockAdjustmentController {
     @GetMapping
     public String index(Model model) {
         model.addAttribute("activePage", "stock-adjustments");
-        return "inventory/adjustment-index";
+        return "inventory/transaction/adjustment-index";
     }
 
     // ── DataTable ─────────────────────────────────────────────────────────────
@@ -75,6 +76,7 @@ public class StockAdjustmentController {
         Map<String, Object> res = new HashMap<>();
         try {
             StockAdjustmentDTO saved;
+            dto.setWarehouseId(ContextProvider.getWarehouseId());
             if (dto.getId() != null) {
                 saved = movementService.updateAdjustment(dto.getId(), dto);
                 res.put("message", "Adjustment updated successfully.");

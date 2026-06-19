@@ -4,6 +4,7 @@ import com.asg.spindleserp.common.dto.DataTableResponse;
 import com.asg.spindleserp.common.enums.ItemType;
 import com.asg.spindleserp.organization.dto.WarehouseDTO;
 import com.asg.spindleserp.organization.service.WarehouseService;
+import com.asg.spindleserp.security.auth.ContextProvider;
 import com.asg.spindleserp.security.auth.SecurityHelper;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -155,6 +156,27 @@ public class WarehouseController {
             return m;
         }).toList();
     }
+
+    /**
+     * Active warehouses for the current org — for stock/transfer form dropdowns.
+     * GET /warehouses/active Organization
+     */
+    @GetMapping("/active-org")
+    @ResponseBody
+    public List<Map<String, Object>> activeOrganization() {
+        Long orgId = ContextProvider.getOrganizationId();
+        List<WarehouseDTO> list = warehouseService.findActiveByOrg(orgId).stream().filter(w -> Boolean.TRUE.equals(w.getActive())).toList();
+        return list.stream().map(w -> {
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("id",             w.getId());
+            m.put("code",           w.getWarehouseCode());
+            m.put("name",           w.getWarehouseName());
+            m.put("itemType",       w.getItemType());
+            m.put("businessUnitId", w.getBusinessUnitId());
+            return m;
+        }).toList();
+    }
+
 
     /**
      * ItemType enum values for the form select.

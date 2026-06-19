@@ -23,10 +23,6 @@ public class StockAdjustmentDTO {
     private Long id;
     private String documentNo;
 
-    @NotNull(message = "Organisation is required")
-    private Long organizationId;
-
-    @NotNull(message = "Warehouse is required")
     private Long warehouseId;
     private String warehouseName;
 

@@ -52,21 +52,15 @@
               <div class="hs-box">
                 <input type="hidden" id="adjId">
                 <div class="row g-2 mb-3">
-                  <div class="col-md-3 view-group">
+                  <div class="col-md-4 view-group">
                     <input id="adjDocNo" type="text" class="form-control hs_span_view bg-light" readonly placeholder="Auto-generated">
                     <label for="adjDocNo" class="input-label">Doc No</label>
                   </div>
-                  <div class="col-md-3 view-group">
+                  <div class="col-md-4 view-group">
                     <input id="adjDate" type="date" class="form-control hs_span_view" required>
                     <label for="adjDate" class="input-label">Date <span class="text-danger">*</span></label>
                   </div>
                   <div class="col-md-4 view-group">
-                    <select id="adjWarehouseId" class="form-select hs_span_view" required>
-                      <option value="">— Select Warehouse —</option>
-                    </select>
-                    <label for="adjWarehouseId" class="input-label">Warehouse <span class="text-danger">*</span></label>
-                  </div>
-                  <div class="col-md-2 view-group">
                     <input id="adjRefNo" type="text" class="form-control hs_span_view" maxlength="100" placeholder="Optional">
                     <label for="adjRefNo" class="input-label">Reference No</label>
                   </div>
@@ -154,7 +148,7 @@
         language: { emptyTable: 'No adjustments found.', processing: '<span class="spinner-border spinner-border-sm me-2"></span> Loading…' }
       });
 
-      _loadWarehouses();
+      // _loadWarehouses();
       _loadItems();
 
       // Set today as default date
@@ -162,16 +156,16 @@
       document.getElementById('adjForm').addEventListener('submit', _onSubmit);
     });
 
-    function _loadWarehouses() {
-      secureFetch('/warehouses/active').then(function (data) {
-        _warehouses = data || [];
-        var sel = document.getElementById('adjWarehouseId');
-        while (sel.options.length > 1) sel.remove(1);
-        _warehouses.forEach(function (w) {
-          var opt = document.createElement('option'); opt.value = w.id; opt.textContent = w.name + ' (' + w.code + ')'; sel.appendChild(opt);
-        });
-      });
-    }
+    // function _loadWarehouses() {
+    //   secureFetch('/warehouses/active').then(function (data) {
+    //     _warehouses = data || [];
+    //     var sel = document.getElementById('adjWarehouseId');
+    //     while (sel.options.length > 1) sel.remove(1);
+    //     _warehouses.forEach(function (w) {
+    //       var opt = document.createElement('option'); opt.value = w.id; opt.textContent = w.name + ' (' + w.code + ')'; sel.appendChild(opt);
+    //     });
+    //   });
+    // }
 
     function _loadItems() {
       secureFetch('/items/active').then(function (data) { _items = data || []; });
@@ -216,7 +210,7 @@
         document.getElementById('adjId').value             = o.id;
         document.getElementById('adjDocNo').value          = o.documentNo || '';
         document.getElementById('adjDate').value           = o.documentDate || '';
-        document.getElementById('adjWarehouseId').value    = o.warehouseId || '';
+        // document.getElementById('adjWarehouseId').value    = o.warehouseId || '';
         document.getElementById('adjRefNo').value          = o.referenceNo || '';
         document.getElementById('adjRemarks').value        = o.remarks || '';
         (o.lines || []).forEach(function (l) { adjAddLine(l); });
@@ -298,7 +292,7 @@
       secureFetch(BASE + '/save', { method: 'POST', body: JSON.stringify({
         id          : document.getElementById('adjId').value || null,
         documentDate: document.getElementById('adjDate').value,
-        warehouseId : document.getElementById('adjWarehouseId').value,
+        // warehouseId : document.getElementById('adjWarehouseId').value,
         referenceNo : document.getElementById('adjRefNo').value,
         remarks     : document.getElementById('adjRemarks').value,
         lines       : lines
