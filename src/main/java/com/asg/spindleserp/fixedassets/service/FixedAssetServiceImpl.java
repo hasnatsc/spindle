@@ -233,7 +233,7 @@ public class FixedAssetServiceImpl implements FixedAssetService {
                 '<div class="btn-group">'
                     || '<a href="javascript:;" onclick="assetShow('     || a.id || ')" class="btn btn-white btn-sm" title="View"><i class="fas fa-eye text-success"></i></a>'
                     || '<a href="javascript:;" onclick="assetEdit('     || a.id || ')" class="btn btn-white btn-sm" title="Edit"><i class="fa-regular fa-pen-to-square text-warning"></i></a>'
-                    || CASE WHEN a.status = ''ACTIVE'' THEN
+                    || CASE WHEN a.status = 'ACTIVE' THEN
                         '<a href="javascript:;" onclick="assetDispose(' || a.id || ')" class="btn btn-white btn-sm" title="Dispose / Transfer"><i class="fas fa-box-archive text-danger"></i></a>'
                        ELSE '' END
                     || '<a href="javascript:;" onclick="assetDelete('   || a.id || ')" class="btn btn-white btn-sm" title="Delete"><i class="fa-regular fa-trash-can text-danger"></i></a>'
@@ -418,10 +418,10 @@ public class FixedAssetServiceImpl implements FixedAssetService {
                 END AS status_badge,
                 '<div class="btn-group">'
                     || '<a href="javascript:;" onclick="runShow(' || r.id || ')" class="btn btn-white btn-sm" title="View Lines"><i class="fas fa-eye text-success"></i></a>'
-                    || CASE WHEN r.status = ''COMPLETED'' THEN
+                    || CASE WHEN r.status = 'COMPLETED' THEN
                         '<a href="javascript:;" onclick="runPost(' || r.id || ')" class="btn btn-white btn-sm" title="Post"><i class="fas fa-check-circle text-primary"></i></a>'
                        ELSE '' END
-                    || CASE WHEN r.status = ''POSTED'' THEN
+                    || CASE WHEN r.status = 'POSTED' THEN
                         '<a href="javascript:;" onclick="runReverse(' || r.id || ')" class="btn btn-white btn-sm" title="Reverse"><i class="fas fa-rotate-left text-danger"></i></a>'
                        ELSE '' END
                     || '</div>'                                 AS actions

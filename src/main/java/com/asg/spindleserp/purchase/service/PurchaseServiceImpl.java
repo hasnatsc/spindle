@@ -326,7 +326,7 @@ public class PurchaseServiceImpl implements PurchaseService {
                 END AS status_badge,
                 '<div class="btn-group">'
                     || '<a href="javascript:;" onclick="%1$sShow('     || d.id || ')" class="btn btn-white btn-sm" title="View"><i class="fas fa-eye text-success"></i></a>'
-                    || CASE WHEN d.status = ''DRAFT'' THEN
+                    || CASE WHEN d.status = 'DRAFT' THEN
                         '<a href="javascript:;" onclick="%1$sEdit('    || d.id || ')" class="btn btn-white btn-sm" title="Edit"><i class="fa-regular fa-pen-to-square text-warning"></i></a>'
                         || '<a href="javascript:;" onclick="%1$sConfirm(' || d.id || ')" class="btn btn-white btn-sm" title="Confirm"><i class="fas fa-check-circle text-primary"></i></a>'
                         || '<a href="javascript:;" onclick="%1$sCancel(' || d.id || ')" class="btn btn-white btn-sm" title="Cancel"><i class="fas fa-ban text-secondary"></i></a>'
@@ -736,15 +736,15 @@ public class PurchaseServiceImpl implements PurchaseService {
     private String nextDocActionButton(String docType, String fn) {
         return switch (docType) {
             case "PURCHASE_ORDER" ->
-                "CASE WHEN d.status = ''CONFIRMED'' THEN " +
+                "CASE WHEN d.status = 'CONFIRMED' THEN " +
                 "'<a href=\"javascript:;\" onclick=\"createGRNFromPO(' || d.id || ')\" class=\"btn btn-white btn-sm\" title=\"Create GRN\"><i class=\"fas fa-clipboard-check text-teal\"></i></a>' " +
                 "ELSE '''' END";
             case "GOODS_RECEIPT_NOTE" ->
-                "CASE WHEN d.status = ''CONFIRMED'' THEN " +
+                "CASE WHEN d.status = 'CONFIRMED' THEN " +
                 "'<a href=\"javascript:;\" onclick=\"createInvoiceFromGRN(' || d.id || ')\" class=\"btn btn-white btn-sm\" title=\"Create Invoice\"><i class=\"fas fa-file-invoice text-orange\"></i></a>' " +
                 "ELSE '''' END";
             case "PURCHASE_INVOICE" ->
-                "CASE WHEN d.status = ''CONFIRMED'' AND d.due_amount > 0 THEN " +
+                "CASE WHEN d.status = 'CONFIRMED' AND d.due_amount > 0 THEN " +
                 "'<a href=\"javascript:;\" onclick=\"createPaymentFromInvoice(' || d.id || ')\" class=\"btn btn-white btn-sm\" title=\"Make Payment\"><i class=\"fas fa-money-check-dollar text-primary\"></i></a>' " +
                 "ELSE '''' END";
             default -> "''";

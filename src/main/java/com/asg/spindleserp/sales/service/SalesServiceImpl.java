@@ -296,7 +296,7 @@ public class SalesServiceImpl implements SalesService {
                 END AS status_badge,
                 '<div class="btn-group">'
                     || '<a href="javascript:;" onclick="%1$sShow('     || d.id || ')" class="btn btn-white btn-sm" title="View"><i class="fas fa-eye text-success"></i></a>'
-                    || CASE WHEN d.status = ''DRAFT'' THEN
+                    || CASE WHEN d.status = 'DRAFT' THEN
                         '<a href="javascript:;" onclick="%1$sEdit('    || d.id || ')" class="btn btn-white btn-sm" title="Edit"><i class="fa-regular fa-pen-to-square text-warning"></i></a>'
                         || '<a href="javascript:;" onclick="%1$sConfirm(' || d.id || ')" class="btn btn-white btn-sm" title="Confirm"><i class="fas fa-check-circle text-primary"></i></a>'
                         || '<a href="javascript:;" onclick="%1$sCancel(' || d.id || ')" class="btn btn-white btn-sm" title="Cancel"><i class="fas fa-ban text-secondary"></i></a>'
@@ -619,17 +619,17 @@ public class SalesServiceImpl implements SalesService {
     private String nextDocActionButton(String docType, String fn) {
         return switch (docType) {
             case "SALES_ORDER" ->
-                "CASE WHEN d.status = ''CONFIRMED'' THEN " +
+                "CASE WHEN d.status = 'CONFIRMED' THEN " +
                 "'<a href=\"javascript:;\" onclick=\"createDeliveryFromSO(' || d.id || ')\" class=\"btn btn-white btn-sm\" title=\"Create Delivery\"><i class=\"fas fa-shipping-fast text-teal\"></i></a>' " +
-                "ELSE '''' END";
+                "ELSE '' END";
             case "DELIVERY_ORDER" ->
-                "CASE WHEN d.status = ''CONFIRMED'' THEN " +
+                "CASE WHEN d.status = 'CONFIRMED' THEN " +
                 "'<a href=\"javascript:;\" onclick=\"createInvoiceFromDelivery(' || d.id || ')\" class=\"btn btn-white btn-sm\" title=\"Create Invoice\"><i class=\"fas fa-file-invoice-dollar text-orange\"></i></a>' " +
-                "ELSE '''' END";
+                "ELSE '' END";
             case "SALES_INVOICE" ->
-                "CASE WHEN d.status = ''CONFIRMED'' AND COALESCE(d.due_amount, 0) > 0 THEN " +
+                "CASE WHEN d.status = 'CONFIRMED' AND COALESCE(d.due_amount, 0) > 0 THEN " +
                 "'<a href=\"javascript:;\" onclick=\"createReceiptFromInvoice(' || d.id || ')\" class=\"btn btn-white btn-sm\" title=\"Collect Payment\"><i class=\"fas fa-money-bill-wave text-primary\"></i></a>' " +
-                "ELSE '''' END";
+                "ELSE '' END";
             default -> "''";
         };
     }

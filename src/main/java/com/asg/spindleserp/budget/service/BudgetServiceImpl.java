@@ -136,15 +136,15 @@ public class BudgetServiceImpl implements BudgetService {
                        END AS status_badge,
                        '<div class="btn-group">'
                        || '<a href="javascript:;" onclick="fyShow('   || fy.id || ')" class="btn btn-white btn-sm"><i class="fas fa-eye text-success"></i></a>'
-                       || CASE WHEN fy.status = ''DRAFT'' THEN
+                       || CASE WHEN fy.status = 'DRAFT' THEN
                            '<a href="javascript:;" onclick="fyEdit('   || fy.id || ')" class="btn btn-white btn-sm"><i class="fa-regular fa-pen-to-square text-warning"></i></a>'
                            || '<a href="javascript:;" onclick="fyActivate(' || fy.id || ')" class="btn btn-white btn-sm" title="Activate"><i class="fas fa-play-circle text-primary"></i></a>'
                            || '<a href="javascript:;" onclick="fyDelete(' || fy.id || ')" class="btn btn-white btn-sm"><i class="fa-regular fa-trash-can text-danger"></i></a>'
                           ELSE '' END
-                       || CASE WHEN fy.status = ''ACTIVE'' THEN
+                       || CASE WHEN fy.status = 'ACTIVE' THEN
                            '<a href="javascript:;" onclick="fyLock('  || fy.id || ')" class="btn btn-white btn-sm" title="Lock"><i class="fas fa-lock text-orange"></i></a>'
                           ELSE '' END
-                       || CASE WHEN fy.status = ''LOCKED'' THEN
+                       || CASE WHEN fy.status = 'LOCKED' THEN
                            '<a href="javascript:;" onclick="fyClose(' || fy.id || ')" class="btn btn-white btn-sm" title="Close Year"><i class="fas fa-calendar-times text-danger"></i></a>'
                           ELSE '' END
                        || '</div>' AS actions
@@ -152,7 +152,7 @@ public class BudgetServiceImpl implements BudgetService {
                 %s ORDER BY fy.start_date DESC OFFSET %d LIMIT %d
                 """, where, start, length);
         List<Map<String, Object>> rows = jdbcTemplate.queryForList(sql);
-        long total = rows.isEmpty() ? 0L : CommonUtils.toLong(rows.get(0).get("full_count"));
+        long total = rows.isEmpty() ? 0L : CommonUtils.toLong(rows.getFirst().get("full_count"));
         return DataTableResponse.of(draw, total, total, rows);
     }
 
@@ -435,18 +435,18 @@ public class BudgetServiceImpl implements BudgetService {
                        '<div class="btn-group">'
                        || '<a href="javascript:;" onclick="bgtShow('    || b.id || ')" class="btn btn-white btn-sm" title="View"><i class="fas fa-eye text-success"></i></a>'
                        || '<a href="javascript:;" onclick="bgtVariance('|| b.id || ')" class="btn btn-white btn-sm" title="Variance"><i class="fas fa-chart-bar text-primary"></i></a>'
-                       || CASE WHEN b.status = ''DRAFT'' THEN
+                       || CASE WHEN b.status = 'DRAFT' THEN
                            '<a href="javascript:;" onclick="bgtEdit('   || b.id || ')" class="btn btn-white btn-sm" title="Edit"><i class="fa-regular fa-pen-to-square text-warning"></i></a>'
                            || '<a href="javascript:;" onclick="bgtSubmit('|| b.id || ')" class="btn btn-white btn-sm" title="Submit"><i class="fas fa-paper-plane text-blue"></i></a>'
                            || '<a href="javascript:;" onclick="bgtDelete('|| b.id || ')" class="btn btn-white btn-sm" title="Delete"><i class="fa-regular fa-trash-can text-danger"></i></a>'
                           ELSE '' END
-                       || CASE WHEN b.status = ''SUBMITTED'' THEN
+                       || CASE WHEN b.status = 'SUBMITTED' THEN
                            '<a href="javascript:;" onclick="bgtApprove('|| b.id || ')" class="btn btn-white btn-sm" title="Approve"><i class="fas fa-check-double text-success"></i></a>'
                           ELSE '' END
-                       || CASE WHEN b.status = ''APPROVED'' THEN
+                       || CASE WHEN b.status = 'APPROVED' THEN
                            '<a href="javascript:;" onclick="bgtActivate('|| b.id || ')" class="btn btn-white btn-sm" title="Activate"><i class="fas fa-play-circle text-teal"></i></a>'
                           ELSE '' END
-                       || CASE WHEN b.status = ''ACTIVE'' THEN
+                       || CASE WHEN b.status = 'ACTIVE' THEN
                            '<a href="javascript:;" onclick="bgtLock('  || b.id || ')" class="btn btn-white btn-sm" title="Lock"><i class="fas fa-lock text-orange"></i></a>'
                           ELSE '' END
                        || '</div>' AS actions
@@ -601,7 +601,7 @@ public class BudgetServiceImpl implements BudgetService {
                        END AS status_badge,
                        '<div class="btn-group">'
                        || '<a href="javascript:;" onclick="revShow('    || r.id || ')" class="btn btn-white btn-sm"><i class="fas fa-eye text-success"></i></a>'
-                       || CASE WHEN r.status IN (''DRAFT'',''SUBMITTED'') THEN
+                       || CASE WHEN r.status IN ('DRAFT','SUBMITTED') THEN
                            '<a href="javascript:;" onclick="revApprove('|| r.id || ')" class="btn btn-white btn-sm" title="Approve"><i class="fas fa-check-double text-success"></i></a>'
                            || '<a href="javascript:;" onclick="revReject('|| r.id || ')" class="btn btn-white btn-sm" title="Reject"><i class="fas fa-times-circle text-danger"></i></a>'
                           ELSE '' END
@@ -718,7 +718,7 @@ public class BudgetServiceImpl implements BudgetService {
                            WHEN 'REJECTED' THEN '<span class="badge bg-danger">Rejected</span>'
                        END AS status_badge,
                        '<div class="btn-group">'
-                       || CASE WHEN t.status = ''PENDING'' THEN
+                       || CASE WHEN t.status = 'PENDING' THEN
                            '<a href="javascript:;" onclick="tfrApprove('|| t.id || ')" class="btn btn-white btn-sm" title="Approve"><i class="fas fa-check text-success"></i></a>'
                            || '<a href="javascript:;" onclick="tfrReject('|| t.id || ')" class="btn btn-white btn-sm" title="Reject"><i class="fas fa-times text-danger"></i></a>'
                           ELSE '' END

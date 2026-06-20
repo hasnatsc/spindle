@@ -307,7 +307,7 @@ public class CrmServiceImpl implements CrmService {
                     || '<a href="javascript:;" onclick="oppShow('     || o.id || ')" class="btn btn-white btn-sm" title="View"><i class="fas fa-eye text-success"></i></a>'
                     || '<a href="javascript:;" onclick="oppEdit('     || o.id || ')" class="btn btn-white btn-sm" title="Edit"><i class="fa-regular fa-pen-to-square text-warning"></i></a>'
                     || '<a href="javascript:;" onclick="oppActivity(' || o.id || ')" class="btn btn-white btn-sm" title="Add Activity"><i class="fas fa-calendar-plus text-primary"></i></a>'
-                    || CASE WHEN o.stage NOT IN (''WON'',''LOST'') THEN
+                    || CASE WHEN o.stage NOT IN ('WON','LOST') THEN
                         '<a href="javascript:;" onclick="oppWon('  || o.id || ')" class="btn btn-white btn-sm" title="Mark Won"><i class="fas fa-trophy text-success"></i></a>'
                         || '<a href="javascript:;" onclick="oppLost(' || o.id || ')" class="btn btn-white btn-sm" title="Mark Lost"><i class="fas fa-times-circle text-danger"></i></a>'
                        ELSE '' END
@@ -574,7 +574,7 @@ public class CrmServiceImpl implements CrmService {
                 '<div class="btn-group">'
                     || '<a href="javascript:;" onclick="actShow('     || a.id || ')" class="btn btn-white btn-sm" title="View"><i class="fas fa-eye text-success"></i></a>'
                     || '<a href="javascript:;" onclick="actEdit('     || a.id || ')" class="btn btn-white btn-sm" title="Edit"><i class="fa-regular fa-pen-to-square text-warning"></i></a>'
-                    || CASE WHEN a.status = ''PLANNED'' THEN
+                    || CASE WHEN a.status = 'PLANNED' THEN
                         '<a href="javascript:;" onclick="actComplete(' || a.id || ')" class="btn btn-white btn-sm" title="Complete"><i class="fas fa-check-circle text-primary"></i></a>'
                        ELSE '' END
                     || '<a href="javascript:;" onclick="actDelete('   || a.id || ')" class="btn btn-white btn-sm" title="Delete"><i class="fa-regular fa-trash-can text-danger"></i></a>'
@@ -709,7 +709,7 @@ public class CrmServiceImpl implements CrmService {
                 '<div class="btn-group">'
                     || '<a href="javascript:;" onclick="fbShow('    || f.id || ')" class="btn btn-white btn-sm" title="View"><i class="fas fa-eye text-success"></i></a>'
                     || '<a href="javascript:;" onclick="fbEdit('    || f.id || ')" class="btn btn-white btn-sm" title="Edit"><i class="fa-regular fa-pen-to-square text-warning"></i></a>'
-                    || CASE WHEN f.status IN (''OPEN'',''IN_PROGRESS'') THEN
+                    || CASE WHEN f.status IN ('OPEN','IN_PROGRESS') THEN
                         '<a href="javascript:;" onclick="fbResolve(' || f.id || ')" class="btn btn-white btn-sm" title="Resolve"><i class="fas fa-check-circle text-primary"></i></a>'
                        ELSE '' END
                     || '<a href="javascript:;" onclick="fbDelete('  || f.id || ')" class="btn btn-white btn-sm" title="Delete"><i class="fa-regular fa-trash-can text-danger"></i></a>'
