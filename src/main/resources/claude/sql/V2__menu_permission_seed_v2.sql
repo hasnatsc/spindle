@@ -36,8 +36,6 @@ INSERT INTO app_menus (menu_code,menu_name,menu_url,icon,parent_id,display_order
 
 -- 01 Dashboard
 ('M_DASHBOARD',       'Dashboard',         '/dashboard',     'fas fa-gauge-high',    NULL, 10,'MODULE','DASHBOARD',    'dashboard.view',   TRUE, TRUE),
-
--- 02 Purchase
 ('M_PURCHASE',        'Purchase',          '#',              'fas fa-cart-shopping', NULL, 20,'MODULE','PURCHASE',     NULL,               TRUE, TRUE),
 
 -- 03 Sales
