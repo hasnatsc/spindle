@@ -23,7 +23,7 @@ public interface ChartOfAccountSubService {
 
     List<ChartOfAccountSubDTO> findAll();
 
-    List<ChartOfAccountSubDTO> findByType(String subAccountType);
+//    List<ChartOfAccountSubDTO> findByType(String subAccountType);
 
     ChartOfAccountSubDTO toggleStatus(Long id);
 

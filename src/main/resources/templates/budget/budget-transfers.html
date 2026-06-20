@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<!--
+  budget/budget-transfers.html    GET /budget/transfers
+  JS prefix: tfr*
+  Inter-line budget transfer within same budget — requires allowInterLineTransfer
+-->
+<html th:replace="~{layout/base :: layout('Budget Transfers', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
+<section>
+  <ol class="breadcrumb float-xl-end">
+    <li class="breadcrumb-item"><a th:href="@{/dashboard}">Home</a></li>
+    <li class="breadcrumb-item">Budget</li>
+    <li class="breadcrumb-item active">Transfers</li>
+  </ol>
+  <h1 class="page-header">Budget Transfers <small>inter-line budget reallocation within same budget</small></h1>
+
+  <div class="d-flex gap-2 mb-3 flex-wrap">
+    <a th:href="@{/budget/fiscal-years}" class="btn btn-sm btn-outline-primary"><i class="fa fa-calendar-alt me-1"></i> Fiscal Years</a>
+    <a th:href="@{/budget/heads}"        class="btn btn-sm btn-outline-primary"><i class="fa fa-sitemap me-1"></i> Budget Heads</a>
+    <a th:href="@{/budget/list}"         class="btn btn-sm btn-outline-primary"><i class="fa fa-file-invoice-dollar me-1"></i> Budgets</a>
+    <a th:href="@{/budget/revisions}"    class="btn btn-sm btn-outline-primary"><i class="fa fa-edit me-1"></i> Revisions</a>
+    <a th:href="@{/budget/transfers}"    class="btn btn-sm btn-primary"><i class="fa fa-exchange-alt me-1"></i> Transfers</a>
+  </div>
+
+  <div class="panel panel-inverse">
+    <div class="panel-heading">
+      <div class="panel-title">
+        <a href="javascript:;" onclick="tfrOpenCreate()">
+          <span class="badge btn btn-outline-success"><i class="fa fa-plus me-1"></i> New Transfer</span>
+        </a>
+      </div>
+      <div class="panel-heading-btn">
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-default" data-toggle="panel-expand"><i class="fa fa-expand"></i></a>
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-success" data-toggle="panel-reload"><i class="fa fa-redo"></i></a>
+      </div>
+    </div>
+    <div class="panel-body">
+      <table id="tfrTable" width="100%" class="table table-striped table-bordered align-middle">
+        <thead><tr>
+          <th width="1%">SL</th><th>Transfer No</th>
+          <th>From Head</th><th>To Head</th>
+          <th class="text-end">Amount</th>
+          <th>Date</th><th>Reason</th>
+          <th>Approved By</th>
+          <th class="text-center">Status</th>
+          <th class="text-center" width="13%">Actions</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <!-- CREATE MODAL -->
+    <div tabindex="-1" id="tfrModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title"><i class="fa fa-exchange-alt me-1 text-success"></i> New Budget Transfer</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <form id="tfrForm" novalidate>
+            <div class="modal-body">
+              <div class="hs-box">
+                <div class="alert alert-warning py-2">
+                  <i class="fas fa-info-circle me-1"></i>
+                  Only budgets with <strong>Inter-Line Transfer enabled</strong> are available.
+                  Transfer reduces the FROM line and increases the TO line upon approval.
+                </div>
+                <div class="row g-2">
+                  <div class="col-md-12 view-group">
+                    <select id="tfrBudgetId" class="form-select hs_span_view"></select>
+                    <label class="input-label">Budget <span class="text-danger">*</span></label>
+                  </div>
+                  <div class="col-md-6 view-group">
+                    <select id="tfrFromLineId" class="form-select hs_span_view" required>
+                      <option value="">— From Line —</option>
+                    </select>
+                    <label class="input-label">From Line (Source) <span class="text-danger">*</span></label>
+                  </div>
+                  <div class="col-md-6 view-group">
+                    <select id="tfrToLineId" class="form-select hs_span_view" required>
+                      <option value="">— To Line —</option>
+                    </select>
+                    <label class="input-label">To Line (Destination) <span class="text-danger">*</span></label>
+                  </div>
+                  <div class="col-md-4 view-group">
+                    <input id="tfrAmount" type="number" step="0.01" min="0.01" class="form-control hs_span_view text-end fw-bold" required>
+                    <label class="input-label">Transfer Amount <span class="text-danger">*</span></label>
+                  </div>
+                  <div class="col-md-4 view-group">
+                    <input id="tfrDate" type="date" class="form-control hs_span_view" required>
+                    <label class="input-label">Transfer Date <span class="text-danger">*</span></label>
+                  </div>
+                  <div class="col-12 view-group">
+                    <textarea id="tfrReason" class="form-control hs_span_view" rows="2" required placeholder="Reason for transfer…"></textarea>
+                    <label class="input-label">Reason <span class="text-danger">*</span></label>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-success" type="submit" id="tfrSubmitBtn">
+                <span class="spinner-border spinner-border-sm me-2 d-none" id="tfrSpinner"></span>
+                <span id="tfrBtnText">Submit Transfer</span>
+              </button>
+              <button type="button" class="btn btn-white" data-bs-dismiss="modal">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script th:inline="none">
+  (function () {
+    'use strict';
+    const BASE='/budget';
+    var dt;
+
+    document.addEventListener('DOMContentLoaded', function () {
+      dt = $('#tfrTable').DataTable({
+        processing:true,serverSide:false,responsive:true,pageLength:25,
+        ajax:{url:BASE+'/transfers/list',type:'GET'},
+        columns:[
+          {data:'sl',orderable:false,width:'40px'},{data:'transfer_no'},
+          {data:'from_line'},{data:'to_line'},
+          {data:'transfer_amount',className:'text-end fw-bold',render:function(d){ return parseFloat(d||0).toFixed(2); }},
+          {data:'transfer_date'},{data:'reason'},
+          {data:'approved_by',defaultContent:'—'},
+          {data:'status_badge',orderable:false,className:'text-center'},
+          {data:'actions',orderable:false,className:'text-center'}
+        ],
+        language:{emptyTable:'No transfers.',processing:'<span class="spinner-border spinner-border-sm me-2"></span> Loading…'}
+      });
+      document.getElementById('tfrDate').value = new Date().toISOString().substring(0,10);
+      document.getElementById('tfrForm').addEventListener('submit', _onSubmit);
+      _initBudgetS2();
+
+      $('#tfrBudgetId').on('select2:select', function(e) {
+        var budId = e.params.data.id;
+        secureFetch(BASE+'/show/'+budId).then(function(res){
+          var lines = res.success ? (res.obj.defaultData.lines||[]) : [];
+          var fromSel=document.getElementById('tfrFromLineId');
+          var toSel=document.getElementById('tfrToLineId');
+          fromSel.innerHTML='<option value="">— From Line —</option>';
+          toSel.innerHTML='<option value="">— To Line —</option>';
+          lines.forEach(function(l){
+            var disp=(l.budgetHeadDisplay||'Line '+l.lineNumber)+' (Avail: '+parseFloat(l.availableAmount||0).toFixed(2)+')';
+            fromSel.insertAdjacentHTML('beforeend','<option value="'+l.id+'">'+disp+'</option>');
+            toSel.insertAdjacentHTML('beforeend','<option value="'+l.id+'">'+(l.budgetHeadDisplay||'Line '+l.lineNumber)+'</option>');
+          });
+        });
+      });
+      $('#tfrBudgetId').on('select2:clear', function() {
+        ['tfrFromLineId','tfrToLineId'].forEach(function(id){ document.getElementById(id).innerHTML='<option value="">—</option>'; });
+      });
+    });
+
+    function _initBudgetS2() {
+      $('#tfrBudgetId').select2({dropdownParent:$('#tfrModal'),width:'100%',placeholder:'— Select Budget —',allowClear:true,minimumInputLength:0,
+        ajax:{url:BASE+'/search',dataType:'json',delay:250,data:function(p){return{search:p.term||'',page:p.page||1};},
+          processResults:function(d,p){p.page=p.page||1;return{results:(d.items||[]).map(function(i){return{id:i.id,text:i.text};}),pagination:{more:d.hasMore||false}};},cache:true},
+        templateResult:function(r){return r.text;},templateSelection:function(r){return r.text||r.id;}
+      });
+    }
+
+    window.tfrOpenCreate = function() {
+      document.getElementById('tfrForm').reset();
+      if ($('#tfrBudgetId').hasClass('select2-hidden-accessible')) { $('#tfrBudgetId').val(null).trigger('change'); }
+      ['tfrFromLineId','tfrToLineId'].forEach(function(id){ document.getElementById(id).innerHTML='<option value="">—</option>'; });
+      document.getElementById('tfrDate').value=new Date().toISOString().substring(0,10);
+      document.getElementById('tfrBtnText').textContent='Submit Transfer';
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('tfrModal')).show();
+    };
+
+    window.tfrApprove = function(id) {
+      Swal.fire({title:'Approve Transfer?',text:'Budget line amounts will be permanently adjusted.',icon:'warning',showCancelButton:true,confirmButtonText:'Yes, Approve!',confirmButtonColor:'#198754'})
+        .then(function(r){ if (!r.isConfirmed) return;
+          secureFetch(BASE+'/transfers/approve/'+id,{method:'POST'}).then(function(d){
+            if (d.success) { Swal.fire({icon:'success',title:'Transfer Approved!',text:d.message,timer:1800,showConfirmButton:false}); dt.ajax.reload(null,false); }
+            else Swal.fire('Error',d.message,'error');
+          });
+        });
+    };
+
+    window.tfrReject = function(id) {
+      Swal.fire({title:'Reject Transfer?',icon:'warning',showCancelButton:true,confirmButtonColor:'#dc3545',confirmButtonText:'Reject'})
+        .then(function(r){ if (!r.isConfirmed) return;
+          secureFetch(BASE+'/transfers/reject/'+id,{method:'POST'}).then(function(d){
+            if (d.success) { Swal.fire({icon:'info',title:'Rejected',text:d.message,timer:1400,showConfirmButton:false}); dt.ajax.reload(null,false); }
+            else Swal.fire('Error',d.message,'error');
+          });
+        });
+    };
+
+    function _onSubmit(e) {
+      e.preventDefault();
+      var sb=document.getElementById('tfrSubmitBtn'),sp=document.getElementById('tfrSpinner'),bt=document.getElementById('tfrBtnText');
+      hsDisableButton(sb,sp,bt);
+      var fromId=document.getElementById('tfrFromLineId').value;
+      var toId=document.getElementById('tfrToLineId').value;
+      if (fromId===toId) { Swal.fire('Error','From and To lines must be different.','error'); hsEnableButton(sb,sp,bt); return; }
+      secureFetch(BASE+'/transfers/save',{method:'POST',body:JSON.stringify({
+        budgetId       : $('#tfrBudgetId').val()||null,
+        fromLineId     : fromId||null,
+        toLineId       : toId||null,
+        transferAmount : parseFloat(document.getElementById('tfrAmount').value)||null,
+        transferDate   : document.getElementById('tfrDate').value,
+        reason         : document.getElementById('tfrReason').value
+      })}).then(function(d){
+        if (d.success) { hsAfterSaveMessages(d,dt); bootstrap.Modal.getOrCreateInstance(document.getElementById('tfrModal')).hide(); }
+        else Swal.fire('Error',d.message,'error');
+      }).catch(function(err){ Swal.fire('Error',err.message||'Request failed.','error'); })
+        .finally(function(){ hsEnableButton(sb,sp,bt); });
+    }
+  })();
+  </script>
+</section>
+</html>

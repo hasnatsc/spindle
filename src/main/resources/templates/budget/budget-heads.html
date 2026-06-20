@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<!--
+  budget/budget-heads.html    GET /budget/heads
+  JS prefix: head*
+  Budget Head categories with parent hierarchy and type classification
+-->
+<html th:replace="~{layout/base :: layout('Budget Heads', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
+<section>
+  <ol class="breadcrumb float-xl-end">
+    <li class="breadcrumb-item"><a th:href="@{/dashboard}">Home</a></li>
+    <li class="breadcrumb-item">Budget</li>
+    <li class="breadcrumb-item active">Budget Heads</li>
+  </ol>
+  <h1 class="page-header">Budget Heads <small>define budget categories and classification</small></h1>
+
+  <div class="d-flex gap-2 mb-3 flex-wrap">
+    <a th:href="@{/budget/fiscal-years}" class="btn btn-sm btn-outline-primary"><i class="fa fa-calendar-alt me-1"></i> Fiscal Years</a>
+    <a th:href="@{/budget/heads}"        class="btn btn-sm btn-primary"><i class="fa fa-sitemap me-1"></i> Budget Heads</a>
+    <a th:href="@{/budget/list}"         class="btn btn-sm btn-outline-primary"><i class="fa fa-file-invoice-dollar me-1"></i> Budgets</a>
+    <a th:href="@{/budget/revisions}"    class="btn btn-sm btn-outline-primary"><i class="fa fa-edit me-1"></i> Revisions</a>
+    <a th:href="@{/budget/transfers}"    class="btn btn-sm btn-outline-primary"><i class="fa fa-exchange-alt me-1"></i> Transfers</a>
+  </div>
+
+  <div class="panel panel-inverse">
+    <div class="panel-heading">
+      <div class="panel-title">
+        <a href="javascript:;" onclick="headOpenCreate()">
+          <span class="badge btn btn-outline-success"><i class="fa fa-plus me-1"></i> New Budget Head</span>
+        </a>
+      </div>
+      <div class="panel-heading-btn">
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-default" data-toggle="panel-expand"><i class="fa fa-expand"></i></a>
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-success" data-toggle="panel-reload"><i class="fa fa-redo"></i></a>
+      </div>
+    </div>
+    <div class="panel-body">
+      <table id="headTable" width="100%" class="table table-striped table-bordered align-middle">
+        <thead><tr>
+          <th width="1%">SL</th><th>Code</th><th>Head Name</th>
+          <th>Type</th><th>Parent</th><th>Order</th>
+          <th class="text-center">Status</th>
+          <th class="text-center" width="14%">Actions</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <!-- MODAL -->
+    <div tabindex="-1" id="headModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="headModalTitle"><i class="fa fa-sitemap me-1 text-success"></i> New Budget Head</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <form id="headForm" novalidate>
+            <div class="modal-body">
+              <div class="hs-box">
+                <input type="hidden" id="headId">
+                <div class="row g-2">
+                  <div class="col-md-3 view-group">
+                    <input id="headCode" type="text" class="form-control hs_span_view text-uppercase" maxlength="50" required>
+                    <label class="input-label">Head Code <span class="text-danger">*</span></label>
+                  </div>
+                  <div class="col-md-5 view-group">
+                    <input id="headName" type="text" class="form-control hs_span_view" maxlength="200" required>
+                    <label class="input-label">Head Name <span class="text-danger">*</span></label>
+                  </div>
+                  <div class="col-md-4 view-group">
+                    <select id="headType" class="form-select hs_span_view">
+                      <option value="REVENUE">Revenue</option>
+                      <option value="EXPENSE" selected>Expense</option>
+                      <option value="CAPEX">CAPEX</option>
+                      <option value="OPEX">OPEX</option>
+                      <option value="PRODUCTION">Production</option>
+                      <option value="HR">HR</option>
+                      <option value="COMMERCIAL">Commercial</option>
+                      <option value="OTHER">Other</option>
+                    </select>
+                    <label class="input-label">Type</label>
+                  </div>
+                  <div class="col-md-6 view-group">
+                    <select id="headParentId" class="form-select hs_span_view">
+                      <option value="">— None (Root) —</option>
+                    </select>
+                    <label class="input-label">Parent Head</label>
+                  </div>
+                  <div class="col-md-3 view-group">
+                    <input id="headOrder" type="number" class="form-control hs_span_view text-end" value="0">
+                    <label class="input-label">Display Order</label>
+                  </div>
+                  <div class="col-md-3 d-flex align-items-center mt-2">
+                    <div class="form-check form-switch">
+                      <input class="form-check-input" type="checkbox" id="headActive" checked>
+                      <label class="form-check-label" for="headActive">Active</label>
+                    </div>
+                  </div>
+                  <div class="col-12 view-group">
+                    <textarea id="headDesc" class="form-control hs_span_view" rows="1" placeholder="Description…"></textarea>
+                    <label class="input-label">Description</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-success" type="submit" id="headSubmitBtn">
+                <span class="spinner-border spinner-border-sm me-2 d-none" id="headSpinner"></span>
+                <span id="headBtnText">Save</span>
+              </button>
+              <button type="button" class="btn btn-white" data-bs-dismiss="modal">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script th:inline="none">
+  (function () {
+    'use strict';
+    const BASE = '/budget/heads';
+    var dt;
+    document.addEventListener('DOMContentLoaded', function () {
+      dt = $('#headTable').DataTable({
+        processing:true,serverSide:false,responsive:true,pageLength:25,
+        ajax:{ url: BASE+'/list', type:'GET' },
+        columns:[
+          {data:'sl',orderable:false,width:'40px'},{data:'head_code'},{data:'head_name'},
+          {data:'head_type'},{data:'parent_name',defaultContent:'—'},{data:'display_order',className:'text-center'},
+          {data:'status_badge',orderable:false,className:'text-center'},
+          {data:'actions',orderable:false,className:'text-center'}
+        ],
+        language:{emptyTable:'No budget heads.',processing:'<span class="spinner-border spinner-border-sm me-2"></span> Loading…'}
+      });
+      document.getElementById('headForm').addEventListener('submit',_onSubmit);
+      _loadParents();
+    });
+
+    function _loadParents(selected) {
+      secureFetch(BASE+'/search?search=&page=1').then(function(data) {
+        var sel=document.getElementById('headParentId');
+        var curId=document.getElementById('headId').value;
+        sel.innerHTML='<option value="">— None (Root) —</option>';
+        (data.items||[]).forEach(function(i){
+          if (String(i.id)===String(curId)) return;
+          var o=document.createElement('option'); o.value=i.id; o.textContent=i.text; sel.appendChild(o);
+        });
+        if (selected) sel.value=selected;
+      });
+    }
+
+    window.headOpenCreate = function() {
+      document.getElementById('headForm').reset(); document.getElementById('headId').value='';
+      document.getElementById('headActive').checked=true; document.getElementById('headOrder').value='0';
+      document.getElementById('headModalTitle').innerHTML='<i class="fa fa-plus me-1 text-success"></i> New Budget Head';
+      document.getElementById('headBtnText').textContent='Save';
+      _loadParents();
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('headModal')).show();
+    };
+    window.headEdit = function(id) {
+      secureFetch(BASE+'/show/'+id).then(function(res){
+        if (!res.success) { Swal.fire('Error',res.message,'error'); return; }
+        var o=res.obj.defaultData;
+        document.getElementById('headForm').reset();
+        document.getElementById('headId').value=o.id;
+        document.getElementById('headCode').value=o.headCode||'';
+        document.getElementById('headName').value=o.headName||'';
+        document.getElementById('headType').value=o.headType||'EXPENSE';
+        document.getElementById('headOrder').value=o.displayOrder||'0';
+        document.getElementById('headDesc').value=o.description||'';
+        document.getElementById('headActive').checked=o.active!==false;
+        _loadParents(o.parentId);
+        document.getElementById('headModalTitle').innerHTML='<i class="fa fa-pencil me-1 text-warning"></i> Edit Budget Head';
+        document.getElementById('headBtnText').textContent='Update';
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('headModal')).show();
+      });
+    };
+    window.headToggle = function(id) { hsChangeStatus(BASE+'/toggle/'+id, dt, 'Budget Head'); };
+    window.headDelete = function(id) { hsConfirmDelete(BASE+'/delete/'+id, dt); };
+
+    function _onSubmit(e) {
+      e.preventDefault();
+      var sb=document.getElementById('headSubmitBtn'),sp=document.getElementById('headSpinner'),bt=document.getElementById('headBtnText');
+      hsDisableButton(sb,sp,bt);
+      secureFetch(BASE+'/save',{method:'POST',body:JSON.stringify({
+        id          : document.getElementById('headId').value||null,
+        headCode    : document.getElementById('headCode').value,
+        headName    : document.getElementById('headName').value,
+        headType    : document.getElementById('headType').value,
+        description : document.getElementById('headDesc').value||null,
+        displayOrder: parseInt(document.getElementById('headOrder').value)||0,
+        active      : document.getElementById('headActive').checked,
+        parentId    : document.getElementById('headParentId').value||null
+      })}).then(function(d){
+        if (d.success) { hsAfterSaveMessages(d,dt); bootstrap.Modal.getOrCreateInstance(document.getElementById('headModal')).hide(); }
+        else Swal.fire('Error',d.message,'error');
+      }).catch(function(err){ Swal.fire('Error',err.message||'Request failed.','error'); })
+        .finally(function(){ hsEnableButton(sb,sp,bt); });
+    }
+  })();
+  </script>
+</section>
+</html>

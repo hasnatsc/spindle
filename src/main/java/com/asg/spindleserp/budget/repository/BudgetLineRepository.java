@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -18,4 +19,7 @@ public interface BudgetLineRepository extends JpaRepository<BudgetLine, Long> {
     @Query(value = "SELECT id, revised_amount FROM bgt_budget_lines WHERE budget_id = :budgetId",
             nativeQuery = true)
     List<Object[]> findAvailableAmounts(@Param("budgetId") Long budgetId);
+
+    @Transactional
+    long deleteByBudgetId(Long budgetId);
 }

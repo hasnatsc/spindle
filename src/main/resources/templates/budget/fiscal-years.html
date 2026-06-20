@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<!--
+  budget/fiscal-years.html    GET /budget/fiscal-years
+  JS prefix: fy*
+  Lifecycle: DRAFT → ACTIVE → LOCKED → CLOSED
+-->
+<html th:replace="~{layout/base :: layout('Fiscal Years', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
+<section>
+  <ol class="breadcrumb float-xl-end">
+    <li class="breadcrumb-item"><a th:href="@{/dashboard}">Home</a></li>
+    <li class="breadcrumb-item">Budget</li>
+    <li class="breadcrumb-item active">Fiscal Years</li>
+  </ol>
+  <h1 class="page-header">Fiscal Years <small>define financial periods for budget control</small></h1>
+
+  <div class="d-flex gap-2 mb-3 flex-wrap">
+    <a th:href="@{/budget/fiscal-years}" class="btn btn-sm btn-primary"><i class="fa fa-calendar-alt me-1"></i> Fiscal Years</a>
+    <a th:href="@{/budget/heads}"        class="btn btn-sm btn-outline-primary"><i class="fa fa-sitemap me-1"></i> Budget Heads</a>
+    <a th:href="@{/budget/list}"         class="btn btn-sm btn-outline-primary"><i class="fa fa-file-invoice-dollar me-1"></i> Budgets</a>
+    <a th:href="@{/budget/revisions}"    class="btn btn-sm btn-outline-primary"><i class="fa fa-edit me-1"></i> Revisions</a>
+    <a th:href="@{/budget/transfers}"    class="btn btn-sm btn-outline-primary"><i class="fa fa-exchange-alt me-1"></i> Transfers</a>
+  </div>
+
+  <div class="panel panel-inverse">
+    <div class="panel-heading">
+      <div class="panel-title">
+        <a href="javascript:;" onclick="fyOpenCreate()">
+          <span class="badge btn btn-outline-success"><i class="fa fa-plus me-1"></i> New Fiscal Year</span>
+        </a>
+      </div>
+      <div class="panel-heading-btn">
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-default" data-toggle="panel-expand"><i class="fa fa-expand"></i></a>
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-success" data-toggle="panel-reload"><i class="fa fa-redo"></i></a>
+      </div>
+    </div>
+    <div class="panel-body">
+      <table id="fyTable" width="100%" class="table table-striped table-bordered align-middle">
+        <thead><tr>
+          <th width="1%">SL</th><th>Code</th><th>Year Name</th>
+          <th>Start</th><th>End</th>
+          <th class="text-center">Current</th>
+          <th class="text-center">Status</th>
+          <th class="text-center" width="16%">Actions</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <!-- CREATE / EDIT MODAL -->
+    <div tabindex="-1" id="fyModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="fyModalTitle"><i class="fa fa-calendar-alt me-1 text-success"></i> New Fiscal Year</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <form id="fyForm" novalidate>
+            <div class="modal-body">
+              <div class="hs-box">
+                <input type="hidden" id="fyId">
+                <div class="row g-2">
+                  <div class="col-md-3 view-group">
+                    <input id="fyCode" type="text" class="form-control hs_span_view text-uppercase" maxlength="20" required placeholder="e.g. FY2025">
+                    <label class="input-label">Year Code <span class="text-danger">*</span></label>
+                  </div>
+                  <div class="col-md-5 view-group">
+                    <input id="fyName" type="text" class="form-control hs_span_view" maxlength="100" required placeholder="e.g. Financial Year 2025-2026">
+                    <label class="input-label">Year Name <span class="text-danger">*</span></label>
+                  </div>
+                  <div class="col-md-4 d-flex align-items-center mt-2">
+                    <div class="form-check form-switch">
+                      <input class="form-check-input" type="checkbox" id="fyIsCurrent">
+                      <label class="form-check-label" for="fyIsCurrent">Set as Current Year</label>
+                    </div>
+                  </div>
+                  <div class="col-md-4 view-group">
+                    <input id="fyStart" type="date" class="form-control hs_span_view" required>
+                    <label class="input-label">Start Date <span class="text-danger">*</span></label>
+                  </div>
+                  <div class="col-md-4 view-group">
+                    <input id="fyEnd" type="date" class="form-control hs_span_view" required>
+                    <label class="input-label">End Date <span class="text-danger">*</span></label>
+                  </div>
+                  <div class="col-12 view-group">
+                    <textarea id="fyNotes" class="form-control hs_span_view" rows="2" placeholder="Notes…"></textarea>
+                    <label class="input-label">Notes</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-success" type="submit" id="fySubmitBtn">
+                <span class="spinner-border spinner-border-sm me-2 d-none" id="fySpinner"></span>
+                <span id="fyBtnText">Save</span>
+              </button>
+              <button type="button" class="btn btn-white" data-bs-dismiss="modal">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- VIEW MODAL -->
+    <div tabindex="-1" id="fyViewModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+          <div class="modal-header"><h5 class="modal-title"><i class="fa fa-calendar-alt me-1 text-primary"></i> Fiscal Year Details</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+          <div class="modal-body" id="fyViewBody"></div>
+          <div class="modal-footer"><button type="button" class="btn btn-white" data-bs-dismiss="modal">Close</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script th:inline="none">
+  (function () {
+    'use strict';
+    const BASE = '/budget/fiscal-years';
+    var dt;
+    document.addEventListener('DOMContentLoaded', function () {
+      dt = $('#fyTable').DataTable({
+        processing:true,serverSide:false,responsive:true,pageLength:25,
+        ajax:{ url: BASE+'/list', type:'GET' },
+        columns:[
+          {data:'sl',orderable:false,width:'40px'},{data:'year_code'},{data:'year_name'},
+          {data:'start_date'},{data:'end_date'},
+          {data:'current_badge',orderable:false,className:'text-center'},
+          {data:'status_badge',orderable:false,className:'text-center'},
+          {data:'actions',orderable:false,className:'text-center'}
+        ],
+        language:{emptyTable:'No fiscal years.',processing:'<span class="spinner-border spinner-border-sm me-2"></span> Loading…'}
+      });
+      document.getElementById('fyForm').addEventListener('submit',_onSubmit);
+    });
+
+    window.fyOpenCreate = function() {
+      document.getElementById('fyForm').reset(); document.getElementById('fyId').value='';
+      document.getElementById('fyModalTitle').innerHTML='<i class="fa fa-plus me-1 text-success"></i> New Fiscal Year';
+      document.getElementById('fyBtnText').textContent='Save';
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('fyModal')).show();
+    };
+    window.fyShow = function(id) {
+      secureFetch(BASE+'/show/'+id).then(function(res){
+        if (!res.success) { Swal.fire('Error',res.message,'error'); return; }
+        var o=res.obj.defaultData;
+        var html='<div class="hs-box"><div class="row g-2">'
+          +_vf('Code',o.yearCode)+_vf('Name',o.yearName)
+          +_vf('Start',o.startDate)+_vf('End',o.endDate)
+          +_vf('Status',o.status)+_vf('Current',o.isCurrent?'<span class="badge bg-primary">Yes</span>':'No')
+          +_vf('Closed By',o.closedBy||'—')+_vf('Notes',o.notes||'—')
+          +'</div></div>';
+        document.getElementById('fyViewBody').innerHTML=html;
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('fyViewModal')).show();
+      });
+    };
+    window.fyEdit = function(id) {
+      secureFetch(BASE+'/show/'+id).then(function(res){
+        if (!res.success) { Swal.fire('Error',res.message,'error'); return; }
+        var o=res.obj.defaultData;
+        document.getElementById('fyForm').reset();
+        document.getElementById('fyId').value=o.id;
+        document.getElementById('fyCode').value=o.yearCode||'';
+        document.getElementById('fyName').value=o.yearName||'';
+        document.getElementById('fyStart').value=o.startDate||'';
+        document.getElementById('fyEnd').value=o.endDate||'';
+        document.getElementById('fyNotes').value=o.notes||'';
+        document.getElementById('fyIsCurrent').checked=o.isCurrent===true;
+        document.getElementById('fyModalTitle').innerHTML='<i class="fa fa-pencil me-1 text-warning"></i> Edit Fiscal Year';
+        document.getElementById('fyBtnText').textContent='Update';
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('fyModal')).show();
+      });
+    };
+    window.fyActivate = function(id) {
+      Swal.fire({title:'Activate Fiscal Year?',text:'Status will change to ACTIVE.',icon:'question',showCancelButton:true,confirmButtonText:'Activate'})
+        .then(function(r){ if (!r.isConfirmed) return;
+          secureFetch(BASE+'/status/'+id+'?status=ACTIVE',{method:'POST'}).then(function(d){
+            if (d.success) { Swal.fire({icon:'success',title:'Activated!',text:d.message,timer:1600,showConfirmButton:false}); dt.ajax.reload(null,false); }
+            else Swal.fire('Error',d.message,'error');
+          });
+        });
+    };
+    window.fyLock = function(id) {
+      Swal.fire({title:'Lock Fiscal Year?',text:'No new budgets can be created.',icon:'warning',showCancelButton:true,confirmButtonText:'Lock',confirmButtonColor:'#fd7e14'})
+        .then(function(r){ if (!r.isConfirmed) return;
+          secureFetch(BASE+'/status/'+id+'?status=LOCKED',{method:'POST'}).then(function(d){
+            if (d.success) { Swal.fire({icon:'success',title:'Locked',text:d.message,timer:1400,showConfirmButton:false}); dt.ajax.reload(null,false); }
+            else Swal.fire('Error',d.message,'error');
+          });
+        });
+    };
+    window.fyClose = function(id) {
+      Swal.fire({title:'Close Fiscal Year?',text:'This is permanent. All budgets will be closed.',icon:'warning',showCancelButton:true,confirmButtonText:'Close Year',confirmButtonColor:'#dc3545'})
+        .then(function(r){ if (!r.isConfirmed) return;
+          secureFetch(BASE+'/status/'+id+'?status=CLOSED',{method:'POST'}).then(function(d){
+            if (d.success) { Swal.fire({icon:'success',title:'Year Closed',text:d.message,timer:1600,showConfirmButton:false}); dt.ajax.reload(null,false); }
+            else Swal.fire('Error',d.message,'error');
+          });
+        });
+    };
+    window.fyDelete = function(id) { hsConfirmDelete(BASE+'/delete/'+id, dt); };
+
+    function _onSubmit(e) {
+      e.preventDefault();
+      var sb=document.getElementById('fySubmitBtn'),sp=document.getElementById('fySpinner'),bt=document.getElementById('fyBtnText');
+      hsDisableButton(sb,sp,bt);
+      secureFetch(BASE+'/save',{method:'POST',body:JSON.stringify({
+        id        : document.getElementById('fyId').value||null,
+        yearCode  : document.getElementById('fyCode').value,
+        yearName  : document.getElementById('fyName').value,
+        startDate : document.getElementById('fyStart').value,
+        endDate   : document.getElementById('fyEnd').value,
+        notes     : document.getElementById('fyNotes').value||null,
+        isCurrent : document.getElementById('fyIsCurrent').checked
+      })}).then(function(d){
+        if (d.success) { hsAfterSaveMessages(d,dt); bootstrap.Modal.getOrCreateInstance(document.getElementById('fyModal')).hide(); }
+        else Swal.fire('Error',d.message,'error');
+      }).catch(function(err){ Swal.fire('Error',err.message||'Request failed.','error'); })
+        .finally(function(){ hsEnableButton(sb,sp,bt); });
+    }
+    function _vf(l,v){ return '<div class="col-md-4 view-group"><label class="view-label">'+l+'</label><span class="form-control hs_span_show">'+(v!=null?v:'—')+'</span></div>'; }
+  })();
+  </script>
+</section>
+</html>

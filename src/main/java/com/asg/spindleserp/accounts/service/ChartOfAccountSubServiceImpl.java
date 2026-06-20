@@ -66,15 +66,15 @@ public class ChartOfAccountSubServiceImpl implements ChartOfAccountSubService {
         return subRepo.findAll().stream().map(this::toDTO).toList();
     }
 
-    @Override
-    @Transactional(readOnly = true)
-    public List<ChartOfAccountSubDTO> findByType(String subAccountType) {
-        Long orgId = SecurityHelper.currentOrgId().orElse(null);
-        return subRepo.findByOrganizationIdAndIsActiveTrue(orgId).stream()
-                .filter(s -> s.getSubAccountType() != null
-                        && s.getSubAccountType().name().equalsIgnoreCase(subAccountType))
-                .map(this::toDTO).toList();
-    }
+//    @Override
+//    @Transactional(readOnly = true)
+//    public List<ChartOfAccountSubDTO> findByType(String subAccountType) {
+//        Long orgId = SecurityHelper.currentOrgId().orElse(null);
+//        return subRepo.findByOrganizationIdAndIsActiveTrue(orgId).stream()
+//                .filter(s -> s.getSubAccountType() != null
+//                        && s.getSubAccountType().name().equalsIgnoreCase(subAccountType))
+//                .map(this::toDTO).toList();
+//    }
 
     // ─────────────────────────────────────────────────────────────────────────
     // TOGGLE / DELETE
@@ -163,12 +163,12 @@ public class ChartOfAccountSubServiceImpl implements ChartOfAccountSubService {
                 ? subRepo.findByOrganizationIdAndIsActiveTrue(orgId)
                 : subRepo.findAll();
 
-        if (subAccountType != null && !subAccountType.isBlank()) {
-            all = all.stream()
-                    .filter(s -> s.getSubAccountType() != null
-                            && s.getSubAccountType().name().equalsIgnoreCase(subAccountType))
-                    .collect(Collectors.toList());
-        }
+//        if (subAccountType != null && !subAccountType.isBlank()) {
+//            all = all.stream()
+//                    .filter(s -> s.getSubAccountType() != null
+//                            && s.getSubAccountType().name().equalsIgnoreCase(subAccountType))
+//                    .collect(Collectors.toList());
+//        }
 
         String query = q == null ? "" : q.trim().toLowerCase();
         List<ChartOfAccountSub> filtered = query.isEmpty() ? all
@@ -188,7 +188,7 @@ public class ChartOfAccountSubServiceImpl implements ChartOfAccountSubService {
             m.put("text",           s.getSubAccountCode() + " — " + s.getSubAccountName());
             m.put("code",           s.getSubAccountCode());
             m.put("name",           s.getSubAccountName());
-            m.put("subAccountType", s.getSubAccountType() != null ? s.getSubAccountType().name() : "");
+//            m.put("subAccountType", s.getSubAccountType() != null ? s.getSubAccountType().name() : "");
             return m;
         }).toList();
 
@@ -209,7 +209,7 @@ public class ChartOfAccountSubServiceImpl implements ChartOfAccountSubService {
         d.setMainAccountId(e.getMainAccount() != null ? e.getMainAccount().getId() : null);
         d.setMainAccountDisplay(e.getMainAccount() != null
                 ? e.getMainAccount().getAccountCode() + " — " + e.getMainAccount().getAccountName() : null);
-        d.setSubAccountType(e.getSubAccountType() != null ? e.getSubAccountType().name() : null);
+//        d.setSubAccountType(e.getSubAccountType() != null ? e.getSubAccountType().name() : null);
         d.setSubAccountCode(e.getSubAccountCode());
         d.setSubAccountName(e.getSubAccountName());
         d.setActive(e.isActive());
@@ -314,7 +314,7 @@ public class ChartOfAccountSubServiceImpl implements ChartOfAccountSubService {
 
         entity.setSubAccountCode(dto.getSubAccountCode().trim().toUpperCase());
         entity.setSubAccountName(dto.getSubAccountName().trim());
-        entity.setSubAccountType(ChartOfAccountSub.SubAccountType.valueOf(type));
+//        entity.setSubAccountType(ChartOfAccountSub.SubAccountType.valueOf(type));
         entity.setActive(Boolean.TRUE.equals(dto.getActive()));
         entity.setContactPerson(dto.getContactPerson());
         entity.setContactPhone(dto.getContactPhone());

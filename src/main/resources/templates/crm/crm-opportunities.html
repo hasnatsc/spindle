@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<!--
+  crm/crm-opportunities.html    GET /crm/opportunities
+  JS prefix: opp*
+  Stage filter, pipeline KPI summary, Won/Lost quick actions
+-->
+<html th:replace="~{layout/base :: layout('Opportunities', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
+<section>
+
+  <ol class="breadcrumb float-xl-end">
+    <li class="breadcrumb-item"><a th:href="@{/dashboard}">Home</a></li>
+    <li class="breadcrumb-item">CRM</li>
+    <li class="breadcrumb-item active">Opportunities</li>
+  </ol>
+  <h1 class="page-header">Opportunities <small>sales pipeline management</small></h1>
+
+  <div class="d-flex gap-2 mb-3 flex-wrap">
+    <a th:href="@{/crm/leads}"         class="btn btn-sm btn-outline-primary"><i class="fa fa-user-plus me-1"></i> Leads</a>
+    <a th:href="@{/crm/opportunities}" class="btn btn-sm btn-primary"><i class="fa fa-funnel-dollar me-1"></i> Opportunities</a>
+    <a th:href="@{/crm/contacts}"      class="btn btn-sm btn-outline-primary"><i class="fa fa-address-book me-1"></i> Contacts</a>
+    <a th:href="@{/crm/activities}"    class="btn btn-sm btn-outline-primary"><i class="fa fa-calendar-check me-1"></i> Activities</a>
+    <a th:href="@{/crm/feedback}"      class="btn btn-sm btn-outline-warning"><i class="fa fa-star-half-alt me-1"></i> Feedback</a>
+  </div>
+
+  <!-- Pipeline KPI from /crm/opportunities/pipeline -->
+  <div class="row g-2 mb-3" id="pipelineKpiRow">
+    <div class="col-4 col-md-2"><div class="widget widget-stats bg-grey"><div class="stats-info"><h4>PROSPECT</h4><p id="kpiProspect">—</p></div></div></div>
+    <div class="col-4 col-md-2"><div class="widget widget-stats bg-info"><div class="stats-info"><h4>QUALIFIED</h4><p id="kpiQualified">—</p></div></div></div>
+    <div class="col-4 col-md-2"><div class="widget widget-stats bg-blue"><div class="stats-info"><h4>PROPOSAL</h4><p id="kpiProposal">—</p></div></div></div>
+    <div class="col-4 col-md-2"><div class="widget widget-stats bg-yellow"><div class="stats-info"><h4>NEGOTIATION</h4><p id="kpiNegotiation">—</p></div></div></div>
+    <div class="col-4 col-md-2"><div class="widget widget-stats bg-green"><div class="stats-info"><h4>WON</h4><p id="kpiWon">—</p></div></div></div>
+    <div class="col-4 col-md-2"><div class="widget widget-stats bg-red"><div class="stats-info"><h4>LOST</h4><p id="kpiLost">—</p></div></div></div>
+  </div>
+
+  <div class="panel panel-inverse">
+    <div class="panel-heading">
+      <div class="panel-title d-flex gap-2 align-items-center flex-wrap">
+        <a href="javascript:;" onclick="oppOpenCreate()">
+          <span class="badge btn btn-outline-success"><i class="fa fa-plus me-1"></i> New Opportunity</span>
+        </a>
+        <select id="oppStageFilter" class="form-select form-select-sm" style="width:160px" onchange="_oppReload()">
+          <option value="">All Stages</option>
+          <option value="PROSPECT">Prospect</option>
+          <option value="QUALIFIED">Qualified</option>
+          <option value="PROPOSAL">Proposal</option>
+          <option value="NEGOTIATION">Negotiation</option>
+          <option value="WON">Won</option>
+          <option value="LOST">Lost</option>
+        </select>
+      </div>
+      <div class="panel-heading-btn">
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-default" data-toggle="panel-expand"><i class="fa fa-expand"></i></a>
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-success" data-toggle="panel-reload" onclick="_oppReloadKpi()"><i class="fa fa-redo"></i></a>
+      </div>
+    </div>
+    <div class="panel-body">
+      <table id="oppTable" width="100%" class="table table-striped table-bordered align-middle">
+        <thead><tr>
+          <th width="1%">SL</th><th>Opp No</th><th>Title</th>
+          <th>Customer</th><th class="text-end">Value</th>
+          <th class="text-center">Prob %</th>
+          <th>Expected Close</th><th>Assigned</th>
+          <th class="text-center">Stage</th>
+          <th class="text-center" width="18%">Actions</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <!-- CREATE / EDIT MODAL -->
+    <div tabindex="-1" id="oppModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="oppModalTitle"><i class="fa fa-funnel-dollar me-1 text-success"></i> New Opportunity</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <form id="oppForm" novalidate>
+            <div class="modal-body">
+              <div class="hs-box">
+                <input type="hidden" id="oppId">
+                <div class="row g-2">
+                  <div class="col-md-3 view-group">
+                    <input id="oppNo" type="text" class="form-control hs_span_view bg-light" readonly placeholder="Auto">
+                    <label class="input-label">Opp No</label>
+                  </div>
+                  <div class="col-md-9 view-group">
+                    <input id="oppTitle" type="text" class="form-control hs_span_view" required maxlength="200">
+                    <label class="input-label">Title <span class="text-danger">*</span></label>
+                  </div>
+                  <!-- Customer S2 -->
+                  <div class="col-md-6 view-group">
+                    <select id="oppCustomerId" class="form-select hs_span_view"></select>
+                    <label class="input-label">Customer</label>
+                  </div>
+                  <!-- Lead S2 (optional link) -->
+                  <div class="col-md-6 view-group">
+                    <select id="oppLeadId" class="form-select hs_span_view"></select>
+                    <label class="input-label">From Lead</label>
+                  </div>
+                  <!-- Assigned S2 -->
+                  <div class="col-md-6 view-group">
+                    <select id="oppAssignedTo" class="form-select hs_span_view"></select>
+                    <label class="input-label">Assigned To</label>
+                  </div>
+                  <div class="col-md-3 view-group">
+                    <select id="oppStage" class="form-select hs_span_view">
+                      <option value="PROSPECT">Prospect</option>
+                      <option value="QUALIFIED">Qualified</option>
+                      <option value="PROPOSAL">Proposal</option>
+                      <option value="NEGOTIATION">Negotiation</option>
+                    </select>
+                    <label class="input-label">Stage</label>
+                  </div>
+                  <div class="col-md-3 view-group">
+                    <input id="oppProbability" type="number" min="0" max="100" step="5" class="form-control hs_span_view text-end" value="0">
+                    <label class="input-label">Probability %</label>
+                  </div>
+                  <div class="col-md-4 view-group">
+                    <input id="oppEstValue" type="number" step="0.01" class="form-control hs_span_view text-end" placeholder="0.00">
+                    <label class="input-label">Estimated Value</label>
+                  </div>
+                  <div class="col-md-2 view-group">
+                    <input id="oppCurrency" type="text" class="form-control hs_span_view" maxlength="3" placeholder="BDT" value="BDT">
+                    <label class="input-label">Currency</label>
+                  </div>
+                  <div class="col-md-3 view-group">
+                    <input id="oppExpClose" type="date" class="form-control hs_span_view">
+                    <label class="input-label">Expected Close</label>
+                  </div>
+                  <div class="col-12 view-group">
+                    <textarea id="oppDesc" class="form-control hs_span_view" rows="2" placeholder="Description…"></textarea>
+                    <label class="input-label">Description</label>
+                  </div>
+                  <div class="col-12 view-group">
+                    <textarea id="oppRemarks" class="form-control hs_span_view" rows="1" placeholder="Remarks…"></textarea>
+                    <label class="input-label">Remarks</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-success" type="submit" id="oppSubmitBtn">
+                <span class="spinner-border spinner-border-sm me-2 d-none" id="oppSpinner"></span>
+                <span id="oppBtnText">Save</span>
+              </button>
+              <button type="button" class="btn btn-white" data-bs-dismiss="modal">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- LOST REASON MODAL -->
+    <div tabindex="-1" id="oppLostModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header bg-danger text-white"><h5 class="modal-title"><i class="fa fa-times-circle me-1"></i> Mark as Lost</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
+          <div class="modal-body">
+            <input type="hidden" id="lostOppId">
+            <div class="view-group">
+              <textarea id="lostReason" class="form-control hs_span_view" rows="3" placeholder="Reason for losing this opportunity…"></textarea>
+              <label class="input-label">Lost Reason</label>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-danger" onclick="_submitLost()"><i class="fa fa-times-circle me-1"></i> Confirm Lost</button>
+            <button type="button" class="btn btn-white" data-bs-dismiss="modal">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- VIEW MODAL -->
+    <div tabindex="-1" id="oppViewModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+          <div class="modal-header"><h5 class="modal-title"><i class="fa fa-funnel-dollar me-1 text-primary"></i> Opportunity Details</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+          <div class="modal-body" id="oppViewBody"></div>
+          <div class="modal-footer"><button type="button" class="btn btn-white" data-bs-dismiss="modal">Close</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script th:inline="none">
+  (function () {
+    'use strict';
+    const BASE = '/crm/opportunities', ACT_BASE = '/crm/activities';
+    const SUB_URL = '/accounts/sub-accounts/search', LEAD_URL = '/crm/leads/search';
+    var dt;
+
+    document.addEventListener('DOMContentLoaded', function () {
+      dt = $('#oppTable').DataTable({
+        processing: true, serverSide: false, responsive: true, pageLength: 25,
+        ajax: { url: BASE + '/list', type: 'GET', data: function(d){ d.stage = document.getElementById('oppStageFilter').value||''; } },
+        columns: [
+          { data: 'sl', orderable: false, width: '40px' },
+          { data: 'opportunity_no' }, { data: 'title' }, { data: 'customer_name', defaultContent: '—' },
+          { data: 'estimated_value', className: 'text-end fw-bold', defaultContent: '—', render: function(d){ return d && d!=='—' ? parseFloat(d).toFixed(2) : '—'; }},
+          { data: 'probability', className: 'text-center', render: function(d){ return parseFloat(d||0).toFixed(0) + '%'; }},
+          { data: 'expected_close_date', defaultContent: '—' },
+          { data: 'assigned_to', defaultContent: '—' },
+          { data: 'stage_badge', orderable: false, className: 'text-center' },
+          { data: 'actions', orderable: false, className: 'text-center' }
+        ],
+        language: { emptyTable: 'No opportunities.', processing: '<span class="spinner-border spinner-border-sm me-2"></span> Loading…' }
+      });
+      document.getElementById('oppForm').addEventListener('submit', _onSubmit);
+      _initS2s(null,null,null,null,null,null);
+      _loadPipelineKpi();
+    });
+
+    window._oppReload = function() { dt.ajax.reload(); };
+    window._oppReloadKpi = function() { dt.ajax.reload(); _loadPipelineKpi(); };
+
+    function _loadPipelineKpi() {
+      secureFetch(BASE + '/pipeline').then(function(data) {
+        ['PROSPECT','QUALIFIED','PROPOSAL','NEGOTIATION','WON','LOST'].forEach(function(s){
+          var row = (data||[]).find(function(r){ return r.stage === s; });
+          var el = document.getElementById('kpi' + s.charAt(0) + s.slice(1).toLowerCase().replace(/_([a-z])/g,function(m,c){return c.toUpperCase();}));
+          if (el && row) el.textContent = (row.count||0) + ' / ' + parseFloat(row.total_value||0).toFixed(0);
+        });
+        var prow = (data||[]).find(function(r){ return r.stage==='PROSPECT'; }); if(prow) document.getElementById('kpiProspect').textContent=(prow.count||0)+' / '+parseFloat(prow.total_value||0).toFixed(0);
+        var qrow = (data||[]).find(function(r){ return r.stage==='QUALIFIED'; }); if(qrow) document.getElementById('kpiQualified').textContent=(qrow.count||0)+' / '+parseFloat(qrow.total_value||0).toFixed(0);
+        var prow2 = (data||[]).find(function(r){ return r.stage==='PROPOSAL'; }); if(prow2) document.getElementById('kpiProposal').textContent=(prow2.count||0)+' / '+parseFloat(prow2.total_value||0).toFixed(0);
+        var nrow = (data||[]).find(function(r){ return r.stage==='NEGOTIATION'; }); if(nrow) document.getElementById('kpiNegotiation').textContent=(nrow.count||0)+' / '+parseFloat(nrow.total_value||0).toFixed(0);
+        var wrow = (data||[]).find(function(r){ return r.stage==='WON'; }); if(wrow) document.getElementById('kpiWon').textContent=(wrow.count||0)+' / '+parseFloat(wrow.total_value||0).toFixed(0);
+        var lrow = (data||[]).find(function(r){ return r.stage==='LOST'; }); if(lrow) document.getElementById('kpiLost').textContent=(lrow.count||0)+' / '+parseFloat(lrow.total_value||0).toFixed(0);
+      });
+    }
+
+    function _initS2s(custId,custText,leadId,leadText,userId,userText) {
+      ['#oppCustomerId','#oppLeadId','#oppAssignedTo'].forEach(function(sel){ var $el=$(sel); if($el.hasClass('select2-hidden-accessible')) $el.select2('destroy'); });
+
+      $('#oppCustomerId').select2({ dropdownParent:$('#oppModal'),width:'100%',placeholder:'— Customer —',allowClear:true,minimumInputLength:0,
+        ajax:{url:SUB_URL,dataType:'json',delay:250,data:function(p){return{search:p.term||'',subAccountType:'CUSTOMER',page:p.page||1};},processResults:function(d,p){p.page=p.page||1;return{results:(d.items||[]).map(function(i){return{id:i.id,text:i.text};}),pagination:{more:d.hasMore||false}};},cache:false},
+        templateResult:function(r){return r.text;},templateSelection:function(r){return r.text||r.id;}
+      });
+      if (custId) $('#oppCustomerId').append(new Option(custText||'',custId,true,true)).trigger('change');
+
+      $('#oppLeadId').select2({ dropdownParent:$('#oppModal'),width:'100%',placeholder:'— From Lead —',allowClear:true,minimumInputLength:0,
+        ajax:{url:LEAD_URL,dataType:'json',delay:250,data:function(p){return{search:p.term||'',page:p.page||1};},processResults:function(d,p){p.page=p.page||1;return{results:(d.items||[]).map(function(i){return{id:i.id,text:i.text};}),pagination:{more:d.hasMore||false}};},cache:true},
+        templateResult:function(r){return r.text;},templateSelection:function(r){return r.text||r.id;}
+      });
+      if (leadId) $('#oppLeadId').append(new Option(leadText||'',leadId,true,true)).trigger('change');
+
+      $('#oppAssignedTo').select2({ dropdownParent:$('#oppModal'),width:'100%',placeholder:'— Assign User —',allowClear:true,minimumInputLength:0,
+        ajax:{url:'/users/search',dataType:'json',delay:250,data:function(p){return{search:p.term||'',page:p.page||1};},processResults:function(d,p){p.page=p.page||1;return{results:(d.items||[]).map(function(i){return{id:i.id,text:i.text};}),pagination:{more:d.hasMore||false}};},cache:true},
+        templateResult:function(r){return r.text;},templateSelection:function(r){return r.text||r.id;}
+      });
+      if (userId) $('#oppAssignedTo').append(new Option(userText||'',userId,true,true)).trigger('change');
+    }
+
+    window.oppOpenCreate = function() {
+      _resetForm();
+      document.getElementById('oppModalTitle').innerHTML = '<i class="fa fa-plus me-1 text-success"></i> New Opportunity';
+      document.getElementById('oppBtnText').textContent  = 'Save';
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('oppModal')).show();
+    };
+
+    window.oppShow = function(id) {
+      secureFetch(BASE + '/show/' + id).then(function(res) {
+        if (!res.success) { Swal.fire('Error',res.message,'error'); return; }
+        var o = res.obj.defaultData;
+        var html = '<div class="hs-box"><div class="row g-2">'
+          + _vf('Opp No', o.opportunityNo) + _vf('Title', o.title)
+          + _vf('Stage', o.opportunityStage) + _vf('Probability', (o.probability||0)+'%')
+          + _vf('Customer', o.customerDisplay||'—') + _vf('Lead', o.leadDisplay||'—')
+          + _vf('Est. Value', (o.estimatedValue?parseFloat(o.estimatedValue).toFixed(2):'—')+' '+(o.currency||''))
+          + _vf('Exp. Close', o.expectedCloseDate||'—') + _vf('Actual Close', o.actualCloseDate||'—')
+          + _vf('Assigned', o.assignedToDisplay||'—')
+          + _vf('Lost Reason', o.lostReason||'—')
+          + _vf('Description', o.description||'—')
+          + _vf('Remarks', o.remarks||'—')
+          + '</div></div>';
+        document.getElementById('oppViewBody').innerHTML = html;
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('oppViewModal')).show();
+      });
+    };
+
+    window.oppEdit = function(id) {
+      secureFetch(BASE + '/show/' + id).then(function(res) {
+        if (!res.success) { Swal.fire('Error',res.message,'error'); return; }
+        var o = res.obj.defaultData; _resetForm();
+        document.getElementById('oppId').value          = o.id;
+        document.getElementById('oppNo').value           = o.opportunityNo||'';
+        document.getElementById('oppTitle').value        = o.title||'';
+        document.getElementById('oppStage').value        = o.opportunityStage||'PROSPECT';
+        document.getElementById('oppProbability').value  = o.probability||'0';
+        document.getElementById('oppEstValue').value     = o.estimatedValue||'';
+        document.getElementById('oppCurrency').value     = o.currency||'BDT';
+        document.getElementById('oppExpClose').value     = o.expectedCloseDate||'';
+        document.getElementById('oppDesc').value         = o.description||'';
+        document.getElementById('oppRemarks').value      = o.remarks||'';
+        _initS2s(o.customerId,o.customerDisplay,o.leadId,o.leadDisplay,o.assignedToId,o.assignedToDisplay);
+        document.getElementById('oppModalTitle').innerHTML = '<i class="fa fa-pencil me-1 text-warning"></i> Edit Opportunity';
+        document.getElementById('oppBtnText').textContent  = 'Update';
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('oppModal')).show();
+      });
+    };
+
+    window.oppWon = function(id) {
+      Swal.fire({ title:'Mark as WON?', icon:'success', showCancelButton:true, confirmButtonText:'Yes, Won!', confirmButtonColor:'#198754' })
+        .then(function(r){ if (!r.isConfirmed) return;
+          secureFetch(BASE + '/stage/' + id + '?stage=WON', { method:'POST' }).then(function(d){
+            if (d.success) { Swal.fire({ icon:'success', title:'Won! 🎉', text:d.message, timer:1600, showConfirmButton:false }); dt.ajax.reload(null,false); _loadPipelineKpi(); }
+            else { Swal.fire('Error',d.message,'error'); }
+          });
+        });
+    };
+
+    window.oppLost = function(id) {
+      document.getElementById('lostOppId').value = id;
+      document.getElementById('lostReason').value = '';
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('oppLostModal')).show();
+    };
+
+    window._submitLost = function() {
+      var id = document.getElementById('lostOppId').value;
+      var reason = document.getElementById('lostReason').value;
+      secureFetch(BASE + '/stage/' + id + '?stage=LOST&lostReason=' + encodeURIComponent(reason), { method:'POST' }).then(function(d){
+        if (d.success) {
+          bootstrap.Modal.getOrCreateInstance(document.getElementById('oppLostModal')).hide();
+          Swal.fire({ icon:'info', title:'Marked Lost', text:d.message, timer:1600, showConfirmButton:false });
+          dt.ajax.reload(null,false); _loadPipelineKpi();
+        } else { Swal.fire('Error',d.message,'error'); }
+      });
+    };
+
+    window.oppActivity = function(id) { window.location.href = '/crm/activities?opportunityId=' + id; };
+    window.oppDelete = function(id) { hsConfirmDelete(BASE + '/delete/' + id, dt); };
+
+    function _onSubmit(e) {
+      e.preventDefault();
+      var sb=document.getElementById('oppSubmitBtn'),sp=document.getElementById('oppSpinner'),bt=document.getElementById('oppBtnText');
+      hsDisableButton(sb,sp,bt);
+      secureFetch(BASE + '/save', { method:'POST', body: JSON.stringify({
+        id              : document.getElementById('oppId').value||null,
+        title           : document.getElementById('oppTitle').value,
+        customerId      : $('#oppCustomerId').val()||null,
+        leadId          : $('#oppLeadId').val()||null,
+        assignedToId    : $('#oppAssignedTo').val()||null,
+        opportunityStage: document.getElementById('oppStage').value||'PROSPECT',
+        probability     : parseFloat(document.getElementById('oppProbability').value)||0,
+        estimatedValue  : parseFloat(document.getElementById('oppEstValue').value)||null,
+        currency        : document.getElementById('oppCurrency').value||'BDT',
+        expectedCloseDate: document.getElementById('oppExpClose').value||null,
+        description     : document.getElementById('oppDesc').value||null,
+        remarks         : document.getElementById('oppRemarks').value||null
+      })}).then(function(d){
+        if (d.success) { hsAfterSaveMessages(d,dt); _loadPipelineKpi(); bootstrap.Modal.getOrCreateInstance(document.getElementById('oppModal')).hide(); }
+        else { Swal.fire('Error',d.message,'error'); }
+      }).catch(function(err){ Swal.fire('Error',err.message||'Request failed.','error'); })
+        .finally(function(){ hsEnableButton(sb,sp,bt); });
+    }
+
+    function _resetForm() {
+      ['#oppCustomerId','#oppLeadId','#oppAssignedTo'].forEach(function(sel){ var $el=$(sel); if($el.hasClass('select2-hidden-accessible')) $el.select2('destroy'); });
+      document.getElementById('oppForm').reset();
+      document.getElementById('oppId').value = '';
+      document.getElementById('oppProbability').value = '0';
+      document.getElementById('oppCurrency').value = 'BDT';
+      _initS2s(null,null,null,null,null,null);
+    }
+
+    function _vf(label,value){ return '<div class="col-md-4 view-group"><label class="view-label">'+label+'</label><span class="form-control hs_span_show">'+(value!=null?value:'—')+'</span></div>'; }
+  })();
+  </script>
+</section>
+</html>

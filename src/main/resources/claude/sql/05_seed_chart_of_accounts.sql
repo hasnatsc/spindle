@@ -420,12 +420,12 @@ WHERE inv.account_code = '1104' AND inv.organization_id = 1
 -- 6. ACCOUNTS MAPPING DETAILS  (lines for MAP-SALES)
 -- =============================================================================
 INSERT INTO acc_mapping_details
-(line_number, sort_order, entry_type, entry_name, line_narration, entry_description,
+(organization_id, line_number, sort_order, entry_type, entry_name, line_narration, entry_description,
  amount_type, field_reference, percentage, fixed_amount, formula,
  account_id, accounts_mapping_id, cost_center_id,
  is_active, is_optional, is_tax_entry, skip_if_zero, round_amount, negate_amount, inherit_cost_center,
  created_at, updated_at, created_by, updated_by)
-SELECT 1, 1, 'DEBIT', 'Receivable', 'Customer receivable', 'Debit accounts receivable for invoice total',
+SELECT 1, 1, 1, 'DEBIT', 'Receivable', 'Customer receivable', 'Debit accounts receivable for invoice total',
        'FIELD', 'invoice.totalAmount', NULL, NULL, NULL,
        ar.id, mp.id, NULL,
        true, false, false, true, false, false, false,
@@ -435,12 +435,12 @@ WHERE ar.account_code = '1103' AND ar.organization_id = 1
   AND mp.mapping_code = 'MAP-SALES' AND mp.organization_id = 1;
 
 INSERT INTO acc_mapping_details
-(line_number, sort_order, entry_type, entry_name, line_narration, entry_description,
+(organization_id, line_number, sort_order, entry_type, entry_name, line_narration, entry_description,
  amount_type, field_reference, percentage, fixed_amount, formula,
  account_id, accounts_mapping_id, cost_center_id,
  is_active, is_optional, is_tax_entry, skip_if_zero, round_amount, negate_amount, inherit_cost_center,
  created_at, updated_at, created_by, updated_by)
-SELECT 2, 2, 'CREDIT', 'Sales Revenue', 'Sales revenue', 'Credit sales revenue for invoice subtotal',
+SELECT 1, 2, 2, 'CREDIT', 'Sales Revenue', 'Sales revenue', 'Credit sales revenue for invoice subtotal',
        'FIELD', 'invoice.subtotal', NULL, NULL, NULL,
        rev.id, mp.id, NULL,
        true, false, false, true, false, false, false,
@@ -450,12 +450,12 @@ WHERE rev.account_code = '4001' AND rev.organization_id = 1
   AND mp.mapping_code = 'MAP-SALES' AND mp.organization_id = 1;
 
 INSERT INTO acc_mapping_details
-(line_number, sort_order, entry_type, entry_name, line_narration, entry_description,
+(organization_id, line_number, sort_order, entry_type, entry_name, line_narration, entry_description,
  amount_type, field_reference, percentage, fixed_amount, formula,
  account_id, accounts_mapping_id, cost_center_id,
  is_active, is_optional, is_tax_entry, skip_if_zero, round_amount, negate_amount, inherit_cost_center,
  created_at, updated_at, created_by, updated_by)
-SELECT 3, 3, 'CREDIT', 'Output VAT', 'Output VAT on sale', 'Credit output VAT payable on invoice VAT amount',
+SELECT 1, 3, 3, 'CREDIT', 'Output VAT', 'Output VAT on sale', 'Credit output VAT payable on invoice VAT amount',
        'FIELD', 'invoice.vatAmount', 15.0000, NULL, NULL,
        vat.id, mp.id, NULL,
        true, true, true, true, false, false, false,

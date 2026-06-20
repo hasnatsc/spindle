@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<!--
+  budget/budget-list.html    GET /budget/list
+  JS prefix: bgt*
+  Full lifecycle: DRAFT→SUBMITTED→APPROVED→ACTIVE→LOCKED
+  Lines with 12-month phasing + variance report modal
+-->
+<html th:replace="~{layout/base :: layout('Budgets', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
+<section>
+  <ol class="breadcrumb float-xl-end">
+    <li class="breadcrumb-item"><a th:href="@{/dashboard}">Home</a></li>
+    <li class="breadcrumb-item">Budget</li>
+    <li class="breadcrumb-item active">Budgets</li>
+  </ol>
+  <h1 class="page-header">Budgets <small>plan, approve and monitor organizational budgets</small></h1>
+
+  <div class="d-flex gap-2 mb-3 flex-wrap">
+    <a th:href="@{/budget/fiscal-years}" class="btn btn-sm btn-outline-primary"><i class="fa fa-calendar-alt me-1"></i> Fiscal Years</a>
+    <a th:href="@{/budget/heads}"        class="btn btn-sm btn-outline-primary"><i class="fa fa-sitemap me-1"></i> Budget Heads</a>
+    <a th:href="@{/budget/list}"         class="btn btn-sm btn-primary"><i class="fa fa-file-invoice-dollar me-1"></i> Budgets</a>
+    <a th:href="@{/budget/revisions}"    class="btn btn-sm btn-outline-primary"><i class="fa fa-edit me-1"></i> Revisions</a>
+    <a th:href="@{/budget/transfers}"    class="btn btn-sm btn-outline-primary"><i class="fa fa-exchange-alt me-1"></i> Transfers</a>
+  </div>
+
+  <div class="panel panel-inverse">
+    <div class="panel-heading">
+      <div class="panel-title d-flex gap-2 align-items-center flex-wrap">
+        <a href="javascript:;" onclick="bgtOpenCreate()">
+          <span class="badge btn btn-outline-success"><i class="fa fa-plus me-1"></i> New Budget</span>
+        </a>
+        <select id="bgtStatusFilter" class="form-select form-select-sm" style="width:180px" onchange="dt.ajax.reload()">
+          <option value="">All Status</option>
+          <option value="DRAFT">Draft</option>
+          <option value="SUBMITTED">Submitted</option>
+          <option value="APPROVED">Approved</option>
+          <option value="ACTIVE">Active</option>
+          <option value="LOCKED">Locked</option>
+          <option value="CLOSED">Closed</option>
+        </select>
+      </div>
+      <div class="panel-heading-btn">
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-default" data-toggle="panel-expand"><i class="fa fa-expand"></i></a>
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-success" data-toggle="panel-reload"><i class="fa fa-redo"></i></a>
+      </div>
+    </div>
+    <div class="panel-body">
+      <table id="bgtTable" width="100%" class="table table-striped table-bordered align-middle">
+        <thead><tr>
+          <th width="1%">SL</th><th>Budget No</th><th>Name</th><th>FY</th><th>Type</th>
+          <th>Period</th>
+          <th class="text-end">Budgeted</th>
+          <th class="text-end">Actual</th>
+          <th class="text-end text-success">Available</th>
+          <th>Version</th>
+          <th class="text-center">Status</th>
+          <th class="text-center" width="18%">Actions</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <!-- CREATE / EDIT MODAL -->
+    <div tabindex="-1" id="bgtModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="bgtModalTitle"><i class="fa fa-file-invoice-dollar me-1 text-success"></i> New Budget</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <form id="bgtForm" novalidate>
+            <div class="modal-body">
+              <div class="hs-box">
+                <input type="hidden" id="bgtId">
+                <h6 class="text-muted border-bottom pb-1 mb-2">Header</h6>
+                <div class="row g-2 mb-3">
+                  <div class="col-md-3 view-group">
+                    <input id="bgtNo" type="text" class="form-control hs_span_view bg-light" readonly placeholder="Auto">
+                    <label class="input-label">Budget No</label>
+                  </div>
+                  <div class="col-md-5 view-group">
+                    <input id="bgtName" type="text" class="form-control hs_span_view" required maxlength="200">
+                    <label class="input-label">Budget Name <span class="text-danger">*</span></label>
+                  </div>
+                  <div class="col-md-4 view-group">
+                    <select id="bgtFyId" class="form-select hs_span_view"></select>
+                    <label class="input-label">Fiscal Year <span class="text-danger">*</span></label>
+                  </div>
+                  <div class="col-md-3 view-group">
+                    <select id="bgtType" class="form-select hs_span_view">
+                      <option value="ANNUAL">Annual</option><option value="QUARTERLY">Quarterly</option>
+                      <option value="MONTHLY">Monthly</option><option value="PROJECT">Project</option>
+                      <option value="DEPARTMENTAL">Departmental</option><option value="CAPEX">CAPEX</option>
+                      <option value="ROLLING">Rolling</option>
+                    </select>
+                    <label class="input-label">Budget Type</label>
+                  </div>
+                  <div class="col-md-3 view-group">
+                    <select id="bgtOverSpend" class="form-select hs_span_view">
+                      <option value="ALLOW">Allow</option>
+                      <option value="WARN" selected>Warn</option>
+                      <option value="BLOCK">Block</option>
+                    </select>
+                    <label class="input-label">Overspend Policy</label>
+                  </div>
+                  <div class="col-md-2 view-group">
+                    <input id="bgtAlert" type="number" step="0.01" class="form-control hs_span_view text-end" value="80.00">
+                    <label class="input-label">Alert Threshold %</label>
+                  </div>
+                  <div class="col-md-4 d-flex align-items-center mt-2 gap-3">
+                    <div class="form-check form-switch">
+                      <input class="form-check-input" type="checkbox" id="bgtInterTransfer">
+                      <label class="form-check-label" for="bgtInterTransfer">Allow Inter-Line Transfer</label>
+                    </div>
+                    <div class="form-check form-switch">
+                      <input class="form-check-input" type="checkbox" id="bgtTemplate">
+                      <label class="form-check-label" for="bgtTemplate">Template</label>
+                    </div>
+                  </div>
+                  <div class="col-md-3 view-group">
+                    <input id="bgtPeriodStart" type="date" class="form-control hs_span_view" required>
+                    <label class="input-label">Period Start <span class="text-danger">*</span></label>
+                  </div>
+                  <div class="col-md-3 view-group">
+                    <input id="bgtPeriodEnd" type="date" class="form-control hs_span_view" required>
+                    <label class="input-label">Period End <span class="text-danger">*</span></label>
+                  </div>
+                  <div class="col-md-2 view-group">
+                    <input id="bgtCurrency" type="text" class="form-control hs_span_view" maxlength="3" value="BDT">
+                    <label class="input-label">Currency</label>
+                  </div>
+                  <div class="col-12 view-group">
+                    <textarea id="bgtDesc" class="form-control hs_span_view" rows="1" placeholder="Description…"></textarea>
+                    <label class="input-label">Description</label>
+                  </div>
+                </div>
+
+                <!-- BUDGET LINES -->
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                  <strong>Budget Lines</strong>
+                  <button type="button" class="btn btn-sm btn-outline-primary" onclick="bgtAddLine()"><i class="fa fa-plus me-1"></i> Add Line</button>
+                </div>
+                <div class="table-responsive">
+                  <table class="table table-sm table-bordered">
+                    <thead class="table-light"><tr>
+                      <th>#</th><th width="22%">Budget Head <span class="text-danger">*</span></th>
+                      <th width="16%">COA Account</th>
+                      <th width="12%">Cost Center</th>
+                      <th class="text-end">Original Amt</th>
+                      <th class="text-end">Revised Amt</th>
+                      <th>Description</th><th width="4%"></th>
+                    </tr></thead>
+                    <tbody id="bgtLineBody"></tbody>
+                    <tfoot><tr class="fw-bold bg-light">
+                      <td colspan="4" class="text-end">Total:</td>
+                      <td id="bgtTotalOriginal" class="text-end">0.00</td>
+                      <td id="bgtTotalRevised" class="text-end">0.00</td>
+                      <td colspan="2"></td>
+                    </tr></tfoot>
+                  </table>
+                </div>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-success" type="submit" id="bgtSubmitBtn">
+                <span class="spinner-border spinner-border-sm me-2 d-none" id="bgtSpinner"></span>
+                <span id="bgtBtnText">Save Draft</span>
+              </button>
+              <button type="button" class="btn btn-white" data-bs-dismiss="modal">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- VARIANCE MODAL -->
+    <div tabindex="-1" id="bgtVarModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header"><h5 class="modal-title" id="bgtVarTitle"><i class="fa fa-chart-bar me-1 text-primary"></i> Budget Variance Report</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+          <div class="modal-body">
+            <!-- KPI -->
+            <div class="row g-2 mb-3" id="varKpiRow"></div>
+            <!-- Table -->
+            <div class="table-responsive">
+              <table class="table table-sm table-bordered" id="varTable">
+                <thead class="table-light"><tr>
+                  <th>#</th><th>Head</th><th>Account</th>
+                  <th class="text-end">Original</th>
+                  <th class="text-end">Revised</th>
+                  <th class="text-end">Actual</th>
+                  <th class="text-end">Committed</th>
+                  <th class="text-end text-success">Available</th>
+                  <th class="text-center">Used %</th>
+                </tr></thead>
+                <tbody id="varBody"></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="modal-footer"><button type="button" class="btn btn-white" data-bs-dismiss="modal">Close</button></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- VIEW MODAL -->
+    <div tabindex="-1" id="bgtViewModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header"><h5 class="modal-title"><i class="fa fa-file-invoice-dollar me-1 text-primary"></i> Budget Details</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+          <div class="modal-body" id="bgtViewBody"></div>
+          <div class="modal-footer"><button type="button" class="btn btn-white" data-bs-dismiss="modal">Close</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script th:inline="none">
+  (function () {
+    'use strict';
+    const BASE='/budget', FY_URL='/budget/fiscal-years/search', HEAD_URL='/budget/heads/search', COA_URL='/accounts/chart/search', CC_URL='/cost-centers/active';
+    var dt, _lineCount=0;
+
+    document.addEventListener('DOMContentLoaded', function() {
+      dt = $('#bgtTable').DataTable({
+        processing:true,serverSide:false,responsive:true,pageLength:25,
+        ajax:{url:BASE+'/list/data',type:'GET',data:function(d){ d.status=document.getElementById('bgtStatusFilter').value||''; }},
+        columns:[
+          {data:'sl',orderable:false,width:'40px'},{data:'budget_no'},{data:'budget_name'},
+          {data:'fiscal_year'},{data:'budget_type'},
+          {data:'period_start',render:function(d,t,r){ return r.period_start+' → '+r.period_end; }},
+          {data:'total_budgeted',className:'text-end',render:function(d){ return parseFloat(d||0).toFixed(2); }},
+          {data:'total_actual',className:'text-end',render:function(d){ return parseFloat(d||0).toFixed(2); }},
+          {data:'total_available',className:'text-end text-success fw-bold',render:function(d){ return parseFloat(d||0).toFixed(2); }},
+          {data:'version',className:'text-center'},
+          {data:'status_badge',orderable:false,className:'text-center'},
+          {data:'actions',orderable:false,className:'text-center'}
+        ],
+        language:{emptyTable:'No budgets.',processing:'<span class="spinner-border spinner-border-sm me-2"></span> Loading…'}
+      });
+      document.getElementById('bgtForm').addEventListener('submit',_onSubmit);
+      _initFyS2(null,null);
+    });
+
+    function _initFyS2(preId,preText) {
+      var $el=$('#bgtFyId');
+      if ($el.hasClass('select2-hidden-accessible')) $el.select2('destroy');
+      $el.select2({dropdownParent:$('#bgtModal'),width:'100%',placeholder:'— Fiscal Year —',allowClear:true,minimumInputLength:0,
+        ajax:{url:FY_URL,dataType:'json',delay:250,data:function(p){return{search:p.term||'',page:p.page||1};},
+          processResults:function(d,p){p.page=p.page||1;return{results:(d.items||[]).map(function(i){return{id:i.id,text:i.text};}),pagination:{more:d.hasMore||false}};},cache:true},
+        templateResult:function(r){return r.text;},templateSelection:function(r){return r.text||r.id;}
+      });
+      if (preId) $el.append(new Option(preText||'',preId,true,true)).trigger('change');
+    }
+
+    function _initHeadS2(el,preId,preText) {
+      var $el=$(el);
+      if ($el.hasClass('select2-hidden-accessible')) $el.select2('destroy');
+      $el.select2({dropdownParent:$('#bgtModal'),width:'100%',placeholder:'— Head —',allowClear:true,minimumInputLength:0,
+        ajax:{url:HEAD_URL,dataType:'json',delay:250,data:function(p){return{search:p.term||'',page:p.page||1};},
+          processResults:function(d,p){p.page=p.page||1;return{results:(d.items||[]).map(function(i){return{id:i.id,text:i.text};}),pagination:{more:d.hasMore||false}};},cache:true},
+        templateResult:function(r){return r.text;},templateSelection:function(r){return r.text||r.id;}
+      });
+      if (preId) $el.append(new Option(preText||'',preId,true,true)).trigger('change');
+      $el.on('select2:select',function(e){ el.closest('tr').querySelector('[data-field="budgetHeadId"]').value=e.params.data.id||''; _recalcTotals(); });
+      $el.on('select2:clear',function(){ el.closest('tr').querySelector('[data-field="budgetHeadId"]').value=''; });
+    }
+
+    function _initCoaS2(el,preId,preText) {
+      var $el=$(el);
+      if ($el.hasClass('select2-hidden-accessible')) $el.select2('destroy');
+      $el.select2({dropdownParent:$('#bgtModal'),width:'100%',placeholder:'— Account —',allowClear:true,minimumInputLength:0,
+        ajax:{url:COA_URL,dataType:'json',delay:250,data:function(p){return{search:p.term||'',page:p.page||1};},
+          processResults:function(d,p){p.page=p.page||1;return{results:(d.items||[]).map(function(i){return{id:i.id,text:i.text};}),pagination:{more:d.hasMore||false}};},cache:true},
+        templateResult:function(r){return r.text;},templateSelection:function(r){return r.text||r.id;}
+      });
+      if (preId) $el.append(new Option(preText||'',preId,true,true)).trigger('change');
+      $el.on('select2:select',function(e){ el.closest('tr').querySelector('[data-field="accountId"]').value=e.params.data.id||''; });
+      $el.on('select2:clear',function(){ el.closest('tr').querySelector('[data-field="accountId"]').value=''; });
+    }
+
+    window.bgtOpenCreate = function() {
+      _resetForm();
+      document.getElementById('bgtModalTitle').innerHTML='<i class="fa fa-plus me-1 text-success"></i> New Budget';
+      document.getElementById('bgtBtnText').textContent='Save Draft';
+      bgtAddLine();
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('bgtModal')).show();
+    };
+
+    window.bgtAddLine = function(data) {
+      _lineCount++;
+      var n=_lineCount;
+      var html='<tr id="bgtLine_'+n+'">'
+        +'<td>'+n+'</td>'
+        +'<td><input type="hidden" data-field="budgetHeadId" value="'+(data?data.budgetHeadId||'':'')+'"><select class="form-select form-select-sm bgt-head-s2"></select></td>'
+        +'<td><input type="hidden" data-field="accountId" value="'+(data?data.accountId||'':'')+'"><select class="form-select form-select-sm bgt-coa-s2"></select></td>'
+        +'<td><input type="text" class="form-control form-control-sm" data-field="costCenterDisplay" value="'+(data?data.costCenterDisplay||'':'') +'" placeholder="Cost center…" readonly></td>'
+        +'<td><input type="number" step="0.01" min="0" class="form-control form-control-sm text-end" data-field="originalAmount" value="'+(data?data.originalAmount||'0':'0') +'" oninput="_recalcTotals()"></td>'
+        +'<td><input type="number" step="0.01" min="0" class="form-control form-control-sm text-end" data-field="revisedAmount" value="'+(data?data.revisedAmount||'0':'0') +'" oninput="_recalcTotals()"></td>'
+        +'<td><input type="text" class="form-control form-control-sm" data-field="description" value="'+(data?data.description||'':'')+'"></td>'
+        +'<td><button type="button" class="btn btn-sm btn-outline-danger" onclick="bgtRemoveLine('+n+')"><i class="fa fa-times"></i></button></td>'
+        +'</tr>';
+      document.getElementById('bgtLineBody').insertAdjacentHTML('beforeend',html);
+      var headSel=document.querySelector('#bgtLine_'+n+' .bgt-head-s2');
+      var coaSel=document.querySelector('#bgtLine_'+n+' .bgt-coa-s2');
+      _initHeadS2(headSel, data?data.budgetHeadId:null, data?data.budgetHeadDisplay:null);
+      _initCoaS2(coaSel, data?data.accountId:null, data?data.accountDisplay:null);
+    };
+
+    window.bgtRemoveLine = function(n) {
+      var row=document.getElementById('bgtLine_'+n);
+      if (row) {
+        row.querySelectorAll('.bgt-head-s2,.bgt-coa-s2').forEach(function(el){ if ($(el).hasClass('select2-hidden-accessible')) $(el).select2('destroy'); });
+        row.remove();
+      }
+      _recalcTotals();
+    };
+
+    window._recalcTotals = function() {
+      var totOrig=0,totRev=0;
+      document.querySelectorAll('#bgtLineBody tr').forEach(function(tr){
+        totOrig+=parseFloat(tr.querySelector('[data-field="originalAmount"]').value)||0;
+        totRev +=parseFloat(tr.querySelector('[data-field="revisedAmount"]').value)||0;
+      });
+      document.getElementById('bgtTotalOriginal').textContent=totOrig.toFixed(2);
+      document.getElementById('bgtTotalRevised').textContent=totRev.toFixed(2);
+    };
+
+    window.bgtShow = function(id) {
+      secureFetch(BASE+'/show/'+id).then(function(res){
+        if (!res.success) { Swal.fire('Error',res.message,'error'); return; }
+        var o=res.obj.defaultData;
+        var html='<div class="hs-box"><div class="row g-2">'
+          +_vf('Budget No',o.budgetNo)+_vf('Name',o.budgetName)
+          +_vf('FY',o.fiscalYearDisplay||'—')+_vf('Type',o.budgetType)
+          +_vf('Period',o.periodStart+' → '+o.periodEnd)+_vf('Status',o.status)
+          +_vf('Total Budgeted',parseFloat(o.totalBudgeted||0).toFixed(2))
+          +_vf('Total Actual',parseFloat(o.totalActual||0).toFixed(2))
+          +_vf('Total Available',parseFloat(o.totalAvailable||0).toFixed(2))
+          +_vf('Overspend Policy',o.overSpendPolicy||'—')
+          +'</div>'
+          +'<table class="table table-sm table-bordered mt-3"><thead class="table-light"><tr>'
+          +'<th>#</th><th>Head</th><th>Account</th><th class="text-end">Original</th><th class="text-end">Revised</th><th class="text-end">Actual</th><th class="text-end">Available</th>'
+          +'</tr></thead><tbody>';
+        (o.lines||[]).forEach(function(l,i){
+          var avail=parseFloat(l.revisedAmount||0)-parseFloat(l.actualAmount||0)-parseFloat(l.committedAmount||0);
+          html+='<tr><td>'+(i+1)+'</td><td>'+(l.budgetHeadDisplay||'—')+'</td><td>'+(l.accountDisplay||'—')+'</td>'
+            +'<td class="text-end">'+parseFloat(l.originalAmount||0).toFixed(2)+'</td>'
+            +'<td class="text-end">'+parseFloat(l.revisedAmount||0).toFixed(2)+'</td>'
+            +'<td class="text-end">'+parseFloat(l.actualAmount||0).toFixed(2)+'</td>'
+            +'<td class="text-end '+(avail<0?'text-danger':'text-success')+' fw-bold">'+avail.toFixed(2)+'</td></tr>';
+        });
+        html+='</tbody></table></div>';
+        document.getElementById('bgtViewBody').innerHTML=html;
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('bgtViewModal')).show();
+      });
+    };
+
+    window.bgtEdit = function(id) {
+      secureFetch(BASE+'/show/'+id).then(function(res){
+        if (!res.success) { Swal.fire('Error',res.message,'error'); return; }
+        var o=res.obj.defaultData; _resetForm();
+        document.getElementById('bgtId').value=o.id;
+        document.getElementById('bgtNo').value=o.budgetNo||'';
+        document.getElementById('bgtName').value=o.budgetName||'';
+        document.getElementById('bgtType').value=o.budgetType||'ANNUAL';
+        document.getElementById('bgtOverSpend').value=o.overSpendPolicy||'WARN';
+        document.getElementById('bgtAlert').value=o.alertThresholdPct||'80.00';
+        document.getElementById('bgtInterTransfer').checked=o.allowInterLineTransfer===true;
+        document.getElementById('bgtTemplate').checked=o.isTemplate===true;
+        document.getElementById('bgtPeriodStart').value=o.periodStart||'';
+        document.getElementById('bgtPeriodEnd').value=o.periodEnd||'';
+        document.getElementById('bgtCurrency').value=o.currency||'BDT';
+        document.getElementById('bgtDesc').value=o.description||'';
+        _initFyS2(o.fiscalYearId,o.fiscalYearDisplay);
+        (o.lines||[]).forEach(function(l){ bgtAddLine(l); });
+        _recalcTotals();
+        document.getElementById('bgtModalTitle').innerHTML='<i class="fa fa-pencil me-1 text-warning"></i> Edit Budget';
+        document.getElementById('bgtBtnText').textContent='Update';
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('bgtModal')).show();
+      });
+    };
+
+    window.bgtVariance = function(id) {
+      secureFetch(BASE+'/summary/'+id).then(function(s){
+        document.getElementById('bgtVarTitle').innerHTML='<i class="fa fa-chart-bar me-1 text-primary"></i> Variance — '+s.budgetName;
+        var kpi='';
+        kpi+='<div class="col-6 col-md-3"><div class="widget widget-stats bg-blue"><div class="stats-info"><h4>BUDGETED</h4><p>'+parseFloat(s.totalBudgeted||0).toFixed(2)+'</p></div></div></div>';
+        kpi+='<div class="col-6 col-md-3"><div class="widget widget-stats bg-red"><div class="stats-info"><h4>ACTUAL</h4><p>'+parseFloat(s.totalActual||0).toFixed(2)+'</p></div></div></div>';
+        kpi+='<div class="col-6 col-md-3"><div class="widget widget-stats bg-orange"><div class="stats-info"><h4>COMMITTED</h4><p>'+parseFloat(s.totalCommitted||0).toFixed(2)+'</p></div></div></div>';
+        kpi+='<div class="col-6 col-md-3"><div class="widget widget-stats bg-green"><div class="stats-info"><h4>AVAILABLE</h4><p>'+parseFloat(s.totalAvailable||0).toFixed(2)+'</p></div></div></div>';
+        document.getElementById('varKpiRow').innerHTML=kpi;
+      });
+      secureFetch(BASE+'/variance/'+id).then(function(rows){
+        var body=document.getElementById('varBody'); body.innerHTML='';
+        (rows||[]).forEach(function(r,i){
+          var avail=parseFloat(r.available_amount||0);
+          var pct=parseFloat(r.utilization_pct||0);
+          var pctColor=pct>100?'text-danger fw-bold':pct>80?'text-warning fw-bold':'text-success';
+          body.insertAdjacentHTML('beforeend',
+            '<tr><td>'+(i+1)+'</td>'
+            +'<td><strong>'+r.head_code+'</strong> — '+r.head_name+'</td>'
+            +'<td>'+(r.account||'—')+'</td>'
+            +'<td class="text-end">'+parseFloat(r.original_amount||0).toFixed(2)+'</td>'
+            +'<td class="text-end">'+parseFloat(r.revised_amount||0).toFixed(2)+'</td>'
+            +'<td class="text-end">'+parseFloat(r.actual_amount||0).toFixed(2)+'</td>'
+            +'<td class="text-end">'+parseFloat(r.committed_amount||0).toFixed(2)+'</td>'
+            +'<td class="text-end '+(avail<0?'text-danger':'text-success')+' fw-bold">'+avail.toFixed(2)+'</td>'
+            +'<td class="text-center"><span class="'+pctColor+'">'+pct.toFixed(1)+'%</span></td>'
+            +'</tr>');
+        });
+      });
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('bgtVarModal')).show();
+    };
+
+    function _statusAction(id, endpoint, title, msg, color) {
+      Swal.fire({title:title,text:msg,icon:'question',showCancelButton:true,confirmButtonText:'Yes',confirmButtonColor:color||'#0d6efd'})
+        .then(function(r){ if (!r.isConfirmed) return;
+          secureFetch(BASE+'/'+endpoint+'/'+id,{method:'POST'}).then(function(d){
+            if (d.success) { Swal.fire({icon:'success',title:'Done!',text:d.message,timer:1600,showConfirmButton:false}); dt.ajax.reload(null,false); }
+            else Swal.fire('Error',d.message,'error');
+          });
+        });
+    }
+
+    window.bgtSubmit   = function(id) { _statusAction(id,'submit','Submit Budget?','Budget will move to SUBMITTED for approval.'); };
+    window.bgtApprove  = function(id) { _statusAction(id,'approve','Approve Budget?','Budget will be marked APPROVED.','#198754'); };
+    window.bgtActivate = function(id) { _statusAction(id,'activate','Activate Budget?','Budget will be set ACTIVE for expense tracking.','#20c997'); };
+    window.bgtLock     = function(id) { _statusAction(id,'lock','Lock Budget?','No further modifications allowed.','#fd7e14'); };
+    window.bgtDelete   = function(id) { hsConfirmDelete(BASE+'/delete/'+id, dt); };
+
+    function _onSubmit(e) {
+      e.preventDefault();
+      var sb=document.getElementById('bgtSubmitBtn'),sp=document.getElementById('bgtSpinner'),bt=document.getElementById('bgtBtnText');
+      hsDisableButton(sb,sp,bt);
+      var lines=[];
+      document.querySelectorAll('#bgtLineBody tr').forEach(function(tr,idx){
+        var hid=tr.querySelector('[data-field="budgetHeadId"]').value;
+        if (!hid) return;
+        lines.push({
+          lineNumber:idx+1,
+          budgetHeadId:hid,
+          accountId:tr.querySelector('[data-field="accountId"]').value||null,
+          originalAmount:parseFloat(tr.querySelector('[data-field="originalAmount"]').value)||0,
+          revisedAmount:parseFloat(tr.querySelector('[data-field="revisedAmount"]').value)||0,
+          description:tr.querySelector('[data-field="description"]').value||null
+        });
+      });
+      secureFetch(BASE+'/save',{method:'POST',body:JSON.stringify({
+        id                 : document.getElementById('bgtId').value||null,
+        budgetName         : document.getElementById('bgtName').value,
+        fiscalYearId       : $('#bgtFyId').val()||null,
+        budgetType         : document.getElementById('bgtType').value,
+        periodStart        : document.getElementById('bgtPeriodStart').value,
+        periodEnd          : document.getElementById('bgtPeriodEnd').value,
+        currency           : document.getElementById('bgtCurrency').value||'BDT',
+        description        : document.getElementById('bgtDesc').value||null,
+        overSpendPolicy    : document.getElementById('bgtOverSpend').value,
+        alertThresholdPct  : parseFloat(document.getElementById('bgtAlert').value)||80,
+        allowInterLineTransfer: document.getElementById('bgtInterTransfer').checked,
+        isTemplate         : document.getElementById('bgtTemplate').checked,
+        lines
+      })}).then(function(d){
+        if (d.success) { hsAfterSaveMessages(d,dt); bootstrap.Modal.getOrCreateInstance(document.getElementById('bgtModal')).hide(); }
+        else Swal.fire('Error',d.message,'error');
+      }).catch(function(err){ Swal.fire('Error',err.message||'Request failed.','error'); })
+        .finally(function(){ hsEnableButton(sb,sp,bt); });
+    }
+
+    function _resetForm() {
+      document.querySelectorAll('.bgt-head-s2,.bgt-coa-s2').forEach(function(el){ if($(el).hasClass('select2-hidden-accessible')) $(el).select2('destroy'); });
+      document.getElementById('bgtForm').reset();
+      document.getElementById('bgtId').value='';
+      document.getElementById('bgtLineBody').innerHTML='';
+      _lineCount=0;
+      document.getElementById('bgtTotalOriginal').textContent='0.00';
+      document.getElementById('bgtTotalRevised').textContent='0.00';
+      document.getElementById('bgtOverSpend').value='WARN';
+      document.getElementById('bgtAlert').value='80.00';
+      document.getElementById('bgtCurrency').value='BDT';
+      _initFyS2(null,null);
+    }
+    function _vf(l,v){ return '<div class="col-md-4 view-group"><label class="view-label">'+l+'</label><span class="form-control hs_span_show">'+(v!=null?v:'—')+'</span></div>'; }
+  })();
+  </script>
+</section>
+</html>

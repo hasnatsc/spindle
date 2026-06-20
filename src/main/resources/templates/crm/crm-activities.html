@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<!--
+  crm/crm-activities.html    GET /crm/activities
+  JS prefix: act*
+  Type filter + Status filter
+  Complete modal: outcome, nextAction, nextActionDate
+-->
+<html th:replace="~{layout/base :: layout('CRM Activities', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
+<section>
+
+  <ol class="breadcrumb float-xl-end">
+    <li class="breadcrumb-item"><a th:href="@{/dashboard}">Home</a></li>
+    <li class="breadcrumb-item">CRM</li>
+    <li class="breadcrumb-item active">Activities</li>
+  </ol>
+  <h1 class="page-header">CRM Activities <small>calls, emails, meetings &amp; follow-ups</small></h1>
+
+  <div class="d-flex gap-2 mb-3 flex-wrap">
+    <a th:href="@{/crm/leads}"         class="btn btn-sm btn-outline-primary"><i class="fa fa-user-plus me-1"></i> Leads</a>
+    <a th:href="@{/crm/opportunities}" class="btn btn-sm btn-outline-primary"><i class="fa fa-funnel-dollar me-1"></i> Opportunities</a>
+    <a th:href="@{/crm/contacts}"      class="btn btn-sm btn-outline-primary"><i class="fa fa-address-book me-1"></i> Contacts</a>
+    <a th:href="@{/crm/activities}"    class="btn btn-sm btn-primary"><i class="fa fa-calendar-check me-1"></i> Activities</a>
+    <a th:href="@{/crm/feedback}"      class="btn btn-sm btn-outline-warning"><i class="fa fa-star-half-alt me-1"></i> Feedback</a>
+  </div>
+
+  <div class="panel panel-inverse">
+    <div class="panel-heading">
+      <div class="panel-title d-flex gap-2 align-items-center flex-wrap">
+        <a href="javascript:;" onclick="actOpenCreate()">
+          <span class="badge btn btn-outline-success"><i class="fa fa-plus me-1"></i> Log Activity</span>
+        </a>
+        <select id="actTypeFilter" class="form-select form-select-sm" style="width:160px" onchange="_actReload()">
+          <option value="">All Types</option>
+          <option value="CALL">Call</option><option value="EMAIL">Email</option>
+          <option value="MEETING">Meeting</option><option value="VISIT">Visit</option>
+          <option value="SAMPLE_SENT">Sample Sent</option><option value="QUOTATION">Quotation</option>
+          <option value="FOLLOW_UP">Follow Up</option><option value="NOTE">Note</option>
+          <option value="OTHER">Other</option>
+        </select>
+        <select id="actStatusFilter" class="form-select form-select-sm" style="width:140px" onchange="_actReload()">
+          <option value="">All Status</option>
+          <option value="PLANNED">Planned</option>
+          <option value="COMPLETED">Completed</option>
+          <option value="CANCELLED">Cancelled</option>
+        </select>
+      </div>
+      <div class="panel-heading-btn">
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-default" data-toggle="panel-expand"><i class="fa fa-expand"></i></a>
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-success" data-toggle="panel-reload"><i class="fa fa-redo"></i></a>
+      </div>
+    </div>
+    <div class="panel-body">
+      <table id="actTable" width="100%" class="table table-striped table-bordered align-middle">
+        <thead><tr>
+          <th width="1%">SL</th><th>Type</th><th>Subject</th>
+          <th>Related To</th><th>Date</th><th>Duration</th>
+          <th>Outcome</th><th>Next Action</th><th>Next Date</th>
+          <th>Assigned</th>
+          <th class="text-center">Status</th>
+          <th class="text-center" width="15%">Actions</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <!-- CREATE / EDIT MODAL -->
+    <div tabindex="-1" id="actModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="actModalTitle"><i class="fa fa-calendar-plus me-1 text-success"></i> Log Activity</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <form id="actForm" novalidate>
+            <div class="modal-body">
+              <div class="hs-box">
+                <input type="hidden" id="actId">
+                <div class="row g-2">
+                  <div class="col-md-4 view-group">
+                    <select id="actType" class="form-select hs_span_view" required>
+                      <option value="">— Type —</option>
+                      <option value="CALL">Call</option><option value="EMAIL">Email</option>
+                      <option value="MEETING">Meeting</option><option value="VISIT">Visit</option>
+                      <option value="SAMPLE_SENT">Sample Sent</option><option value="QUOTATION">Quotation</option>
+                      <option value="FOLLOW_UP">Follow Up</option><option value="NOTE">Note</option>
+                      <option value="OTHER">Other</option>
+                    </select>
+                    <label class="input-label">Type <span class="text-danger">*</span></label>
+                  </div>
+                  <div class="col-md-4 view-group">
+                    <input id="actDate" type="date" class="form-control hs_span_view" required>
+                    <label class="input-label">Date <span class="text-danger">*</span></label>
+                  </div>
+                  <div class="col-md-2 view-group">
+                    <input id="actDuration" type="number" class="form-control hs_span_view text-end" placeholder="Minutes">
+                    <label class="input-label">Duration (min)</label>
+                  </div>
+                  <div class="col-md-2 view-group">
+                    <select id="actStatus" class="form-select hs_span_view">
+                      <option value="PLANNED">Planned</option>
+                      <option value="COMPLETED">Completed</option>
+                      <option value="CANCELLED">Cancelled</option>
+                    </select>
+                    <label class="input-label">Status</label>
+                  </div>
+                  <div class="col-12 view-group">
+                    <input id="actSubject" type="text" class="form-control hs_span_view" required maxlength="200">
+                    <label class="input-label">Subject <span class="text-danger">*</span></label>
+                  </div>
+                  <!-- Links -->
+                  <div class="col-md-6 view-group">
+                    <select id="actCustomerId" class="form-select hs_span_view"></select>
+                    <label class="input-label">Customer</label>
+                  </div>
+                  <div class="col-md-6 view-group">
+                    <select id="actOppId" class="form-select hs_span_view"></select>
+                    <label class="input-label">Opportunity</label>
+                  </div>
+                  <div class="col-md-6 view-group">
+                    <select id="actLeadId" class="form-select hs_span_view"></select>
+                    <label class="input-label">Lead</label>
+                  </div>
+                  <div class="col-md-6 view-group">
+                    <select id="actAssignedTo" class="form-select hs_span_view"></select>
+                    <label class="input-label">Assigned To</label>
+                  </div>
+                  <div class="col-12 view-group">
+                    <textarea id="actDesc" class="form-control hs_span_view" rows="2" placeholder="Description / Details…"></textarea>
+                    <label class="input-label">Description</label>
+                  </div>
+                  <div class="col-12 view-group">
+                    <textarea id="actOutcome" class="form-control hs_span_view" rows="2" placeholder="Outcome…"></textarea>
+                    <label class="input-label">Outcome</label>
+                  </div>
+                  <div class="col-md-6 view-group">
+                    <input id="actNextAction" type="text" class="form-control hs_span_view" maxlength="500">
+                    <label class="input-label">Next Action</label>
+                  </div>
+                  <div class="col-md-3 view-group">
+                    <input id="actNextActionDate" type="date" class="form-control hs_span_view">
+                    <label class="input-label">Next Action Date</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-success" type="submit" id="actSubmitBtn">
+                <span class="spinner-border spinner-border-sm me-2 d-none" id="actSpinner"></span>
+                <span id="actBtnText">Save</span>
+              </button>
+              <button type="button" class="btn btn-white" data-bs-dismiss="modal">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- COMPLETE MODAL -->
+    <div tabindex="-1" id="actCompleteModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+          <div class="modal-header bg-primary text-white"><h5 class="modal-title"><i class="fa fa-check-circle me-1"></i> Complete Activity</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
+          <div class="modal-body">
+            <input type="hidden" id="completeActId">
+            <div class="row g-2">
+              <div class="col-12 view-group">
+                <textarea id="completeOutcome" class="form-control hs_span_view" rows="3" placeholder="What was the outcome?"></textarea>
+                <label class="input-label">Outcome</label>
+              </div>
+              <div class="col-md-8 view-group">
+                <input id="completeNextAction" type="text" class="form-control hs_span_view" placeholder="Next follow-up action…">
+                <label class="input-label">Next Action</label>
+              </div>
+              <div class="col-md-4 view-group">
+                <input id="completeNextDate" type="date" class="form-control hs_span_view">
+                <label class="input-label">Next Action Date</label>
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-primary" onclick="_submitComplete()">
+              <i class="fa fa-check me-1"></i> Mark Completed
+            </button>
+            <button type="button" class="btn btn-white" data-bs-dismiss="modal">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- VIEW MODAL -->
+    <div tabindex="-1" id="actViewModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+          <div class="modal-header"><h5 class="modal-title"><i class="fa fa-calendar-check me-1 text-primary"></i> Activity Details</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+          <div class="modal-body" id="actViewBody"></div>
+          <div class="modal-footer"><button type="button" class="btn btn-white" data-bs-dismiss="modal">Close</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script th:inline="none">
+  (function () {
+    'use strict';
+    const BASE = '/crm/activities';
+    const SUB_URL='/accounts/sub-accounts/search', OPP_URL='/crm/opportunities/pipeline', LEAD_URL='/crm/leads/search';
+    var dt;
+
+    document.addEventListener('DOMContentLoaded', function () {
+      dt = $('#actTable').DataTable({
+        processing: true, serverSide: false, responsive: true, pageLength: 25,
+        ajax: { url: BASE + '/list', type: 'GET', data: function(d){
+          d.type   = document.getElementById('actTypeFilter').value||'';
+          d.status = document.getElementById('actStatusFilter').value||'';
+        }},
+        columns: [
+          { data: 'sl', orderable: false, width: '40px' },
+          { data: 'activity_type', className: 'fw-bold' },
+          { data: 'subject' }, { data: 'related_to', defaultContent: '—' },
+          { data: 'activity_date' },
+          { data: 'duration_minutes', defaultContent: '—', className: 'text-center',
+            render: function(d){ return d ? d + ' min' : '—'; }},
+          { data: 'outcome',     defaultContent: '—' },
+          { data: 'next_action', defaultContent: '—' },
+          { data: 'next_action_date', defaultContent: '—' },
+          { data: 'assigned_to', defaultContent: '—' },
+          { data: 'status_badge', orderable: false, className: 'text-center' },
+          { data: 'actions', orderable: false, className: 'text-center' }
+        ],
+        language: { emptyTable: 'No activities.', processing: '<span class="spinner-border spinner-border-sm me-2"></span> Loading…' }
+      });
+      document.getElementById('actDate').value = new Date().toISOString().substring(0,10);
+      document.getElementById('actForm').addEventListener('submit', _onSubmit);
+      _initAllS2();
+    });
+
+    window._actReload = function() { dt.ajax.reload(); };
+
+    function _initAllS2(o) {
+      ['#actCustomerId','#actOppId','#actLeadId','#actAssignedTo'].forEach(function(sel){ var $el=$(sel); if($el.hasClass('select2-hidden-accessible')) $el.select2('destroy'); });
+
+      $('#actCustomerId').select2({ dropdownParent:$('#actModal'),width:'100%',placeholder:'— Customer —',allowClear:true,minimumInputLength:0,
+        ajax:{url:SUB_URL,dataType:'json',delay:250,data:function(p){return{search:p.term||'',subAccountType:'CUSTOMER',page:p.page||1};},processResults:function(d,p){p.page=p.page||1;return{results:(d.items||[]).map(function(i){return{id:i.id,text:i.text};}),pagination:{more:d.hasMore||false}};},cache:false},
+        templateResult:function(r){return r.text;},templateSelection:function(r){return r.text||r.id;}
+      });
+      if (o&&o.customerId) $('#actCustomerId').append(new Option(o.customerDisplay||'',o.customerId,true,true)).trigger('change');
+
+      $('#actOppId').select2({ dropdownParent:$('#actModal'),width:'100%',placeholder:'— Opportunity —',allowClear:true,minimumInputLength:0,
+        ajax:{url:'/crm/opportunities/list?length=50',dataType:'json',delay:250,data:function(p){return{search:p.term||''};},processResults:function(d){return{results:(d.data||[]).map(function(r){return{id:r.id,text:r.opportunity_no+' — '+r.title};})};},cache:true},
+        templateResult:function(r){return r.text;},templateSelection:function(r){return r.text||r.id;}
+      });
+      if (o&&o.opportunityId) $('#actOppId').append(new Option(o.opportunityDisplay||'',o.opportunityId,true,true)).trigger('change');
+
+      $('#actLeadId').select2({ dropdownParent:$('#actModal'),width:'100%',placeholder:'— Lead —',allowClear:true,minimumInputLength:0,
+        ajax:{url:LEAD_URL,dataType:'json',delay:250,data:function(p){return{search:p.term||'',page:p.page||1};},processResults:function(d,p){p.page=p.page||1;return{results:(d.items||[]).map(function(i){return{id:i.id,text:i.text};}),pagination:{more:d.hasMore||false}};},cache:true},
+        templateResult:function(r){return r.text;},templateSelection:function(r){return r.text||r.id;}
+      });
+      if (o&&o.leadId) $('#actLeadId').append(new Option(o.leadDisplay||'',o.leadId,true,true)).trigger('change');
+
+      $('#actAssignedTo').select2({ dropdownParent:$('#actModal'),width:'100%',placeholder:'— Assign User —',allowClear:true,minimumInputLength:0,
+        ajax:{url:'/users/search',dataType:'json',delay:250,data:function(p){return{search:p.term||'',page:p.page||1};},processResults:function(d,p){p.page=p.page||1;return{results:(d.items||[]).map(function(i){return{id:i.id,text:i.text};}),pagination:{more:d.hasMore||false}};},cache:true},
+        templateResult:function(r){return r.text;},templateSelection:function(r){return r.text||r.id;}
+      });
+      if (o&&o.assignedToId) $('#actAssignedTo').append(new Option(o.assignedToDisplay||'',o.assignedToId,true,true)).trigger('change');
+    }
+
+    window.actOpenCreate = function() {
+      _resetForm();
+      document.getElementById('actModalTitle').innerHTML = '<i class="fa fa-plus me-1 text-success"></i> Log Activity';
+      document.getElementById('actBtnText').textContent  = 'Save';
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('actModal')).show();
+    };
+
+    window.actShow = function(id) {
+      secureFetch(BASE + '/show/' + id).then(function(res) {
+        if (!res.success) { Swal.fire('Error',res.message,'error'); return; }
+        var o = res.obj.defaultData;
+        var html = '<div class="hs-box"><div class="row g-2">'
+          + _vf('Type', o.activityType) + _vf('Date', o.activityDate)
+          + _vf('Subject', o.subject) + _vf('Duration', o.durationMinutes ? o.durationMinutes+' min' : '—')
+          + _vf('Status', o.status) + _vf('Customer', o.customerDisplay||'—')
+          + _vf('Opportunity', o.opportunityDisplay||'—') + _vf('Lead', o.leadDisplay||'—')
+          + _vf('Assigned', o.assignedToDisplay||'—')
+          + _vf('Description', o.description||'—')
+          + _vf('Outcome', o.outcome||'—')
+          + _vf('Next Action', o.nextAction||'—')
+          + _vf('Next Action Date', o.nextActionDate||'—')
+          + '</div></div>';
+        document.getElementById('actViewBody').innerHTML = html;
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('actViewModal')).show();
+      });
+    };
+
+    window.actEdit = function(id) {
+      secureFetch(BASE + '/show/' + id).then(function(res) {
+        if (!res.success) { Swal.fire('Error',res.message,'error'); return; }
+        var o = res.obj.defaultData; _resetForm();
+        document.getElementById('actId').value          = o.id;
+        document.getElementById('actType').value        = o.activityType||'';
+        document.getElementById('actDate').value        = o.activityDate||'';
+        document.getElementById('actDuration').value    = o.durationMinutes||'';
+        document.getElementById('actStatus').value      = o.status||'PLANNED';
+        document.getElementById('actSubject').value     = o.subject||'';
+        document.getElementById('actDesc').value        = o.description||'';
+        document.getElementById('actOutcome').value     = o.outcome||'';
+        document.getElementById('actNextAction').value  = o.nextAction||'';
+        document.getElementById('actNextActionDate').value = o.nextActionDate||'';
+        _initAllS2(o);
+        document.getElementById('actModalTitle').innerHTML = '<i class="fa fa-pencil me-1 text-warning"></i> Edit Activity';
+        document.getElementById('actBtnText').textContent  = 'Update';
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('actModal')).show();
+      });
+    };
+
+    window.actComplete = function(id) {
+      document.getElementById('completeActId').value = id;
+      document.getElementById('completeOutcome').value     = '';
+      document.getElementById('completeNextAction').value  = '';
+      document.getElementById('completeNextDate').value    = '';
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('actCompleteModal')).show();
+    };
+
+    window._submitComplete = function() {
+      var id = document.getElementById('completeActId').value;
+      var params = new URLSearchParams({
+        outcome      : document.getElementById('completeOutcome').value||'',
+        nextAction   : document.getElementById('completeNextAction').value||'',
+        nextActionDate: document.getElementById('completeNextDate').value||''
+      });
+      secureFetch(BASE + '/complete/' + id + '?' + params.toString(), { method:'POST' }).then(function(d){
+        if (d.success) {
+          bootstrap.Modal.getOrCreateInstance(document.getElementById('actCompleteModal')).hide();
+          Swal.fire({ icon:'success', title:'Completed!', text:d.message, timer:1600, showConfirmButton:false });
+          dt.ajax.reload(null,false);
+        } else { Swal.fire('Error',d.message,'error'); }
+      });
+    };
+
+    window.actDelete = function(id) { hsConfirmDelete(BASE + '/delete/' + id, dt); };
+
+    function _onSubmit(e) {
+      e.preventDefault();
+      var sb=document.getElementById('actSubmitBtn'),sp=document.getElementById('actSpinner'),bt=document.getElementById('actBtnText');
+      hsDisableButton(sb,sp,bt);
+      secureFetch(BASE + '/save', { method:'POST', body: JSON.stringify({
+        id              : document.getElementById('actId').value||null,
+        activityType    : document.getElementById('actType').value,
+        activityDate    : document.getElementById('actDate').value,
+        durationMinutes : parseInt(document.getElementById('actDuration').value)||null,
+        status          : document.getElementById('actStatus').value||'PLANNED',
+        subject         : document.getElementById('actSubject').value,
+        description     : document.getElementById('actDesc').value||null,
+        outcome         : document.getElementById('actOutcome').value||null,
+        nextAction      : document.getElementById('actNextAction').value||null,
+        nextActionDate  : document.getElementById('actNextActionDate').value||null,
+        customerId      : $('#actCustomerId').val()||null,
+        opportunityId   : $('#actOppId').val()||null,
+        leadId          : $('#actLeadId').val()||null,
+        assignedToId    : $('#actAssignedTo').val()||null
+      })}).then(function(d){
+        if (d.success) { hsAfterSaveMessages(d,dt); bootstrap.Modal.getOrCreateInstance(document.getElementById('actModal')).hide(); }
+        else { Swal.fire('Error',d.message,'error'); }
+      }).catch(function(err){ Swal.fire('Error',err.message||'Request failed.','error'); })
+        .finally(function(){ hsEnableButton(sb,sp,bt); });
+    }
+
+    function _resetForm() {
+      ['#actCustomerId','#actOppId','#actLeadId','#actAssignedTo'].forEach(function(sel){ var $el=$(sel); if($el.hasClass('select2-hidden-accessible')) $el.select2('destroy'); });
+      document.getElementById('actForm').reset();
+      document.getElementById('actId').value  = '';
+      document.getElementById('actDate').value = new Date().toISOString().substring(0,10);
+      document.getElementById('actStatus').value = 'PLANNED';
+      _initAllS2();
+    }
+
+    function _vf(label,value){ return '<div class="col-md-4 view-group"><label class="view-label">'+label+'</label><span class="form-control hs_span_show">'+(value!=null?value:'—')+'</span></div>'; }
+  })();
+  </script>
+</section>
+</html>

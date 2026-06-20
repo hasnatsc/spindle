@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<!--
+  budget/budget-revisions.html    GET /budget/revisions
+  JS prefix: rev*
+  Supplementary / reallocation budget revisions with line-level direction (+/-)
+-->
+<html th:replace="~{layout/base :: layout('Budget Revisions', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
+<section>
+  <ol class="breadcrumb float-xl-end">
+    <li class="breadcrumb-item"><a th:href="@{/dashboard}">Home</a></li>
+    <li class="breadcrumb-item">Budget</li>
+    <li class="breadcrumb-item active">Revisions</li>
+  </ol>
+  <h1 class="page-header">Budget Revisions <small>supplementary &amp; reallocation adjustments</small></h1>
+
+  <div class="d-flex gap-2 mb-3 flex-wrap">
+    <a th:href="@{/budget/fiscal-years}" class="btn btn-sm btn-outline-primary"><i class="fa fa-calendar-alt me-1"></i> Fiscal Years</a>
+    <a th:href="@{/budget/heads}"        class="btn btn-sm btn-outline-primary"><i class="fa fa-sitemap me-1"></i> Budget Heads</a>
+    <a th:href="@{/budget/list}"         class="btn btn-sm btn-outline-primary"><i class="fa fa-file-invoice-dollar me-1"></i> Budgets</a>
+    <a th:href="@{/budget/revisions}"    class="btn btn-sm btn-primary"><i class="fa fa-edit me-1"></i> Revisions</a>
+    <a th:href="@{/budget/transfers}"    class="btn btn-sm btn-outline-primary"><i class="fa fa-exchange-alt me-1"></i> Transfers</a>
+  </div>
+
+  <div class="panel panel-inverse">
+    <div class="panel-heading">
+      <div class="panel-title">
+        <a href="javascript:;" onclick="revOpenCreate()">
+          <span class="badge btn btn-outline-success"><i class="fa fa-plus me-1"></i> New Revision</span>
+        </a>
+      </div>
+      <div class="panel-heading-btn">
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-default" data-toggle="panel-expand"><i class="fa fa-expand"></i></a>
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-success" data-toggle="panel-reload"><i class="fa fa-redo"></i></a>
+      </div>
+    </div>
+    <div class="panel-body">
+      <table id="revTable" width="100%" class="table table-striped table-bordered align-middle">
+        <thead><tr>
+          <th width="1%">SL</th><th>Rev No</th><th>#</th><th>Type</th>
+          <th>Reason</th>
+          <th class="text-end text-success">Increase</th>
+          <th class="text-end text-danger">Decrease</th>
+          <th>Approved By</th><th>Created</th>
+          <th class="text-center">Status</th>
+          <th class="text-center" width="14%">Actions</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <!-- CREATE MODAL -->
+    <div tabindex="-1" id="revModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title"><i class="fa fa-edit me-1 text-success"></i> New Budget Revision</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <form id="revForm" novalidate>
+            <div class="modal-body">
+              <div class="hs-box">
+                <div class="row g-2 mb-3">
+                  <div class="col-md-6 view-group">
+                    <select id="revBudgetId" class="form-select hs_span_view"></select>
+                    <label class="input-label">Budget <span class="text-danger">*</span></label>
+                  </div>
+                  <div class="col-md-3 view-group">
+                    <select id="revType" class="form-select hs_span_view">
+                      <option value="REALLOCATION">Reallocation</option>
+                      <option value="SUPPLEMENTARY">Supplementary</option>
+                      <option value="REDUCTION">Reduction</option>
+                      <option value="TECHNICAL">Technical</option>
+                    </select>
+                    <label class="input-label">Revision Type</label>
+                  </div>
+                  <div class="col-12 view-group">
+                    <textarea id="revReason" class="form-control hs_span_view" rows="2" required placeholder="Reason for revision…"></textarea>
+                    <label class="input-label">Reason <span class="text-danger">*</span></label>
+                  </div>
+                  <div class="col-12 view-group">
+                    <textarea id="revJustification" class="form-control hs_span_view" rows="2" placeholder="Justification…"></textarea>
+                    <label class="input-label">Justification</label>
+                  </div>
+                </div>
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                  <strong>Revision Lines</strong>
+                  <button type="button" class="btn btn-sm btn-outline-primary" onclick="revAddLine()"><i class="fa fa-plus me-1"></i> Add Line</button>
+                </div>
+                <div class="alert alert-info py-1 mb-2">
+                  Select the budget first, then choose lines from that budget. <strong>+</strong> = increase, <strong>-</strong> = decrease.
+                </div>
+                <div class="table-responsive">
+                  <table class="table table-sm table-bordered">
+                    <thead class="table-light"><tr>
+                      <th>#</th><th width="30%">Budget Line</th>
+                      <th class="text-center">Direction</th>
+                      <th class="text-end">Change Amount</th>
+                      <th>Reason</th><th width="4%"></th>
+                    </tr></thead>
+                    <tbody id="revLineBody"></tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-success" type="submit" id="revSubmitBtn">
+                <span class="spinner-border spinner-border-sm me-2 d-none" id="revSpinner"></span>
+                <span id="revBtnText">Create Revision</span>
+              </button>
+              <button type="button" class="btn btn-white" data-bs-dismiss="modal">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- VIEW MODAL -->
+    <div tabindex="-1" id="revViewModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header"><h5 class="modal-title"><i class="fa fa-edit me-1 text-primary"></i> Revision Details</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+          <div class="modal-body" id="revViewBody"></div>
+          <div class="modal-footer"><button type="button" class="btn btn-white" data-bs-dismiss="modal">Close</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script th:inline="none">
+  (function () {
+    'use strict';
+    const BASE='/budget', REV_BASE='/budget/revisions';
+    var dt, _lineCount=0, _budgetLines=[];
+
+    document.addEventListener('DOMContentLoaded', function () {
+      dt = $('#revTable').DataTable({
+        processing:true,serverSide:false,responsive:true,pageLength:25,
+        ajax:{url:REV_BASE+'/list',type:'GET'},
+        columns:[
+          {data:'sl',orderable:false,width:'40px'},{data:'revision_no'},{data:'revision_number',className:'text-center'},
+          {data:'revision_type'},{data:'reason'},
+          {data:'total_increase',className:'text-end text-success',render:function(d){ return parseFloat(d||0).toFixed(2); }},
+          {data:'total_decrease',className:'text-end text-danger',render:function(d){ return parseFloat(d||0).toFixed(2); }},
+          {data:'approved_by',defaultContent:'—'},{data:'created_at',defaultContent:'—'},
+          {data:'status_badge',orderable:false,className:'text-center'},
+          {data:'actions',orderable:false,className:'text-center'}
+        ],
+        language:{emptyTable:'No revisions.',processing:'<span class="spinner-border spinner-border-sm me-2"></span> Loading…'}
+      });
+      document.getElementById('revForm').addEventListener('submit', _onSubmit);
+      _initBudgetS2();
+
+      $('#revBudgetId').on('select2:select', function(e) {
+        var budId = e.params.data.id;
+        secureFetch(BASE+'/show/'+budId).then(function(res){
+          _budgetLines = res.success ? (res.obj.defaultData.lines||[]) : [];
+        });
+      });
+    });
+
+    function _initBudgetS2() {
+      $('#revBudgetId').select2({dropdownParent:$('#revModal'),width:'100%',placeholder:'— Select Budget —',allowClear:true,minimumInputLength:0,
+        ajax:{url:BASE+'/search',dataType:'json',delay:250,data:function(p){return{search:p.term||'',page:p.page||1};},
+          processResults:function(d,p){p.page=p.page||1;return{results:(d.items||[]).map(function(i){return{id:i.id,text:i.text};}),pagination:{more:d.hasMore||false}};},cache:true},
+        templateResult:function(r){return r.text;},templateSelection:function(r){return r.text||r.id;}
+      });
+    }
+
+    window.revOpenCreate = function() {
+      document.getElementById('revForm').reset();
+      document.getElementById('revLineBody').innerHTML=''; _lineCount=0; _budgetLines=[];
+      $('#revBudgetId').val(null).trigger('change');
+      document.getElementById('revBtnText').textContent='Create Revision';
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('revModal')).show();
+    };
+
+    window.revAddLine = function() {
+      _lineCount++;
+      var n=_lineCount;
+      var opts='<option value="">— Select Line —</option>';
+      _budgetLines.forEach(function(l){ opts+='<option value="'+l.id+'">'+(l.budgetHeadDisplay||'Line '+l.lineNumber)+'</option>'; });
+      var html='<tr id="revLine_'+n+'">'
+        +'<td>'+n+'</td>'
+        +'<td><select class="form-select form-select-sm" data-field="budgetLineId">'+opts+'</select></td>'
+        +'<td class="text-center"><select class="form-select form-select-sm" data-field="direction" style="width:70px">'
+        +'<option value="+">+ Increase</option><option value="-">- Decrease</option>'
+        +'</select></td>'
+        +'<td><input type="number" step="0.01" min="0" class="form-control form-control-sm text-end" data-field="changeAmount"></td>'
+        +'<td><input type="text" class="form-control form-control-sm" data-field="lineReason" placeholder="Reason…"></td>'
+        +'<td><button type="button" class="btn btn-sm btn-outline-danger" onclick="revRemoveLine('+n+')"><i class="fa fa-times"></i></button></td>'
+        +'</tr>';
+      document.getElementById('revLineBody').insertAdjacentHTML('beforeend',html);
+    };
+
+    window.revRemoveLine = function(n){ var r=document.getElementById('revLine_'+n); if(r) r.remove(); };
+
+    window.revShow = function(id) {
+      secureFetch(REV_BASE+'/show/'+id).then(function(res){
+        if (!res.success) { Swal.fire('Error',res.message,'error'); return; }
+        var o=res.obj.defaultData;
+        var html='<div class="hs-box"><div class="row g-2">'
+          +_vf('Revision No',o.revisionNo)+_vf('Type',o.revisionType)
+          +_vf('Budget',o.budgetName||'—')+_vf('Status',o.status)
+          +_vf('Increase',parseFloat(o.totalIncrease||0).toFixed(2))
+          +_vf('Decrease',parseFloat(o.totalDecrease||0).toFixed(2))
+          +_vf('Approved By',o.approvedBy||'—')
+          +_vf('Reason',o.reason||'—')
+          +'</div>'
+          +'<table class="table table-sm table-bordered mt-3"><thead class="table-light"><tr>'
+          +'<th>#</th><th>Budget Line</th><th class="text-center">Direction</th>'
+          +'<th class="text-end">Change</th><th class="text-end">Opening</th><th class="text-end">Closing</th><th>Reason</th>'
+          +'</tr></thead><tbody>';
+        (o.lines||[]).forEach(function(l,i){
+          html+='<tr><td>'+(i+1)+'</td><td>'+(l.budgetHeadDisplay||'—')+'</td>'
+            +'<td class="text-center"><span class="badge '+(l.direction==='+'?'bg-success':'bg-danger')+'">'+(l.direction==='+'?'▲ Increase':'▼ Decrease')+'</span></td>'
+            +'<td class="text-end fw-bold">'+parseFloat(l.changeAmount||0).toFixed(2)+'</td>'
+            +'<td class="text-end">'+parseFloat(l.openingAmount||0).toFixed(2)+'</td>'
+            +'<td class="text-end">'+parseFloat(l.closingAmount||0).toFixed(2)+'</td>'
+            +'<td>'+(l.reason||'—')+'</td></tr>';
+        });
+        html+='</tbody></table></div>';
+        document.getElementById('revViewBody').innerHTML=html;
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('revViewModal')).show();
+      });
+    };
+
+    window.revApprove = function(id) {
+      Swal.fire({title:'Approve Revision?',text:'Budget lines will be updated with the revision amounts.',icon:'warning',showCancelButton:true,confirmButtonText:'Yes, Approve!',confirmButtonColor:'#198754'})
+        .then(function(r){ if (!r.isConfirmed) return;
+          secureFetch(REV_BASE+'/approve/'+id,{method:'POST'}).then(function(d){
+            if (d.success) { Swal.fire({icon:'success',title:'Approved!',text:d.message,timer:1800,showConfirmButton:false}); dt.ajax.reload(null,false); }
+            else Swal.fire('Error',d.message,'error');
+          });
+        });
+    };
+
+    window.revReject = function(id) {
+      Swal.fire({title:'Reject Revision?',icon:'warning',input:'textarea',inputPlaceholder:'Rejection remarks…',showCancelButton:true,confirmButtonColor:'#dc3545',confirmButtonText:'Reject'})
+        .then(function(r){ if (!r.isConfirmed) return;
+          secureFetch(REV_BASE+'/reject/'+id+'?remarks='+encodeURIComponent(r.value||''),{method:'POST'}).then(function(d){
+            if (d.success) { Swal.fire({icon:'info',title:'Rejected',text:d.message,timer:1600,showConfirmButton:false}); dt.ajax.reload(null,false); }
+            else Swal.fire('Error',d.message,'error');
+          });
+        });
+    };
+
+    function _onSubmit(e) {
+      e.preventDefault();
+      var sb=document.getElementById('revSubmitBtn'),sp=document.getElementById('revSpinner'),bt=document.getElementById('revBtnText');
+      hsDisableButton(sb,sp,bt);
+      var lines=[];
+      document.querySelectorAll('#revLineBody tr').forEach(function(tr,idx){
+        var lineId=tr.querySelector('[data-field="budgetLineId"]').value;
+        var amt=parseFloat(tr.querySelector('[data-field="changeAmount"]').value)||0;
+        if (!lineId || amt<=0) return;
+        lines.push({
+          budgetLineId:lineId,
+          direction:tr.querySelector('[data-field="direction"]').value,
+          changeAmount:amt,
+          reason:tr.querySelector('[data-field="lineReason"]').value||null
+        });
+      });
+      secureFetch(REV_BASE+'/save',{method:'POST',body:JSON.stringify({
+        budgetId     : $('#revBudgetId').val()||null,
+        revisionType : document.getElementById('revType').value,
+        reason       : document.getElementById('revReason').value,
+        justification: document.getElementById('revJustification').value||null,
+        lines
+      })}).then(function(d){
+        if (d.success) { hsAfterSaveMessages(d,dt); bootstrap.Modal.getOrCreateInstance(document.getElementById('revModal')).hide(); }
+        else Swal.fire('Error',d.message,'error');
+      }).catch(function(err){ Swal.fire('Error',err.message||'Request failed.','error'); })
+        .finally(function(){ hsEnableButton(sb,sp,bt); });
+    }
+    function _vf(l,v){ return '<div class="col-md-4 view-group"><label class="view-label">'+l+'</label><span class="form-control hs_span_show">'+(v!=null?v:'—')+'</span></div>'; }
+  })();
+  </script>
+</section>
+</html>
