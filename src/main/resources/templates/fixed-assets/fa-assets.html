@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<!--
+  fixed-assets/fa-assets.html    GET /fixed-assets/assets
+  JS prefix: asset
+  Category AJAX S2 → /fixed-assets/categories/search
+  Dispose action → opens dispose modal inline
+-->
+<html th:replace="~{layout/base :: layout('Asset Register', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
+<section>
+
+  <ol class="breadcrumb float-xl-end">
+    <li class="breadcrumb-item"><a th:href="@{/dashboard}">Home</a></li>
+    <li class="breadcrumb-item">Fixed Assets</li>
+    <li class="breadcrumb-item active">Asset Register</li>
+  </ol>
+  <h1 class="page-header">Asset Register <small>fixed asset lifecycle management</small></h1>
+
+  <div class="d-flex gap-2 mb-3 flex-wrap">
+    <a th:href="@{/fixed-assets/categories}"  class="btn btn-sm btn-outline-primary"><i class="fa fa-tags me-1"></i> Categories</a>
+    <a th:href="@{/fixed-assets/assets}"      class="btn btn-sm btn-primary"><i class="fa fa-boxes-stacked me-1"></i> Asset Register</a>
+    <a th:href="@{/fixed-assets/depreciation}"class="btn btn-sm btn-outline-primary"><i class="fa fa-chart-line me-1"></i> Depreciation</a>
+    <a th:href="@{/fixed-assets/disposals}"   class="btn btn-sm btn-outline-danger"><i class="fa fa-box-archive me-1"></i> Disposals</a>
+  </div>
+
+  <!-- Summary KPI cards -->
+  <div class="row g-3 mb-3" id="assetKpiRow">
+    <div class="col-6 col-md-3">
+      <div class="widget widget-stats bg-blue">
+        <div class="stats-icon"><i class="fas fa-boxes-stacked"></i></div>
+        <div class="stats-info"><h4>TOTAL ASSETS</h4><p id="kpiTotal">—</p></div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="widget widget-stats bg-green">
+        <div class="stats-icon"><i class="fas fa-check-circle"></i></div>
+        <div class="stats-info"><h4>ACTIVE</h4><p id="kpiActive">—</p></div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="widget widget-stats bg-yellow">
+        <div class="stats-icon"><i class="fas fa-chart-bar"></i></div>
+        <div class="stats-info"><h4>GROSS COST</h4><p id="kpiCost">—</p></div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="widget widget-stats bg-orange">
+        <div class="stats-icon"><i class="fas fa-book"></i></div>
+        <div class="stats-info"><h4>NET BOOK VALUE</h4><p id="kpiNbv">—</p></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel panel-inverse">
+    <div class="panel-heading">
+      <div class="panel-title d-flex align-items-center gap-2 flex-wrap">
+        <a href="javascript:;" onclick="assetOpenCreate()">
+          <span class="badge btn btn-outline-success"><i class="fa fa-plus me-1"></i> Register Asset</span>
+        </a>
+        <select id="statusFilter" class="form-select form-select-sm" style="width:160px" onchange="_reloadTable()">
+          <option value="">All Status</option>
+          <option value="ACTIVE">Active</option>
+          <option value="DISPOSED">Disposed</option>
+          <option value="SOLD">Sold</option>
+          <option value="WRITTEN_OFF">Written Off</option>
+          <option value="TRANSFERRED">Transferred</option>
+          <option value="UNDER_MAINTENANCE">Maintenance</option>
+        </select>
+      </div>
+      <div class="panel-heading-btn">
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-default" data-toggle="panel-expand"><i class="fa fa-expand"></i></a>
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-success" data-toggle="panel-reload"><i class="fa fa-redo"></i></a>
+      </div>
+    </div>
+    <div class="panel-body">
+      <table id="assetTable" width="100%" class="table table-striped table-bordered align-middle">
+        <thead><tr>
+          <th width="1%">SL</th><th>Asset Code</th><th>Asset Name</th>
+          <th>Category</th><th>Method</th>
+          <th class="text-end">Cost</th>
+          <th class="text-end">Book Value</th>
+          <th class="text-end">Accum Dep</th>
+          <th>Life</th><th>Location</th>
+          <th class="text-center">Status</th>
+          <th class="text-center" width="14%">Actions</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <!-- CREATE / EDIT MODAL -->
+    <div tabindex="-1" id="assetModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="assetModalTitle"><i class="fa fa-boxes-stacked me-1 text-success"></i> Register New Asset</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <form id="assetForm" novalidate>
+            <div class="modal-body">
+              <div class="hs-box">
+                <input type="hidden" id="assetId">
+
+                <h6 class="text-muted border-bottom pb-1 mb-2">Asset Identity</h6>
+                <div class="row g-2 mb-3">
+                  <div class="col-md-4 view-group">
+                    <select id="assetCategoryId" class="form-select hs_span_view"></select>
+                    <label class="input-label">Category <span class="text-danger">*</span></label>
+                  </div>
+                  <div class="col-md-4 view-group">
+                    <input id="assetCode" type="text" class="form-control hs_span_view" maxlength="50" required>
+                    <label class="input-label">Asset Code <span class="text-danger">*</span></label>
+                  </div>
+                  <div class="col-md-4 view-group">
+                    <input id="assetName" type="text" class="form-control hs_span_view" maxlength="200" required>
+                    <label class="input-label">Asset Name <span class="text-danger">*</span></label>
+                  </div>
+                  <div class="col-md-3 view-group">
+                    <input id="assetSerial" type="text" class="form-control hs_span_view" maxlength="100">
+                    <label class="input-label">Serial Number</label>
+                  </div>
+                  <div class="col-md-3 view-group">
+                    <input id="assetModel" type="text" class="form-control hs_span_view" maxlength="100">
+                    <label class="input-label">Model</label>
+                  </div>
+                  <div class="col-md-3 view-group">
+                    <input id="assetManufacturer" type="text" class="form-control hs_span_view" maxlength="100">
+                    <label class="input-label">Manufacturer</label>
+                  </div>
+                  <div class="col-md-3 view-group">
+                    <input id="assetBarcode" type="text" class="form-control hs_span_view" maxlength="100">
+                    <label class="input-label">Barcode / Tag</label>
+                  </div>
+                  <div class="col-12 view-group">
+                    <textarea id="assetDesc" class="form-control hs_span_view" rows="1"></textarea>
+                    <label class="input-label">Description</label>
+                  </div>
+                </div>
+
+                <h6 class="text-muted border-bottom pb-1 mb-2">Acquisition &amp; Costing</h6>
+                <div class="row g-2 mb-3">
+                  <div class="col-md-3 view-group">
+                    <input id="assetAcqDate" type="date" class="form-control hs_span_view" required>
+                    <label class="input-label">Acquisition Date <span class="text-danger">*</span></label>
+                  </div>
+                  <div class="col-md-3 view-group">
+                    <input id="assetCapDate" type="date" class="form-control hs_span_view">
+                    <label class="input-label">Capitalisation Date</label>
+                  </div>
+                  <div class="col-md-3 view-group">
+                    <input id="assetPurchaseCost" type="number" step="0.01" class="form-control hs_span_view text-end fw-bold" required>
+                    <label class="input-label">Purchase Cost <span class="text-danger">*</span></label>
+                  </div>
+                  <div class="col-md-3 view-group">
+                    <input id="assetInstallCost" type="number" step="0.01" class="form-control hs_span_view text-end" value="0">
+                    <label class="input-label">Installation Cost</label>
+                  </div>
+                  <div class="col-md-2 view-group">
+                    <input id="assetCurrency" type="text" class="form-control hs_span_view" maxlength="10" placeholder="BDT" value="BDT">
+                    <label class="input-label">Currency</label>
+                  </div>
+                </div>
+
+                <h6 class="text-muted border-bottom pb-1 mb-2">Depreciation</h6>
+                <div class="row g-2 mb-3">
+                  <div class="col-md-3 view-group">
+                    <select id="assetDepMethod" class="form-select hs_span_view">
+                      <option value="STRAIGHT_LINE">Straight Line</option>
+                      <option value="DECLINING_BALANCE">Declining Balance</option>
+                      <option value="UNITS_OF_PRODUCTION">Units of Production</option>
+                    </select>
+                    <label class="input-label">Method</label>
+                  </div>
+                  <div class="col-md-2 view-group">
+                    <input id="assetLife" type="number" min="1" class="form-control hs_span_view text-end">
+                    <label class="input-label">Useful Life (Yrs)</label>
+                  </div>
+                  <div class="col-md-2 view-group">
+                    <input id="assetRate" type="number" step="0.01" class="form-control hs_span_view text-end">
+                    <label class="input-label">Rate %</label>
+                  </div>
+                  <div class="col-md-2 view-group">
+                    <input id="assetResidual" type="number" step="0.01" class="form-control hs_span_view text-end" value="0">
+                    <label class="input-label">Residual Value</label>
+                  </div>
+                  <div class="col-md-3 view-group">
+                    <input id="assetDepStart" type="date" class="form-control hs_span_view">
+                    <label class="input-label">Depreciation Start</label>
+                  </div>
+                </div>
+
+                <h6 class="text-muted border-bottom pb-1 mb-2">Location &amp; Custody</h6>
+                <div class="row g-2 mb-3">
+                  <div class="col-md-4 view-group">
+                    <input id="assetLocation" type="text" class="form-control hs_span_view" maxlength="200">
+                    <label class="input-label">Physical Location</label>
+                  </div>
+                  <div class="col-md-4 view-group">
+                    <select id="assetDeptId" class="form-select hs_span_view asset-dept-s2"></select>
+                    <label class="input-label">Department</label>
+                  </div>
+                  <div class="col-md-4 view-group">
+                    <select id="assetWarehouseId" class="form-select hs_span_view"></select>
+                    <label class="input-label">Warehouse / Store</label>
+                  </div>
+                  <div class="col-md-4 view-group">
+                    <select id="assetCondition" class="form-select hs_span_view">
+                      <option value="GOOD">Good</option><option value="FAIR">Fair</option>
+                      <option value="POOR">Poor</option><option value="EXCELLENT">Excellent</option>
+                    </select>
+                    <label class="input-label">Condition</label>
+                  </div>
+                </div>
+
+                <h6 class="text-muted border-bottom pb-1 mb-2">Warranty &amp; Insurance</h6>
+                <div class="row g-2">
+                  <div class="col-md-3 view-group">
+                    <input id="assetWarrantyExp" type="date" class="form-control hs_span_view">
+                    <label class="input-label">Warranty Expiry</label>
+                  </div>
+                  <div class="col-md-4 view-group">
+                    <input id="assetInsurancePolicyNo" type="text" class="form-control hs_span_view" maxlength="100">
+                    <label class="input-label">Insurance Policy No</label>
+                  </div>
+                  <div class="col-md-3 view-group">
+                    <input id="assetInsuranceExp" type="date" class="form-control hs_span_view">
+                    <label class="input-label">Insurance Expiry</label>
+                  </div>
+                  <div class="col-12 view-group">
+                    <textarea id="assetNotes" class="form-control hs_span_view" rows="1"></textarea>
+                    <label class="input-label">Notes</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-success" type="submit" id="assetSubmitBtn">
+                <span class="spinner-border spinner-border-sm me-2 d-none" id="assetSpinner"></span>
+                <span id="assetBtnText">Register Asset</span>
+              </button>
+              <button type="button" class="btn btn-white" data-bs-dismiss="modal">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- VIEW MODAL -->
+    <div tabindex="-1" id="assetViewModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header"><h5 class="modal-title"><i class="fa fa-boxes-stacked me-1 text-primary"></i> Asset Details</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+          <div class="modal-body" id="assetViewBody"></div>
+          <div class="modal-footer"><button type="button" class="btn btn-white" data-bs-dismiss="modal">Close</button></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- DISPOSE MODAL (inline, triggered from DataTable) -->
+    <div tabindex="-1" id="disposeModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+          <div class="modal-header bg-danger text-white">
+            <h5 class="modal-title"><i class="fa fa-box-archive me-1"></i> Dispose / Transfer Asset</h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+          </div>
+          <form id="disposeForm" novalidate>
+            <div class="modal-body">
+              <div class="hs-box">
+                <input type="hidden" id="disposeAssetId">
+                <div class="alert alert-warning py-2">
+                  <i class="fas fa-exclamation-triangle me-1"></i>
+                  This action is <strong>permanent</strong>. A GL journal entry will be posted automatically.
+                </div>
+                <div class="row g-2">
+                  <div class="col-md-6 view-group">
+                    <input id="disposeAssetName" type="text" class="form-control hs_span_view bg-light" readonly>
+                    <label class="input-label">Asset</label>
+                  </div>
+                  <div class="col-md-3 view-group">
+                    <input id="disposeBookValue" type="text" class="form-control hs_span_view bg-light text-end" readonly>
+                    <label class="input-label">Current Book Value</label>
+                  </div>
+                  <div class="col-md-3 view-group">
+                    <input id="disposeDate" type="date" class="form-control hs_span_view" required>
+                    <label class="input-label">Disposal Date <span class="text-danger">*</span></label>
+                  </div>
+                  <div class="col-md-4 view-group">
+                    <select id="disposeType" class="form-select hs_span_view" required onchange="_onDisposeTypeChange()">
+                      <option value="">— Type —</option>
+                      <option value="SALE">Sale</option>
+                      <option value="WRITE_OFF">Write Off</option>
+                      <option value="TRANSFER">Transfer</option>
+                      <option value="SCRAP">Scrap</option>
+                      <option value="DONATION">Donation</option>
+                    </select>
+                    <label class="input-label">Disposal Type <span class="text-danger">*</span></label>
+                  </div>
+                  <div class="col-md-4 view-group">
+                    <input id="disposeValue" type="number" step="0.01" class="form-control hs_span_view text-end" value="0" oninput="_calcGainLoss()">
+                    <label class="input-label">Disposal / Sale Value</label>
+                  </div>
+                  <div class="col-md-4 view-group">
+                    <input id="disposeGainLoss" type="text" class="form-control hs_span_view bg-light text-end fw-bold" readonly>
+                    <label class="input-label">Gain / (Loss)</label>
+                  </div>
+                  <div class="col-md-6 view-group" id="disposeBuyerRow">
+                    <input id="disposeBuyer" type="text" class="form-control hs_span_view" maxlength="200">
+                    <label class="input-label">Buyer Name</label>
+                  </div>
+                  <div class="col-md-6 view-group">
+                    <input id="disposeApproved" type="text" class="form-control hs_span_view" maxlength="100">
+                    <label class="input-label">Approved By</label>
+                  </div>
+                  <div class="col-12 view-group">
+                    <textarea id="disposeReason" class="form-control hs_span_view" rows="2" placeholder="Reason for disposal…"></textarea>
+                    <label class="input-label">Reason</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-danger" type="submit" id="disposeSubmitBtn">
+                <span class="spinner-border spinner-border-sm me-2 d-none" id="disposeSpinner"></span>
+                Confirm Disposal
+              </button>
+              <button type="button" class="btn btn-white" data-bs-dismiss="modal">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script th:inline="none">
+  (function () {
+    'use strict';
+    const BASE    = '/fixed-assets/assets';
+    const CAT_URL = '/fixed-assets/categories/search';
+    const DISP_BASE = '/fixed-assets/disposals';
+    var dt, _currentBookValue = 0;
+
+    document.addEventListener('DOMContentLoaded', function () {
+      dt = $('#assetTable').DataTable({
+        processing: true, serverSide: false, responsive: true, pageLength: 25,
+        ajax: { url: BASE + '/list', type: 'GET', data: function(d){ d.status = document.getElementById('statusFilter').value||''; } },
+        columns: [
+          { data: 'sl', orderable: false, width: '40px' },
+          { data: 'asset_code' }, { data: 'asset_name' }, { data: 'category_name' },
+          { data: 'depreciation_method', defaultContent: '—' },
+          { data: 'purchase_cost', className: 'text-end', defaultContent: '0.00', render: function(d){ return parseFloat(d||0).toFixed(2); }},
+          { data: 'book_value',    className: 'text-end fw-bold text-primary', render: function(d){ return parseFloat(d||0).toFixed(2); }},
+          { data: 'accum_dep',     className: 'text-end text-danger', render: function(d){ return parseFloat(d||0).toFixed(2); }},
+          { data: 'useful_life',   defaultContent: '—', className: 'text-center' },
+          { data: 'location',      defaultContent: '—' },
+          { data: 'status_badge',  orderable: false, className: 'text-center' },
+          { data: 'actions',       orderable: false, className: 'text-center' }
+        ],
+        footerCallback: function() {
+          var api = this.api();
+          var totalCost = api.column(5,{page:'current'}).data().reduce(function(a,b){ return (parseFloat(a)||0)+(parseFloat(b)||0); },0);
+          var totalNbv  = api.column(6,{page:'current'}).data().reduce(function(a,b){ return (parseFloat(a)||0)+(parseFloat(b)||0); },0);
+          document.getElementById('kpiTotal').textContent  = api.column(0,{page:'current'}).data().length;
+          document.getElementById('kpiActive').textContent = api.column(10,{page:'current'}).data().filter(function(s){ return s.includes('Active'); }).length;
+          document.getElementById('kpiCost').textContent   = totalCost.toFixed(2);
+          document.getElementById('kpiNbv').textContent    = totalNbv.toFixed(2);
+        },
+        language: { emptyTable: 'No assets.', processing: '<span class="spinner-border spinner-border-sm me-2"></span> Loading…' }
+      });
+      document.getElementById('assetForm').addEventListener('submit', _onSubmit);
+      document.getElementById('disposeForm').addEventListener('submit', _onDisposeSubmit);
+      document.getElementById('assetAcqDate').value = new Date().toISOString().substring(0,10);
+      document.getElementById('disposeDate').value  = new Date().toISOString().substring(0,10);
+      _initCategoryS2(null, null);
+      _loadDepartments();
+      _loadWarehouses();
+    });
+
+    window._reloadTable = function() { dt.ajax.reload(); };
+
+    function _initCategoryS2(preId, preText) {
+      var $el = $('#assetCategoryId');
+      if ($el.hasClass('select2-hidden-accessible')) $el.select2('destroy');
+      $el.select2({
+        dropdownParent: $('#assetModal'), width: '100%',
+        placeholder: '— Search Category —', allowClear: true, minimumInputLength: 0,
+        ajax: {
+          url: CAT_URL, dataType: 'json', delay: 250,
+          data: function(p){ return { search: p.term||'', page: p.page||1 }; },
+          processResults: function(data, p){ p.page=p.page||1; return { results:(data.items||[]).map(function(i){return{id:i.id,text:i.text};}), pagination:{more:data.hasMore||false} }; },
+          cache: true
+        },
+        templateResult: function(r){ return r.text; }, templateSelection: function(r){ return r.text||r.id; }
+      });
+      if (preId) $el.append(new Option(preText||'', preId, true, true)).trigger('change');
+    }
+
+    function _loadDepartments() {
+      secureFetch('/departments/active').then(function(data){
+        var sel = document.getElementById('assetDeptId');
+        sel.innerHTML = '<option value="">— None —</option>';
+        (data||[]).forEach(function(d){ var o=document.createElement('option'); o.value=d.id; o.textContent=d.name; sel.appendChild(o); });
+      });
+    }
+
+    function _loadWarehouses() {
+      secureFetch('/warehouses/active').then(function(data){
+        var sel = document.getElementById('assetWarehouseId');
+        sel.innerHTML = '<option value="">— None —</option>';
+        (data||[]).forEach(function(w){ var o=document.createElement('option'); o.value=w.id; o.textContent=w.name+' ('+(w.code||'')+')'; sel.appendChild(o); });
+      });
+    }
+
+    window.assetOpenCreate = function() {
+      _resetForm();
+      document.getElementById('assetModalTitle').innerHTML = '<i class="fa fa-plus me-1 text-success"></i> Register New Asset';
+      document.getElementById('assetBtnText').textContent  = 'Register Asset';
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('assetModal')).show();
+    };
+
+    window.assetShow = function(id) {
+      secureFetch(BASE + '/show/' + id).then(function(res) {
+        if (!res.success) { Swal.fire('Error', res.message, 'error'); return; }
+        var o = res.obj.defaultData;
+        var html = '<div class="hs-box"><div class="row g-2">'
+          + _vf('Asset Code', o.assetCode)        + _vf('Asset Name', o.assetName)
+          + _vf('Category',   o.assetCategoryDisplay||'—') + _vf('Status', o.status)
+          + _vf('Serial No',  o.serialNumber||'—') + _vf('Model', o.model||'—')
+          + _vf('Acq. Date',  o.acquisitionDate)   + _vf('Cap. Date', o.capitalisationDate||'—')
+          + _vf('Purchase Cost', parseFloat(o.purchaseCost||0).toFixed(2))
+          + _vf('Install Cost',  parseFloat(o.installationCost||0).toFixed(2))
+          + _vf('Book Value',    parseFloat(o.currentBookValue||0).toFixed(2))
+          + _vf('Accum. Dep',    parseFloat(o.accumulatedDepreciation||0).toFixed(2))
+          + _vf('Method', o.depreciationMethod||'—') + _vf('Useful Life', o.usefulLifeYears||'—')
+          + _vf('Dep Rate %', o.depreciationRate||'—') + _vf('Residual', parseFloat(o.residualValue||0).toFixed(2))
+          + _vf('Department', o.departmentDisplay||'—') + _vf('Location', o.location||'—')
+          + _vf('Condition', o.condition||'—')     + _vf('Warranty Exp', o.warrantyExpiryDate||'—')
+          + '</div></div>';
+        document.getElementById('assetViewBody').innerHTML = html;
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('assetViewModal')).show();
+      });
+    };
+
+    window.assetEdit = function(id) {
+      secureFetch(BASE + '/show/' + id).then(function(res) {
+        if (!res.success) { Swal.fire('Error', res.message, 'error'); return; }
+        var o = res.obj.defaultData;
+        _resetForm();
+        document.getElementById('assetId').value              = o.id;
+        document.getElementById('assetCode').value            = o.assetCode||'';
+        document.getElementById('assetName').value            = o.assetName||'';
+        document.getElementById('assetDesc').value            = o.description||'';
+        document.getElementById('assetSerial').value          = o.serialNumber||'';
+        document.getElementById('assetModel').value           = o.model||'';
+        document.getElementById('assetManufacturer').value    = o.manufacturer||'';
+        document.getElementById('assetBarcode').value         = o.barcode||'';
+        document.getElementById('assetAcqDate').value         = o.acquisitionDate||'';
+        document.getElementById('assetCapDate').value         = o.capitalisationDate||'';
+        document.getElementById('assetPurchaseCost').value    = o.purchaseCost||'';
+        document.getElementById('assetInstallCost').value     = o.installationCost||'0';
+        document.getElementById('assetCurrency').value        = o.currency||'BDT';
+        document.getElementById('assetDepMethod').value       = o.depreciationMethod||'STRAIGHT_LINE';
+        document.getElementById('assetLife').value            = o.usefulLifeYears||'';
+        document.getElementById('assetRate').value            = o.depreciationRate||'';
+        document.getElementById('assetResidual').value        = o.residualValue||'0';
+        document.getElementById('assetDepStart').value        = o.depreciationStartDate||'';
+        document.getElementById('assetLocation').value        = o.location||'';
+        document.getElementById('assetCondition').value       = o.condition||'GOOD';
+        document.getElementById('assetWarrantyExp').value     = o.warrantyExpiryDate||'';
+        document.getElementById('assetInsurancePolicyNo').value= o.insurancePolicyNo||'';
+        document.getElementById('assetInsuranceExp').value    = o.insuranceExpiryDate||'';
+        document.getElementById('assetNotes').value           = o.notes||'';
+        _initCategoryS2(o.assetCategoryId, o.assetCategoryDisplay);
+        if (o.departmentId)  document.getElementById('assetDeptId').value      = o.departmentId;
+        if (o.warehouseId)   document.getElementById('assetWarehouseId').value = o.warehouseId;
+        document.getElementById('assetModalTitle').innerHTML = '<i class="fa fa-pencil me-1 text-warning"></i> Edit Asset';
+        document.getElementById('assetBtnText').textContent  = 'Update';
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('assetModal')).show();
+      });
+    };
+
+    window.assetDispose = function(id) {
+      secureFetch(BASE + '/show/' + id).then(function(res) {
+        if (!res.success) { Swal.fire('Error', res.message, 'error'); return; }
+        var o = res.obj.defaultData;
+        _currentBookValue = parseFloat(o.currentBookValue||0);
+        document.getElementById('disposeAssetId').value   = o.id;
+        document.getElementById('disposeAssetName').value = o.assetCode + ' — ' + o.assetName;
+        document.getElementById('disposeBookValue').value = _currentBookValue.toFixed(2);
+        document.getElementById('disposeValue').value     = '0';
+        document.getElementById('disposeGainLoss').value  = '(' + _currentBookValue.toFixed(2) + ')';
+        document.getElementById('disposeGainLoss').style.color = '#dc3545';
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('disposeModal')).show();
+      });
+    };
+
+    window._onDisposeTypeChange = function() {
+      var type = document.getElementById('disposeType').value;
+      document.getElementById('disposeBuyerRow').style.display =
+        (type === 'SALE' || type === 'DONATION') ? '' : 'none';
+    };
+
+    window._calcGainLoss = function() {
+      var dispVal = parseFloat(document.getElementById('disposeValue').value)||0;
+      var gl = dispVal - _currentBookValue;
+      var el = document.getElementById('disposeGainLoss');
+      if (gl >= 0) { el.value = gl.toFixed(2); el.style.color = '#198754'; }
+      else         { el.value = '(' + Math.abs(gl).toFixed(2) + ')'; el.style.color = '#dc3545'; }
+    };
+
+    window.assetDelete = function(id) { hsConfirmDelete(BASE + '/delete/' + id, dt); };
+
+    function _onSubmit(e) {
+      e.preventDefault();
+      var sb=document.getElementById('assetSubmitBtn'),sp=document.getElementById('assetSpinner'),bt=document.getElementById('assetBtnText');
+      hsDisableButton(sb,sp,bt);
+      secureFetch(BASE + '/save', { method:'POST', body: JSON.stringify({
+        id                 : document.getElementById('assetId').value||null,
+        assetCategoryId    : $('#assetCategoryId').val()||null,
+        assetCode          : document.getElementById('assetCode').value,
+        assetName          : document.getElementById('assetName').value,
+        description        : document.getElementById('assetDesc').value||null,
+        serialNumber       : document.getElementById('assetSerial').value||null,
+        model              : document.getElementById('assetModel').value||null,
+        manufacturer       : document.getElementById('assetManufacturer').value||null,
+        barcode            : document.getElementById('assetBarcode').value||null,
+        acquisitionDate    : document.getElementById('assetAcqDate').value,
+        capitalisationDate : document.getElementById('assetCapDate').value||null,
+        purchaseCost       : parseFloat(document.getElementById('assetPurchaseCost').value)||null,
+        installationCost   : parseFloat(document.getElementById('assetInstallCost').value)||0,
+        currency           : document.getElementById('assetCurrency').value||'BDT',
+        depreciationMethod : document.getElementById('assetDepMethod').value,
+        usefulLifeYears    : parseInt(document.getElementById('assetLife').value)||null,
+        depreciationRate   : parseFloat(document.getElementById('assetRate').value)||null,
+        residualValue      : parseFloat(document.getElementById('assetResidual').value)||0,
+        depreciationStartDate: document.getElementById('assetDepStart').value||null,
+        location           : document.getElementById('assetLocation').value||null,
+        departmentId       : document.getElementById('assetDeptId').value||null,
+        warehouseId        : document.getElementById('assetWarehouseId').value||null,
+        condition          : document.getElementById('assetCondition').value||'GOOD',
+        warrantyExpiryDate : document.getElementById('assetWarrantyExp').value||null,
+        insurancePolicyNo  : document.getElementById('assetInsurancePolicyNo').value||null,
+        insuranceExpiryDate: document.getElementById('assetInsuranceExp').value||null,
+        notes              : document.getElementById('assetNotes').value||null
+      })}).then(function(d){
+        if (d.success) { hsAfterSaveMessages(d,dt); bootstrap.Modal.getOrCreateInstance(document.getElementById('assetModal')).hide(); }
+        else { Swal.fire('Error',d.message,'error'); }
+      }).catch(function(err){ Swal.fire('Error',err.message||'Request failed.','error'); })
+        .finally(function(){ hsEnableButton(sb,sp,bt); });
+    }
+
+    function _onDisposeSubmit(e) {
+      e.preventDefault();
+      var sb=document.getElementById('disposeSubmitBtn'),sp=document.getElementById('disposeSpinner');
+      hsDisableButton(sb,sp,sb.querySelector('span:last-child'));
+      secureFetch(DISP_BASE + '/save', { method:'POST', body: JSON.stringify({
+        assetId      : document.getElementById('disposeAssetId').value,
+        disposalDate : document.getElementById('disposeDate').value,
+        disposalType : document.getElementById('disposeType').value,
+        disposalValue: parseFloat(document.getElementById('disposeValue').value)||0,
+        buyerName    : document.getElementById('disposeBuyer').value||null,
+        approvedBy   : document.getElementById('disposeApproved').value||null,
+        reason       : document.getElementById('disposeReason').value||null
+      })}).then(function(d){
+        if (d.success) {
+          Swal.fire({ icon:'success', title:'Disposed!', text:d.message, timer:1800, showConfirmButton:false });
+          bootstrap.Modal.getOrCreateInstance(document.getElementById('disposeModal')).hide();
+          dt.ajax.reload(null,false);
+        } else { Swal.fire('Error',d.message,'error'); }
+      }).catch(function(err){ Swal.fire('Error',err.message||'Request failed.','error'); })
+        .finally(function(){ hsEnableButton(sb,sp,sb.querySelector('span:last-child')); });
+    }
+
+    function _resetForm() {
+      if ($('#assetCategoryId').hasClass('select2-hidden-accessible')) $('#assetCategoryId').select2('destroy');
+      document.getElementById('assetForm').reset();
+      document.getElementById('assetId').value = '';
+      document.getElementById('assetAcqDate').value = new Date().toISOString().substring(0,10);
+      document.getElementById('assetInstallCost').value = '0';
+      document.getElementById('assetResidual').value = '0';
+      document.getElementById('assetCurrency').value = 'BDT';
+      document.getElementById('assetCondition').value = 'GOOD';
+      _initCategoryS2(null, null);
+    }
+
+    function _vf(label,value){ return '<div class="col-md-4 view-group"><label class="view-label">'+label+'</label><span class="form-control hs_span_show">'+(value!=null?value:'—')+'</span></div>'; }
+  })();
+  </script>
+</section>
+</html>

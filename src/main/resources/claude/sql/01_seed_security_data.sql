@@ -306,11 +306,7 @@ ON CONFLICT (name) DO NOTHING;
 -- =============================================================================
 INSERT INTO sec_roles (name, name_bn, description, master_role, active, created_at, updated_at) VALUES
 
-('ROLE_SUPER_ADMIN',
- 'সুপার অ্যাডমিন',
- 'Full system access — bypasses all permission checks.',
- 'ROLE_SUPER_ADMIN', true, NOW(), NOW()),
-
+('ROLE_SUPER_ADMIN','সুপার অ্যাডমিন','Full system access — bypasses all permission checks.','ROLE_SUPER_ADMIN', true, NOW(), NOW()),
 ('ROLE_ACCOUNTS_ADMIN',
  'হিসাব প্রশাসক',
  'Full access to Accounts, Finance, Reports. View-only on Purchase/Sales.',

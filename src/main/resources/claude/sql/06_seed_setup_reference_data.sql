@@ -39,55 +39,65 @@ VALUES
 -- =============================================================================
 -- 2. BANKS
 -- =============================================================================
-INSERT INTO stp_banks
-(bank_code, bank_name, bank_name_local, short_name, bank_type, bank_category,
- swift_code, routing_number_prefix, central_bank_code,
- head_office_address, head_office_city, head_office_country, head_office_phone, head_office_email, website,
- rating, is_active, organization_id,
- supports_lc, supports_import_lc, supports_export_lc, supports_inland_lc, supports_btb_lc, supports_online_banking,
- correspondent_bank_name, correspondent_swift_code, correspondent_account_number,
- created_at, updated_at, created_by, updated_by)
+INSERT INTO stp_banks ( bank_code, bank_name, short_name, bank_type, bank_category, rating, is_active, organization_id, supports_lc, supports_import_lc, supports_export_lc, supports_inland_lc, supports_btb_lc, supports_online_banking, created_at, updated_at, created_by, updated_by)
 VALUES
-    ('DBBL', 'Dutch-Bangla Bank Ltd.', 'ডাচ্-বাংলা ব্যাংক লিমিটেড', 'DBBL', 'PRIVATE_COMMERCIAL', 'SCHEDULED',
-     'DBBLBDDH', '090260', 'BB-090',
-     'Sena Kalyan Bhaban, 195, Motijheel C/A', 'Dhaka', 'Bangladesh', '+88029566699', 'info@dutchbanglabank.com', 'https://www.dutchbanglabank.com',
-     'AA', true, 1,
-     true, true, true, true, true, true,
-     NULL, NULL, NULL,
-     NOW(), NOW(), 'system', 'system'),
+-- State Owned
+('SONALI','Sonali Bank PLC','SONALI','STATE_OWNED','SCHEDULED','GOOD',true,1,true,true,true,true,false,true,NOW(),NOW(),'system','system'),
+('JANATA','Janata Bank PLC','JANATA','STATE_OWNED','SCHEDULED','GOOD',true,1,true,true,true,true,false,true,NOW(),NOW(),'system','system'),
+('AGRANI','Agrani Bank PLC','AGRANI','STATE_OWNED','SCHEDULED','GOOD',true,1,true,true,true,true,false,true,NOW(),NOW(),'system','system'),
+('RUPALI','Rupali Bank PLC','RUPALI','STATE_OWNED','SCHEDULED','GOOD',true,1,true,true,true,true,false,true,NOW(),NOW(),'system','system'),
+('BASIC','BASIC Bank PLC','BASIC','STATE_OWNED','SCHEDULED','AVERAGE',true,1,true,true,false,true,false,true,NOW(),NOW(),'system','system'),
 
-    ('EBL', 'Eastern Bank Ltd.', 'ইস্টার্ন ব্যাংক লিমিটেড', 'EBL', 'PRIVATE_COMMERCIAL', 'SCHEDULED',
-     'EBLDBDDH', '090270', 'BB-095',
-     'Jiban Bima Bhaban, 10 Dilkusha C/A', 'Dhaka', 'Bangladesh', '+88029553940', 'info@ebl-bd.com', 'https://www.ebl.com.bd',
-     'AA+', true, 1,
-     true, true, true, true, false, true,
-     NULL, NULL, NULL,
-     NOW(), NOW(), 'system', 'system'),
+-- Specialized
+('BKB','Bangladesh Krishi Bank','BKB','SPECIALIZED','SPECIALIZED','GOOD',true,1,false,false,false,false,false,true,NOW(),NOW(),'system','system'),
+('RAKUB','Rajshahi Krishi Unnayan Bank','RAKUB','SPECIALIZED','SPECIALIZED','GOOD',true,1,false,false,false,false,false,true,NOW(),NOW(),'system','system'),
+('PKB','Probashi Kallyan Bank','PKB','SPECIALIZED','SPECIALIZED','GOOD',true,1,false,false,false,false,false,true,NOW(),NOW(),'system','system'),
+('BDBL','Bangladesh Development Bank PLC','BDBL','DEVELOPMENT','SPECIALIZED','GOOD',true,1,false,false,false,false,false,true,NOW(),NOW(),'system','system'),
 
-    ('SCB', 'Standard Chartered Bank', 'স্ট্যান্ডার্ড চার্টার্ড ব্যাংক', 'SCB', 'FOREIGN_COMMERCIAL', 'SCHEDULED',
-     'SCBLBDDX', '090180', 'BB-010',
-     '67 Gulshan Avenue', 'Dhaka', 'Bangladesh', '+88029883301', 'info.bd@sc.com', 'https://www.sc.com/bd',
-     'AAA', true, 1,
-     true, true, true, true, true, true,
-     'Standard Chartered Bank, New York', 'SCBLUS33', '3582013247001',
-     NOW(), NOW(), 'system', 'system'),
+-- Private Commercial
+('ABBL','AB Bank PLC','ABBL','PRIVATE','SCHEDULED','GOOD',true,1,true,true,true,true,false,true,NOW(),NOW(),'system','system'),
+('BANKASIA','Bank Asia PLC','BANKASIA','PRIVATE','SCHEDULED','GOOD',true,1,true,true,true,true,false,true,NOW(),NOW(),'system','system'),
+('BRAC','BRAC Bank PLC','BRAC','PRIVATE','SCHEDULED','EXCELLENT',true,1,true,true,true,true,true,true,NOW(),NOW(),'system','system'),
+('CITY','The City Bank PLC','CITY','PRIVATE','SCHEDULED','EXCELLENT',true,1,true,true,true,true,true,true,NOW(),NOW(),'system','system'),
+('DBBL','Dutch-Bangla Bank PLC','DBBL','PRIVATE','SCHEDULED','EXCELLENT',true,1,true,true,true,true,true,true,NOW(),NOW(),'system','system'),
+('EBL','Eastern Bank PLC','EBL','PRIVATE','SCHEDULED','EXCELLENT',true,1,true,true,true,true,true,true,NOW(),NOW(),'system','system'),
+('IFIC','IFIC Bank PLC','IFIC','PRIVATE','SCHEDULED','GOOD',true,1,true,true,true,true,false,true,NOW(),NOW(),'system','system'),
+('JBL','Jamuna Bank PLC','JBL','PRIVATE','SCHEDULED','GOOD',true,1,true,true,true,true,false,true,NOW(),NOW(),'system','system'),
+('DBL','Dhaka Bank PLC','DBL','PRIVATE','SCHEDULED','GOOD',true,1,true,true,true,true,false,true,NOW(),NOW(),'system','system'),
+('MBL','Mercantile Bank PLC','MBL','PRIVATE','SCHEDULED','GOOD',true,1,true,true,true,true,false,true,NOW(),NOW(),'system','system'),
+('MIDLAND','Midland Bank PLC','MIDLAND','PRIVATE','SCHEDULED','GOOD',true,1,true,true,true,true,false,true,NOW(),NOW(),'system','system'),
+('MTB','Mutual Trust Bank PLC','MTB','PRIVATE','SCHEDULED','GOOD',true,1,true,true,true,true,false,true,NOW(),NOW(),'system','system'),
+('NBL','National Bank PLC','NBL','PRIVATE','SCHEDULED','GOOD',true,1,true,true,true,true,false,true,NOW(),NOW(),'system','system'),
+('NCC','NCC Bank PLC','NCC','PRIVATE','SCHEDULED','GOOD',true,1,true,true,true,true,false,true,NOW(),NOW(),'system','system'),
+('NRBC','NRBC Bank PLC','NRBC','PRIVATE','SCHEDULED','GOOD',true,1,true,true,true,true,false,true,NOW(),NOW(),'system','system'),
+('ONE','ONE Bank PLC','ONE','PRIVATE','SCHEDULED','GOOD',true,1,true,true,true,true,false,true,NOW(),NOW(),'system','system'),
+('PRIME','Prime Bank PLC','PRIME','PRIVATE','SCHEDULED','EXCELLENT',true,1,true,true,true,true,true,true,NOW(),NOW(),'system','system'),
+('PUBALI','Pubali Bank PLC','PUBALI','PRIVATE','SCHEDULED','GOOD',true,1,true,true,true,true,false,true,NOW(),NOW(),'system','system'),
+('SEBL','Southeast Bank PLC','SEBL','PRIVATE','SCHEDULED','GOOD',true,1,true,true,true,true,false,true,NOW(),NOW(),'system','system'),
+('TRUST','Trust Bank PLC','TRUST','PRIVATE','SCHEDULED','GOOD',true,1,true,true,true,true,false,true,NOW(),NOW(),'system','system'),
+('UCB','United Commercial Bank PLC','UCB','PRIVATE','SCHEDULED','GOOD',true,1,true,true,true,true,false,true,NOW(),NOW(),'system','system'),
+('COMMUNITY','Community Bank Bangladesh PLC','COMMUNITY','PRIVATE','SCHEDULED','GOOD',true,1,true,true,true,true,false,true,NOW(),NOW(),'system','system'),
+('BENGAL','Bengal Commercial Bank PLC','BENGAL','PRIVATE','SCHEDULED','GOOD',true,1,true,true,true,true,false,true,NOW(),NOW(),'system','system'),
+('SBAC','SBAC Bank PLC','SBAC','PRIVATE','SCHEDULED','GOOD',true,1,true,true,true,true,false,true,NOW(),NOW(),'system','system'),
 
-    ('SONALI', 'Sonali Bank Ltd.', 'সোনালী ব্যাংক লিমিটেড', 'SONALI', 'STATE_OWNED', 'SCHEDULED',
-     'BSONBDDH', '200261', 'BB-001',
-     '35-42, Motijheel C/A', 'Dhaka', 'Bangladesh', '+88029560000', 'info@sonalibank.com.bd', 'https://www.sonalibank.com.bd',
-     'A', true, 1,
-     true, true, false, true, false, false,
-     NULL, NULL, NULL,
-     NOW(), NOW(), 'system', 'system'),
+-- Islamic
+('IBBL','Islami Bank Bangladesh PLC','IBBL','ISLAMIC','SCHEDULED','EXCELLENT',true,1,true,true,true,true,true,true,NOW(),NOW(),'system','system'),
+('EXIM','EXIM Bank PLC','EXIM','ISLAMIC','SCHEDULED','GOOD',true,1,true,true,true,true,false,true,NOW(),NOW(),'system','system'),
+('FSIBL','First Security Islami Bank PLC','FSIBL','ISLAMIC','SCHEDULED','GOOD',true,1,true,true,true,true,false,true,NOW(),NOW(),'system','system'),
+('GIB','Global Islami Bank PLC','GIB','ISLAMIC','SCHEDULED','AVERAGE',true,1,true,true,true,true,false,true,NOW(),NOW(),'system','system'),
+('SIBL','Social Islami Bank PLC','SIBL','ISLAMIC','SCHEDULED','GOOD',true,1,true,true,true,true,false,true,NOW(),NOW(),'system','system'),
+('SJIBL','Shahjalal Islami Bank PLC','SJIBL','ISLAMIC','SCHEDULED','GOOD',true,1,true,true,true,true,false,true,NOW(),NOW(),'system','system'),
 
-    ('BB', 'Bangladesh Bank', 'বাংলাদেশ ব্যাংক', 'BB', 'CENTRAL_BANK', 'CENTRAL',
-     'BBHOBDDH', NULL, 'BB-000',
-     'Motijheel C/A', 'Dhaka', 'Bangladesh', '+88029530070', 'bb@bb.org.bd', 'https://www.bb.org.bd',
-     NULL, true, 1,
-     false, false, false, false, false, false,
-     NULL, NULL, NULL,
-     NOW(), NOW(), 'system', 'system')
-    ON CONFLICT ON CONSTRAINT uq_bank_org_code DO NOTHING;
+-- Foreign
+('SCB','Standard Chartered Bank','SCB','FOREIGN','FOREIGN','EXCELLENT',true,1,true,true,true,true,true,true,NOW(),NOW(),'system','system'),
+('HSBC','HSBC Bangladesh','HSBC','FOREIGN','FOREIGN','EXCELLENT',true,1,true,true,true,true,true,true,NOW(),NOW(),'system','system'),
+('CITI','Citibank N.A.','CITI','FOREIGN','FOREIGN','EXCELLENT',true,1,true,true,true,true,true,true,NOW(),NOW(),'system','system'),
+('SBI','State Bank of India','SBI','FOREIGN','FOREIGN','GOOD',true,1,true,true,true,true,false,true,NOW(),NOW(),'system','system'),
+('WOORI','Woori Bank','WOORI','FOREIGN','FOREIGN','GOOD',true,1,true,true,true,true,false,true,NOW(),NOW(),'system','system'),
+('HBL','Habib Bank Limited','HBL','FOREIGN','FOREIGN','GOOD',true,1,true,true,true,true,false,true,NOW(),NOW(),'system','system'),
+('NBP','National Bank of Pakistan','NBP','FOREIGN','FOREIGN','GOOD',true,1,true,true,true,true,false,true,NOW(),NOW(),'system','system')
+
+ON CONFLICT ON CONSTRAINT uq_bank_org_code DO NOTHING;
 
 
 -- =============================================================================

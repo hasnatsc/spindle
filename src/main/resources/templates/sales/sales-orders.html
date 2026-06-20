@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<!--
+  sales/sales-orders.html    GET /sales/orders
+  documentType = SALES_ORDER
+  JS prefix: so
+  Cascade: "Create Delivery" button on CONFIRMED rows → createDeliveryFromSO(id)
+-->
+<html th:replace="~{layout/base :: layout('Sales Orders', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
+<section>
+
+  <ol class="breadcrumb float-xl-end">
+    <li class="breadcrumb-item"><a th:href="@{/dashboard}">Home</a></li>
+    <li class="breadcrumb-item">Sales</li>
+    <li class="breadcrumb-item active">Sales Orders</li>
+  </ol>
+  <h1 class="page-header">Sales Orders <small>order management for customers</small></h1>
+
+  <!-- ── SALES CYCLE NAVIGATOR ──────────────────────────────────────────── -->
+  <div class="d-flex gap-2 mb-3 flex-wrap">
+    <a th:href="@{/sales/orders}"       class="btn btn-sm btn-primary"><i class="fa fa-file-alt me-1"></i> Sales Orders</a>
+    <i class="fas fa-angle-right align-self-center text-muted"></i>
+    <a th:href="@{/sales/deliveries}"   class="btn btn-sm btn-outline-primary"><i class="fa fa-shipping-fast me-1"></i> Delivery Notes</a>
+    <i class="fas fa-angle-right align-self-center text-muted"></i>
+    <a th:href="@{/sales/invoices}"     class="btn btn-sm btn-outline-primary"><i class="fa fa-file-invoice-dollar me-1"></i> Invoices</a>
+    <i class="fas fa-angle-right align-self-center text-muted"></i>
+    <a th:href="@{/sales/credit-notes}" class="btn btn-sm btn-outline-danger"><i class="fa fa-file-minus me-1"></i> Credit Notes</a>
+  </div>
+
+  <div class="panel panel-inverse">
+    <div class="panel-heading">
+      <div class="panel-title">
+        <a href="javascript:;" onclick="soOpenCreate()">
+          <span class="badge btn btn-outline-success"><i class="fa fa-plus me-1"></i> New Sales Order</span>
+        </a>
+      </div>
+      <div class="panel-heading-btn">
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-default" data-toggle="panel-expand"><i class="fa fa-expand"></i></a>
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-success" data-toggle="panel-reload"><i class="fa fa-redo"></i></a>
+      </div>
+    </div>
+    <div class="panel-body">
+      <table id="soTable" width="100%" class="table table-striped table-bordered align-middle">
+        <thead><tr>
+          <th width="1%">SL</th><th>SO No</th><th>Date</th>
+          <th>Customer</th><th class="text-end">Total</th>
+          <th>Reference</th><th>Valid Until</th>
+          <th>Created By</th>
+          <th class="text-center">Status</th>
+          <th class="text-center" width="18%">Actions</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <!-- CREATE / EDIT MODAL -->
+    <div tabindex="-1" id="soModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="soModalTitle"><i class="fa fa-file-alt me-1 text-success"></i> New Sales Order</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <form id="soForm" novalidate>
+            <div class="modal-body">
+              <div class="hs-box">
+                <input type="hidden" id="soId">
+                <input type="hidden" id="soParentId">
+
+                <h6 class="text-muted border-bottom pb-1 mb-2">Order Details</h6>
+                <div class="row g-2 mb-3">
+                  <div class="col-md-3 view-group">
+                    <input id="soNo" type="text" class="form-control hs_span_view bg-light" readonly placeholder="Auto-generated">
+                    <label class="input-label">SO Number</label>
+                  </div>
+                  <div class="col-md-3 view-group">
+                    <input id="soDate" type="date" class="form-control hs_span_view" required>
+                    <label class="input-label">Date <span class="text-danger">*</span></label>
+                  </div>
+                  <div class="col-md-3 view-group">
+                    <input id="soNoManual" type="text" class="form-control hs_span_view" maxlength="100">
+                    <label class="input-label">Manual SO No</label>
+                  </div>
+                  <div class="col-md-3 view-group">
+                    <input id="soRef" type="text" class="form-control hs_span_view" maxlength="100">
+                    <label class="input-label">Reference No</label>
+                  </div>
+
+                  <!-- Customer AJAX S2 -->
+                  <div class="col-md-6 view-group">
+                    <select id="soCustomerId" class="form-select hs_span_view"></select>
+                    <label class="input-label">Customer <span class="text-danger">*</span></label>
+                  </div>
+
+                  <!-- Dispatch Warehouse -->
+                  <div class="col-md-6 view-group">
+                    <select id="soWarehouseId" class="form-select hs_span_view"></select>
+                    <label class="input-label">Dispatch From Warehouse</label>
+                  </div>
+
+                  <div class="col-md-3 view-group">
+                    <input id="soRequiredDate" type="date" class="form-control hs_span_view">
+                    <label class="input-label">Required Date</label>
+                  </div>
+                  <div class="col-md-3 view-group">
+                    <input id="soValidityDate" type="date" class="form-control hs_span_view">
+                    <label class="input-label">Valid Until</label>
+                  </div>
+                  <div class="col-md-3 view-group">
+                    <input id="soCurrency" type="text" class="form-control hs_span_view" maxlength="10" placeholder="BDT">
+                    <label class="input-label">Currency</label>
+                  </div>
+                  <div class="col-md-3 view-group">
+                    <input id="soExRate" type="number" step="0.0001" class="form-control hs_span_view text-end" placeholder="1.0000">
+                    <label class="input-label">Exchange Rate</label>
+                  </div>
+
+                  <!-- Shipping -->
+                  <div class="col-md-4 view-group">
+                    <input id="soIncoterms" type="text" class="form-control hs_span_view" maxlength="50">
+                    <label class="input-label">Incoterms</label>
+                  </div>
+                  <div class="col-md-4 view-group">
+                    <input id="soPortLoading" type="text" class="form-control hs_span_view" maxlength="50">
+                    <label class="input-label">Port of Loading</label>
+                  </div>
+                  <div class="col-md-4 view-group">
+                    <input id="soPortDischarge" type="text" class="form-control hs_span_view" maxlength="50">
+                    <label class="input-label">Port of Discharge</label>
+                  </div>
+                  <div class="col-md-6 view-group">
+                    <input id="soDeliveryAddr" type="text" class="form-control hs_span_view" maxlength="500">
+                    <label class="input-label">Delivery Address</label>
+                  </div>
+                  <div class="col-md-3 view-group">
+                    <input id="soDeliveryDate" type="date" class="form-control hs_span_view">
+                    <label class="input-label">Delivery Date</label>
+                  </div>
+                  <div class="col-12 view-group">
+                    <textarea id="soRemarks" class="form-control hs_span_view" rows="2" placeholder="Terms / Remarks…"></textarea>
+                    <label class="input-label">Remarks</label>
+                  </div>
+                </div>
+
+                <!-- LINES -->
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                  <strong>Order Lines</strong>
+                  <button type="button" class="btn btn-sm btn-outline-primary" onclick="soAddLine()">
+                    <i class="fa fa-plus me-1"></i> Add Line
+                  </button>
+                </div>
+                <div class="table-responsive">
+                  <table class="table table-sm table-bordered align-middle">
+                    <thead class="table-light"><tr>
+                      <th width="3%">#</th>
+                      <th width="30%">Item <span class="text-danger">*</span></th>
+                      <th>UOM</th>
+                      <th>Qty <span class="text-danger">*</span></th>
+                      <th>Unit Price</th>
+                      <th>Discount</th>
+                      <th>Tax</th>
+                      <th>Line Amt</th>
+                      <th>Available</th>
+                      <th width="4%"></th>
+                    </tr></thead>
+                    <tbody id="soLineBody"></tbody>
+                    <tfoot>
+                      <tr class="fw-bold bg-light">
+                        <td colspan="7" class="text-end">Total:</td>
+                        <td id="soLineTotal" class="text-end">0.00</td>
+                        <td colspan="2"></td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+
+                <!-- TOTALS -->
+                <div class="row justify-content-end mt-2 g-1">
+                  <div class="col-md-4">
+                    <table class="table table-sm table-bordered mb-0">
+                      <tr><td class="text-end">Subtotal</td><td class="text-end" id="soSubtotal">0.00</td></tr>
+                      <tr><td class="text-end">Discount</td>
+                          <td><input type="number" step="0.01" id="soDiscount" class="form-control form-control-sm text-end" value="0" oninput="soRecalcTotals()"></td></tr>
+                      <tr><td class="text-end">Tax</td><td class="text-end" id="soTax">0.00</td></tr>
+                      <tr><td class="text-end">Other Charges</td>
+                          <td><input type="number" step="0.01" id="soOther" class="form-control form-control-sm text-end" value="0" oninput="soRecalcTotals()"></td></tr>
+                      <tr class="table-success fw-bold"><td class="text-end">Grand Total</td><td class="text-end" id="soGrandTotal">0.00</td></tr>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-success" type="submit" id="soSubmitBtn">
+                <span class="spinner-border spinner-border-sm me-2 d-none" id="soSpinner"></span>
+                <span id="soBtnText">Save Draft</span>
+              </button>
+              <button type="button" class="btn btn-white" data-bs-dismiss="modal">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- VIEW MODAL -->
+    <div tabindex="-1" id="soViewModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title"><i class="fa fa-file-alt me-1 text-primary"></i> Sales Order Details</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body" id="soViewBody"></div>
+          <div class="modal-footer"><button type="button" class="btn btn-white" data-bs-dismiss="modal">Close</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script th:inline="none">
+  (function () {
+    'use strict';
+    const BASE     = '/sales/docs';
+    const DOC_TYPE = 'SALES_ORDER';
+    const SUB_URL  = '/accounts/sub-accounts/search';
+    const ITEM_URL = '/items/search';
+    var dt, _lineCount = 0;
+
+    document.addEventListener('DOMContentLoaded', function () {
+      dt = $('#soTable').DataTable({
+        processing: true, serverSide: false, responsive: true, pageLength: 25,
+        ajax: { url: BASE + '/list?documentType=' + DOC_TYPE, type: 'GET' },
+        columns: [
+          { data: 'sl', orderable: false, width: '40px' },
+          { data: 'document_no', defaultContent: '—' },
+          { data: 'document_date' },
+          { data: 'customer_name', defaultContent: '—' },
+          { data: 'total_amount', className: 'text-end fw-bold',
+            render: function(d){ return parseFloat(d||0).toFixed(2); }},
+          { data: 'reference_no', defaultContent: '—' },
+          { data: 'validity_date', defaultContent: '—' },
+          { data: 'created_by', defaultContent: '—' },
+          { data: 'status_badge', orderable: false, className: 'text-center' },
+          { data: 'actions',      orderable: false, className: 'text-center' }
+        ],
+        language: { emptyTable: 'No sales orders found.',
+                    processing: '<span class="spinner-border spinner-border-sm me-2"></span> Loading…' }
+      });
+      document.getElementById('soDate').value = new Date().toISOString().substring(0,10);
+      document.getElementById('soForm').addEventListener('submit', _onSubmit);
+      _initCustomerS2(null, null);
+      _loadWarehouses();
+    });
+
+    // ── S2 helpers ────────────────────────────────────────────────────────
+
+    function _initCustomerS2(preId, preText) {
+      var $el = $('#soCustomerId');
+      if ($el.hasClass('select2-hidden-accessible')) $el.select2('destroy');
+      $el.select2({
+        dropdownParent: $('#soModal'), width: '100%',
+        placeholder: '— Search Customer —', allowClear: true, minimumInputLength: 0,
+        ajax: {
+          url: SUB_URL, dataType: 'json', delay: 250,
+          data: function(p){ return { search: p.term||'', subAccountType:'CUSTOMER', page: p.page||1 }; },
+          processResults: function(data, p){
+            p.page=p.page||1;
+            return { results:(data.items||[]).map(function(i){return{id:i.id,text:i.text};}), pagination:{more:data.hasMore||false} };
+          }, cache: false
+        },
+        templateResult: function(r){ return r.loading?r.text:r.text; },
+        templateSelection: function(r){ return r.text||r.id; }
+      });
+      if (preId) $el.append(new Option(preText||'', preId, true, true)).trigger('change');
+    }
+
+    function _loadWarehouses() {
+      secureFetch('/warehouses/active').then(function(data) {
+        var sel = document.getElementById('soWarehouseId');
+        sel.innerHTML = '<option value="">— None —</option>';
+        (data||[]).forEach(function(w){
+          var o = document.createElement('option');
+          o.value = w.id; o.textContent = w.name + ' (' + (w.code||'') + ')';
+          sel.appendChild(o);
+        });
+      });
+    }
+
+    function _initItemS2(el, preId, preText) {
+      var $el = $(el);
+      if ($el.hasClass('select2-hidden-accessible')) $el.select2('destroy');
+      $el.select2({
+        dropdownParent: $('#soModal'), width: '100%',
+        placeholder: '— Item —', allowClear: true, minimumInputLength: 0,
+        ajax: {
+          url: ITEM_URL, dataType: 'json', delay: 250,
+          data: function(p){ return { search: p.term||'', page: p.page||1 }; },
+          processResults: function(data, p){
+            p.page=p.page||1;
+            return { results:(data.items||[]).map(function(i){return{id:i.id,text:i.text,uom:i.uom,price:i.unitPrice};}), pagination:{more:data.hasMore||false} };
+          }, cache: true
+        },
+        templateResult: function(r){ return r.loading?r.text:r.text; },
+        templateSelection: function(r){ return r.text||r.id; }
+      });
+      if (preId) $el.append(new Option(preText||'', preId, true, true)).trigger('change');
+      $el.on('select2:select', function(e){
+        var tr=el.closest('tr'), d=e.params.data;
+        tr.querySelector('[data-field="itemId"]').value   = d.id    || '';
+        tr.querySelector('[data-field="unitCode"]').value = d.uom   || '';
+        if (d.price) tr.querySelector('[data-field="unitPrice"]').value = parseFloat(d.price).toFixed(4);
+        soCalcLine(tr);
+        _checkStock(tr, d.id);
+      });
+      $el.on('select2:clear', function(){
+        var tr=el.closest('tr');
+        tr.querySelector('[data-field="itemId"]').value   = '';
+        tr.querySelector('[data-field="available"]').textContent = '—';
+      });
+    }
+
+    function _checkStock(tr, itemId) {
+      var whId = document.getElementById('soWarehouseId').value;
+      if (!itemId || !whId) return;
+      secureFetch('/inventory/stocks/balance/available?itemId=' + itemId + '&warehouseId=' + whId)
+        .then(function(qty){
+          var badge = tr.querySelector('[data-field="available"]');
+          if (badge) {
+            var n = parseFloat(qty)||0;
+            badge.textContent = n.toFixed(3);
+            badge.className   = 'fw-bold ' + (n <= 0 ? 'text-danger' : 'text-success');
+          }
+        }).catch(function(){ });
+    }
+
+    // ── Line management ───────────────────────────────────────────────────
+
+    window.soAddLine = function(data) {
+      _lineCount++;
+      var n = _lineCount;
+      var html = '<tr id="soLine_'+n+'">'
+        + '<td>'+n+'</td>'
+        + '<td><input type="hidden" data-field="itemId" value="'+(data?data.itemId||'':'') + '">'
+        +   '<select class="form-select form-select-sm so-item-s2"></select></td>'
+        + '<td><input type="text" class="form-control form-control-sm" data-field="unitCode" value="'+(data?data.unitCode||'':'') + '" readonly></td>'
+        + '<td><input type="number" step="0.001" min="0" class="form-control form-control-sm text-end" data-field="quantity" value="'+(data?data.quantity||'':'') + '" oninput="soCalcLine(this.closest(\'tr\'))" required></td>'
+        + '<td><input type="number" step="0.0001" class="form-control form-control-sm text-end" data-field="unitPrice" value="'+(data?data.unitPrice||'':'') + '" oninput="soCalcLine(this.closest(\'tr\'))"></td>'
+        + '<td><input type="number" step="0.01" min="0" class="form-control form-control-sm text-end" data-field="discountAmount" value="'+(data?data.discountAmount||'0':'0') + '" oninput="soCalcLine(this.closest(\'tr\'))"></td>'
+        + '<td><input type="number" step="0.01" min="0" class="form-control form-control-sm text-end" data-field="taxAmount" value="'+(data?data.taxAmount||'0':'0') + '" oninput="soCalcLine(this.closest(\'tr\'))"></td>'
+        + '<td><input type="text" class="form-control form-control-sm text-end bg-light" data-field="lineAmount" readonly value="'+(data?data.lineAmount||'0.00':'0.00')+'"></td>'
+        + '<td><span data-field="available" class="fw-bold text-muted">—</span></td>'
+        + '<td><button type="button" class="btn btn-sm btn-outline-danger" onclick="soRemoveLine('+n+')"><i class="fa fa-times"></i></button></td>'
+        + '</tr>';
+      document.getElementById('soLineBody').insertAdjacentHTML('beforeend', html);
+      var sel = document.querySelector('#soLine_'+n+' .so-item-s2');
+      _initItemS2(sel, data?data.itemId:null, data?(data.itemCode||'')+(data.itemName?' — '+data.itemName:''):null);
+      if (data && data.itemId) _checkStock(document.getElementById('soLine_'+n), data.itemId);
+    };
+
+    window.soRemoveLine = function(n) {
+      var row = document.getElementById('soLine_'+n);
+      if (row) {
+        var s2 = row.querySelector('.so-item-s2');
+        if (s2 && $(s2).hasClass('select2-hidden-accessible')) $(s2).select2('destroy');
+        row.remove();
+      }
+      soRecalcTotals();
+    };
+
+    window.soCalcLine = function(tr) {
+      var q = parseFloat(tr.querySelector('[data-field="quantity"]').value)||0;
+      var p = parseFloat(tr.querySelector('[data-field="unitPrice"]').value)||0;
+      var d = parseFloat(tr.querySelector('[data-field="discountAmount"]').value)||0;
+      var t = parseFloat(tr.querySelector('[data-field="taxAmount"]').value)||0;
+      tr.querySelector('[data-field="lineAmount"]').value = ((q*p)-d+t).toFixed(2);
+      soRecalcTotals();
+    };
+
+    window.soRecalcTotals = function() {
+      var sub=0, tax=0;
+      document.querySelectorAll('#soLineBody tr').forEach(function(tr){
+        sub += parseFloat(tr.querySelector('[data-field="lineAmount"]').value)||0;
+        tax += parseFloat(tr.querySelector('[data-field="taxAmount"]').value)||0;
+      });
+      var disc  = parseFloat(document.getElementById('soDiscount').value)||0;
+      var other = parseFloat(document.getElementById('soOther').value)||0;
+      var grand = sub - disc + other;
+      document.getElementById('soSubtotal').textContent  = sub.toFixed(2);
+      document.getElementById('soTax').textContent       = tax.toFixed(2);
+      document.getElementById('soGrandTotal').textContent= grand.toFixed(2);
+      document.getElementById('soLineTotal').textContent = sub.toFixed(2);
+    };
+
+    // ── CRUD ──────────────────────────────────────────────────────────────
+
+    window.soOpenCreate = function() {
+      _resetForm();
+      document.getElementById('soModalTitle').innerHTML = '<i class="fa fa-plus me-1 text-success"></i> New Sales Order';
+      document.getElementById('soBtnText').textContent  = 'Save Draft';
+      soAddLine();
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('soModal')).show();
+    };
+
+    window.soShow = function(id) {
+      secureFetch(BASE + '/show/' + id).then(function(res) {
+        if (!res.success) { Swal.fire('Error', res.message, 'error'); return; }
+        var o = res.obj.defaultData;
+        var html = '<div class="hs-box"><div class="row g-2">'
+          + _vf('SO No', o.documentNo||'—')       + _vf('Date', o.documentDate)
+          + _vf('Customer', o.partyDisplay||'—')  + _vf('Status', o.status)
+          + _vf('Reference', o.referenceNo||'—')  + _vf('Currency', o.currency||'BDT')
+          + _vf('Valid Until', o.validityDate||'—')
+          + _vf('Total', parseFloat(o.totalAmount||0).toFixed(2))
+          + '</div>'
+          + '<table class="table table-sm table-bordered mt-3"><thead class="table-light"><tr>'
+          + '<th>#</th><th>Item</th><th>UOM</th><th class="text-end">Qty</th>'
+          + '<th class="text-end">Unit Price</th><th class="text-end">Amount</th>'
+          + '</tr></thead><tbody>';
+        (o.lines||[]).forEach(function(l,i){
+          html += '<tr><td>'+(i+1)+'</td><td>'+(l.itemCode||'')+(l.itemName?' — '+l.itemName:'')+'</td>'
+                + '<td>'+(l.unitCode||'—')+'</td>'
+                + '<td class="text-end">'+parseFloat(l.quantity||0).toFixed(3)+'</td>'
+                + '<td class="text-end">'+parseFloat(l.unitPrice||0).toFixed(4)+'</td>'
+                + '<td class="text-end fw-bold">'+parseFloat(l.lineAmount||0).toFixed(2)+'</td></tr>';
+        });
+        html += '</tbody></table></div>';
+        document.getElementById('soViewBody').innerHTML = html;
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('soViewModal')).show();
+      });
+    };
+
+    window.soEdit = function(id) {
+      secureFetch(BASE + '/show/' + id).then(function(res) {
+        if (!res.success) { Swal.fire('Error', res.message, 'error'); return; }
+        var o = res.obj.defaultData;
+        _resetForm();
+        document.getElementById('soId').value          = o.id;
+        document.getElementById('soNo').value           = o.documentNo||'';
+        document.getElementById('soNoManual').value    = o.documentNoManual||'';
+        document.getElementById('soDate').value         = o.documentDate||'';
+        document.getElementById('soRef').value          = o.referenceNo||'';
+        document.getElementById('soCurrency').value     = o.currency||'';
+        document.getElementById('soExRate').value       = o.exchangeRate||'';
+        document.getElementById('soRequiredDate').value = o.requiredDate||'';
+        document.getElementById('soValidityDate').value = o.validityDate||'';
+        document.getElementById('soDeliveryDate').value = o.deliveryDate||'';
+        document.getElementById('soIncoterms').value    = o.incoterms||'';
+        document.getElementById('soPortLoading').value  = o.portOfLoading||'';
+        document.getElementById('soPortDischarge').value= o.portOfDischarge||'';
+        document.getElementById('soDeliveryAddr').value = o.deliveryAddress||'';
+        document.getElementById('soRemarks').value      = o.remarks||'';
+        document.getElementById('soDiscount').value     = o.discountAmount||'0';
+        document.getElementById('soOther').value        = o.otherCharges||'0';
+        _initCustomerS2(o.partyId, o.partyDisplay);
+        if (o.warehouseId) document.getElementById('soWarehouseId').value = o.warehouseId;
+        (o.lines||[]).forEach(function(l){ soAddLine(l); });
+        soRecalcTotals();
+        document.getElementById('soModalTitle').innerHTML = '<i class="fa fa-pencil me-1 text-warning"></i> Edit Sales Order';
+        document.getElementById('soBtnText').textContent  = 'Update';
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('soModal')).show();
+      });
+    };
+
+    window.soConfirm = function(id) {
+      Swal.fire({ title:'Confirm Sales Order?', text:'This will lock the SO for delivery processing.',
+        icon:'question', showCancelButton:true, confirmButtonText:'Yes, Confirm!' })
+        .then(function(r){
+          if (!r.isConfirmed) return;
+          secureFetch(BASE + '/confirm/' + id, { method:'POST' }).then(function(d){
+            if (d.success) { Swal.fire({ icon:'success', title:'Confirmed!', text:d.message, timer:1600, showConfirmButton:false }); dt.ajax.reload(null,false); }
+            else { Swal.fire('Error', d.message, 'error'); }
+          });
+        });
+    };
+
+    window.soCancel = function(id) {
+      Swal.fire({ title:'Cancel SO?', icon:'warning', showCancelButton:true, confirmButtonColor:'#dc3545', confirmButtonText:'Yes, Cancel' })
+        .then(function(r){
+          if (!r.isConfirmed) return;
+          secureFetch(BASE + '/cancel/' + id, { method:'POST' }).then(function(d){
+            if (d.success) { Swal.fire({ icon:'success', timer:1400, title:'Cancelled', text:d.message, showConfirmButton:false }); dt.ajax.reload(null,false); }
+            else { Swal.fire('Error', d.message, 'error'); }
+          });
+        });
+    };
+
+    window.soDelete = function(id) { hsConfirmDelete(BASE + '/delete/' + id, dt); };
+
+    // Cascade: Create Delivery Note from this SO
+    window.createDeliveryFromSO = function(soId) {
+      Swal.fire({ title:'Create Delivery Note from SO?',
+        text:'A new Delivery Note will be pre-populated from this Sales Order.',
+        icon:'question', showCancelButton:true, confirmButtonText:'Yes, Create DN' })
+        .then(function(r){
+          if (!r.isConfirmed) return;
+          secureFetch(BASE + '/populate?parentId=' + soId + '&childType=DELIVERY_ORDER')
+            .then(function(res){
+              if (!res.success) { Swal.fire('Error', res.message, 'error'); return; }
+              sessionStorage.setItem('pendingSalesDoc', JSON.stringify(res.obj.defaultData));
+              window.location.href = '/sales/deliveries';
+            });
+        });
+    };
+
+    // ── Submit ────────────────────────────────────────────────────────────
+
+    function _onSubmit(e) {
+      e.preventDefault();
+      var sb=document.getElementById('soSubmitBtn'), sp=document.getElementById('soSpinner'), bt=document.getElementById('soBtnText');
+      hsDisableButton(sb, sp, bt);
+      secureFetch(BASE + '/save', { method:'POST', body: JSON.stringify({
+        id              : document.getElementById('soId').value || null,
+        documentType    : 'SALES_ORDER',
+        documentDate    : document.getElementById('soDate').value,
+        documentNoManual: document.getElementById('soNoManual').value || null,
+        referenceNo     : document.getElementById('soRef').value || null,
+        partyId         : $('#soCustomerId').val() || null,
+        warehouseId     : document.getElementById('soWarehouseId').value || null,
+        currency        : document.getElementById('soCurrency').value || null,
+        exchangeRate    : parseFloat(document.getElementById('soExRate').value) || null,
+        requiredDate    : document.getElementById('soRequiredDate').value || null,
+        validityDate    : document.getElementById('soValidityDate').value || null,
+        deliveryDate    : document.getElementById('soDeliveryDate').value || null,
+        incoterms       : document.getElementById('soIncoterms').value || null,
+        portOfLoading   : document.getElementById('soPortLoading').value || null,
+        portOfDischarge : document.getElementById('soPortDischarge').value || null,
+        deliveryAddress : document.getElementById('soDeliveryAddr').value || null,
+        remarks         : document.getElementById('soRemarks').value || null,
+        discountAmount  : parseFloat(document.getElementById('soDiscount').value) || 0,
+        otherCharges    : parseFloat(document.getElementById('soOther').value)    || 0,
+        parentDocumentId: document.getElementById('soParentId').value || null,
+        lines           : _collectLines()
+      })}).then(function(d){
+        if (d.success) {
+          document.getElementById('soId').value = d.id || '';
+          hsAfterSaveMessages(d, dt);
+          bootstrap.Modal.getOrCreateInstance(document.getElementById('soModal')).hide();
+        } else { Swal.fire('Error', d.message, 'error'); }
+      }).catch(function(err){ Swal.fire('Error', err.message||'Request failed.', 'error'); })
+        .finally(function(){ hsEnableButton(sb, sp, bt); });
+    }
+
+    function _collectLines() {
+      var lines = [];
+      document.querySelectorAll('#soLineBody tr').forEach(function(tr, idx){
+        var itemId = tr.querySelector('[data-field="itemId"]').value;
+        if (!itemId) return;
+        lines.push({
+          lineNumber    : idx + 1,
+          itemId        : itemId,
+          unitCode      : tr.querySelector('[data-field="unitCode"]').value || null,
+          quantity      : parseFloat(tr.querySelector('[data-field="quantity"]').value) || null,
+          unitPrice     : parseFloat(tr.querySelector('[data-field="unitPrice"]').value) || null,
+          discountAmount: parseFloat(tr.querySelector('[data-field="discountAmount"]').value) || 0,
+          taxAmount     : parseFloat(tr.querySelector('[data-field="taxAmount"]').value) || 0,
+          lineAmount    : parseFloat(tr.querySelector('[data-field="lineAmount"]').value) || 0
+        });
+      });
+      return lines;
+    }
+
+    function _resetForm() {
+      document.querySelectorAll('.so-item-s2').forEach(function(el){
+        if ($(el).hasClass('select2-hidden-accessible')) $(el).select2('destroy');
+      });
+      document.getElementById('soForm').reset();
+      document.getElementById('soId').value      = '';
+      document.getElementById('soParentId').value= '';
+      document.getElementById('soLineBody').innerHTML = '';
+      _lineCount = 0;
+      document.getElementById('soDate').value    = new Date().toISOString().substring(0,10);
+      document.getElementById('soDiscount').value= '0';
+      document.getElementById('soOther').value   = '0';
+      ['soSubtotal','soTax','soGrandTotal','soLineTotal'].forEach(function(id){ document.getElementById(id).textContent='0.00'; });
+      _initCustomerS2(null, null);
+    }
+
+    function _vf(label, value) {
+      return '<div class="col-md-4 view-group"><label class="view-label">'+label+'</label>'
+           + '<span class="form-control hs_span_show">'+(value!=null?value:'—')+'</span></div>';
+    }
+  })();
+  </script>
+</section>
+</html>
