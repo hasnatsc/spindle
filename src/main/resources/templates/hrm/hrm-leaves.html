@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<!--
+  hrm/hrm-leaves.html    GET /hrm/leaves
+  JS prefix: leave*
+  Status filter, approve/reject with Swal, auto-stamps attendance as LEAVE on approve
+-->
+<html th:replace="~{layout/base :: layout('Leave Management', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
+<section>
+  <ol class="breadcrumb float-xl-end">
+    <li class="breadcrumb-item"><a th:href="@{/dashboard}">Home</a></li>
+    <li class="breadcrumb-item">HRM</li>
+    <li class="breadcrumb-item active">Leave Management</li>
+  </ol>
+  <h1 class="page-header">Leave Management <small>employee leave applications and approvals</small></h1>
+
+  <div class="d-flex gap-2 mb-3 flex-wrap">
+    <a th:href="@{/hrm/designations}" class="btn btn-sm btn-outline-primary"><i class="fa fa-id-badge me-1"></i> Designations</a>
+    <a th:href="@{/hrm/employees}"    class="btn btn-sm btn-outline-primary"><i class="fa fa-users me-1"></i> Employees</a>
+    <a th:href="@{/hrm/attendance}"   class="btn btn-sm btn-outline-primary"><i class="fa fa-calendar-check me-1"></i> Attendance</a>
+    <a th:href="@{/hrm/leaves}"       class="btn btn-sm btn-primary"><i class="fa fa-calendar-minus me-1"></i> Leaves</a>
+    <a th:href="@{/hrm/payroll}"      class="btn btn-sm btn-outline-primary"><i class="fa fa-money-bill-wave me-1"></i> Payroll</a>
+  </div>
+
+  <div class="panel panel-inverse">
+    <div class="panel-heading">
+      <div class="panel-title d-flex gap-2 align-items-center flex-wrap">
+        <a href="javascript:;" onclick="leaveOpenCreate()">
+          <span class="badge btn btn-outline-success"><i class="fa fa-plus me-1"></i> Apply Leave</span>
+        </a>
+        <select id="leaveStatusFilter" class="form-select form-select-sm" style="width:155px" onchange="dt.ajax.reload()">
+          <option value="">All Status</option>
+          <option value="PENDING">Pending</option>
+          <option value="APPROVED">Approved</option>
+          <option value="REJECTED">Rejected</option>
+          <option value="CANCELLED">Cancelled</option>
+        </select>
+      </div>
+      <div class="panel-heading-btn">
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-default" data-toggle="panel-expand"><i class="fa fa-expand"></i></a>
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-success" data-toggle="panel-reload"><i class="fa fa-redo"></i></a>
+      </div>
+    </div>
+    <div class="panel-body">
+      <table id="leaveTable" width="100%" class="table table-striped table-bordered align-middle">
+        <thead><tr>
+          <th width="1%">SL</th><th>Emp Code</th><th>Name</th>
+          <th>Leave Type</th>
+          <th>From</th><th>To</th><th class="text-center">Days</th>
+          <th>Reason</th><th>Approved By</th>
+          <th class="text-center">Status</th>
+          <th class="text-center" width="14%">Actions</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <!-- APPLY LEAVE MODAL -->
+    <div tabindex="-1" id="leaveModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title"><i class="fa fa-calendar-minus me-1 text-success"></i> Apply for Leave</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <form id="leaveForm" novalidate>
+            <div class="modal-body">
+              <div class="hs-box">
+                <div class="row g-2">
+                  <div class="col-md-12 view-group">
+                    <select id="leaveEmpId" class="form-select hs_span_view"></select>
+                    <label class="input-label">Employee <span class="text-danger">*</span></label>
+                  </div>
+                  <div class="col-md-4 view-group">
+                    <select id="leaveType" class="form-select hs_span_view" required>
+                      <option value="">— Leave Type —</option>
+                      <option value="ANNUAL">Annual Leave</option>
+                      <option value="SICK">Sick Leave</option>
+                      <option value="CASUAL">Casual Leave</option>
+                      <option value="MATERNITY">Maternity Leave</option>
+                      <option value="PATERNITY">Paternity Leave</option>
+                      <option value="UNPAID">Unpaid Leave</option>
+                      <option value="OTHER">Other</option>
+                    </select>
+                    <label class="input-label">Leave Type <span class="text-danger">*</span></label>
+                  </div>
+                  <div class="col-md-4 view-group">
+                    <input id="leaveStartDate" type="date" class="form-control hs_span_view" required oninput="_calcDays()">
+                    <label class="input-label">Start Date <span class="text-danger">*</span></label>
+                  </div>
+                  <div class="col-md-4 view-group">
+                    <input id="leaveEndDate" type="date" class="form-control hs_span_view" required oninput="_calcDays()">
+                    <label class="input-label">End Date <span class="text-danger">*</span></label>
+                  </div>
+                  <div class="col-md-3 view-group">
+                    <input id="leaveDays" type="text" class="form-control hs_span_view bg-light text-center fw-bold" readonly>
+                    <label class="input-label">Total Days</label>
+                  </div>
+                  <div class="col-12 view-group">
+                    <textarea id="leaveReason" class="form-control hs_span_view" rows="3" placeholder="Reason for leave…"></textarea>
+                    <label class="input-label">Reason</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-success" type="submit" id="leaveSubmitBtn">
+                <span class="spinner-border spinner-border-sm me-2 d-none" id="leaveSpinner"></span>
+                Submit Application
+              </button>
+              <button type="button" class="btn btn-white" data-bs-dismiss="modal">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- VIEW MODAL -->
+    <div tabindex="-1" id="leaveViewModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+          <div class="modal-header"><h5 class="modal-title"><i class="fa fa-calendar-minus me-1 text-primary"></i> Leave Details</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+          <div class="modal-body" id="leaveViewBody"></div>
+          <div class="modal-footer"><button type="button" class="btn btn-white" data-bs-dismiss="modal">Close</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script th:inline="none">
+  (function () {
+    'use strict';
+    const BASE='/hrm/leaves', EMP_URL='/hrm/employees/search';
+    var dt;
+
+    document.addEventListener('DOMContentLoaded', function () {
+      dt = $('#leaveTable').DataTable({
+        processing:true,serverSide:false,responsive:true,pageLength:25,
+        ajax:{url:BASE+'/list',type:'GET',data:function(d){ d.status=document.getElementById('leaveStatusFilter').value||''; }},
+        columns:[
+          {data:'sl',orderable:false,width:'40px'},{data:'employee_code'},{data:'full_name'},
+          {data:'leave_type'},{data:'start_date'},{data:'end_date'},
+          {data:'total_days',className:'text-center'},
+          {data:'reason',defaultContent:'—'},
+          {data:'approved_by',defaultContent:'—'},
+          {data:'status_badge',orderable:false,className:'text-center'},
+          {data:'actions',orderable:false,className:'text-center'}
+        ],
+        language:{emptyTable:'No leave applications.',processing:'<span class="spinner-border spinner-border-sm me-2"></span> Loading…'}
+      });
+      document.getElementById('leaveForm').addEventListener('submit',_onSubmit);
+      _initEmpS2(null,null);
+    });
+
+    function _initEmpS2(preId,preText) {
+      var $el=$('#leaveEmpId');
+      if ($el.hasClass('select2-hidden-accessible')) $el.select2('destroy');
+      $el.select2({dropdownParent:$('#leaveModal'),width:'100%',placeholder:'— Select Employee —',allowClear:true,minimumInputLength:0,
+        ajax:{url:EMP_URL,dataType:'json',delay:250,data:function(p){return{search:p.term||'',page:p.page||1};},
+          processResults:function(d,p){p.page=p.page||1;return{results:(d.items||[]).map(function(i){return{id:i.id,text:i.text};}),pagination:{more:d.hasMore||false}};},cache:false}
+      });
+      if (preId) $el.append(new Option(preText||'',preId,true,true)).trigger('change');
+    }
+
+    window._calcDays = function() {
+      var s=document.getElementById('leaveStartDate').value;
+      var e=document.getElementById('leaveEndDate').value;
+      if (s&&e&&e>=s) {
+        var ms=new Date(e)-new Date(s);
+        var days=Math.floor(ms/86400000)+1;
+        document.getElementById('leaveDays').value=days+' day'+(days!==1?'s':'');
+      } else document.getElementById('leaveDays').value='';
+    };
+
+    window.leaveOpenCreate = function() {
+      if ($('#leaveEmpId').hasClass('select2-hidden-accessible')) $('#leaveEmpId').select2('destroy');
+      document.getElementById('leaveForm').reset();
+      document.getElementById('leaveDays').value='';
+      _initEmpS2(null,null);
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('leaveModal')).show();
+    };
+
+    window.leaveShow = function(id) {
+      secureFetch(BASE+'/show/'+id).then(function(res){
+        if (!res.success) { Swal.fire('Error',res.message,'error'); return; }
+        var o=res.obj.defaultData;
+        var statusBadge={PENDING:'bg-warning text-dark',APPROVED:'bg-success',REJECTED:'bg-danger',CANCELLED:'bg-secondary'}[o.status]||'bg-light text-dark';
+        var html='<div class="hs-box"><div class="row g-2">'
+          +_vf('Employee',o.employeeDisplay)
+          +_vf('Leave Type',o.leaveType)
+          +_vf('From',o.startDate)+_vf('To',o.endDate)
+          +_vf('Total Days',o.totalDays)
+          +_vf('Status','<span class="badge '+statusBadge+'">'+o.status+'</span>')
+          +_vf('Approved By',o.approvedBy||'—')+_vf('Approved At',o.approvedAt||'—')
+          +'</div>'
+          + (o.reason ? '<div class="mt-2 p-2 border rounded bg-light"><strong>Reason:</strong> '+o.reason+'</div>' : '')
+          +'</div>';
+        document.getElementById('leaveViewBody').innerHTML=html;
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('leaveViewModal')).show();
+      });
+    };
+
+    window.leaveApprove = function(id) {
+      Swal.fire({title:'Approve Leave?',text:'Attendance will be marked as LEAVE for the period.',icon:'question',showCancelButton:true,confirmButtonText:'Approve',confirmButtonColor:'#198754'})
+        .then(function(r){ if (!r.isConfirmed) return;
+          secureFetch(BASE+'/approve/'+id,{method:'POST'}).then(function(d){
+            if (d.success) { Swal.fire({icon:'success',title:'Approved!',text:d.message,timer:1800,showConfirmButton:false}); dt.ajax.reload(null,false); }
+            else Swal.fire('Error',d.message,'error');
+          });
+        });
+    };
+
+    window.leaveReject = function(id) {
+      Swal.fire({title:'Reject Leave?',input:'textarea',inputPlaceholder:'Reason for rejection…',inputAttributes:{required:true},
+        icon:'warning',showCancelButton:true,confirmButtonText:'Reject',confirmButtonColor:'#dc3545',
+        preConfirm:function(v){ if(!v) Swal.showValidationMessage('Reason is required'); return v; }
+      }).then(function(r){ if (!r.isConfirmed) return;
+        secureFetch(BASE+'/reject/'+id+'?reason='+encodeURIComponent(r.value),{method:'POST'}).then(function(d){
+          if (d.success) { Swal.fire({icon:'info',title:'Rejected',text:d.message,timer:1400,showConfirmButton:false}); dt.ajax.reload(null,false); }
+          else Swal.fire('Error',d.message,'error');
+        });
+      });
+    };
+
+    window.leaveDelete = function(id) { hsConfirmDelete(BASE+'/delete/'+id,dt); };
+
+    function _onSubmit(e) {
+      e.preventDefault();
+      var start=document.getElementById('leaveStartDate').value;
+      var end=document.getElementById('leaveEndDate').value;
+      if (end<start) { Swal.fire('Validation','End date must be on or after start date.','warning'); return; }
+      var sb=document.getElementById('leaveSubmitBtn'),sp=document.getElementById('leaveSpinner');
+      hsDisableButton(sb,sp,null);
+      secureFetch(BASE+'/save',{method:'POST',body:JSON.stringify({
+        employeeId  : $('#leaveEmpId').val()||null,
+        leaveType   : document.getElementById('leaveType').value,
+        startDate   : start,
+        endDate     : end,
+        reason      : document.getElementById('leaveReason').value||null
+      })}).then(function(d){
+        if (d.success) { hsAfterSaveMessages(d,dt); bootstrap.Modal.getOrCreateInstance(document.getElementById('leaveModal')).hide(); }
+        else Swal.fire('Error',d.message,'error');
+      }).catch(function(err){ Swal.fire('Error',err.message||'Request failed.','error'); })
+        .finally(function(){ hsEnableButton(sb,sp,null); });
+    }
+    function _vf(l,v){ return '<div class="col-md-4 view-group"><label class="view-label">'+l+'</label><span class="form-control hs_span_show">'+(v!=null?v:'—')+'</span></div>'; }
+  })();
+  </script>
+</section>
+</html>

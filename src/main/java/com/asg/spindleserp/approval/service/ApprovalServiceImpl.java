@@ -484,7 +484,7 @@ public class ApprovalServiceImpl implements ApprovalService {
                    END AS status_badge,
                    '<div class="btn-group">'
                    || '<a href="javascript:;" onclick="delShow('   || d.id || ')" class="btn btn-white btn-sm" title="View"><i class="fas fa-eye text-success"></i></a>'
-                   || CASE WHEN d.status IN (''SCHEDULED'',''ACTIVE'') THEN
+                   || CASE WHEN d.status IN (''SCHEDULED'','ACTIVE') THEN
                        '<a href="javascript:;" onclick="delRevoke(' || d.id || ')" class="btn btn-white btn-sm" title="Revoke"><i class="fas fa-ban text-danger"></i></a>'
                       ELSE '' END
                    || '</div>' AS actions

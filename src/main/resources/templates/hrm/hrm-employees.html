@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<!--
+  hrm/hrm-employees.html    GET /hrm/employees
+  JS prefix: emp*
+  4-tab create/edit form: Personal / Employment / Financial / Emergency
+  Quick salary modal (empSalary), Quick leave modal (empLeave)
+-->
+<html th:replace="~{layout/base :: layout('Employees', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
+<section>
+  <ol class="breadcrumb float-xl-end">
+    <li class="breadcrumb-item"><a th:href="@{/dashboard}">Home</a></li>
+    <li class="breadcrumb-item">HRM</li>
+    <li class="breadcrumb-item active">Employees</li>
+  </ol>
+  <h1 class="page-header">Employees <small>employee master register</small></h1>
+
+  <div class="d-flex gap-2 mb-3 flex-wrap">
+    <a th:href="@{/hrm/designations}" class="btn btn-sm btn-outline-primary"><i class="fa fa-id-badge me-1"></i> Designations</a>
+    <a th:href="@{/hrm/employees}"    class="btn btn-sm btn-primary"><i class="fa fa-users me-1"></i> Employees</a>
+    <a th:href="@{/hrm/attendance}"   class="btn btn-sm btn-outline-primary"><i class="fa fa-calendar-check me-1"></i> Attendance</a>
+    <a th:href="@{/hrm/leaves}"       class="btn btn-sm btn-outline-primary"><i class="fa fa-calendar-minus me-1"></i> Leaves</a>
+    <a th:href="@{/hrm/payroll}"      class="btn btn-sm btn-outline-primary"><i class="fa fa-money-bill-wave me-1"></i> Payroll</a>
+  </div>
+
+  <!-- KPI -->
+  <div class="row g-3 mb-3">
+    <div class="col-6 col-md-3"><div class="widget widget-stats bg-green"><div class="stats-icon"><i class="fa fa-users"></i></div><div class="stats-info"><h4>ACTIVE</h4><p id="kpiActive">—</p></div></div></div>
+    <div class="col-6 col-md-3"><div class="widget widget-stats bg-blue"><div class="stats-icon"><i class="fa fa-users"></i></div><div class="stats-info"><h4>TOTAL</h4><p id="kpiTotal">—</p></div></div></div>
+    <div class="col-6 col-md-3"><div class="widget widget-stats bg-orange"><div class="stats-icon"><i class="fa fa-calendar"></i></div><div class="stats-info"><h4>ON LEAVE</h4><p id="kpiOnLeave">—</p></div></div></div>
+    <div class="col-6 col-md-3"><div class="widget widget-stats bg-primary"><div class="stats-icon"><i class="fa fa-clock"></i></div><div class="stats-info"><h4>PRESENT TODAY</h4><p id="kpiPresent">—</p></div></div></div>
+  </div>
+
+  <div class="panel panel-inverse">
+    <div class="panel-heading">
+      <div class="panel-title d-flex gap-2 align-items-center flex-wrap">
+        <a href="javascript:;" onclick="empOpenCreate()">
+          <span class="badge btn btn-outline-success"><i class="fa fa-plus me-1"></i> Register Employee</span>
+        </a>
+        <select id="empStatusFilter" class="form-select form-select-sm" style="width:160px" onchange="dt.ajax.reload()">
+          <option value="">All Status</option>
+          <option value="ACTIVE" selected>Active</option>
+          <option value="INACTIVE">Inactive</option>
+          <option value="ON_LEAVE">On Leave</option>
+          <option value="SUSPENDED">Suspended</option>
+          <option value="TERMINATED">Terminated</option>
+          <option value="RESIGNED">Resigned</option>
+        </select>
+      </div>
+      <div class="panel-heading-btn">
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-default" data-toggle="panel-expand"><i class="fa fa-expand"></i></a>
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-success" data-toggle="panel-reload"><i class="fa fa-redo"></i></a>
+      </div>
+    </div>
+    <div class="panel-body">
+      <table id="empTable" width="100%" class="table table-striped table-bordered align-middle">
+        <thead><tr>
+          <th width="1%">SL</th><th>Code</th><th>Full Name</th>
+          <th>Department</th><th>Designation</th>
+          <th>Phone</th><th>Type</th>
+          <th class="text-end">Gross</th>
+          <th>Joining</th><th>Location</th>
+          <th class="text-center">Status</th>
+          <th class="text-center" width="16%">Actions</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <!-- CREATE / EDIT MODAL -->
+    <div tabindex="-1" id="empModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="empModalTitle"><i class="fa fa-user-plus me-1 text-success"></i> Register Employee</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <form id="empForm" novalidate>
+            <div class="modal-body">
+              <input type="hidden" id="empId">
+              <!-- Tabs -->
+              <ul class="nav nav-tabs mb-3 bg-gray-700">
+                <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#tabPersonal">Personal</a></li>
+                <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tabEmployment">Employment</a></li>
+                <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tabFinancial">Financial</a></li>
+                <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tabEmergency">Emergency</a></li>
+              </ul>
+              <div class="tab-content">
+
+                <!-- Personal -->
+                <div class="tab-pane fade show active" id="tabPersonal">
+                  <div class="hs-box"><div class="row g-2">
+                    <div class="col-md-3 view-group">
+                      <input id="empFirstName" type="text" class="form-control hs_span_view" maxlength="100" required>
+                      <label class="input-label">First Name <span class="text-danger">*</span></label>
+                    </div>
+                    <div class="col-md-3 view-group">
+                      <input id="empLastName" type="text" class="form-control hs_span_view" maxlength="100" required>
+                      <label class="input-label">Last Name <span class="text-danger">*</span></label>
+                    </div>
+                    <div class="col-md-3 view-group">
+                      <select id="empGender" class="form-select hs_span_view">
+                        <option value="MALE">Male</option><option value="FEMALE">Female</option><option value="OTHER">Other</option>
+                      </select>
+                      <label class="input-label">Gender</label>
+                    </div>
+                    <div class="col-md-3 view-group">
+                      <input id="empDob" type="date" class="form-control hs_span_view" required>
+                      <label class="input-label">Date of Birth <span class="text-danger">*</span></label>
+                    </div>
+                    <div class="col-md-3 view-group">
+                      <input id="empPhone" type="text" class="form-control hs_span_view" maxlength="20" required>
+                      <label class="input-label">Phone <span class="text-danger">*</span></label>
+                    </div>
+                    <div class="col-md-4 view-group">
+                      <input id="empEmail" type="email" class="form-control hs_span_view" maxlength="100">
+                      <label class="input-label">Email</label>
+                    </div>
+                    <div class="col-md-2 view-group">
+                      <select id="empMaritalStatus" class="form-select hs_span_view">
+                        <option value="">—</option>
+                        <option value="SINGLE">Single</option><option value="MARRIED">Married</option>
+                        <option value="DIVORCED">Divorced</option><option value="WIDOWED">Widowed</option>
+                      </select>
+                      <label class="input-label">Marital Status</label>
+                    </div>
+                    <div class="col-md-3 view-group">
+                      <input id="empBloodGroup" type="text" class="form-control hs_span_view" maxlength="10" placeholder="A+, B-, O+…">
+                      <label class="input-label">Blood Group</label>
+                    </div>
+                    <div class="col-md-3 view-group">
+                      <input id="empNationalId" type="text" class="form-control hs_span_view" maxlength="50">
+                      <label class="input-label">National ID</label>
+                    </div>
+                    <div class="col-md-3 view-group">
+                      <input id="empPassport" type="text" class="form-control hs_span_view" maxlength="50">
+                      <label class="input-label">Passport No</label>
+                    </div>
+                  </div></div>
+                </div>
+
+                <!-- Employment -->
+                <div class="tab-pane fade" id="tabEmployment">
+                  <div class="hs-box"><div class="row g-2">
+                    <!-- Department S2 -->
+                    <div class="col-md-6 view-group">
+                      <select id="empDeptId" class="form-select hs_span_view"></select>
+                      <label class="input-label">Department <span class="text-danger">*</span></label>
+                    </div>
+                    <!-- Designation S2 -->
+                    <div class="col-md-6 view-group">
+                      <select id="empDesigId" class="form-select hs_span_view"></select>
+                      <label class="input-label">Designation <span class="text-danger">*</span></label>
+                    </div>
+                    <!-- Reporting Manager S2 -->
+                    <div class="col-md-6 view-group">
+                      <select id="empMgrId" class="form-select hs_span_view"></select>
+                      <label class="input-label">Reporting Manager</label>
+                    </div>
+                    <div class="col-md-3 view-group">
+                      <select id="empType" class="form-select hs_span_view">
+                        <option value="PERMANENT">Permanent</option>
+                        <option value="CONTRACT">Contract</option>
+                        <option value="TEMPORARY">Temporary</option>
+                        <option value="INTERN">Intern</option>
+                        <option value="PART_TIME">Part Time</option>
+                        <option value="CONSULTANT">Consultant</option>
+                      </select>
+                      <label class="input-label">Employee Type</label>
+                    </div>
+                    <div class="col-md-3 view-group">
+                      <select id="empStatus" class="form-select hs_span_view">
+                        <option value="ACTIVE">Active</option>
+                        <option value="INACTIVE">Inactive</option>
+                        <option value="ON_LEAVE">On Leave</option>
+                        <option value="SUSPENDED">Suspended</option>
+                        <option value="TERMINATED">Terminated</option>
+                        <option value="RESIGNED">Resigned</option>
+                      </select>
+                      <label class="input-label">Status</label>
+                    </div>
+                    <div class="col-md-3 view-group">
+                      <input id="empJoining" type="date" class="form-control hs_span_view" required>
+                      <label class="input-label">Joining Date <span class="text-danger">*</span></label>
+                    </div>
+                    <div class="col-md-3 view-group">
+                      <input id="empConfirmation" type="date" class="form-control hs_span_view">
+                      <label class="input-label">Confirmation Date</label>
+                    </div>
+                    <div class="col-md-3 view-group">
+                      <input id="empProbEnd" type="date" class="form-control hs_span_view">
+                      <label class="input-label">Probation End</label>
+                    </div>
+                    <div class="col-md-3 view-group">
+                      <input id="empLocation" type="text" class="form-control hs_span_view" maxlength="50">
+                      <label class="input-label">Work Location</label>
+                    </div>
+                    <div class="col-md-3 view-group">
+                      <input id="empShift" type="text" class="form-control hs_span_view" maxlength="50" placeholder="e.g. Morning / General">
+                      <label class="input-label">Work Shift</label>
+                    </div>
+                    <div class="col-md-2 view-group">
+                      <input id="empAnnualLeave" type="number" class="form-control hs_span_view text-end" value="0" min="0">
+                      <label class="input-label">Annual Leave Days</label>
+                    </div>
+                    <div class="col-md-2 view-group">
+                      <input id="empSickLeave" type="number" class="form-control hs_span_view text-end" value="0" min="0">
+                      <label class="input-label">Sick Leave Days</label>
+                    </div>
+                    <div class="col-md-2 view-group">
+                      <input id="empCasualLeave" type="number" class="form-control hs_span_view text-end" value="0" min="0">
+                      <label class="input-label">Casual Leave Days</label>
+                    </div>
+                    <div class="col-12 view-group">
+                      <textarea id="empNotes" class="form-control hs_span_view" rows="2" placeholder="Notes…"></textarea>
+                      <label class="input-label">Notes</label>
+                    </div>
+                  </div></div>
+                </div>
+
+                <!-- Financial -->
+                <div class="tab-pane fade" id="tabFinancial">
+                  <div class="hs-box"><div class="row g-2">
+                    <div class="col-md-4 view-group">
+                      <input id="empBasicSalary" type="number" step="0.01" class="form-control hs_span_view text-end">
+                      <label class="input-label">Basic Salary (snapshot)</label>
+                    </div>
+                    <div class="col-md-4 view-group">
+                      <input id="empGrossSalary" type="number" step="0.01" class="form-control hs_span_view text-end" readonly>
+                      <label class="input-label">Gross Salary</label>
+                    </div>
+                    <div class="col-md-4 view-group">
+                      <input id="empBankName" type="text" class="form-control hs_span_view" maxlength="50">
+                      <label class="input-label">Bank Name</label>
+                    </div>
+                    <div class="col-md-4 view-group">
+                      <input id="empBankAcc" type="text" class="form-control hs_span_view" maxlength="50">
+                      <label class="input-label">Bank Account</label>
+                    </div>
+                    <div class="col-md-4 view-group">
+                      <input id="empBankBranch" type="text" class="form-control hs_span_view" maxlength="50">
+                      <label class="input-label">Branch</label>
+                    </div>
+                  </div></div>
+                </div>
+
+                <!-- Emergency -->
+                <div class="tab-pane fade" id="tabEmergency">
+                  <div class="hs-box"><div class="row g-2">
+                    <div class="col-md-4 view-group">
+                      <input id="empEmergencyName" type="text" class="form-control hs_span_view" maxlength="100">
+                      <label class="input-label">Contact Name</label>
+                    </div>
+                    <div class="col-md-3 view-group">
+                      <input id="empEmergencyPhone" type="text" class="form-control hs_span_view" maxlength="20">
+                      <label class="input-label">Contact Phone</label>
+                    </div>
+                    <div class="col-md-3 view-group">
+                      <input id="empEmergencyRel" type="text" class="form-control hs_span_view" maxlength="100" placeholder="e.g. Spouse, Parent">
+                      <label class="input-label">Relation</label>
+                    </div>
+                  </div></div>
+                </div>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-success" type="submit" id="empSubmitBtn">
+                <span class="spinner-border spinner-border-sm me-2 d-none" id="empSpinner"></span>
+                <span id="empBtnText">Register</span>
+              </button>
+              <button type="button" class="btn btn-white" data-bs-dismiss="modal">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- VIEW MODAL -->
+    <div tabindex="-1" id="empViewModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header"><h5 class="modal-title"><i class="fa fa-user me-1 text-primary"></i> Employee Profile</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+          <div class="modal-body" id="empViewBody"></div>
+          <div class="modal-footer"><button type="button" class="btn btn-white" data-bs-dismiss="modal">Close</button></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SALARY MODAL -->
+    <div tabindex="-1" id="empSalaryModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+          <div class="modal-header bg-primary text-white"><h5 class="modal-title"><i class="fa fa-money-bill me-1"></i> Update Salary</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
+          <form id="empSalaryForm" novalidate>
+            <div class="modal-body">
+              <input type="hidden" id="salEmpId">
+              <div class="hs-box"><div class="row g-2">
+                <div class="col-md-3 view-group"><input id="salEffective" type="date" class="form-control hs_span_view" required><label class="input-label">Effective Date <span class="text-danger">*</span></label></div>
+                <div class="col-md-3 view-group"><input id="salBasic" type="number" step="0.01" class="form-control hs_span_view text-end" required oninput="_calcGross()"><label class="input-label">Basic Salary <span class="text-danger">*</span></label></div>
+                <div class="col-md-3 view-group"><input id="salHouseRent" type="number" step="0.01" class="form-control hs_span_view text-end" value="0" oninput="_calcGross()"><label class="input-label">House Rent</label></div>
+                <div class="col-md-3 view-group"><input id="salMedical" type="number" step="0.01" class="form-control hs_span_view text-end" value="0" oninput="_calcGross()"><label class="input-label">Medical</label></div>
+                <div class="col-md-3 view-group"><input id="salTransport" type="number" step="0.01" class="form-control hs_span_view text-end" value="0" oninput="_calcGross()"><label class="input-label">Transport</label></div>
+                <div class="col-md-3 view-group"><input id="salOtherAllow" type="number" step="0.01" class="form-control hs_span_view text-end" value="0" oninput="_calcGross()"><label class="input-label">Other Allow.</label></div>
+                <div class="col-md-3 view-group"><input id="salGross" type="number" class="form-control hs_span_view text-end fw-bold bg-light" readonly><label class="input-label">Gross Salary</label></div>
+                <div class="col-md-3 view-group"><input id="salTax" type="number" step="0.01" class="form-control hs_span_view text-end" value="0" oninput="_calcNet()"><label class="input-label">Income Tax</label></div>
+                <div class="col-md-3 view-group"><input id="salPF" type="number" step="0.01" class="form-control hs_span_view text-end" value="0" oninput="_calcNet()"><label class="input-label">Provident Fund</label></div>
+                <div class="col-md-3 view-group"><input id="salOtherDeduc" type="number" step="0.01" class="form-control hs_span_view text-end" value="0" oninput="_calcNet()"><label class="input-label">Other Deductions</label></div>
+                <div class="col-md-3 view-group"><input id="salNet" type="number" class="form-control hs_span_view text-end fw-bold text-success bg-light" readonly><label class="input-label">Net Salary</label></div>
+                <div class="col-12 view-group"><textarea id="salRemarks" class="form-control hs_span_view" rows="1" placeholder="Remarks…"></textarea><label class="input-label">Remarks</label></div>
+              </div></div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-primary" type="submit" id="salSubmitBtn">
+                <span class="spinner-border spinner-border-sm me-2 d-none" id="salSpinner"></span> Save Salary
+              </button>
+              <button type="button" class="btn btn-white" data-bs-dismiss="modal">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script th:inline="none">
+  (function () {
+    'use strict';
+    const BASE='/hrm/employees', DESIG_URL='/hrm/designations/search', DEPT_URL='/departments/active';
+    var dt;
+
+    document.addEventListener('DOMContentLoaded', function () {
+      dt = $('#empTable').DataTable({
+        processing:true,serverSide:false,responsive:true,pageLength:25,
+        ajax:{url:BASE+'/list',type:'GET',data:function(d){ d.status=document.getElementById('empStatusFilter').value||''; }},
+        columns:[
+          {data:'sl',orderable:false,width:'40px'},{data:'employee_code'},{data:'full_name'},
+          {data:'department_name'},{data:'designation_name'},
+          {data:'phone'},{data:'employee_type'},
+          {data:'gross_salary',className:'text-end',defaultContent:'—'},
+          {data:'joining_date'},{data:'work_location',defaultContent:'—'},
+          {data:'status_badge',orderable:false,className:'text-center'},
+          {data:'actions',orderable:false,className:'text-center'}
+        ],
+        language:{emptyTable:'No employees.',processing:'<span class="spinner-border spinner-border-sm me-2"></span> Loading…'}
+      });
+      document.getElementById('empForm').addEventListener('submit',_onSubmit);
+      document.getElementById('empSalaryForm').addEventListener('submit',_onSalarySubmit);
+      document.getElementById('salEffective').value=new Date().toISOString().substring(0,10);
+      _initS2s();
+      _loadKpi();
+    });
+
+    function _loadKpi() {
+      secureFetch('/hrm/dashboard/summary').then(function(d){
+        document.getElementById('kpiActive').textContent   = d.totalActive  || '0';
+        document.getElementById('kpiTotal').textContent    = d.totalEmployees|| '0';
+        document.getElementById('kpiOnLeave').textContent  = d.onLeave      || '0';
+        document.getElementById('kpiPresent').textContent  = d.presentToday || '0';
+      });
+    }
+
+    function _initS2s(deptPre,deptTxt,desigPre,desigTxt,mgrPre,mgrTxt) {
+      ['#empDeptId','#empDesigId','#empMgrId'].forEach(function(sel){ var $e=$(sel); if($e.hasClass('select2-hidden-accessible')) $e.select2('destroy'); });
+      // Dept (active list)
+      secureFetch(DEPT_URL).then(function(data){
+        var sel=document.getElementById('empDeptId');
+        sel.innerHTML='<option value="">— Department —</option>';
+        (data||[]).forEach(function(d){ sel.insertAdjacentHTML('beforeend','<option value="'+d.id+'">'+d.name+'</option>'); });
+        if (deptPre) sel.value=deptPre;
+      });
+      // Designation AJAX S2
+      $('#empDesigId').select2({dropdownParent:$('#empModal'),width:'100%',placeholder:'— Designation —',allowClear:true,minimumInputLength:0,
+        ajax:{url:DESIG_URL,dataType:'json',delay:250,data:function(p){return{search:p.term||'',page:p.page||1};},
+          processResults:function(d,p){p.page=p.page||1;return{results:(d.items||[]).map(function(i){return{id:i.id,text:i.text};}),pagination:{more:d.hasMore||false}};},cache:true}
+      });
+      if (desigPre) $('#empDesigId').append(new Option(desigTxt||'',desigPre,true,true)).trigger('change');
+      // Manager AJAX S2
+      $('#empMgrId').select2({dropdownParent:$('#empModal'),width:'100%',placeholder:'— Manager (optional) —',allowClear:true,minimumInputLength:0,
+        ajax:{url:BASE+'/search',dataType:'json',delay:250,data:function(p){return{search:p.term||'',page:p.page||1};},
+          processResults:function(d,p){p.page=p.page||1;return{results:(d.items||[]).map(function(i){return{id:i.id,text:i.text};}),pagination:{more:d.hasMore||false}};},cache:true}
+      });
+      if (mgrPre) $('#empMgrId').append(new Option(mgrTxt||'',mgrPre,true,true)).trigger('change');
+    }
+
+    window.empOpenCreate = function() {
+      _resetForm();
+      document.getElementById('empModalTitle').innerHTML='<i class="fa fa-user-plus me-1 text-success"></i> Register Employee';
+      document.getElementById('empBtnText').textContent='Register';
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('empModal')).show();
+    };
+
+    window.empShow = function(id) {
+      secureFetch(BASE+'/show/'+id).then(function(res){
+        if (!res.success) { Swal.fire('Error',res.message,'error'); return; }
+        var o=res.obj.defaultData;
+        var html='<div class="hs-box"><div class="row g-2">'
+          +_vf('Code',o.employeeCode)+_vf('Name',o.firstName+' '+o.lastName)
+          +_vf('Department',o.departmentDisplay||'—')+_vf('Designation',o.designationDisplay||'—')
+          +_vf('Phone',o.phone)+_vf('Email',o.email||'—')
+          +_vf('Gender',o.gender)+_vf('DOB',o.dateOfBirth||'—')
+          +_vf('Type',o.employeeType)+_vf('Status',o.status)
+          +_vf('Joining',o.joiningDate)+_vf('Location',o.workLocation||'—')
+          +_vf('Basic',o.basicSalary?parseFloat(o.basicSalary).toFixed(2):'—')
+          +_vf('Gross',o.grossSalary?parseFloat(o.grossSalary).toFixed(2):'—')
+          +_vf('Bank',o.bankName||'—')+_vf('Account',o.bankAccountNumber||'—')
+          +'</div>';
+        if (o.currentSalary) {
+          html+='<h6 class="border-bottom pb-1 mt-3 mb-2">Current Salary Breakdown</h6><div class="row g-2">'
+            +_vf('Effective',o.currentSalary.effectiveDate)
+            +_vf('Basic',parseFloat(o.currentSalary.basicSalary||0).toFixed(2))
+            +_vf('House Rent',parseFloat(o.currentSalary.houseRent||0).toFixed(2))
+            +_vf('Medical',parseFloat(o.currentSalary.medicalAllowance||0).toFixed(2))
+            +_vf('Transport',parseFloat(o.currentSalary.transportAllowance||0).toFixed(2))
+            +_vf('Gross',parseFloat(o.currentSalary.grossSalary||0).toFixed(2))
+            +_vf('Net',parseFloat(o.currentSalary.netSalary||0).toFixed(2))
+            +'</div>';
+        }
+        html+='</div>';
+        document.getElementById('empViewBody').innerHTML=html;
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('empViewModal')).show();
+      });
+    };
+
+    window.empEdit = function(id) {
+      secureFetch(BASE+'/show/'+id).then(function(res){
+        if (!res.success) { Swal.fire('Error',res.message,'error'); return; }
+        var o=res.obj.defaultData; _resetForm();
+        document.getElementById('empId').value              = o.id;
+        document.getElementById('empFirstName').value       = o.firstName||'';
+        document.getElementById('empLastName').value        = o.lastName||'';
+        document.getElementById('empGender').value          = o.gender||'MALE';
+        document.getElementById('empDob').value             = o.dateOfBirth||'';
+        document.getElementById('empPhone').value           = o.phone||'';
+        document.getElementById('empEmail').value           = o.email||'';
+        document.getElementById('empMaritalStatus').value   = o.maritalStatus||'';
+        document.getElementById('empBloodGroup').value      = o.bloodGroup||'';
+        document.getElementById('empNationalId').value      = o.nationalId||'';
+        document.getElementById('empPassport').value        = o.passportNumber||'';
+        document.getElementById('empType').value            = o.employeeType||'PERMANENT';
+        document.getElementById('empStatus').value          = o.status||'ACTIVE';
+        document.getElementById('empJoining').value         = o.joiningDate||'';
+        document.getElementById('empConfirmation').value    = o.confirmationDate||'';
+        document.getElementById('empProbEnd').value         = o.probationEndDate||'';
+        document.getElementById('empLocation').value        = o.workLocation||'';
+        document.getElementById('empShift').value           = o.workShift||'';
+        document.getElementById('empAnnualLeave').value     = o.annualLeaveDays||'0';
+        document.getElementById('empSickLeave').value       = o.sickLeaveDays||'0';
+        document.getElementById('empCasualLeave').value     = o.casualLeaveDays||'0';
+        document.getElementById('empNotes').value           = o.notes||'';
+        document.getElementById('empBasicSalary').value     = o.basicSalary||'';
+        document.getElementById('empGrossSalary').value     = o.grossSalary||'';
+        document.getElementById('empBankName').value        = o.bankName||'';
+        document.getElementById('empBankAcc').value         = o.bankAccountNumber||'';
+        document.getElementById('empBankBranch').value      = o.bankBranch||'';
+        document.getElementById('empEmergencyName').value   = o.emergencyContactName||'';
+        document.getElementById('empEmergencyPhone').value  = o.emergencyContactPhone||'';
+        document.getElementById('empEmergencyRel').value    = o.emergencyContactRelation||'';
+        _initS2s(o.departmentId,null,o.designationId,o.designationDisplay,o.reportingManagerId,o.reportingManagerDisplay);
+        document.getElementById('empModalTitle').innerHTML='<i class="fa fa-pencil me-1 text-warning"></i> Edit Employee';
+        document.getElementById('empBtnText').textContent='Update';
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('empModal')).show();
+      });
+    };
+
+    window.empSalary = function(id) {
+      document.getElementById('salEmpId').value=id;
+      // Load current salary
+      secureFetch(BASE+'/'+id+'/salary/history').then(function(data){
+        if (data&&data.length) {
+          var s=data[0];
+          document.getElementById('salEffective').value   = s.effectiveDate||new Date().toISOString().substring(0,10);
+          document.getElementById('salBasic').value       = s.basicSalary||'';
+          document.getElementById('salHouseRent').value   = s.houseRent||'0';
+          document.getElementById('salMedical').value     = s.medicalAllowance||'0';
+          document.getElementById('salTransport').value   = s.transportAllowance||'0';
+          document.getElementById('salOtherAllow').value  = s.otherAllowances||'0';
+          document.getElementById('salGross').value       = s.grossSalary||'';
+          document.getElementById('salTax').value         = s.incomeTax||'0';
+          document.getElementById('salPF').value          = s.providentFund||'0';
+          document.getElementById('salOtherDeduc').value  = s.otherDeductions||'0';
+          document.getElementById('salNet').value         = s.netSalary||'';
+          document.getElementById('salRemarks').value     = s.remarks||'';
+        }
+      });
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('empSalaryModal')).show();
+    };
+
+    window.empLeave = function(id) { window.location.href='/hrm/leaves?empId='+id; };
+    window.empDelete = function(id) { hsConfirmDelete(BASE+'/delete/'+id, dt); };
+
+    window._calcGross = function() {
+      var g=_n('salBasic')+_n('salHouseRent')+_n('salMedical')+_n('salTransport')+_n('salOtherAllow');
+      document.getElementById('salGross').value=g.toFixed(2); _calcNet();
+    };
+    window._calcNet = function() {
+      var g=parseFloat(document.getElementById('salGross').value)||0;
+      var d=_n('salTax')+_n('salPF')+_n('salOtherDeduc');
+      document.getElementById('salNet').value=Math.max(0,g-d).toFixed(2);
+    };
+    function _n(id){ return parseFloat(document.getElementById(id).value)||0; }
+
+    function _onSubmit(e) {
+      e.preventDefault();
+      var sb=document.getElementById('empSubmitBtn'),sp=document.getElementById('empSpinner'),bt=document.getElementById('empBtnText');
+      hsDisableButton(sb,sp,bt);
+      secureFetch(BASE+'/save',{method:'POST',body:JSON.stringify({
+        id                    : document.getElementById('empId').value||null,
+        firstName             : document.getElementById('empFirstName').value,
+        lastName              : document.getElementById('empLastName').value,
+        gender                : document.getElementById('empGender').value,
+        dateOfBirth           : document.getElementById('empDob').value,
+        phone                 : document.getElementById('empPhone').value,
+        email                 : document.getElementById('empEmail').value||null,
+        maritalStatus         : document.getElementById('empMaritalStatus').value||null,
+        bloodGroup            : document.getElementById('empBloodGroup').value||null,
+        nationalId            : document.getElementById('empNationalId').value||null,
+        passportNumber        : document.getElementById('empPassport').value||null,
+        departmentId          : document.getElementById('empDeptId').value||null,
+        designationId         : $('#empDesigId').val()||null,
+        reportingManagerId    : $('#empMgrId').val()||null,
+        employeeType          : document.getElementById('empType').value,
+        status                : document.getElementById('empStatus').value,
+        joiningDate           : document.getElementById('empJoining').value,
+        confirmationDate      : document.getElementById('empConfirmation').value||null,
+        probationEndDate      : document.getElementById('empProbEnd').value||null,
+        workLocation          : document.getElementById('empLocation').value||null,
+        workShift             : document.getElementById('empShift').value||null,
+        annualLeaveDays       : parseInt(document.getElementById('empAnnualLeave').value)||0,
+        sickLeaveDays         : parseInt(document.getElementById('empSickLeave').value)||0,
+        casualLeaveDays       : parseInt(document.getElementById('empCasualLeave').value)||0,
+        notes                 : document.getElementById('empNotes').value||null,
+        basicSalary           : parseFloat(document.getElementById('empBasicSalary').value)||null,
+        grossSalary           : parseFloat(document.getElementById('empGrossSalary').value)||null,
+        bankName              : document.getElementById('empBankName').value||null,
+        bankAccountNumber     : document.getElementById('empBankAcc').value||null,
+        bankBranch            : document.getElementById('empBankBranch').value||null,
+        emergencyContactName  : document.getElementById('empEmergencyName').value||null,
+        emergencyContactPhone : document.getElementById('empEmergencyPhone').value||null,
+        emergencyContactRelation: document.getElementById('empEmergencyRel').value||null
+      })}).then(function(d){
+        if (d.success) { hsAfterSaveMessages(d,dt); _loadKpi(); bootstrap.Modal.getOrCreateInstance(document.getElementById('empModal')).hide(); }
+        else Swal.fire('Error',d.message,'error');
+      }).catch(function(err){ Swal.fire('Error',err.message||'Request failed.','error'); })
+        .finally(function(){ hsEnableButton(sb,sp,bt); });
+    }
+
+    function _onSalarySubmit(e) {
+      e.preventDefault();
+      var empId=document.getElementById('salEmpId').value;
+      var sb=document.getElementById('salSubmitBtn'),sp=document.getElementById('salSpinner');
+      hsDisableButton(sb,sp,null);
+      secureFetch(BASE+'/'+empId+'/salary',{method:'POST',body:JSON.stringify({
+        effectiveDate      : document.getElementById('salEffective').value,
+        basicSalary        : parseFloat(document.getElementById('salBasic').value)||0,
+        houseRent          : parseFloat(document.getElementById('salHouseRent').value)||0,
+        medicalAllowance   : parseFloat(document.getElementById('salMedical').value)||0,
+        transportAllowance : parseFloat(document.getElementById('salTransport').value)||0,
+        otherAllowances    : parseFloat(document.getElementById('salOtherAllow').value)||0,
+        incomeTax          : parseFloat(document.getElementById('salTax').value)||0,
+        providentFund      : parseFloat(document.getElementById('salPF').value)||0,
+        otherDeductions    : parseFloat(document.getElementById('salOtherDeduc').value)||0,
+        remarks            : document.getElementById('salRemarks').value||null
+      })}).then(function(d){
+        if (d.success) { Swal.fire({icon:'success',title:'Saved!',text:d.message,timer:1600,showConfirmButton:false}); bootstrap.Modal.getOrCreateInstance(document.getElementById('empSalaryModal')).hide(); dt.ajax.reload(null,false); }
+        else Swal.fire('Error',d.message,'error');
+      }).catch(function(err){ Swal.fire('Error',err.message||'Request failed.','error'); })
+        .finally(function(){ hsEnableButton(sb,sp,null); });
+    }
+
+    function _resetForm() {
+      ['#empDesigId','#empMgrId'].forEach(function(sel){ var $e=$(sel); if($e.hasClass('select2-hidden-accessible')) $e.select2('destroy'); });
+      document.getElementById('empForm').reset();
+      document.getElementById('empId').value='';
+      _initS2s();
+    }
+    function _vf(l,v){ return '<div class="col-md-4 view-group"><label class="view-label">'+l+'</label><span class="form-control hs_span_show">'+(v!=null?v:'—')+'</span></div>'; }
+  })();
+  </script>
+</section>
+</html>

@@ -283,14 +283,14 @@ ON CONFLICT (name) DO NOTHING;
 
 -- ─── APPROVAL ─────────────────────────────────────────────────────────────────
 INSERT INTO sec_permissions (name, description, url_pattern, http_method, module, category, active, created_at, updated_at) VALUES
-('APR.CONFIG.VIEW',           'View approval configs',      '/approvals/configs/**',      'GET',    'CORE_SECURITY', 'APPROVAL', true, NOW(), NOW()),
-('APR.CONFIG.CREATE',         'Create approval config',     '/approvals/configs/save',    'POST',   'CORE_SECURITY', 'APPROVAL', true, NOW(), NOW()),
-('APR.CONFIG.EDIT',           'Edit approval config',       '/approvals/configs/save',    'POST',   'CORE_SECURITY', 'APPROVAL', true, NOW(), NOW()),
-('APR.REQUEST.VIEW',          'View approval requests',     '/approvals/requests/**',     'GET',    'CORE_SECURITY', 'APPROVAL', true, NOW(), NOW()),
-('APR.REQUEST.APPROVE',       'Approve requests',           '/approvals/requests/approve/**','POST','CORE_SECURITY', 'APPROVAL', true, NOW(), NOW()),
-('APR.REQUEST.REJECT',        'Reject requests',            '/approvals/requests/reject/**','POST', 'CORE_SECURITY', 'APPROVAL', true, NOW(), NOW()),
-('APR.DELEGATION.VIEW',       'View approval delegations',  '/approvals/delegations/**',  'GET',    'CORE_SECURITY', 'APPROVAL', true, NOW(), NOW()),
-('APR.DELEGATION.CREATE',     'Create approval delegation', '/approvals/delegations/save','POST',   'CORE_SECURITY', 'APPROVAL', true, NOW(), NOW())
+('APR.CONFIG.VIEW',           'View approval configs',      '/approval/configs/**',      'GET',    'CORE_SECURITY', 'APPROVAL', true, NOW(), NOW()),
+('APR.CONFIG.CREATE',         'Create approval config',     '/approval/configs/save',    'POST',   'CORE_SECURITY', 'APPROVAL', true, NOW(), NOW()),
+('APR.CONFIG.EDIT',           'Edit approval config',       '/approval/configs/save',    'POST',   'CORE_SECURITY', 'APPROVAL', true, NOW(), NOW()),
+('APR.REQUEST.VIEW',          'View approval requests',     '/approval/requests/**',     'GET',    'CORE_SECURITY', 'APPROVAL', true, NOW(), NOW()),
+('APR.REQUEST.APPROVE',       'Approve requests',           '/approval/requests/approve/**','POST','CORE_SECURITY', 'APPROVAL', true, NOW(), NOW()),
+('APR.REQUEST.REJECT',        'Reject requests',            '/approval/requests/reject/**','POST', 'CORE_SECURITY', 'APPROVAL', true, NOW(), NOW()),
+('APR.DELEGATION.VIEW',       'View approval delegations',  '/approval/delegations/**',  'GET',    'CORE_SECURITY', 'APPROVAL', true, NOW(), NOW()),
+('APR.DELEGATION.CREATE',     'Create approval delegation', '/approval/delegations/save','POST',   'CORE_SECURITY', 'APPROVAL', true, NOW(), NOW())
 ON CONFLICT (name) DO NOTHING;
 
 -- ─── DASHBOARD / REPORTS ──────────────────────────────────────────────────────
@@ -1034,11 +1034,11 @@ SELECT 'SEC_ROLE_MENU', 'Role Menu Access',  '/role-menus',           'fa fa-unl
 
 -- ── APPROVALS leaves ──────────────────────────────────────────────────────────
 INSERT INTO app_menus (menu_code, menu_name, menu_url, icon, parent_id, display_order, menu_type, module_name, required_permission, target, active, visible, deleted, created_at, updated_at)
-SELECT 'APR_CONFIG',    'Approval Config',   '/approvals/configs',    'fa fa-sliders-h', g.id, 10, 'LEAF', 'APPROVALS', 'APR.CONFIG.VIEW',       '_self', true, true, false, NOW(), NOW() FROM app_menus g WHERE g.menu_code = 'GRP_APR_CONFIG' ON CONFLICT (menu_code) DO NOTHING;
+SELECT 'APR_CONFIG',    'Approval Config',   '/approval/configs',    'fa fa-sliders-h', g.id, 10, 'LEAF', 'APPROVALS', 'APR.CONFIG.VIEW',       '_self', true, true, false, NOW(), NOW() FROM app_menus g WHERE g.menu_code = 'GRP_APR_CONFIG' ON CONFLICT (menu_code) DO NOTHING;
 INSERT INTO app_menus (menu_code, menu_name, menu_url, icon, parent_id, display_order, menu_type, module_name, required_permission, target, active, visible, deleted, created_at, updated_at)
-SELECT 'APR_DELEGATION','Delegations',       '/approvals/delegations','fa fa-random', g.id, 20, 'LEAF', 'APPROVALS', 'APR.DELEGATION.VIEW',    '_self', true, true, false, NOW(), NOW() FROM app_menus g WHERE g.menu_code = 'GRP_APR_CONFIG' ON CONFLICT (menu_code) DO NOTHING;
+SELECT 'APR_DELEGATION','Delegations',       '/approval/delegations','fa fa-random', g.id, 20, 'LEAF', 'APPROVALS', 'APR.DELEGATION.VIEW',    '_self', true, true, false, NOW(), NOW() FROM app_menus g WHERE g.menu_code = 'GRP_APR_CONFIG' ON CONFLICT (menu_code) DO NOTHING;
 INSERT INTO app_menus (menu_code, menu_name, menu_url, icon, parent_id, display_order, menu_type, module_name, required_permission, target, active, visible, deleted, created_at, updated_at)
-SELECT 'APR_PENDING',   'Pending Approvals', '/approvals/requests',   'fa fa-hourglass-half', g.id, 10, 'LEAF', 'APPROVALS', 'APR.REQUEST.VIEW',  '_self', true, true, false, NOW(), NOW() FROM app_menus g WHERE g.menu_code = 'GRP_APR_PENDING' ON CONFLICT (menu_code) DO NOTHING;
+SELECT 'APR_PENDING',   'Pending Approvals', '/approval/requests',   'fa fa-hourglass-half', g.id, 10, 'LEAF', 'APPROVALS', 'APR.REQUEST.VIEW',  '_self', true, true, false, NOW(), NOW() FROM app_menus g WHERE g.menu_code = 'GRP_APR_PENDING' ON CONFLICT (menu_code) DO NOTHING;
 
 
 -- =============================================================================

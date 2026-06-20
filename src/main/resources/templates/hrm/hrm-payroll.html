@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<!--
+  hrm/hrm-payroll.html    GET /hrm/payroll
+  JS prefix: pr*
+  Calculate → COMPLETED → Approve → APPROVED → Mark Paid → PAID
+  Lines preview inline table after calculate
+-->
+<html th:replace="~{layout/base :: layout('Payroll', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
+<section>
+  <ol class="breadcrumb float-xl-end">
+    <li class="breadcrumb-item"><a th:href="@{/dashboard}">Home</a></li>
+    <li class="breadcrumb-item">HRM</li>
+    <li class="breadcrumb-item active">Payroll</li>
+  </ol>
+  <h1 class="page-header">Payroll <small>monthly payroll calculation and processing</small></h1>
+
+  <div class="d-flex gap-2 mb-3 flex-wrap">
+    <a th:href="@{/hrm/designations}" class="btn btn-sm btn-outline-primary"><i class="fa fa-id-badge me-1"></i> Designations</a>
+    <a th:href="@{/hrm/employees}"    class="btn btn-sm btn-outline-primary"><i class="fa fa-users me-1"></i> Employees</a>
+    <a th:href="@{/hrm/attendance}"   class="btn btn-sm btn-outline-primary"><i class="fa fa-calendar-check me-1"></i> Attendance</a>
+    <a th:href="@{/hrm/leaves}"       class="btn btn-sm btn-outline-primary"><i class="fa fa-calendar-minus me-1"></i> Leaves</a>
+    <a th:href="@{/hrm/payroll}"      class="btn btn-sm btn-primary"><i class="fa fa-money-bill-wave me-1"></i> Payroll</a>
+  </div>
+
+  <!-- CALCULATE PANEL -->
+  <div class="panel panel-inverse">
+    <div class="panel-heading">
+      <div class="panel-title">Calculate New Payroll Run</div>
+    </div>
+    <div class="panel-body">
+      <div class="hs-box">
+        <div class="row g-3 align-items-end">
+          <div class="col-md-3 view-group">
+            <input id="prMonth" type="month" class="form-control hs_span_view" required>
+            <label class="input-label">Payroll Month <span class="text-danger">*</span></label>
+          </div>
+          <div class="col-md-3 view-group">
+            <input id="prRunDate" type="date" class="form-control hs_span_view" required>
+            <label class="input-label">Run Date <span class="text-danger">*</span></label>
+          </div>
+          <div class="col-md-3">
+            <button type="button" class="btn btn-primary w-100" onclick="prCalculate()" id="prCalcBtn">
+              <span class="spinner-border spinner-border-sm me-1 d-none" id="prCalcSpinner"></span>
+              <i class="fas fa-calculator me-1"></i> Calculate Payroll
+            </button>
+          </div>
+        </div>
+
+        <!-- PREVIEW TABLE -->
+        <div id="prPreviewArea" class="mt-4 d-none">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <div class="alert alert-info py-2 mb-0 flex-grow-1 me-3">
+              <strong id="prPreviewSummary"></strong>
+            </div>
+            <button type="button" class="btn btn-success" onclick="_prApproveInline()">
+              <i class="fas fa-check-double me-1"></i> Approve Run
+            </button>
+          </div>
+          <div class="table-responsive">
+            <table class="table table-sm table-bordered" id="prLineTable">
+              <thead class="table-light"><tr>
+                <th>#</th><th>Code</th><th>Employee</th><th>Dept</th><th>Designation</th>
+                <th class="text-center">Working</th><th class="text-center">Leave</th><th class="text-center">Absent</th>
+                <th class="text-end">Basic</th><th class="text-end">House Rent</th>
+                <th class="text-end">Medical</th><th class="text-end">Transport</th>
+                <th class="text-end fw-bold">Gross</th>
+                <th class="text-end text-danger">Tax</th><th class="text-end text-danger">PF</th>
+                <th class="text-end fw-bold text-success">Net</th>
+              </tr></thead>
+              <tbody id="prLineBody"></tbody>
+              <tfoot>
+                <tr class="fw-bold bg-light">
+                  <td colspan="12" class="text-end">Totals:</td>
+                  <td id="prTotalGross"  class="text-end fw-bold">0.00</td>
+                  <td id="prTotalTax"    class="text-end text-danger">0.00</td>
+                  <td id="prTotalPF"     class="text-end text-danger">0.00</td>
+                  <td id="prTotalNet"    class="text-end fw-bold text-success">0.00</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PAYROLL RUN HISTORY -->
+  <div class="panel panel-inverse">
+    <div class="panel-heading">
+      <div class="panel-title">Payroll Run History</div>
+      <div class="panel-heading-btn">
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-success" data-toggle="panel-reload"><i class="fa fa-redo"></i></a>
+      </div>
+    </div>
+    <div class="panel-body">
+      <table id="prTable" width="100%" class="table table-striped table-bordered align-middle">
+        <thead><tr>
+          <th width="1%">SL</th><th>Month</th><th>Run Date</th>
+          <th class="text-center">Employees</th>
+          <th class="text-end">Total Gross</th>
+          <th class="text-end text-danger">Total Deductions</th>
+          <th class="text-end text-success">Total Net</th>
+          <th>Approved By</th>
+          <th class="text-center">Status</th>
+          <th class="text-center" width="14%">Actions</th>
+        </tr></thead>
+        <tbody></tbody>
+        <tfoot>
+          <tr class="fw-bold bg-light">
+            <td colspan="4" class="text-end">Page Totals:</td>
+            <td id="ftGross"  class="text-end">0.00</td>
+            <td id="ftDeduc"  class="text-end text-danger">0.00</td>
+            <td id="ftNet"    class="text-end text-success">0.00</td>
+            <td colspan="3"></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+
+  <!-- DETAIL MODAL -->
+  <div tabindex="-1" id="prViewModal" class="modal fade">
+    <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title" id="prViewTitle"><i class="fa fa-money-bill-wave me-1 text-primary"></i> Payroll Run Details</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body" id="prViewBody"></div>
+        <div class="modal-footer"><button type="button" class="btn btn-white" data-bs-dismiss="modal">Close</button></div>
+      </div>
+    </div>
+  </div>
+
+  <script th:inline="none">
+  (function () {
+    'use strict';
+    const BASE='/hrm/payroll';
+    var dt, _pendingRunId=null;
+
+    document.addEventListener('DOMContentLoaded', function () {
+      dt = $('#prTable').DataTable({
+        processing:true,serverSide:false,responsive:true,pageLength:25,
+        ajax:{url:BASE+'/list',type:'GET'},
+        columns:[
+          {data:'sl',orderable:false,width:'40px'},{data:'payroll_month'},
+          {data:'run_date'},{data:'employee_count',className:'text-center'},
+          {data:'total_gross',className:'text-end',render:function(d){ return parseFloat(d||0).toFixed(2); }},
+          {data:'total_deductions',className:'text-end text-danger',render:function(d){ return parseFloat(d||0).toFixed(2); }},
+          {data:'total_net',className:'text-end text-success fw-bold',render:function(d){ return parseFloat(d||0).toFixed(2); }},
+          {data:'approved_by',defaultContent:'—'},
+          {data:'status_badge',orderable:false,className:'text-center'},
+          {data:'actions',orderable:false,className:'text-center'}
+        ],
+        footerCallback:function(){
+          var api=this.api();
+          document.getElementById('ftGross').textContent = api.column(4,{page:'current'}).data().reduce(function(a,b){ return (parseFloat(a)||0)+(parseFloat(b)||0); },0).toFixed(2);
+          document.getElementById('ftDeduc').textContent = api.column(5,{page:'current'}).data().reduce(function(a,b){ return (parseFloat(a)||0)+(parseFloat(b)||0); },0).toFixed(2);
+          document.getElementById('ftNet').textContent   = api.column(6,{page:'current'}).data().reduce(function(a,b){ return (parseFloat(a)||0)+(parseFloat(b)||0); },0).toFixed(2);
+        },
+        language:{emptyTable:'No payroll runs.',processing:'<span class="spinner-border spinner-border-sm me-2"></span> Loading…'}
+      });
+      // Default month = current
+      var now=new Date();
+      document.getElementById('prMonth').value   = now.toISOString().substring(0,7);
+      document.getElementById('prRunDate').value = now.toISOString().substring(0,10);
+    });
+
+    window.prCalculate = function() {
+      var month=document.getElementById('prMonth').value;
+      var runDate=document.getElementById('prRunDate').value;
+      if (!month||!runDate) { Swal.fire('Validation','Please select month and run date.','warning'); return; }
+      var btn=document.getElementById('prCalcBtn'),sp=document.getElementById('prCalcSpinner');
+      sp.classList.remove('d-none'); btn.disabled=true;
+      document.getElementById('prPreviewArea').classList.add('d-none');
+      secureFetch(BASE+'/calculate?payrollMonth='+month+'&runDate='+runDate,{method:'POST'})
+        .then(function(res){
+          if (!res.success) { Swal.fire('Error',res.message,'error'); return; }
+          var o=res.obj.defaultData;
+          _pendingRunId=o.id;
+          document.getElementById('prPreviewSummary').textContent=
+            o.employeeCount+' employees | Gross: '+parseFloat(o.totalGross).toFixed(2)+' | Deductions: '+parseFloat(o.totalDeductions).toFixed(2)+' | Net: '+parseFloat(o.totalNet).toFixed(2);
+          var body=document.getElementById('prLineBody'); body.innerHTML='';
+          var tg=0,tt=0,tpf=0,tn=0;
+          (o.lines||[]).forEach(function(l,i){
+            var g=parseFloat(l.grossSalary||0),tx=parseFloat(l.incomeTax||0),pf=parseFloat(l.providentFund||0),n=parseFloat(l.netSalary||0);
+            tg+=g; tt+=tx; tpf+=pf; tn+=n;
+            body.insertAdjacentHTML('beforeend','<tr>'
+              +'<td>'+(i+1)+'</td>'
+              +'<td><strong>'+l.employeeCode+'</strong></td>'
+              +'<td>'+l.employeeName+'</td>'
+              +'<td>'+(l.departmentName||'—')+'</td>'
+              +'<td>'+(l.designationName||'—')+'</td>'
+              +'<td class="text-center">'+(l.workingDays||'—')+'</td>'
+              +'<td class="text-center">'+(l.leaveDays||'0')+'</td>'
+              +'<td class="text-center text-danger">'+(l.absentDays||'0')+'</td>'
+              +'<td class="text-end">'+parseFloat(l.basicSalary||0).toFixed(2)+'</td>'
+              +'<td class="text-end">'+parseFloat(l.houseRent||0).toFixed(2)+'</td>'
+              +'<td class="text-end">'+parseFloat(l.medicalAllowance||0).toFixed(2)+'</td>'
+              +'<td class="text-end">'+parseFloat(l.transportAllowance||0).toFixed(2)+'</td>'
+              +'<td class="text-end fw-bold">'+g.toFixed(2)+'</td>'
+              +'<td class="text-end text-danger">'+tx.toFixed(2)+'</td>'
+              +'<td class="text-end text-danger">'+pf.toFixed(2)+'</td>'
+              +'<td class="text-end fw-bold text-success">'+n.toFixed(2)+'</td>'
+              +'</tr>');
+          });
+          document.getElementById('prTotalGross').textContent = tg.toFixed(2);
+          document.getElementById('prTotalTax').textContent   = tt.toFixed(2);
+          document.getElementById('prTotalPF').textContent    = tpf.toFixed(2);
+          document.getElementById('prTotalNet').textContent   = tn.toFixed(2);
+          document.getElementById('prPreviewArea').classList.remove('d-none');
+          dt.ajax.reload(null,false);
+        }).catch(function(err){ Swal.fire('Error',err.message||'Calculate failed.','error'); })
+          .finally(function(){ sp.classList.add('d-none'); btn.disabled=false; });
+    };
+
+    window._prApproveInline = function() {
+      if (!_pendingRunId) return;
+      prApprove(_pendingRunId);
+    };
+
+    window.prShow = function(id) {
+      secureFetch(BASE+'/show/'+id).then(function(res){
+        if (!res.success) { Swal.fire('Error',res.message,'error'); return; }
+        var o=res.obj.defaultData;
+        document.getElementById('prViewTitle').innerHTML='<i class="fa fa-money-bill-wave me-1 text-primary"></i> Payroll — '+o.payrollMonth;
+        var html='<div class="hs-box"><div class="row g-2">'
+          +_vf('Month',o.payrollMonth)+_vf('Run Date',o.runDate)
+          +_vf('Status',o.status)+_vf('Employees',o.employeeCount)
+          +_vf('Total Gross',parseFloat(o.totalGross||0).toFixed(2))
+          +_vf('Total Deductions',parseFloat(o.totalDeductions||0).toFixed(2))
+          +_vf('Total Net',parseFloat(o.totalNet||0).toFixed(2))
+          +_vf('Approved By',o.approvedBy||'—')
+          +'</div>'
+          +'<div class="table-responsive mt-3"><table class="table table-sm table-bordered"><thead class="table-light"><tr>'
+          +'<th>#</th><th>Code</th><th>Employee</th><th class="text-end">Gross</th>'
+          +'<th class="text-end text-danger">Tax</th><th class="text-end text-danger">PF</th>'
+          +'<th class="text-end text-success fw-bold">Net</th><th class="text-center">Status</th>'
+          +'</tr></thead><tbody>';
+        (o.lines||[]).forEach(function(l,i){
+          var badge={PENDING:'bg-warning text-dark',PAID:'bg-success',CANCELLED:'bg-secondary'}[l.paymentStatus]||'bg-light text-dark';
+          html+='<tr><td>'+(i+1)+'</td><td>'+l.employeeCode+'</td><td>'+l.employeeName+'</td>'
+            +'<td class="text-end">'+parseFloat(l.grossSalary||0).toFixed(2)+'</td>'
+            +'<td class="text-end text-danger">'+parseFloat(l.incomeTax||0).toFixed(2)+'</td>'
+            +'<td class="text-end text-danger">'+parseFloat(l.providentFund||0).toFixed(2)+'</td>'
+            +'<td class="text-end fw-bold text-success">'+parseFloat(l.netSalary||0).toFixed(2)+'</td>'
+            +'<td class="text-center"><span class="badge '+badge+'">'+l.paymentStatus+'</span></td></tr>';
+        });
+        html+='</tbody></table></div></div>';
+        document.getElementById('prViewBody').innerHTML=html;
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('prViewModal')).show();
+      });
+    };
+
+    window.prApprove = function(id) {
+      Swal.fire({title:'Approve Payroll Run?',text:'All employee salaries will be approved for payment.',icon:'warning',showCancelButton:true,confirmButtonText:'Approve',confirmButtonColor:'#198754'})
+        .then(function(r){ if (!r.isConfirmed) return;
+          secureFetch(BASE+'/approve/'+id,{method:'POST'}).then(function(d){
+            if (d.success) { Swal.fire({icon:'success',title:'Approved!',text:d.message,timer:1800,showConfirmButton:false}); document.getElementById('prPreviewArea').classList.add('d-none'); _pendingRunId=null; dt.ajax.reload(null,false); }
+            else Swal.fire('Error',d.message,'error');
+          });
+        });
+    };
+
+    window.prPay = function(id) {
+      Swal.fire({title:'Mark as PAID?',text:'All payroll lines will be marked PAID.',icon:'question',showCancelButton:true,confirmButtonText:'Mark Paid',confirmButtonColor:'#0d6efd'})
+        .then(function(r){ if (!r.isConfirmed) return;
+          secureFetch(BASE+'/pay/'+id,{method:'POST'}).then(function(d){
+            if (d.success) { Swal.fire({icon:'success',title:'Paid!',text:d.message,timer:1800,showConfirmButton:false}); dt.ajax.reload(null,false); }
+            else Swal.fire('Error',d.message,'error');
+          });
+        });
+    };
+
+    window.prCancel = function(id) {
+      Swal.fire({title:'Cancel Payroll Run?',icon:'warning',showCancelButton:true,confirmButtonText:'Cancel Run',confirmButtonColor:'#dc3545'})
+        .then(function(r){ if (!r.isConfirmed) return;
+          secureFetch(BASE+'/cancel/'+id,{method:'POST'}).then(function(d){
+            if (d.success) { Swal.fire({icon:'info',title:'Cancelled',text:d.message,timer:1400,showConfirmButton:false}); dt.ajax.reload(null,false); }
+            else Swal.fire('Error',d.message,'error');
+          });
+        });
+    };
+
+    function _vf(l,v){ return '<div class="col-md-3 view-group"><label class="view-label">'+l+'</label><span class="form-control hs_span_show">'+(v!=null?v:'—')+'</span></div>'; }
+  })();
+  </script>
+</section>
+</html>

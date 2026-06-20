@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<!--
+  hrm/hrm-designations.html    GET /hrm/designations
+  JS prefix: desig*
+-->
+<html th:replace="~{layout/base :: layout('Designations', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
+<section>
+  <ol class="breadcrumb float-xl-end">
+    <li class="breadcrumb-item"><a th:href="@{/dashboard}">Home</a></li>
+    <li class="breadcrumb-item">HRM</li>
+    <li class="breadcrumb-item active">Designations</li>
+  </ol>
+  <h1 class="page-header">Designations <small>define job titles and grades</small></h1>
+
+  <div class="d-flex gap-2 mb-3 flex-wrap">
+    <a th:href="@{/hrm/designations}" class="btn btn-sm btn-primary"><i class="fa fa-id-badge me-1"></i> Designations</a>
+    <a th:href="@{/hrm/employees}"    class="btn btn-sm btn-outline-primary"><i class="fa fa-users me-1"></i> Employees</a>
+    <a th:href="@{/hrm/attendance}"   class="btn btn-sm btn-outline-primary"><i class="fa fa-calendar-check me-1"></i> Attendance</a>
+    <a th:href="@{/hrm/leaves}"       class="btn btn-sm btn-outline-primary"><i class="fa fa-calendar-minus me-1"></i> Leaves</a>
+    <a th:href="@{/hrm/payroll}"      class="btn btn-sm btn-outline-primary"><i class="fa fa-money-bill-wave me-1"></i> Payroll</a>
+  </div>
+
+  <div class="panel panel-inverse">
+    <div class="panel-heading">
+      <div class="panel-title">
+        <a href="javascript:;" onclick="desigOpenCreate()">
+          <span class="badge btn btn-outline-success"><i class="fa fa-plus me-1"></i> New Designation</span>
+        </a>
+      </div>
+      <div class="panel-heading-btn">
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-default" data-toggle="panel-expand"><i class="fa fa-expand"></i></a>
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-success" data-toggle="panel-reload"><i class="fa fa-redo"></i></a>
+      </div>
+    </div>
+    <div class="panel-body">
+      <table id="desigTable" width="100%" class="table table-striped table-bordered align-middle">
+        <thead><tr>
+          <th width="1%">SL</th><th>Code</th><th>Name</th>
+          <th>Grade</th><th>Description</th>
+          <th class="text-center">Employees</th>
+          <th class="text-center">Status</th>
+          <th class="text-center" width="14%">Actions</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <!-- MODAL -->
+    <div tabindex="-1" id="desigModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="desigModalTitle"><i class="fa fa-id-badge me-1 text-success"></i> New Designation</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <form id="desigForm" novalidate>
+            <div class="modal-body">
+              <div class="hs-box">
+                <input type="hidden" id="desigId">
+                <div class="row g-2">
+                  <div class="col-md-4 view-group">
+                    <input id="desigCode" type="text" class="form-control hs_span_view text-uppercase" maxlength="50" required>
+                    <label class="input-label">Code <span class="text-danger">*</span></label>
+                  </div>
+                  <div class="col-md-4 view-group">
+                    <input id="desigName" type="text" class="form-control hs_span_view" maxlength="200" required>
+                    <label class="input-label">Designation Name <span class="text-danger">*</span></label>
+                  </div>
+                  <div class="col-md-2 view-group">
+                    <input id="desigGrade" type="text" class="form-control hs_span_view" maxlength="20" placeholder="e.g. A1">
+                    <label class="input-label">Grade</label>
+                  </div>
+                  <div class="col-md-2 d-flex align-items-center mt-2">
+                    <div class="form-check form-switch">
+                      <input class="form-check-input" type="checkbox" id="desigActive" checked>
+                      <label class="form-check-label" for="desigActive">Active</label>
+                    </div>
+                  </div>
+                  <div class="col-12 view-group">
+                    <textarea id="desigDesc" class="form-control hs_span_view" rows="2" placeholder="Description…"></textarea>
+                    <label class="input-label">Description</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-success" type="submit" id="desigSubmitBtn">
+                <span class="spinner-border spinner-border-sm me-2 d-none" id="desigSpinner"></span>
+                <span id="desigBtnText">Save</span>
+              </button>
+              <button type="button" class="btn btn-white" data-bs-dismiss="modal">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script th:inline="none">
+  (function () {
+    'use strict';
+    const BASE = '/hrm/designations';
+    var dt;
+    document.addEventListener('DOMContentLoaded', function () {
+      dt = $('#desigTable').DataTable({
+        processing:true,serverSide:false,responsive:true,pageLength:25,
+        ajax:{url:BASE+'/list',type:'GET'},
+        columns:[
+          {data:'sl',orderable:false,width:'40px'},{data:'designation_code'},{data:'designation_name'},
+          {data:'grade',defaultContent:'—'},{data:'description',defaultContent:'—'},
+          {data:'emp_count',className:'text-center'},
+          {data:'status_badge',orderable:false,className:'text-center'},
+          {data:'actions',orderable:false,className:'text-center'}
+        ],
+        language:{emptyTable:'No designations.',processing:'<span class="spinner-border spinner-border-sm me-2"></span> Loading…'}
+      });
+      document.getElementById('desigForm').addEventListener('submit',_onSubmit);
+    });
+
+    window.desigOpenCreate = function() {
+      document.getElementById('desigForm').reset();
+      document.getElementById('desigId').value='';
+      document.getElementById('desigActive').checked=true;
+      document.getElementById('desigModalTitle').innerHTML='<i class="fa fa-plus me-1 text-success"></i> New Designation';
+      document.getElementById('desigBtnText').textContent='Save';
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('desigModal')).show();
+    };
+    window.desigEdit = function(id) {
+      secureFetch(BASE+'/show/'+id).then(function(res){
+        if (!res.success) { Swal.fire('Error',res.message,'error'); return; }
+        var o=res.obj.defaultData;
+        document.getElementById('desigForm').reset();
+        document.getElementById('desigId').value=o.id;
+        document.getElementById('desigCode').value=o.designationCode||'';
+        document.getElementById('desigName').value=o.designationName||'';
+        document.getElementById('desigGrade').value=o.grade||'';
+        document.getElementById('desigDesc').value=o.description||'';
+        document.getElementById('desigActive').checked=o.active!==false;
+        document.getElementById('desigModalTitle').innerHTML='<i class="fa fa-pencil me-1 text-warning"></i> Edit Designation';
+        document.getElementById('desigBtnText').textContent='Update';
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('desigModal')).show();
+      });
+    };
+    window.desigToggle = function(id) { hsChangeStatus(BASE+'/toggle/'+id,dt,'Designation'); };
+    window.desigDelete = function(id) { hsConfirmDelete(BASE+'/delete/'+id,dt); };
+    function _onSubmit(e) {
+      e.preventDefault();
+      var sb=document.getElementById('desigSubmitBtn'),sp=document.getElementById('desigSpinner'),bt=document.getElementById('desigBtnText');
+      hsDisableButton(sb,sp,bt);
+      secureFetch(BASE+'/save',{method:'POST',body:JSON.stringify({
+        id             : document.getElementById('desigId').value||null,
+        designationCode: document.getElementById('desigCode').value,
+        designationName: document.getElementById('desigName').value,
+        grade          : document.getElementById('desigGrade').value||null,
+        description    : document.getElementById('desigDesc').value||null,
+        active         : document.getElementById('desigActive').checked
+      })}).then(function(d){
+        if (d.success) { hsAfterSaveMessages(d,dt); bootstrap.Modal.getOrCreateInstance(document.getElementById('desigModal')).hide(); }
+        else Swal.fire('Error',d.message,'error');
+      }).catch(function(err){ Swal.fire('Error',err.message||'Request failed.','error'); })
+        .finally(function(){ hsEnableButton(sb,sp,bt); });
+    }
+  })();
+  </script>
+</section>
+</html>
