@@ -4,7 +4,7 @@
   JS fns: adjShow / adjEdit / adjDelete / adjOpenCreate
   + inline confirm / cancel buttons on each row
 
-  ITEM SELECT  → AJAX Select2 via /items/search
+  ITEM SELECT  → AJAX Select2 via /inventory/items/search
   Each line row dynamically creates a <select class="item-select2">
   that is initialised with initItemS2(el, preId, preText) immediately
   after insertion. On form-collect, the hidden input [data-field="itemId"]
@@ -133,7 +133,7 @@
   (function () {
     'use strict';
     const BASE      = '/inventory/adjustments';
-    const ITEM_URL  = '/items/search';
+    const ITEM_URL  = '/inventory/items/search';
     var dt;
     var _lineCount  = 0;
 

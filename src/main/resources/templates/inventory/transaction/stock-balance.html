@@ -4,7 +4,7 @@
   Shows current stock position per item × warehouse × lot.
   Also provides link to full transaction ledger.
 
-  ITEM FILTER → AJAX Select2 via /items/search
+  ITEM FILTER → AJAX Select2 via /inventory/items/search
 -->
 <html th:replace="~{layout/base :: layout('Stock Balance', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
 <section>
@@ -83,7 +83,7 @@
   (function () {
     'use strict';
     const BASE     = '/inventory/stocks';
-    const ITEM_URL = '/items/search';
+    const ITEM_URL = '/inventory/items/search';
     var dt, _whId = null, _itemId = null;
 
     document.addEventListener('DOMContentLoaded', function () {

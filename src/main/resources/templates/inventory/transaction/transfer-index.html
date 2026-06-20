@@ -4,7 +4,7 @@
   JS fns: trShow / trEdit / trDelete / trOpenCreate
   + inline confirm / cancel buttons on each row
 
-  ITEM SELECT → AJAX Select2 via /items/search (same pattern as adjustment-index).
+  ITEM SELECT → AJAX Select2 via /inventory/items/search (same pattern as adjustment-index).
 -->
 <html th:replace="~{layout/base :: layout('Stock Transfers', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
 <section>
@@ -148,7 +148,7 @@
   (function () {
     'use strict';
     const BASE     = '/inventory/transfers';
-    const ITEM_URL = '/items/search';
+    const ITEM_URL = '/inventory/items/search';
     var dt;
     var _lineCount = 0;
 

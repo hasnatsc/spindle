@@ -3,7 +3,7 @@
   inventory/stock-ledger.html    GET /inventory/stocks/ledger
   Full inventory transaction history with date / item / warehouse filters.
 
-  ITEM FILTER → AJAX Select2 via /items/search
+  ITEM FILTER → AJAX Select2 via /inventory/items/search
 -->
 <html th:replace="~{layout/base :: layout('Stock Ledger', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
 <section>
@@ -67,7 +67,7 @@
   (function () {
     'use strict';
     const BASE     = '/inventory/stocks/ledger';
-    const ITEM_URL = '/items/search';
+    const ITEM_URL = '/inventory/items/search';
     var dt, _whId = null, _itemId = null, _from = null, _to = null;
 
     document.addEventListener('DOMContentLoaded', function () {
