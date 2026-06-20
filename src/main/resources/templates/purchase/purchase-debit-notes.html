@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<!--
+  purchase/purchase-debit-notes.html    GET /purchase/debit-notes
+  documentType = DEBIT_NOTE
+  JS prefix: dn
+  Cascade: created from Purchase Invoice
+-->
+<html th:replace="~{layout/base :: layout('Debit Notes', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
+<section>
+
+  <ol class="breadcrumb float-xl-end">
+    <li class="breadcrumb-item"><a th:href="@{/dashboard}">Home</a></li>
+    <li class="breadcrumb-item">Purchase</li>
+    <li class="breadcrumb-item active">Debit Notes</li>
+  </ol>
+  <h1 class="page-header">Debit Notes <small>return goods to supplier / adjust payables</small></h1>
+
+  <div class="d-flex gap-2 mb-3 flex-wrap">
+    <a th:href="@{/purchase/orders}"      class="btn btn-sm btn-outline-primary"><i class="fa fa-file-alt me-1"></i> PO</a>
+    <i class="fas fa-angle-right align-self-center text-muted"></i>
+    <a th:href="@{/purchase/grns}"        class="btn btn-sm btn-outline-primary"><i class="fa fa-clipboard-check me-1"></i> GRN</a>
+    <i class="fas fa-angle-right align-self-center text-muted"></i>
+    <a th:href="@{/purchase/invoices}"    class="btn btn-sm btn-outline-primary"><i class="fa fa-file-invoice me-1"></i> Invoices</a>
+    <i class="fas fa-angle-right align-self-center text-muted"></i>
+    <a th:href="@{/purchase/debit-notes}" class="btn btn-sm btn-danger"><i class="fa fa-file-minus me-1"></i> Debit Notes</a>
+  </div>
+
+  <div class="panel panel-inverse">
+    <div class="panel-heading">
+      <div class="panel-title">
+        <a href="javascript:;" onclick="dnOpenCreate()">
+          <span class="badge btn btn-outline-success"><i class="fa fa-plus me-1"></i> New Debit Note</span>
+        </a>
+      </div>
+      <div class="panel-heading-btn">
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-default" data-toggle="panel-expand"><i class="fa fa-expand"></i></a>
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-success" data-toggle="panel-reload"><i class="fa fa-redo"></i></a>
+      </div>
+    </div>
+    <div class="panel-body">
+      <table id="dnTable" width="100%" class="table table-striped table-bordered align-middle">
+        <thead><tr>
+          <th width="1%">SL</th><th>DN No</th><th>Date</th>
+          <th>Supplier</th><th>Warehouse</th>
+          <th class="text-end">Total</th>
+          <th class="text-center">Stock</th>
+          <th class="text-center">Status</th>
+          <th class="text-center" width="15%">Actions</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <!-- DEBIT NOTE MODAL -->
+    <div tabindex="-1" id="dnModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="dnModalTitle"><i class="fa fa-file-minus me-1 text-danger"></i> New Debit Note</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <form id="dnForm" novalidate>
+            <div class="modal-body">
+              <div class="hs-box">
+                <input type="hidden" id="dnId">
+                <input type="hidden" id="dnParentId">
+                <div class="row g-2 mb-3">
+                  <div class="col-md-3 view-group">
+                    <input id="dnNo" type="text" class="form-control hs_span_view bg-light" readonly placeholder="Auto">
+                    <label class="input-label">DN Number</label>
+                  </div>
+                  <div class="col-md-3 view-group">
+                    <input id="dnDate" type="date" class="form-control hs_span_view" required>
+                    <label class="input-label">Return Date <span class="text-danger">*</span></label>
+                  </div>
+                  <div class="col-md-3 view-group">
+                    <input id="dnRef" type="text" class="form-control hs_span_view" maxlength="100">
+                    <label class="input-label">Reference No</label>
+                  </div>
+                  <div class="col-md-3 view-group">
+                    <input id="dnInvRef" type="text" class="form-control hs_span_view bg-light" readonly placeholder="—">
+                    <label class="input-label">Against Invoice</label>
+                  </div>
+                  <div class="col-md-6 view-group">
+                    <select id="dnSupplierId" class="form-select hs_span_view"></select>
+                    <label class="input-label">Supplier <span class="text-danger">*</span></label>
+                  </div>
+                  <div class="col-md-6 view-group">
+                    <select id="dnWarehouseId" class="form-select hs_span_view" required></select>
+                    <label class="input-label">Return From Warehouse <span class="text-danger">*</span></label>
+                  </div>
+                  <div class="col-12 view-group">
+                    <textarea id="dnRemarks" class="form-control hs_span_view" rows="1" placeholder="Return reason…"></textarea>
+                    <label class="input-label">Remarks / Return Reason</label>
+                  </div>
+                </div>
+
+                <div class="alert alert-danger py-2 mb-2">
+                  <i class="fas fa-arrow-circle-up me-1"></i>
+                  Confirming will <strong>return stock OUT</strong> from warehouse and <strong>reduce supplier payable</strong>.
+                </div>
+
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                  <strong>Return Lines</strong>
+                  <button type="button" class="btn btn-sm btn-outline-danger" onclick="dnAddLine()"><i class="fa fa-plus me-1"></i> Add Line</button>
+                </div>
+                <div class="table-responsive">
+                  <table class="table table-sm table-bordered">
+                    <thead class="table-light"><tr>
+                      <th>#</th><th width="28%">Item</th><th>UOM</th>
+                      <th>Return Qty <span class="text-danger">*</span></th>
+                      <th>Unit Price</th><th>Amount</th>
+                      <th>Lot</th><th>Reason</th><th></th>
+                    </tr></thead>
+                    <tbody id="dnLineBody"></tbody>
+                    <tfoot><tr class="fw-bold bg-light">
+                      <td colspan="5" class="text-end">Total:</td>
+                      <td id="dnTotal" class="text-end text-danger">0.00</td>
+                      <td colspan="3"></td>
+                    </tr></tfoot>
+                  </table>
+                </div>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-danger" type="submit" id="dnSubmitBtn">
+                <span class="spinner-border spinner-border-sm me-2 d-none" id="dnSpinner"></span>
+                <span id="dnBtnText">Save Draft</span>
+              </button>
+              <button type="button" class="btn btn-white" data-bs-dismiss="modal">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- VIEW MODAL -->
+    <div tabindex="-1" id="dnViewModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header"><h5 class="modal-title"><i class="fa fa-file-minus me-1 text-danger"></i> Debit Note Details</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+          <div class="modal-body" id="dnViewBody"></div>
+          <div class="modal-footer"><button type="button" class="btn btn-white" data-bs-dismiss="modal">Close</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script th:inline="none">
+  (function () {
+    'use strict';
+    const BASE    = '/purchase/docs';
+    const DOC_TYPE = 'DEBIT_NOTE';
+    const SUB_URL  = '/accounts/sub-accounts/search';
+    const ITEM_URL = '/items/search';
+    var dt, _lineCount = 0;
+
+    document.addEventListener('DOMContentLoaded', function () {
+      dt = $('#dnTable').DataTable({
+        processing: true, serverSide: false, responsive: true, pageLength: 25,
+        ajax: { url: BASE + '/list?documentType=' + DOC_TYPE, type: 'GET' },
+        columns: [
+          { data: 'sl', orderable: false, width: '40px' },
+          { data: 'document_no', defaultContent: '—' }, { data: 'document_date' },
+          { data: 'supplier_name',  defaultContent: '—' },
+          { data: 'warehouse_name', defaultContent: '—' },
+          { data: 'total_amount',   className: 'text-end fw-bold text-danger', render: function(d){ return parseFloat(d||0).toFixed(2); }},
+          { data: 'stock_posted', className: 'text-center',
+            render: function(d){ return d ? '<span class="badge bg-danger">Returned</span>' : '<span class="badge bg-secondary">Pending</span>'; }},
+          { data: 'status_badge',   orderable: false, className: 'text-center' },
+          { data: 'actions',        orderable: false, className: 'text-center' }
+        ],
+        language: { emptyTable: 'No debit notes.', processing: '<span class="spinner-border spinner-border-sm me-2"></span> Loading…' }
+      });
+      document.getElementById('dnDate').value = new Date().toISOString().substring(0,10);
+      document.getElementById('dnForm').addEventListener('submit', _onSubmit);
+      _initSupplierS2(null, null);
+      _loadWarehouses();
+
+      // Check for cascade from Invoice
+      var pending = sessionStorage.getItem('pendingPurchaseDoc');
+      if (pending) {
+        sessionStorage.removeItem('pendingPurchaseDoc');
+        try { var data = JSON.parse(pending); if (data.documentType === 'DEBIT_NOTE') _openWithData(data); } catch(e){}
+      }
+    });
+
+    function _initSupplierS2(preId, preText) {
+      var $el = $('#dnSupplierId');
+      if ($el.hasClass('select2-hidden-accessible')) $el.select2('destroy');
+      $el.select2({
+        dropdownParent: $('#dnModal'), width: '100%', placeholder: '— Search Supplier —', allowClear: true, minimumInputLength: 0,
+        ajax: { url: SUB_URL, dataType: 'json', delay: 250,
+          data: function(p){ return { search: p.term||'', subAccountType:'SUPPLIER', page: p.page||1 }; },
+          processResults: function(data, p){ p.page=p.page||1; return { results:(data.items||[]).map(function(i){return{id:i.id,text:i.text};}), pagination:{more:data.hasMore||false} }; },
+          cache: false },
+        templateResult: function(r){ return r.text; }, templateSelection: function(r){ return r.text||r.id; }
+      });
+      if (preId) $el.append(new Option(preText||'', preId, true, true)).trigger('change');
+    }
+
+    function _loadWarehouses() {
+      secureFetch('/warehouses/active').then(function(data) {
+        var sel = document.getElementById('dnWarehouseId');
+        sel.innerHTML = '<option value="">— Select Warehouse —</option>';
+        (data||[]).forEach(function(w){ var o=document.createElement('option'); o.value=w.id; o.textContent=w.name+' ('+(w.code||'')+')'; sel.appendChild(o); });
+      });
+    }
+
+    function _initItemS2(el, preId, preText) {
+      var $el=$(el);
+      if ($el.hasClass('select2-hidden-accessible')) $el.select2('destroy');
+      $el.select2({
+        dropdownParent: $('#dnModal'), width: '100%', placeholder: '— Item —', allowClear: true, minimumInputLength: 0,
+        ajax: { url: ITEM_URL, dataType: 'json', delay: 250,
+          data: function(p){ return { search: p.term||'', page: p.page||1 }; },
+          processResults: function(data, p){ p.page=p.page||1; return { results:(data.items||[]).map(function(i){return{id:i.id,text:i.text,uom:i.uom};}), pagination:{more:data.hasMore||false} }; },
+          cache: true },
+        templateResult: function(r){ return r.text; }, templateSelection: function(r){ return r.text||r.id; }
+      });
+      if (preId) $el.append(new Option(preText||'', preId, true, true)).trigger('change');
+      $el.on('select2:select', function(e){ var tr=el.closest('tr'),d=e.params.data; tr.querySelector('[data-field="itemId"]').value=d.id||''; tr.querySelector('[data-field="unitCode"]').value=d.uom||''; dnCalcLine(tr); });
+      $el.on('select2:clear', function(){ var tr=el.closest('tr'); tr.querySelector('[data-field="itemId"]').value=''; });
+    }
+
+    function _openWithData(data) {
+      _resetForm();
+      document.getElementById('dnParentId').value = data.parentDocumentId||'';
+      document.getElementById('dnInvRef').value   = data.parentDocumentNo ||'';
+      document.getElementById('dnDate').value     = data.documentDate     ||new Date().toISOString().substring(0,10);
+      _initSupplierS2(data.partyId, data.partyDisplay);
+      if (data.warehouseId) document.getElementById('dnWarehouseId').value = data.warehouseId;
+      (data.lines||[]).forEach(function(l){ dnAddLine(l); });
+      dnRecalcTotal();
+      document.getElementById('dnModalTitle').innerHTML = '<i class="fa fa-file-minus me-1 text-danger"></i> Debit Note against '+(data.parentDocumentNo||'');
+      document.getElementById('dnBtnText').textContent  = 'Save Draft';
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('dnModal')).show();
+    }
+
+    window.dnOpenCreate = function() {
+      _resetForm();
+      document.getElementById('dnModalTitle').innerHTML = '<i class="fa fa-plus me-1 text-danger"></i> New Debit Note';
+      document.getElementById('dnBtnText').textContent  = 'Save Draft';
+      dnAddLine();
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('dnModal')).show();
+    };
+
+    window.dnAddLine = function(data) {
+      _lineCount++;
+      var n = _lineCount;
+      var html = '<tr id="dnLine_'+n+'">'
+        + '<td>'+n+'</td>'
+        + '<td><input type="hidden" data-field="itemId" value="'+(data?data.itemId||'':'')+'"><input type="hidden" data-field="lotId" value="'+(data?data.lotId||'':'')+'"><input type="hidden" data-field="sourceLineId" value="'+(data?data.sourceLineId||'':'')+'"><select class="form-select form-select-sm dn-item-s2"></select></td>'
+        + '<td><input type="text" class="form-control form-control-sm" data-field="unitCode" value="'+(data?data.unitCode||':'':'') + '" readonly></td>'
+        + '<td><input type="number" step="0.001" min="0" class="form-control form-control-sm text-end" data-field="quantity" value="'+(data?data.quantity||'':'') + '" oninput="dnCalcLine(this.closest(\'tr\'))" required></td>'
+        + '<td><input type="number" step="0.0001" class="form-control form-control-sm text-end" data-field="unitPrice" value="'+(data?data.unitPrice||'':'') + '" oninput="dnCalcLine(this.closest(\'tr\'))"></td>'
+        + '<td><input type="text" class="form-control form-control-sm text-end bg-light" data-field="lineAmount" readonly value="'+(data?data.lineAmount||'0.00':'0.00')+'"></td>'
+        + '<td><small class="text-muted">'+(data?data.lotNumber||'—':'—')+'</small></td>'
+        + '<td><input type="text" class="form-control form-control-sm" data-field="remarks" value="'+(data?data.remarks||'':'') + '" placeholder="Reason…"></td>'
+        + '<td><button type="button" class="btn btn-sm btn-outline-danger" onclick="dnRemoveLine('+n+')"><i class="fa fa-times"></i></button></td>'
+        + '</tr>';
+      document.getElementById('dnLineBody').insertAdjacentHTML('beforeend', html);
+      var sel=document.querySelector('#dnLine_'+n+' .dn-item-s2');
+      _initItemS2(sel, data?data.itemId:null, data?(data.itemCode||'')+(data.itemName?' — '+data.itemName:''):null);
+    };
+    window.dnRemoveLine = function(n){ var r=document.getElementById('dnLine_'+n); if(r){ var s=r.querySelector('.dn-item-s2'); if(s&&$(s).hasClass('select2-hidden-accessible')) $(s).select2('destroy'); r.remove(); } dnRecalcTotal(); };
+    window.dnCalcLine  = function(tr){ var q=parseFloat(tr.querySelector('[data-field="quantity"]').value)||0; var p=parseFloat(tr.querySelector('[data-field="unitPrice"]').value)||0; tr.querySelector('[data-field="lineAmount"]').value=(q*p).toFixed(2); dnRecalcTotal(); };
+    window.dnRecalcTotal = function(){ var t=0; document.querySelectorAll('#dnLineBody tr').forEach(function(tr){ t+=parseFloat(tr.querySelector('[data-field="lineAmount"]').value)||0; }); document.getElementById('dnTotal').textContent=t.toFixed(2); };
+
+    window.dnShow = function(id) {
+      secureFetch(BASE + '/show/' + id).then(function(res) {
+        if (!res.success) { Swal.fire('Error',res.message,'error'); return; }
+        var o=res.obj.defaultData;
+        var html='<div class="hs-box"><div class="row g-2">'
+          + _vf('DN No',o.documentNo||'—') + _vf('Date',o.documentDate) + _vf('Status',o.status)
+          + _vf('Supplier',o.partyDisplay||'—') + _vf('Warehouse',o.warehouseDisplay||'—')
+          + _vf('Total',parseFloat(o.totalAmount||0).toFixed(2))
+          + _vf('Stock Returned',o.stockPosted?'Yes':'No')
+          + _vf('Against Invoice',o.parentDocumentNo||'—')
+          + '</div><table class="table table-sm table-bordered mt-3"><thead class="table-light"><tr>'
+          + '<th>#</th><th>Item</th><th>UOM</th><th class="text-end">Return Qty</th><th class="text-end">Unit Price</th><th class="text-end">Amount</th><th>Lot</th></tr></thead><tbody>';
+        (o.lines||[]).forEach(function(l,i){ html+='<tr><td>'+(i+1)+'</td><td>'+(l.itemCode||'')+(l.itemName?' — '+l.itemName:'')+'</td><td>'+(l.unitCode||'—')+'</td><td class="text-end">'+parseFloat(l.quantity||0).toFixed(3)+'</td><td class="text-end">'+parseFloat(l.unitPrice||0).toFixed(4)+'</td><td class="text-end text-danger fw-bold">'+parseFloat(l.lineAmount||0).toFixed(2)+'</td><td>'+(l.lotNumber||'—')+'</td></tr>'; });
+        html+='</tbody></table></div>';
+        document.getElementById('dnViewBody').innerHTML=html;
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('dnViewModal')).show();
+      });
+    };
+    window.dnEdit = function(id) {
+      secureFetch(BASE + '/show/' + id).then(function(res) {
+        if (!res.success) { Swal.fire('Error',res.message,'error'); return; }
+        var o=res.obj.defaultData; _resetForm();
+        document.getElementById('dnId').value       = o.id;
+        document.getElementById('dnParentId').value = o.parentDocumentId||'';
+        document.getElementById('dnInvRef').value   = o.parentDocumentNo||'';
+        document.getElementById('dnNo').value       = o.documentNo||'';
+        document.getElementById('dnDate').value     = o.documentDate||'';
+        document.getElementById('dnRef').value      = o.referenceNo||'';
+        document.getElementById('dnRemarks').value  = o.remarks||'';
+        _initSupplierS2(o.partyId, o.partyDisplay);
+        if (o.warehouseId) document.getElementById('dnWarehouseId').value = o.warehouseId;
+        (o.lines||[]).forEach(function(l){ dnAddLine(l); });
+        dnRecalcTotal();
+        document.getElementById('dnModalTitle').innerHTML='<i class="fa fa-pencil me-1 text-warning"></i> Edit Debit Note';
+        document.getElementById('dnBtnText').textContent='Update';
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('dnModal')).show();
+      });
+    };
+    window.dnConfirm = function(id) {
+      Swal.fire({ title:'Confirm Debit Note?', text:'Stock will be returned OUT from warehouse and supplier payable reduced.',
+        icon:'warning', showCancelButton:true, confirmButtonText:'Yes, Confirm!', confirmButtonColor:'#dc3545' })
+        .then(function(r){ if (!r.isConfirmed) return;
+          secureFetch(BASE + '/confirm/' + id, { method:'POST' }).then(function(d){
+            if (d.success) { Swal.fire({ icon:'success', title:'Confirmed!', text:d.message, timer:1800, showConfirmButton:false }); dt.ajax.reload(null,false); }
+            else { Swal.fire('Error',d.message,'error'); } }); });
+    };
+    window.dnCancel = function(id) {
+      Swal.fire({ title:'Cancel Debit Note?', icon:'warning', showCancelButton:true, confirmButtonColor:'#dc3545', confirmButtonText:'Cancel DN' })
+        .then(function(r){ if (!r.isConfirmed) return;
+          secureFetch(BASE + '/cancel/' + id, { method:'POST' }).then(function(d){
+            if (d.success) { Swal.fire({ icon:'success', timer:1400, title:'Cancelled', text:d.message, showConfirmButton:false }); dt.ajax.reload(null,false); }
+            else { Swal.fire('Error',d.message,'error'); } }); });
+    };
+    window.dnDelete = function(id) { hsConfirmDelete(BASE + '/delete/' + id, dt); };
+
+    function _onSubmit(e) {
+      e.preventDefault();
+      var sb=document.getElementById('dnSubmitBtn'),sp=document.getElementById('dnSpinner'),bt=document.getElementById('dnBtnText');
+      hsDisableButton(sb,sp,bt);
+      secureFetch(BASE + '/save', { method:'POST', body: JSON.stringify({
+        id              : document.getElementById('dnId').value||null,
+        documentType    : 'DEBIT_NOTE',
+        documentDate    : document.getElementById('dnDate').value,
+        referenceNo     : document.getElementById('dnRef').value||null,
+        partyId         : $('#dnSupplierId').val()||null,
+        warehouseId     : document.getElementById('dnWarehouseId').value||null,
+        remarks         : document.getElementById('dnRemarks').value||null,
+        parentDocumentId: document.getElementById('dnParentId').value||null,
+        lines           : _collectLines()
+      })}).then(function(d){
+        if (d.success) { document.getElementById('dnId').value=d.id||''; hsAfterSaveMessages(d,dt); bootstrap.Modal.getOrCreateInstance(document.getElementById('dnModal')).hide(); }
+        else { Swal.fire('Error',d.message,'error'); }
+      }).catch(function(err){ Swal.fire('Error',err.message||'Request failed.','error'); })
+        .finally(function(){ hsEnableButton(sb,sp,bt); });
+    }
+
+    function _collectLines() {
+      var lines=[];
+      document.querySelectorAll('#dnLineBody tr').forEach(function(tr,idx){
+        var itemId=tr.querySelector('[data-field="itemId"]').value; if (!itemId) return;
+        lines.push({ lineNumber:idx+1, sourceLineId:tr.querySelector('[data-field="sourceLineId"]').value||null,
+          itemId, lotId:tr.querySelector('[data-field="lotId"]').value||null,
+          unitCode:tr.querySelector('[data-field="unitCode"]').value||null,
+          quantity:parseFloat(tr.querySelector('[data-field="quantity"]').value)||null,
+          unitPrice:parseFloat(tr.querySelector('[data-field="unitPrice"]').value)||null,
+          lineAmount:parseFloat(tr.querySelector('[data-field="lineAmount"]').value)||0,
+          remarks:tr.querySelector('[data-field="remarks"]').value||null });
+      });
+      return lines;
+    }
+
+    function _resetForm() {
+      document.querySelectorAll('.dn-item-s2').forEach(function(el){ if($(el).hasClass('select2-hidden-accessible')) $(el).select2('destroy'); });
+      document.getElementById('dnForm').reset(); document.getElementById('dnId').value=''; document.getElementById('dnParentId').value='';
+      document.getElementById('dnLineBody').innerHTML=''; document.getElementById('dnTotal').textContent='0.00'; _lineCount=0;
+      document.getElementById('dnDate').value=new Date().toISOString().substring(0,10);
+      _initSupplierS2(null,null);
+    }
+
+    function _vf(label,value){ return '<div class="col-md-4 view-group"><label class="view-label">'+label+'</label><span class="form-control hs_span_show">'+(value!=null?value:'—')+'</span></div>'; }
+  })();
+  </script>
+</section>
+</html>

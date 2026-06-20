@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<!--
+  purchase/purchase-orders.html    GET /purchase/orders
+  documentType = PURCHASE_ORDER
+  JS prefix: po
+  Cascade: "Create GRN" button on CONFIRMED rows → createGRNFromPO(id)
+-->
+<html th:replace="~{layout/base :: layout('Purchase Orders', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
+<section>
+
+  <ol class="breadcrumb float-xl-end">
+    <li class="breadcrumb-item"><a th:href="@{/dashboard}">Home</a></li>
+    <li class="breadcrumb-item">Purchase</li>
+    <li class="breadcrumb-item active">Purchase Orders</li>
+  </ol>
+  <h1 class="page-header">Purchase Orders <small>order stock from suppliers</small></h1>
+
+  <!-- ── PURCHASE CYCLE NAVIGATOR ───────────────────────────────────────── -->
+  <div class="d-flex gap-2 mb-3 flex-wrap">
+    <a th:href="@{/purchase/orders}"      class="btn btn-sm btn-primary"><i class="fa fa-file-alt me-1"></i> Purchase Orders</a>
+    <i class="fas fa-angle-right align-self-center text-muted"></i>
+    <a th:href="@{/purchase/grns}"        class="btn btn-sm btn-outline-primary"><i class="fa fa-clipboard-check me-1"></i> GRN</a>
+    <i class="fas fa-angle-right align-self-center text-muted"></i>
+    <a th:href="@{/purchase/invoices}"    class="btn btn-sm btn-outline-primary"><i class="fa fa-file-invoice me-1"></i> Invoices</a>
+    <i class="fas fa-angle-right align-self-center text-muted"></i>
+    <a th:href="@{/purchase/debit-notes}" class="btn btn-sm btn-outline-danger"><i class="fa fa-file-minus me-1"></i> Debit Notes</a>
+  </div>
+
+  <div class="panel panel-inverse">
+    <div class="panel-heading">
+      <div class="panel-title">
+        <a href="javascript:;" onclick="poOpenCreate()">
+          <span class="badge btn btn-outline-success"><i class="fa fa-plus me-1"></i> New PO</span>
+        </a>
+      </div>
+      <div class="panel-heading-btn">
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-default" data-toggle="panel-expand"><i class="fa fa-expand"></i></a>
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-success" data-toggle="panel-reload"><i class="fa fa-redo"></i></a>
+      </div>
+    </div>
+    <div class="panel-body">
+      <table id="poTable" width="100%" class="table table-striped table-bordered align-middle">
+        <thead><tr>
+          <th width="1%">SL</th><th>PO No</th><th>Date</th>
+          <th>Supplier</th><th class="text-end">Total</th>
+          <th>Reference</th><th>Created By</th>
+          <th class="text-center">Status</th>
+          <th class="text-center" width="17%">Actions</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <!-- ── CREATE / EDIT MODAL ──────────────────────────────────────────── -->
+    <div tabindex="-1" id="poModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="poModalTitle"><i class="fa fa-file-alt me-1 text-success"></i> New Purchase Order</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <form id="poForm" novalidate>
+            <div class="modal-body">
+              <div class="hs-box">
+                <input type="hidden" id="poId">
+                <input type="hidden" id="poParentId">
+                <input type="hidden" id="poDocType" value="PURCHASE_ORDER">
+
+                <!-- HEADER SECTION -->
+                <h6 class="text-muted border-bottom pb-1 mb-2">Order Details</h6>
+                <div class="row g-2 mb-3">
+                  <div class="col-md-3 view-group">
+                    <input id="poNo" type="text" class="form-control hs_span_view bg-light" readonly placeholder="Auto-generated">
+                    <label class="input-label">PO Number</label>
+                  </div>
+                  <div class="col-md-3 view-group">
+                    <input id="poDate" type="date" class="form-control hs_span_view" required>
+                    <label class="input-label">Date <span class="text-danger">*</span></label>
+                  </div>
+                  <div class="col-md-3 view-group">
+                    <input id="poNoManual" type="text" class="form-control hs_span_view" maxlength="100">
+                    <label class="input-label">Manual PO No</label>
+                  </div>
+                  <div class="col-md-3 view-group">
+                    <input id="poRef" type="text" class="form-control hs_span_view" maxlength="100">
+                    <label class="input-label">Reference No</label>
+                  </div>
+
+                  <!-- Supplier AJAX S2 -->
+                  <div class="col-md-6 view-group">
+                    <select id="poSupplierId" class="form-select hs_span_view"></select>
+                    <label class="input-label">Supplier <span class="text-danger">*</span></label>
+                  </div>
+
+                  <!-- Warehouse AJAX S2 -->
+                  <div class="col-md-6 view-group">
+                    <select id="poWarehouseId" class="form-select hs_span_view"></select>
+                    <label class="input-label">Delivery Warehouse</label>
+                  </div>
+
+                  <div class="col-md-3 view-group">
+                    <input id="poRequiredDate" type="date" class="form-control hs_span_view">
+                    <label class="input-label">Required Date</label>
+                  </div>
+                  <div class="col-md-3 view-group">
+                    <input id="poValidityDate" type="date" class="form-control hs_span_view">
+                    <label class="input-label">Validity Date</label>
+                  </div>
+                  <div class="col-md-3 view-group">
+                    <input id="poCurrency" type="text" class="form-control hs_span_view" maxlength="10" placeholder="BDT">
+                    <label class="input-label">Currency</label>
+                  </div>
+                  <div class="col-md-3 view-group">
+                    <input id="poExRate" type="number" step="0.0001" class="form-control hs_span_view text-end" placeholder="1.0000">
+                    <label class="input-label">Exchange Rate</label>
+                  </div>
+                  <div class="col-12 view-group">
+                    <textarea id="poRemarks" class="form-control hs_span_view" rows="2" placeholder="Remarks / Terms…"></textarea>
+                    <label class="input-label">Remarks</label>
+                  </div>
+                </div>
+
+                <!-- LINES TABLE -->
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                  <strong>Order Lines</strong>
+                  <button type="button" class="btn btn-sm btn-outline-primary" onclick="poAddLine()">
+                    <i class="fa fa-plus me-1"></i> Add Line
+                  </button>
+                </div>
+                <div class="table-responsive">
+                  <table class="table table-sm table-bordered align-middle">
+                    <thead class="table-light"><tr>
+                      <th width="3%">#</th>
+                      <th width="30%">Item <span class="text-danger">*</span></th>
+                      <th width="8%">UOM</th>
+                      <th width="10%">Qty <span class="text-danger">*</span></th>
+                      <th width="11%">Unit Price</th>
+                      <th width="8%">Discount</th>
+                      <th width="8%">Tax</th>
+                      <th width="11%">Line Amount</th>
+                      <th width="7%">Req. Date</th>
+                      <th width="4%"></th>
+                    </tr></thead>
+                    <tbody id="poLineBody"></tbody>
+                    <tfoot>
+                      <tr class="fw-bold bg-light">
+                        <td colspan="7" class="text-end">Total:</td>
+                        <td id="poLineTotal" class="text-end">0.00</td>
+                        <td colspan="2"></td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+
+                <!-- TOTALS SUMMARY -->
+                <div class="row justify-content-end mt-2 g-1">
+                  <div class="col-md-4">
+                    <table class="table table-sm table-bordered mb-0">
+                      <tr><td class="text-end">Subtotal</td><td class="text-end fw-bold" id="poSubtotal">0.00</td></tr>
+                      <tr><td class="text-end">Discount</td>
+                          <td><input type="number" step="0.01" id="poDiscount" class="form-control form-control-sm text-end" value="0" oninput="poRecalcTotals()"></td></tr>
+                      <tr><td class="text-end">Tax</td><td class="text-end" id="poTax">0.00</td></tr>
+                      <tr><td class="text-end">Other Charges</td>
+                          <td><input type="number" step="0.01" id="poOther" class="form-control form-control-sm text-end" value="0" oninput="poRecalcTotals()"></td></tr>
+                      <tr class="table-primary fw-bold"><td class="text-end">Grand Total</td><td class="text-end" id="poGrandTotal">0.00</td></tr>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-success" type="submit" id="poSubmitBtn">
+                <span class="spinner-border spinner-border-sm me-2 d-none" id="poSpinner"></span>
+                <span id="poBtnText">Save Draft</span>
+              </button>
+              <button type="button" class="btn btn-white" data-bs-dismiss="modal">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── VIEW MODAL ────────────────────────────────────────────────────── -->
+    <div tabindex="-1" id="poViewModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title"><i class="fa fa-file-alt me-1 text-primary"></i> Purchase Order Details</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body" id="poViewBody"></div>
+          <div class="modal-footer"><button type="button" class="btn btn-white" data-bs-dismiss="modal">Close</button></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── GRN CREATION MODAL (cascade from PO) ──────────────────────────── -->
+    <!-- Opens purchase-grns.html modal pre-populated; here we just redirect -->
+
+  </div>
+
+  <script th:inline="none">
+  (function () {
+    'use strict';
+    const BASE    = '/purchase/docs';
+    const DOC_TYPE = 'PURCHASE_ORDER';
+    const SUB_URL  = '/accounts/sub-accounts/search';
+    const ITEM_URL = '/items/search';
+    const WH_URL   = '/warehouses/active';
+    var dt, _lineCount = 0;
+
+    // ── DataTable ─────────────────────────────────────────────────────────
+
+    document.addEventListener('DOMContentLoaded', function () {
+      dt = $('#poTable').DataTable({
+        processing: true, serverSide: false, responsive: true, pageLength: 25,
+        ajax: { url: BASE + '/list?documentType=' + DOC_TYPE, type: 'GET' },
+        columns: [
+          { data: 'sl', orderable: false, width: '40px' },
+          { data: 'document_no', defaultContent: '—' },
+          { data: 'document_date' },
+          { data: 'supplier_name', defaultContent: '—' },
+          { data: 'total_amount', className: 'text-end fw-bold', defaultContent: '0.00',
+            render: function(d){ return parseFloat(d||0).toFixed(2); }},
+          { data: 'reference_no', defaultContent: '—' },
+          { data: 'created_by',   defaultContent: '—' },
+          { data: 'status_badge', orderable: false, className: 'text-center' },
+          { data: 'actions',      orderable: false, className: 'text-center' }
+        ],
+        language: { emptyTable: 'No purchase orders.', processing: '<span class="spinner-border spinner-border-sm me-2"></span> Loading…' }
+      });
+      document.getElementById('poDate').value = new Date().toISOString().substring(0,10);
+      document.getElementById('poForm').addEventListener('submit', _onSubmit);
+      _initSupplierS2(null, null);
+      _initWarehouseSelect();
+    });
+
+    // ── S2 helpers ────────────────────────────────────────────────────────
+
+    function _initSupplierS2(preId, preText) {
+      var $el = $('#poSupplierId');
+      if ($el.hasClass('select2-hidden-accessible')) $el.select2('destroy');
+      $el.select2({
+        dropdownParent: $('#poModal'), width: '100%',
+        placeholder: '— Search Supplier —', allowClear: true, minimumInputLength: 0,
+        ajax: {
+          url: SUB_URL, dataType: 'json', delay: 250,
+          data: function(p){ return { search: p.term||'', subAccountType:'SUPPLIER', page: p.page||1 }; },
+          processResults: function(data, p){ p.page=p.page||1; return { results:(data.items||[]).map(function(i){return{id:i.id,text:i.text};}), pagination:{more:data.hasMore||false} }; },
+          cache: false
+        },
+        templateResult: function(r){ return r.loading ? r.text : r.text; },
+        templateSelection: function(r){ return r.text||r.id; }
+      });
+      if (preId) $el.append(new Option(preText||'', preId, true, true)).trigger('change');
+    }
+
+    function _initWarehouseSelect() {
+      secureFetch(WH_URL).then(function(data) {
+        var sel = document.getElementById('poWarehouseId');
+        sel.innerHTML = '<option value="">— None —</option>';
+        (data||[]).forEach(function(w){
+          var o = document.createElement('option');
+          o.value = w.id; o.textContent = w.name + ' (' + (w.code||'') + ')';
+          sel.appendChild(o);
+        });
+      });
+    }
+
+    function _initItemS2(el, preId, preText) {
+      var $el = $(el);
+      if ($el.hasClass('select2-hidden-accessible')) $el.select2('destroy');
+      $el.select2({
+        dropdownParent: $('#poModal'), width: '100%',
+        placeholder: '— Search Item —', allowClear: true, minimumInputLength: 0,
+        ajax: {
+          url: ITEM_URL, dataType: 'json', delay: 250,
+          data: function(p){ return { search: p.term||'', page: p.page||1 }; },
+          processResults: function(data, p){ p.page=p.page||1; return { results:(data.items||[]).map(function(i){return{id:i.id,text:i.text,uom:i.uom};}), pagination:{more:data.hasMore||false} }; },
+          cache: true
+        },
+        templateResult: function(r){ return r.loading ? r.text : r.text; },
+        templateSelection: function(r){ return r.text||r.id; }
+      });
+      if (preId) $el.append(new Option(preText||'', preId, true, true)).trigger('change');
+      $el.on('select2:select', function(e){
+        var tr = el.closest('tr');
+        if (!tr) return;
+        var d = e.params.data;
+        tr.querySelector('[data-field="itemId"]').value = d.id || '';
+        if (d.uom) tr.querySelector('[data-field="unitCode"]').value = d.uom;
+        poCalcLine(tr);
+      });
+      $el.on('select2:clear', function(){
+        var tr = el.closest('tr');
+        if (tr) { tr.querySelector('[data-field="itemId"]').value = ''; tr.querySelector('[data-field="unitCode"]').value = ''; }
+      });
+    }
+
+    // ── Line management ───────────────────────────────────────────────────
+
+    window.poAddLine = function(data) {
+      _lineCount++;
+      var n = _lineCount;
+      var html = '<tr id="poLine_' + n + '">'
+        + '<td>' + n + '</td>'
+        + '<td>'
+        +   '<input type="hidden" data-field="itemId" value="' + (data?data.itemId||'':'') + '">'
+        +   '<select class="form-select form-select-sm po-item-s2"></select>'
+        + '</td>'
+        + '<td><input type="text" class="form-control form-control-sm" data-field="unitCode" value="' + (data?data.unitCode||'':'') + '" readonly></td>'
+        + '<td><input type="number" step="0.001" min="0" class="form-control form-control-sm text-end" data-field="quantity" value="' + (data?data.quantity||'':'') + '" oninput="poCalcLine(this.closest(\'tr\'))" required></td>'
+        + '<td><input type="number" step="0.0001" min="0" class="form-control form-control-sm text-end" data-field="unitPrice" value="' + (data?data.unitPrice||'':'') + '" oninput="poCalcLine(this.closest(\'tr\'))"></td>'
+        + '<td><input type="number" step="0.01" min="0" class="form-control form-control-sm text-end" data-field="discountAmount" value="' + (data?data.discountAmount||'0':'0') + '" oninput="poCalcLine(this.closest(\'tr\'))"></td>'
+        + '<td><input type="number" step="0.01" min="0" class="form-control form-control-sm text-end" data-field="taxAmount" value="' + (data?data.taxAmount||'0':'0') + '" oninput="poCalcLine(this.closest(\'tr\'))"></td>'
+        + '<td><input type="text" class="form-control form-control-sm text-end bg-light" data-field="lineAmount" readonly value="' + (data?data.lineAmount||'0.00':'0.00') + '"></td>'
+        + '<td><input type="date" class="form-control form-control-sm" data-field="expectedDate" value="' + (data?data.expectedDate||'':'') + '"></td>'
+        + '<td><button type="button" class="btn btn-sm btn-outline-danger" onclick="poRemoveLine(' + n + ')"><i class="fa fa-times"></i></button></td>'
+        + '</tr>';
+      document.getElementById('poLineBody').insertAdjacentHTML('beforeend', html);
+      var sel = document.querySelector('#poLine_' + n + ' .po-item-s2');
+      var preText = data ? (data.itemCode||'') + (data.itemName?' — '+data.itemName:'') : null;
+      _initItemS2(sel, data?data.itemId:null, preText);
+    };
+
+    window.poRemoveLine = function(n) {
+      var row = document.getElementById('poLine_' + n);
+      if (row) {
+        var s2 = row.querySelector('.po-item-s2');
+        if (s2 && $(s2).hasClass('select2-hidden-accessible')) $(s2).select2('destroy');
+        row.remove();
+      }
+      poRecalcTotals();
+    };
+
+    window.poCalcLine = function(tr) {
+      var qty  = parseFloat(tr.querySelector('[data-field="quantity"]').value)||0;
+      var price= parseFloat(tr.querySelector('[data-field="unitPrice"]').value)||0;
+      var disc = parseFloat(tr.querySelector('[data-field="discountAmount"]').value)||0;
+      var tax  = parseFloat(tr.querySelector('[data-field="taxAmount"]').value)||0;
+      var amt  = (qty * price) - disc + tax;
+      tr.querySelector('[data-field="lineAmount"]').value = amt.toFixed(2);
+      poRecalcTotals();
+    };
+
+    window.poRecalcTotals = function() {
+      var subtotal = 0, tax = 0;
+      document.querySelectorAll('#poLineBody tr').forEach(function(tr){
+        subtotal += parseFloat(tr.querySelector('[data-field="lineAmount"]').value)||0;
+        tax      += parseFloat(tr.querySelector('[data-field="taxAmount"]').value)||0;
+      });
+      var disc  = parseFloat(document.getElementById('poDiscount').value)||0;
+      var other = parseFloat(document.getElementById('poOther').value)||0;
+      var grand = subtotal - disc + other;
+      document.getElementById('poSubtotal').textContent  = subtotal.toFixed(2);
+      document.getElementById('poTax').textContent       = tax.toFixed(2);
+      document.getElementById('poGrandTotal').textContent= grand.toFixed(2);
+      document.getElementById('poLineTotal').textContent = subtotal.toFixed(2);
+    };
+
+    // ── CRUD ──────────────────────────────────────────────────────────────
+
+    window.poOpenCreate = function() {
+      _resetForm();
+      document.getElementById('poModalTitle').innerHTML = '<i class="fa fa-plus me-1 text-success"></i> New Purchase Order';
+      document.getElementById('poBtnText').textContent  = 'Save Draft';
+      poAddLine();
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('poModal')).show();
+    };
+
+    window.poShow = function(id) {
+      secureFetch(BASE + '/show/' + id).then(function(res) {
+        if (!res.success) { Swal.fire('Error', res.message, 'error'); return; }
+        var o = res.obj.defaultData;
+        var html = '<div class="hs-box"><div class="row g-2">'
+          + _vf('PO No', o.documentNo||'—')       + _vf('Date', o.documentDate)
+          + _vf('Supplier', o.partyDisplay||'—')  + _vf('Status', o.status)
+          + _vf('Reference', o.referenceNo||'—')  + _vf('Currency', o.currency||'BDT')
+          + _vf('Total', parseFloat(o.totalAmount||0).toFixed(2))
+          + '</div>'
+          + '<table class="table table-sm table-bordered mt-3"><thead class="table-light"><tr>'
+          + '<th>#</th><th>Item</th><th>UOM</th><th class="text-end">Qty</th>'
+          + '<th class="text-end">Unit Price</th><th class="text-end">Amount</th></tr></thead><tbody>';
+        (o.lines||[]).forEach(function(l,i){
+          html += '<tr><td>'+(i+1)+'</td><td>'+(l.itemCode||'')+(l.itemName?' — '+l.itemName:'')+'</td>'
+                + '<td>'+(l.unitCode||'—')+'</td>'
+                + '<td class="text-end">'+parseFloat(l.quantity||0).toFixed(3)+'</td>'
+                + '<td class="text-end">'+parseFloat(l.unitPrice||0).toFixed(4)+'</td>'
+                + '<td class="text-end fw-bold">'+parseFloat(l.lineAmount||0).toFixed(2)+'</td></tr>';
+        });
+        html += '</tbody></table></div>';
+        document.getElementById('poViewBody').innerHTML = html;
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('poViewModal')).show();
+      });
+    };
+
+    window.poEdit = function(id) {
+      secureFetch(BASE + '/show/' + id).then(function(res) {
+        if (!res.success) { Swal.fire('Error', res.message, 'error'); return; }
+        var o = res.obj.defaultData;
+        _resetForm();
+        document.getElementById('poId').value          = o.id;
+        document.getElementById('poNo').value           = o.documentNo||'';
+        document.getElementById('poNoManual').value    = o.documentNoManual||'';
+        document.getElementById('poDate').value         = o.documentDate||'';
+        document.getElementById('poRef').value          = o.referenceNo||'';
+        document.getElementById('poCurrency').value     = o.currency||'';
+        document.getElementById('poExRate').value       = o.exchangeRate||'';
+        document.getElementById('poRequiredDate').value = o.requiredDate||'';
+        document.getElementById('poValidityDate').value = o.validityDate||'';
+        document.getElementById('poRemarks').value      = o.remarks||'';
+        document.getElementById('poDiscount').value     = o.discountAmount||'0';
+        document.getElementById('poOther').value        = o.otherCharges||'0';
+        _initSupplierS2(o.partyId, o.partyDisplay);
+        if (o.warehouseId) document.getElementById('poWarehouseId').value = o.warehouseId;
+        (o.lines||[]).forEach(function(l){ poAddLine(l); });
+        poRecalcTotals();
+        document.getElementById('poModalTitle').innerHTML = '<i class="fa fa-pencil me-1 text-warning"></i> Edit Purchase Order';
+        document.getElementById('poBtnText').textContent  = 'Update';
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('poModal')).show();
+      });
+    };
+
+    window.poConfirm = function(id) {
+      Swal.fire({ title:'Confirm PO?', text:'This will lock the Purchase Order.',
+        icon:'warning', showCancelButton:true, confirmButtonText:'Yes, Confirm!' })
+        .then(function(r){
+          if (!r.isConfirmed) return;
+          secureFetch(BASE + '/confirm/' + id, { method:'POST' }).then(function(d){
+            if (d.success) { Swal.fire({ icon:'success', title:'Confirmed!', text:d.message, timer:1600, showConfirmButton:false }); dt.ajax.reload(null,false); }
+            else { Swal.fire('Error', d.message, 'error'); }
+          });
+        });
+    };
+
+    window.poCancel = function(id) {
+      Swal.fire({ title:'Cancel PO?', icon:'warning', showCancelButton:true, confirmButtonText:'Yes, Cancel', confirmButtonColor:'#dc3545' })
+        .then(function(r){
+          if (!r.isConfirmed) return;
+          secureFetch(BASE + '/cancel/' + id, { method:'POST' }).then(function(d){
+            if (d.success) { Swal.fire({ icon:'success', title:'Cancelled', text:d.message, timer:1400, showConfirmButton:false }); dt.ajax.reload(null,false); }
+            else { Swal.fire('Error', d.message, 'error'); }
+          });
+        });
+    };
+
+    window.poDelete = function(id) { hsConfirmDelete(BASE + '/delete/' + id, dt); };
+
+    // ── CASCADE: Create GRN from this PO ─────────────────────────────────
+
+    window.createGRNFromPO = function(poId) {
+      Swal.fire({ title:'Create GRN from PO?', text:'A new GRN will be pre-populated with PO lines.',
+        icon:'question', showCancelButton:true, confirmButtonText:'Yes, Create GRN' })
+        .then(function(r){
+          if (!r.isConfirmed) return;
+          secureFetch(BASE + '/populate?parentId=' + poId + '&childType=GOODS_RECEIPT_NOTE')
+            .then(function(res){
+              if (!res.success) { Swal.fire('Error', res.message, 'error'); return; }
+              // Navigate to GRN page with data stored in sessionStorage for auto-open
+              sessionStorage.setItem('pendingPurchaseDoc', JSON.stringify(res.obj.defaultData));
+              window.location.href = '/purchase/grns';
+            });
+        });
+    };
+
+    // ── Submit ────────────────────────────────────────────────────────────
+
+    function _onSubmit(e) {
+      e.preventDefault();
+      var sb = document.getElementById('poSubmitBtn'), sp = document.getElementById('poSpinner'), bt = document.getElementById('poBtnText');
+      hsDisableButton(sb, sp, bt);
+      secureFetch(BASE + '/save', { method:'POST', body: JSON.stringify({
+        id             : document.getElementById('poId').value || null,
+        documentType   : 'PURCHASE_ORDER',
+        documentDate   : document.getElementById('poDate').value,
+        documentNoManual:document.getElementById('poNoManual').value || null,
+        referenceNo    : document.getElementById('poRef').value || null,
+        partyId        : $('#poSupplierId').val() || null,
+        warehouseId    : document.getElementById('poWarehouseId').value || null,
+        currency       : document.getElementById('poCurrency').value || null,
+        exchangeRate   : parseFloat(document.getElementById('poExRate').value) || null,
+        requiredDate   : document.getElementById('poRequiredDate').value || null,
+        validityDate   : document.getElementById('poValidityDate').value || null,
+        remarks        : document.getElementById('poRemarks').value || null,
+        discountAmount : parseFloat(document.getElementById('poDiscount').value) || 0,
+        otherCharges   : parseFloat(document.getElementById('poOther').value)   || 0,
+        parentDocumentId: document.getElementById('poParentId').value || null,
+        lines          : _collectLines()
+      })}).then(function(d){
+        if (d.success) {
+          document.getElementById('poId').value = d.id || '';
+          hsAfterSaveMessages(d, dt);
+          bootstrap.Modal.getOrCreateInstance(document.getElementById('poModal')).hide();
+        } else { Swal.fire('Error', d.message, 'error'); }
+      }).catch(function(err){ Swal.fire('Error', err.message||'Request failed.', 'error'); })
+        .finally(function(){ hsEnableButton(sb, sp, bt); });
+    }
+
+    function _collectLines() {
+      var lines = [];
+      document.querySelectorAll('#poLineBody tr').forEach(function(tr, idx){
+        var itemId = tr.querySelector('[data-field="itemId"]').value;
+        if (!itemId) return;
+        lines.push({
+          lineNumber    : idx + 1,
+          itemId        : itemId,
+          unitCode      : tr.querySelector('[data-field="unitCode"]').value || null,
+          quantity      : parseFloat(tr.querySelector('[data-field="quantity"]').value) || null,
+          unitPrice     : parseFloat(tr.querySelector('[data-field="unitPrice"]').value) || null,
+          discountAmount: parseFloat(tr.querySelector('[data-field="discountAmount"]').value) || 0,
+          taxAmount     : parseFloat(tr.querySelector('[data-field="taxAmount"]').value) || 0,
+          lineAmount    : parseFloat(tr.querySelector('[data-field="lineAmount"]').value) || 0,
+          expectedDate  : tr.querySelector('[data-field="expectedDate"]').value || null
+        });
+      });
+      return lines;
+    }
+
+    function _resetForm() {
+      document.querySelectorAll('.po-item-s2').forEach(function(el){
+        if ($(el).hasClass('select2-hidden-accessible')) $(el).select2('destroy');
+      });
+      document.getElementById('poForm').reset();
+      document.getElementById('poId').value     = '';
+      document.getElementById('poParentId').value= '';
+      document.getElementById('poLineBody').innerHTML = '';
+      _lineCount = 0;
+      document.getElementById('poDate').value   = new Date().toISOString().substring(0,10);
+      document.getElementById('poDiscount').value = '0';
+      document.getElementById('poOther').value    = '0';
+      ['poSubtotal','poTax','poGrandTotal','poLineTotal'].forEach(function(id){ document.getElementById(id).textContent='0.00'; });
+      _initSupplierS2(null, null);
+    }
+
+    function _vf(label, value) {
+      return '<div class="col-md-4 view-group"><label class="view-label">'+label+'</label>'
+           + '<span class="form-control hs_span_show">'+(value!=null?value:'—')+'</span></div>';
+    }
+
+    // ── Auto-open if navigated from PO cascade ────────────────────────────
+
+    document.addEventListener('DOMContentLoaded', function() {
+      var pending = sessionStorage.getItem('pendingPurchaseDoc');
+      if (pending) {
+        sessionStorage.removeItem('pendingPurchaseDoc');
+        // If we're on GRN page, open modal — this script only runs on PO page so skip
+      }
+    });
+
+  })();
+  </script>
+</section>
+</html>

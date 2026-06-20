@@ -3,6 +3,7 @@ package com.asg.spindleserp.common.enums;
 public enum MovementType {
     // Inbound
     PURCHASE_RECEIPT,
+    SUPPLIER_RETURN,
     PRODUCTION_RECEIPT,
     TRANSFER_IN,
     ADJUSTMENT_IN,

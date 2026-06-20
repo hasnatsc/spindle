@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<!--
+  purchase/purchase-grns.html    GET /purchase/grns
+  documentType = GOODS_RECEIPT_NOTE
+  JS prefix: grn
+  Auto-opens modal if navigated from PO cascade (sessionStorage pendingPurchaseDoc)
+  Cascade: "Create Invoice" button on CONFIRMED rows → createInvoiceFromGRN(id)
+-->
+<html th:replace="~{layout/base :: layout('Goods Receipt Notes', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
+<section>
+
+  <ol class="breadcrumb float-xl-end">
+    <li class="breadcrumb-item"><a th:href="@{/dashboard}">Home</a></li>
+    <li class="breadcrumb-item">Purchase</li>
+    <li class="breadcrumb-item active">Goods Receipt Notes</li>
+  </ol>
+  <h1 class="page-header">Goods Receipt Notes <small>receive stock from supplier</small></h1>
+
+  <div class="d-flex gap-2 mb-3 flex-wrap">
+    <a th:href="@{/purchase/orders}"      class="btn btn-sm btn-outline-primary"><i class="fa fa-file-alt me-1"></i> Purchase Orders</a>
+    <i class="fas fa-angle-right align-self-center text-muted"></i>
+    <a th:href="@{/purchase/grns}"        class="btn btn-sm btn-primary"><i class="fa fa-clipboard-check me-1"></i> GRN</a>
+    <i class="fas fa-angle-right align-self-center text-muted"></i>
+    <a th:href="@{/purchase/invoices}"    class="btn btn-sm btn-outline-primary"><i class="fa fa-file-invoice me-1"></i> Invoices</a>
+    <i class="fas fa-angle-right align-self-center text-muted"></i>
+    <a th:href="@{/purchase/debit-notes}" class="btn btn-sm btn-outline-danger"><i class="fa fa-file-minus me-1"></i> Debit Notes</a>
+  </div>
+
+  <div class="panel panel-inverse">
+    <div class="panel-heading">
+      <div class="panel-title d-flex gap-2">
+        <a href="javascript:;" onclick="grnOpenCreate()">
+          <span class="badge btn btn-outline-success"><i class="fa fa-plus me-1"></i> New GRN</span>
+        </a>
+        <a href="javascript:;" onclick="grnOpenFromPO()">
+          <span class="badge btn btn-outline-info"><i class="fa fa-copy me-1"></i> From Purchase Order</span>
+        </a>
+      </div>
+      <div class="panel-heading-btn">
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-default" data-toggle="panel-expand"><i class="fa fa-expand"></i></a>
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-success" data-toggle="panel-reload"><i class="fa fa-redo"></i></a>
+      </div>
+    </div>
+    <div class="panel-body">
+      <table id="grnTable" width="100%" class="table table-striped table-bordered align-middle">
+        <thead><tr>
+          <th width="1%">SL</th><th>GRN No</th><th>Date</th>
+          <th>Supplier</th><th>Warehouse</th>
+          <th>From PO</th>
+          <th class="text-end">Total</th>
+          <th>Stock</th>
+          <th class="text-center">Status</th>
+          <th class="text-center" width="17%">Actions</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <!-- ── GRN CREATE / EDIT MODAL ──────────────────────────────────────── -->
+    <div tabindex="-1" id="grnModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="grnModalTitle"><i class="fa fa-clipboard-check me-1 text-success"></i> New GRN</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <form id="grnForm" novalidate>
+            <div class="modal-body">
+              <div class="hs-box">
+                <input type="hidden" id="grnId">
+                <input type="hidden" id="grnParentId">
+
+                <!-- HEADER -->
+                <div class="row g-2 mb-3">
+                  <div class="col-md-3 view-group">
+                    <input id="grnNo" type="text" class="form-control hs_span_view bg-light" readonly placeholder="Auto-generated">
+                    <label class="input-label">GRN Number</label>
+                  </div>
+                  <div class="col-md-3 view-group">
+                    <input id="grnDate" type="date" class="form-control hs_span_view" required>
+                    <label class="input-label">Receipt Date <span class="text-danger">*</span></label>
+                  </div>
+                  <div class="col-md-3 view-group">
+                    <input id="grnRef" type="text" class="form-control hs_span_view" maxlength="100">
+                    <label class="input-label">Reference No</label>
+                  </div>
+                  <div class="col-md-3 view-group">
+                    <input id="grnPoRef" type="text" class="form-control hs_span_view bg-light" readonly placeholder="—">
+                    <label class="input-label">From PO</label>
+                  </div>
+
+                  <!-- Supplier -->
+                  <div class="col-md-6 view-group">
+                    <select id="grnSupplierId" class="form-select hs_span_view"></select>
+                    <label class="input-label">Supplier <span class="text-danger">*</span></label>
+                  </div>
+
+                  <!-- Warehouse (required for GRN — stock will be received here) -->
+                  <div class="col-md-6 view-group">
+                    <select id="grnWarehouseId" class="form-select hs_span_view" required></select>
+                    <label class="input-label">Receiving Warehouse <span class="text-danger">*</span></label>
+                  </div>
+
+                  <div class="col-md-4 view-group">
+                    <input id="grnVesselName" type="text" class="form-control hs_span_view" maxlength="100">
+                    <label class="input-label">Vessel / Vehicle</label>
+                  </div>
+                  <div class="col-md-4 view-group">
+                    <input id="grnBlNo" type="text" class="form-control hs_span_view" maxlength="100">
+                    <label class="input-label">BL / Airway Bill No</label>
+                  </div>
+                  <div class="col-md-4 view-group">
+                    <input id="grnContainerNo" type="text" class="form-control hs_span_view" maxlength="100">
+                    <label class="input-label">Container No</label>
+                  </div>
+                  <div class="col-12 view-group">
+                    <textarea id="grnRemarks" class="form-control hs_span_view" rows="1"></textarea>
+                    <label class="input-label">Remarks</label>
+                  </div>
+                </div>
+
+                <!-- STOCK ALERT -->
+                <div class="alert alert-info py-2 mb-2">
+                  <i class="fas fa-boxes-stacked me-1"></i>
+                  Confirming this GRN will <strong>post stock IN</strong> and auto-create lot numbers.
+                </div>
+
+                <!-- LINES -->
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                  <strong>Receipt Lines</strong>
+                  <button type="button" class="btn btn-sm btn-outline-primary" onclick="grnAddLine()">
+                    <i class="fa fa-plus me-1"></i> Add Line
+                  </button>
+                </div>
+                <div class="table-responsive">
+                  <table class="table table-sm table-bordered align-middle">
+                    <thead class="table-light"><tr>
+                      <th>#</th>
+                      <th width="25%">Item <span class="text-danger">*</span></th>
+                      <th>UOM</th>
+                      <th>PO Qty</th>
+                      <th>Recv Qty <span class="text-danger">*</span></th>
+                      <th>Accepted</th>
+                      <th>Rejected</th>
+                      <th>Unit Price</th>
+                      <th>Line Amt</th>
+                      <th>QC</th>
+                      <th>Create Lot?</th>
+                      <th></th>
+                    </tr></thead>
+                    <tbody id="grnLineBody"></tbody>
+                    <tfoot>
+                      <tr class="fw-bold bg-light">
+                        <td colspan="8" class="text-end">Total:</td>
+                        <td id="grnTotal" class="text-end">0.00</td>
+                        <td colspan="3"></td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-success" type="submit" id="grnSubmitBtn">
+                <span class="spinner-border spinner-border-sm me-2 d-none" id="grnSpinner"></span>
+                <span id="grnBtnText">Save Draft</span>
+              </button>
+              <button type="button" class="btn btn-white" data-bs-dismiss="modal">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- VIEW MODAL -->
+    <div tabindex="-1" id="grnViewModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title"><i class="fa fa-clipboard-check me-1 text-primary"></i> GRN Details</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body" id="grnViewBody"></div>
+          <div class="modal-footer"><button type="button" class="btn btn-white" data-bs-dismiss="modal">Close</button></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PO PICKER MODAL (select PO to create GRN from) -->
+    <div tabindex="-1" id="poPicker" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title"><i class="fa fa-search me-1"></i> Select Purchase Order</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <div class="mb-3">
+              <label>Supplier</label>
+              <select id="poPickerSupplier" class="form-select"></select>
+            </div>
+            <table id="poPickerTable" class="table table-sm table-bordered table-hover">
+              <thead class="table-light"><tr><th>PO No</th><th>Date</th><th class="text-end">Total</th><th>Ref</th><th></th></tr></thead>
+              <tbody id="poPickerBody"></tbody>
+            </table>
+          </div>
+          <div class="modal-footer"><button type="button" class="btn btn-white" data-bs-dismiss="modal">Cancel</button></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script th:inline="none">
+  (function () {
+    'use strict';
+    const BASE    = '/purchase/docs';
+    const DOC_TYPE = 'GOODS_RECEIPT_NOTE';
+    const SUB_URL  = '/accounts/sub-accounts/search';
+    const ITEM_URL = '/items/search';
+    var dt, _lineCount = 0;
+
+    document.addEventListener('DOMContentLoaded', function () {
+      dt = $('#grnTable').DataTable({
+        processing: true, serverSide: false, responsive: true, pageLength: 25,
+        ajax: { url: BASE + '/list?documentType=' + DOC_TYPE, type: 'GET' },
+        columns: [
+          { data: 'sl', orderable: false, width: '40px' },
+          { data: 'document_no', defaultContent: '—' },
+          { data: 'document_date' },
+          { data: 'supplier_name',  defaultContent: '—' },
+          { data: 'warehouse_name', defaultContent: '—' },
+          { data: 'reference_no',   defaultContent: '—' },
+          { data: 'total_amount',   className: 'text-end fw-bold', render: function(d){ return parseFloat(d||0).toFixed(2); }},
+          { data: 'stock_posted', className: 'text-center',
+            render: function(d){ return d ? '<span class="badge bg-success">Posted</span>' : '<span class="badge bg-secondary">Pending</span>'; }},
+          { data: 'status_badge', orderable: false, className: 'text-center' },
+          { data: 'actions',      orderable: false, className: 'text-center' }
+        ],
+        language: { emptyTable: 'No GRNs found.', processing: '<span class="spinner-border spinner-border-sm me-2"></span> Loading…' }
+      });
+
+      document.getElementById('grnDate').value = new Date().toISOString().substring(0,10);
+      document.getElementById('grnForm').addEventListener('submit', _onSubmit);
+      _initSupplierS2(null, null);
+      _loadWarehouses();
+      _initPoPickerSupplierS2();
+
+      // Check sessionStorage for cascade from PO page
+      var pending = sessionStorage.getItem('pendingPurchaseDoc');
+      if (pending) {
+        sessionStorage.removeItem('pendingPurchaseDoc');
+        try {
+          var data = JSON.parse(pending);
+          _openWithData(data);
+        } catch(e) { console.warn('Could not parse pending doc', e); }
+      }
+    });
+
+    // ── S2 helpers ────────────────────────────────────────────────────────
+
+    function _initSupplierS2(preId, preText) {
+      var $el = $('#grnSupplierId');
+      if ($el.hasClass('select2-hidden-accessible')) $el.select2('destroy');
+      $el.select2({
+        dropdownParent: $('#grnModal'), width: '100%',
+        placeholder: '— Search Supplier —', allowClear: true, minimumInputLength: 0,
+        ajax: {
+          url: SUB_URL, dataType: 'json', delay: 250,
+          data: function(p){ return { search: p.term||'', subAccountType:'SUPPLIER', page: p.page||1 }; },
+          processResults: function(data, p){ p.page=p.page||1; return { results:(data.items||[]).map(function(i){return{id:i.id,text:i.text};}), pagination:{more:data.hasMore||false} }; },
+          cache: false
+        },
+        templateResult: function(r){ return r.loading ? r.text : r.text; },
+        templateSelection: function(r){ return r.text||r.id; }
+      });
+      if (preId) $el.append(new Option(preText||'', preId, true, true)).trigger('change');
+    }
+
+    function _loadWarehouses() {
+      secureFetch('/warehouses/active').then(function(data) {
+        var sel = document.getElementById('grnWarehouseId');
+        sel.innerHTML = '<option value="">— Select Warehouse —</option>';
+        (data||[]).forEach(function(w){
+          var o = document.createElement('option');
+          o.value = w.id; o.textContent = w.name + ' (' + (w.code||'') + ')';
+          sel.appendChild(o);
+        });
+      });
+    }
+
+    function _initItemS2(el, preId, preText) {
+      var $el = $(el);
+      if ($el.hasClass('select2-hidden-accessible')) $el.select2('destroy');
+      $el.select2({
+        dropdownParent: $('#grnModal'), width: '100%',
+        placeholder: '— Item —', allowClear: true, minimumInputLength: 0,
+        ajax: {
+          url: ITEM_URL, dataType: 'json', delay: 250,
+          data: function(p){ return { search: p.term||'', page: p.page||1 }; },
+          processResults: function(data, p){ p.page=p.page||1; return { results:(data.items||[]).map(function(i){return{id:i.id,text:i.text,uom:i.uom};}), pagination:{more:data.hasMore||false} }; },
+          cache: true
+        },
+        templateResult: function(r){ return r.loading ? r.text : r.text; },
+        templateSelection: function(r){ return r.text||r.id; }
+      });
+      if (preId) $el.append(new Option(preText||'', preId, true, true)).trigger('change');
+      $el.on('select2:select', function(e){
+        var tr = el.closest('tr'), d = e.params.data;
+        tr.querySelector('[data-field="itemId"]').value   = d.id   || '';
+        tr.querySelector('[data-field="unitCode"]').value = d.uom  || '';
+        grnCalcLine(tr);
+      });
+      $el.on('select2:clear', function(){ var tr=el.closest('tr'); tr.querySelector('[data-field="itemId"]').value=''; });
+    }
+
+    function _initPoPickerSupplierS2() {
+      $('#poPickerSupplier').select2({
+        dropdownParent: $('#poPicker'), width: '100%',
+        placeholder: '— Search Supplier —', allowClear: true, minimumInputLength: 0,
+        ajax: {
+          url: SUB_URL, dataType: 'json', delay: 250,
+          data: function(p){ return { search: p.term||'', subAccountType:'SUPPLIER', page: p.page||1 }; },
+          processResults: function(data, p){ p.page=p.page||1; return { results:(data.items||[]).map(function(i){return{id:i.id,text:i.text};}), pagination:{more:data.hasMore||false} }; },
+          cache: false
+        }
+      }).on('select2:select', function(e){
+        _loadPOsForSupplier(e.params.data.id);
+      });
+    }
+
+    function _loadPOsForSupplier(supplierId) {
+      secureFetch(BASE + '/open-pos?supplierId=' + supplierId).then(function(data) {
+        var body = document.getElementById('poPickerBody');
+        body.innerHTML = '';
+        if (!data || data.length === 0) {
+          body.innerHTML = '<tr><td colspan="5" class="text-center text-muted">No open POs.</td></tr>'; return;
+        }
+        data.forEach(function(po) {
+          body.insertAdjacentHTML('beforeend',
+            '<tr><td><strong>' + (po.document_no||'—') + '</strong></td><td>' + (po.document_date||'—') + '</td>'
+            + '<td class="text-end">' + parseFloat(po.total_amount||0).toFixed(2) + '</td>'
+            + '<td>' + (po.reference_no||'—') + '</td>'
+            + '<td><button class="btn btn-sm btn-primary" onclick="selectPOForGRN(' + po.id + ',\'' + (po.document_no||'') + '\')">Select</button></td>'
+            + '</tr>');
+        });
+      });
+    }
+
+    // ── PO picker & cascade ───────────────────────────────────────────────
+
+    window.grnOpenFromPO = function() {
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('poPicker')).show();
+    };
+
+    window.selectPOForGRN = function(poId, poNo) {
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('poPicker')).hide();
+      secureFetch(BASE + '/populate?parentId=' + poId + '&childType=GOODS_RECEIPT_NOTE')
+        .then(function(res){
+          if (!res.success) { Swal.fire('Error', res.message, 'error'); return; }
+          _openWithData(res.obj.defaultData);
+        });
+    };
+
+    function _openWithData(data) {
+      _resetForm();
+      document.getElementById('grnParentId').value  = data.parentDocumentId || '';
+      document.getElementById('grnPoRef').value      = data.parentDocumentNo  || '';
+      document.getElementById('grnDate').value       = data.documentDate     || new Date().toISOString().substring(0,10);
+      document.getElementById('grnRef').value        = data.referenceNo      || '';
+      _initSupplierS2(data.partyId, data.partyDisplay);
+      if (data.warehouseId) document.getElementById('grnWarehouseId').value = data.warehouseId;
+      (data.lines||[]).forEach(function(l){ grnAddLine(l); });
+      grnRecalcTotal();
+      document.getElementById('grnModalTitle').innerHTML = '<i class="fa fa-clipboard-check me-1 text-info"></i> New GRN from PO ' + (data.parentDocumentNo||'');
+      document.getElementById('grnBtnText').textContent  = 'Save Draft';
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('grnModal')).show();
+    }
+
+    // ── Line management ───────────────────────────────────────────────────
+
+    window.grnAddLine = function(data) {
+      _lineCount++;
+      var n = _lineCount;
+      var html = '<tr id="grnLine_' + n + '">'
+        + '<td>' + n + '</td>'
+        + '<td><input type="hidden" data-field="itemId" value="' + (data?data.itemId||'':'') + '">'
+        +   '<input type="hidden" data-field="sourceLineId" value="' + (data?data.sourceLineId||'':'') + '">'
+        +   '<select class="form-select form-select-sm grn-item-s2"></select></td>'
+        + '<td><input type="text" class="form-control form-control-sm" data-field="unitCode" value="' + (data?data.unitCode||'':'') + '" readonly></td>'
+        + '<td><input type="number" step="0.001" class="form-control form-control-sm text-end bg-light" data-field="poQty" value="' + (data?data.quantity||'':'') + '" readonly title="PO Quantity"></td>'
+        + '<td><input type="number" step="0.001" min="0" class="form-control form-control-sm text-end" data-field="receivedQty" value="' + (data?data.receivedQty||data.quantity||'':'') + '" oninput="grnCalcLine(this.closest(\'tr\'))" required></td>'
+        + '<td><input type="number" step="0.001" min="0" class="form-control form-control-sm text-end" data-field="acceptedQty" value="' + (data?data.acceptedQty||'':'') + '"></td>'
+        + '<td><input type="number" step="0.001" min="0" class="form-control form-control-sm text-end" data-field="rejectedQty" value="' + (data?data.rejectedQty||'':'') + '"></td>'
+        + '<td><input type="number" step="0.0001" min="0" class="form-control form-control-sm text-end" data-field="unitPrice" value="' + (data?data.unitPrice||'':'') + '" oninput="grnCalcLine(this.closest(\'tr\'))"></td>'
+        + '<td><input type="text" class="form-control form-control-sm text-end bg-light" data-field="lineAmount" readonly value="' + (data?data.lineAmount||'0.00':'0.00') + '"></td>'
+        + '<td><select class="form-select form-select-sm" data-field="qualityStatus">'
+        +   '<option value="">—</option><option value="PASS">PASS</option><option value="FAIL">FAIL</option><option value="HOLD">HOLD</option>'
+        + '</select></td>'
+        + '<td class="text-center"><input type="checkbox" class="form-check-input" data-field="createLot" checked></td>'
+        + '<td><button type="button" class="btn btn-sm btn-outline-danger" onclick="grnRemoveLine(' + n + ')"><i class="fa fa-times"></i></button></td>'
+        + '</tr>';
+      document.getElementById('grnLineBody').insertAdjacentHTML('beforeend', html);
+      var sel = document.querySelector('#grnLine_' + n + ' .grn-item-s2');
+      _initItemS2(sel, data?data.itemId:null, data?(data.itemCode||'')+(data.itemName?' — '+data.itemName:''):null);
+    };
+
+    window.grnRemoveLine = function(n) {
+      var row = document.getElementById('grnLine_' + n);
+      if (row) {
+        var s2 = row.querySelector('.grn-item-s2');
+        if (s2 && $(s2).hasClass('select2-hidden-accessible')) $(s2).select2('destroy');
+        row.remove();
+      }
+      grnRecalcTotal();
+    };
+
+    window.grnCalcLine = function(tr) {
+      var qty   = parseFloat(tr.querySelector('[data-field="receivedQty"]').value)||0;
+      var price = parseFloat(tr.querySelector('[data-field="unitPrice"]').value)||0;
+      tr.querySelector('[data-field="lineAmount"]').value = (qty * price).toFixed(2);
+      grnRecalcTotal();
+    };
+
+    window.grnRecalcTotal = function() {
+      var total = 0;
+      document.querySelectorAll('#grnLineBody tr').forEach(function(tr){
+        total += parseFloat(tr.querySelector('[data-field="lineAmount"]').value)||0;
+      });
+      document.getElementById('grnTotal').textContent = total.toFixed(2);
+    };
+
+    // ── CRUD ──────────────────────────────────────────────────────────────
+
+    window.grnOpenCreate = function() {
+      _resetForm();
+      document.getElementById('grnModalTitle').innerHTML = '<i class="fa fa-plus me-1 text-success"></i> New GRN';
+      document.getElementById('grnBtnText').textContent  = 'Save Draft';
+      grnAddLine();
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('grnModal')).show();
+    };
+
+    window.grnShow = function(id) {
+      secureFetch(BASE + '/show/' + id).then(function(res) {
+        if (!res.success) { Swal.fire('Error', res.message, 'error'); return; }
+        var o = res.obj.defaultData;
+        var html = '<div class="hs-box"><div class="row g-2">'
+          + _vf('GRN No', o.documentNo||'—')          + _vf('Date', o.documentDate)
+          + _vf('Supplier', o.partyDisplay||'—')       + _vf('Warehouse', o.warehouseDisplay||'—')
+          + _vf('Status', o.status)                    + _vf('Stock Posted', o.stockPosted?'Yes':'No')
+          + _vf('Total', parseFloat(o.totalAmount||0).toFixed(2))
+          + _vf('From PO', o.parentDocumentNo||'—')
+          + '</div>'
+          + '<table class="table table-sm table-bordered mt-3"><thead class="table-light"><tr>'
+          + '<th>#</th><th>Item</th><th>UOM</th><th class="text-end">Recv Qty</th>'
+          + '<th class="text-end">Unit Price</th><th class="text-end">Amount</th><th>Lot</th><th>QC</th>'
+          + '</tr></thead><tbody>';
+        (o.lines||[]).forEach(function(l,i){
+          html += '<tr><td>'+(i+1)+'</td><td>'+(l.itemCode||'')+(l.itemName?' — '+l.itemName:'')+'</td>'
+                + '<td>'+(l.unitCode||'—')+'</td>'
+                + '<td class="text-end">'+parseFloat(l.receivedQty||l.quantity||0).toFixed(3)+'</td>'
+                + '<td class="text-end">'+parseFloat(l.unitPrice||0).toFixed(4)+'</td>'
+                + '<td class="text-end fw-bold">'+parseFloat(l.lineAmount||0).toFixed(2)+'</td>'
+                + '<td>'+(l.lotNumber||'—')+'</td>'
+                + '<td>'+(l.qualityStatus||'—')+'</td></tr>';
+        });
+        html += '</tbody></table></div>';
+        document.getElementById('grnViewBody').innerHTML = html;
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('grnViewModal')).show();
+      });
+    };
+
+    window.grnEdit = function(id) {
+      secureFetch(BASE + '/show/' + id).then(function(res) {
+        if (!res.success) { Swal.fire('Error', res.message, 'error'); return; }
+        var o = res.obj.defaultData;
+        _resetForm();
+        document.getElementById('grnId').value        = o.id;
+        document.getElementById('grnParentId').value  = o.parentDocumentId || '';
+        document.getElementById('grnPoRef').value     = o.parentDocumentNo || '';
+        document.getElementById('grnNo').value        = o.documentNo       || '';
+        document.getElementById('grnDate').value      = o.documentDate     || '';
+        document.getElementById('grnRef').value       = o.referenceNo      || '';
+        document.getElementById('grnVesselName').value= o.vesselName       || '';
+        document.getElementById('grnBlNo').value      = o.blNumber         || '';
+        document.getElementById('grnContainerNo').value= o.containerNumber || '';
+        document.getElementById('grnRemarks').value   = o.remarks          || '';
+        _initSupplierS2(o.partyId, o.partyDisplay);
+        if (o.warehouseId) document.getElementById('grnWarehouseId').value = o.warehouseId;
+        (o.lines||[]).forEach(function(l){ grnAddLine(l); });
+        grnRecalcTotal();
+        document.getElementById('grnModalTitle').innerHTML = '<i class="fa fa-pencil me-1 text-warning"></i> Edit GRN';
+        document.getElementById('grnBtnText').textContent  = 'Update';
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('grnModal')).show();
+      });
+    };
+
+    window.grnConfirm = function(id) {
+      Swal.fire({ title:'Confirm GRN?',
+        text:'This will permanently POST stock into the warehouse and create lot numbers.',
+        icon:'warning', showCancelButton:true, confirmButtonText:'Yes, Confirm!', confirmButtonColor:'#0d6efd' })
+        .then(function(r){
+          if (!r.isConfirmed) return;
+          secureFetch(BASE + '/confirm/' + id, { method:'POST' }).then(function(d){
+            if (d.success) { Swal.fire({ icon:'success', title:'GRN Confirmed!', text:d.message, timer:1800, showConfirmButton:false }); dt.ajax.reload(null,false); }
+            else { Swal.fire('Error', d.message, 'error'); }
+          });
+        });
+    };
+
+    window.grnCancel = function(id) {
+      Swal.fire({ title:'Cancel GRN?', icon:'warning', showCancelButton:true, confirmButtonColor:'#dc3545', confirmButtonText:'Cancel GRN' })
+        .then(function(r){
+          if (!r.isConfirmed) return;
+          secureFetch(BASE + '/cancel/' + id, { method:'POST' }).then(function(d){
+            if (d.success) { Swal.fire({ icon:'success', timer:1400, title:'Cancelled', text:d.message, showConfirmButton:false }); dt.ajax.reload(null,false); }
+            else { Swal.fire('Error', d.message, 'error'); }
+          });
+        });
+    };
+
+    window.grnDelete = function(id) { hsConfirmDelete(BASE + '/delete/' + id, dt); };
+
+    // Cascade: create Invoice from this GRN
+    window.createInvoiceFromGRN = function(grnId) {
+      Swal.fire({ title:'Create Invoice from GRN?', icon:'question', showCancelButton:true, confirmButtonText:'Yes, Create Invoice' })
+        .then(function(r){
+          if (!r.isConfirmed) return;
+          secureFetch(BASE + '/populate?parentId=' + grnId + '&childType=PURCHASE_INVOICE')
+            .then(function(res){
+              if (!res.success) { Swal.fire('Error', res.message, 'error'); return; }
+              sessionStorage.setItem('pendingPurchaseDoc', JSON.stringify(res.obj.defaultData));
+              window.location.href = '/purchase/invoices';
+            });
+        });
+    };
+
+    function _onSubmit(e) {
+      e.preventDefault();
+      var sb = document.getElementById('grnSubmitBtn'), sp = document.getElementById('grnSpinner'), bt = document.getElementById('grnBtnText');
+      hsDisableButton(sb, sp, bt);
+      secureFetch(BASE + '/save', { method:'POST', body: JSON.stringify({
+        id              : document.getElementById('grnId').value || null,
+        documentType    : 'GOODS_RECEIPT_NOTE',
+        documentDate    : document.getElementById('grnDate').value,
+        referenceNo     : document.getElementById('grnRef').value || null,
+        partyId         : $('#grnSupplierId').val() || null,
+        warehouseId     : document.getElementById('grnWarehouseId').value || null,
+        vesselName      : document.getElementById('grnVesselName').value || null,
+        blNumber        : document.getElementById('grnBlNo').value || null,
+        containerNumber : document.getElementById('grnContainerNo').value || null,
+        remarks         : document.getElementById('grnRemarks').value || null,
+        parentDocumentId: document.getElementById('grnParentId').value || null,
+        lines           : _collectLines()
+      })}).then(function(d){
+        if (d.success) {
+          document.getElementById('grnId').value = d.id || '';
+          hsAfterSaveMessages(d, dt);
+          bootstrap.Modal.getOrCreateInstance(document.getElementById('grnModal')).hide();
+        } else { Swal.fire('Error', d.message, 'error'); }
+      }).catch(function(err){ Swal.fire('Error', err.message||'Request failed.', 'error'); })
+        .finally(function(){ hsEnableButton(sb, sp, bt); });
+    }
+
+    function _collectLines() {
+      var lines = [];
+      document.querySelectorAll('#grnLineBody tr').forEach(function(tr, idx){
+        var itemId = tr.querySelector('[data-field="itemId"]').value;
+        if (!itemId) return;
+        lines.push({
+          lineNumber    : idx + 1,
+          sourceLineId  : tr.querySelector('[data-field="sourceLineId"]').value || null,
+          itemId        : itemId,
+          unitCode      : tr.querySelector('[data-field="unitCode"]').value || null,
+          quantity      : parseFloat(tr.querySelector('[data-field="poQty"]').value) || null,
+          receivedQty   : parseFloat(tr.querySelector('[data-field="receivedQty"]').value) || null,
+          acceptedQty   : parseFloat(tr.querySelector('[data-field="acceptedQty"]').value) || null,
+          rejectedQty   : parseFloat(tr.querySelector('[data-field="rejectedQty"]').value) || null,
+          unitPrice     : parseFloat(tr.querySelector('[data-field="unitPrice"]').value) || null,
+          lineAmount    : parseFloat(tr.querySelector('[data-field="lineAmount"]').value) || 0,
+          qualityStatus : tr.querySelector('[data-field="qualityStatus"]').value || null,
+          createLot     : tr.querySelector('[data-field="createLot"]').checked
+        });
+      });
+      return lines;
+    }
+
+    function _resetForm() {
+      document.querySelectorAll('.grn-item-s2').forEach(function(el){
+        if ($(el).hasClass('select2-hidden-accessible')) $(el).select2('destroy');
+      });
+      document.getElementById('grnForm').reset();
+      document.getElementById('grnId').value       = '';
+      document.getElementById('grnParentId').value = '';
+      document.getElementById('grnLineBody').innerHTML = '';
+      document.getElementById('grnTotal').textContent  = '0.00';
+      _lineCount = 0;
+      document.getElementById('grnDate').value = new Date().toISOString().substring(0,10);
+      _initSupplierS2(null, null);
+    }
+
+    function _vf(label, value) {
+      return '<div class="col-md-4 view-group"><label class="view-label">'+label+'</label>'
+           + '<span class="form-control hs_span_show">'+(value!=null?value:'—')+'</span></div>';
+    }
+  })();
+  </script>
+</section>
+</html>
