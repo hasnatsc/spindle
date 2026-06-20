@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<!--
+  production/production-orders.html    GET /production/orders
+  JS prefix: prod*
+  Full lifecycle: DRAFT → SUBMITTED → APPROVED → RELEASED → IN_PROGRESS → COMPLETED
+  BOM populate: selecting BOM auto-fills input lines
+  Cost sheet panel: labor + overhead + other cost + auto-calc total/unit
+-->
+<html th:replace="~{layout/base :: layout('Production Orders', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
+<section>
+  <ol class="breadcrumb float-xl-end">
+    <li class="breadcrumb-item"><a th:href="@{/dashboard}">Home</a></li>
+    <li class="breadcrumb-item">Production</li>
+    <li class="breadcrumb-item active">Production Orders</li>
+  </ol>
+  <h1 class="page-header">Production Orders <small>work orders for manufacturing finished goods</small></h1>
+
+  <div class="d-flex gap-2 mb-3 flex-wrap">
+    <a th:href="@{/production/boms}"   class="btn btn-sm btn-outline-primary"><i class="fa fa-list me-1"></i> BOM Templates</a>
+    <a th:href="@{/production/orders}" class="btn btn-sm btn-primary"><i class="fa fa-industry me-1"></i> Production Orders</a>
+  </div>
+
+  <!-- KPI -->
+  <div class="row g-3 mb-3">
+    <div class="col-6 col-md-3"><div class="widget widget-stats bg-secondary"><div class="stats-icon"><i class="fa fa-pen"></i></div><div class="stats-info"><h4>DRAFT</h4><p id="kpiDraft">—</p></div></div></div>
+    <div class="col-6 col-md-3"><div class="widget widget-stats bg-warning"><div class="stats-icon"><i class="fa fa-cog"></i></div><div class="stats-info"><h4>IN PROGRESS</h4><p id="kpiInProgress">—</p></div></div></div>
+    <div class="col-6 col-md-3"><div class="widget widget-stats bg-green"><div class="stats-icon"><i class="fa fa-flag-checkered"></i></div><div class="stats-info"><h4>COMPLETED</h4><p id="kpiCompleted">—</p></div></div></div>
+    <div class="col-6 col-md-3"><div class="widget widget-stats bg-blue"><div class="stats-icon"><i class="fa fa-list"></i></div><div class="stats-info"><h4>ACTIVE BOMs</h4><p id="kpiBoms">—</p></div></div></div>
+  </div>
+
+  <div class="panel panel-inverse">
+    <div class="panel-heading">
+      <div class="panel-title d-flex gap-2 align-items-center flex-wrap">
+        <a href="javascript:;" onclick="prodOpenCreate()">
+          <span class="badge btn btn-outline-success"><i class="fa fa-plus me-1"></i> New Production Order</span>
+        </a>
+        <select id="prodStatusFilter" class="form-select form-select-sm" style="width:170px" onchange="dt.ajax.reload()">
+          <option value="">All Status</option>
+          <option value="DRAFT">Draft</option>
+          <option value="SUBMITTED">Submitted</option>
+          <option value="APPROVED">Approved</option>
+          <option value="RELEASED">Released</option>
+          <option value="IN_PROGRESS">In Progress</option>
+          <option value="COMPLETED">Completed</option>
+          <option value="CANCELLED">Cancelled</option>
+        </select>
+      </div>
+      <div class="panel-heading-btn">
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-default" data-toggle="panel-expand"><i class="fa fa-expand"></i></a>
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-success" data-toggle="panel-reload" onclick="_reloadKpi()"><i class="fa fa-redo"></i></a>
+      </div>
+    </div>
+    <div class="panel-body">
+      <table id="prodTable" width="100%" class="table table-striped table-bordered align-middle">
+        <thead><tr>
+          <th width="1%">SL</th><th>Prod No</th><th>Finished Item</th>
+          <th>BOM</th><th>Date</th>
+          <th class="text-end">Planned Qty</th>
+          <th class="text-end">Produced</th>
+          <th>Unit</th>
+          <th class="text-end">Unit Cost</th>
+          <th class="text-end">Total Cost</th>
+          <th>Plan. End</th>
+          <th class="text-center">Status</th>
+          <th class="text-center" width="18%">Actions</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <!-- CREATE / EDIT MODAL -->
+    <div tabindex="-1" id="prodModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="prodModalTitle"><i class="fa fa-industry me-1 text-success"></i> New Production Order</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <form id="prodForm" novalidate>
+            <div class="modal-body">
+              <input type="hidden" id="prodId">
+              <ul class="nav nav-tabs mb-3">
+                <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#tabHeader">Header</a></li>
+                <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tabInputs">Raw Materials</a></li>
+                <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tabOutputs">Outputs</a></li>
+                <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tabCost">Cost Sheet</a></li>
+              </ul>
+              <div class="tab-content">
+
+                <!-- HEADER TAB -->
+                <div class="tab-pane fade show active" id="tabHeader">
+                  <div class="hs-box"><div class="row g-2">
+                    <div class="col-md-3 view-group">
+                      <input id="prodNo" type="text" class="form-control hs_span_view bg-light" readonly placeholder="Auto">
+                      <label class="input-label">Production No</label>
+                    </div>
+                    <div class="col-md-3 view-group">
+                      <input id="prodDate" type="date" class="form-control hs_span_view" required>
+                      <label class="input-label">Production Date <span class="text-danger">*</span></label>
+                    </div>
+                    <!-- BOM S2 (optional) -->
+                    <div class="col-md-6 view-group">
+                      <select id="prodBomId" class="form-select hs_span_view"></select>
+                      <label class="input-label">BOM Template <small class="text-muted">(auto-fills inputs)</small></label>
+                    </div>
+                    <!-- Finished Item S2 -->
+                    <div class="col-md-6 view-group">
+                      <select id="prodFinishedItemId" class="form-select hs_span_view"></select>
+                      <label class="input-label">Finished Item <span class="text-danger">*</span></label>
+                    </div>
+                    <!-- Output Warehouse S2 -->
+                    <div class="col-md-6 view-group">
+                      <select id="prodOutputWhId" class="form-select hs_span_view">
+                        <option value="">— Output Warehouse —</option>
+                      </select>
+                      <label class="input-label">Output Warehouse <span class="text-danger">*</span></label>
+                    </div>
+                    <!-- Output UOM -->
+                    <div class="col-md-3 view-group">
+                      <select id="prodOutputUnitId" class="form-select hs_span_view">
+                        <option value="">— Output UOM —</option>
+                      </select>
+                      <label class="input-label">Output UOM <span class="text-danger">*</span></label>
+                    </div>
+                    <div class="col-md-3 view-group">
+                      <input id="prodPlannedQty" type="number" step="0.001" class="form-control hs_span_view text-end fw-bold" required oninput="_onPlannedQtyChange()">
+                      <label class="input-label">Planned Qty <span class="text-danger">*</span></label>
+                    </div>
+                    <div class="col-md-3 view-group">
+                      <input id="prodPlannedStart" type="date" class="form-control hs_span_view">
+                      <label class="input-label">Planned Start</label>
+                    </div>
+                    <div class="col-md-3 view-group">
+                      <input id="prodPlannedEnd" type="date" class="form-control hs_span_view">
+                      <label class="input-label">Planned End</label>
+                    </div>
+                    <div class="col-12 view-group">
+                      <textarea id="prodRemarks" class="form-control hs_span_view" rows="1" placeholder="Remarks…"></textarea>
+                      <label class="input-label">Remarks</label>
+                    </div>
+                  </div></div>
+                </div>
+
+                <!-- RAW MATERIALS TAB -->
+                <div class="tab-pane fade" id="tabInputs">
+                  <div class="hs-box">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                      <strong>Raw Material Consumption</strong>
+                      <button type="button" class="btn btn-sm btn-outline-primary" onclick="prodAddInput()"><i class="fa fa-plus me-1"></i> Add Line</button>
+                    </div>
+                    <div class="table-responsive">
+                      <table class="table table-sm table-bordered">
+                        <thead class="table-light"><tr>
+                          <th>#</th><th width="26%">Raw Material</th><th width="8%">UOM</th>
+                          <th width="7%">Warehouse</th>
+                          <th class="text-end" width="10%">Planned Qty</th>
+                          <th class="text-end" width="10%">Actual Qty</th>
+                          <th class="text-end" width="10%">Unit Cost</th>
+                          <th class="text-end" width="10%">Total Cost</th>
+                          <th>Remarks</th><th width="4%"></th>
+                        </tr></thead>
+                        <tbody id="prodInputBody"></tbody>
+                        <tfoot><tr class="fw-bold bg-light">
+                          <td colspan="7" class="text-end">Material Total:</td>
+                          <td id="prodInputTotal" class="text-end">0.00</td>
+                          <td colspan="2"></td>
+                        </tr></tfoot>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- OUTPUTS TAB -->
+                <div class="tab-pane fade" id="tabOutputs">
+                  <div class="hs-box">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                      <strong>Finished Goods Output</strong>
+                      <button type="button" class="btn btn-sm btn-outline-primary" onclick="prodAddOutput()"><i class="fa fa-plus me-1"></i> Add Output</button>
+                    </div>
+                    <div class="table-responsive">
+                      <table class="table table-sm table-bordered">
+                        <thead class="table-light"><tr>
+                          <th>#</th><th>Finished Item</th><th>UOM</th><th>Warehouse</th>
+                          <th class="text-end">Qty Produced</th>
+                          <th class="text-end">Rejected</th>
+                          <th>Batch No</th><th>Remarks</th><th width="4%"></th>
+                        </tr></thead>
+                        <tbody id="prodOutputBody"></tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- COST SHEET TAB -->
+                <div class="tab-pane fade" id="tabCost">
+                  <div class="hs-box"><div class="row g-2">
+                    <div class="col-md-4 view-group">
+                      <input id="csMaterial" type="number" step="0.01" class="form-control hs_span_view text-end bg-light" readonly>
+                      <label class="input-label">Material Cost (auto)</label>
+                    </div>
+                    <div class="col-md-4 view-group">
+                      <input id="csLabor" type="number" step="0.01" class="form-control hs_span_view text-end" value="0" oninput="_calcCostSheet()">
+                      <label class="input-label">Labor Cost</label>
+                    </div>
+                    <div class="col-md-4 view-group">
+                      <input id="csOverhead" type="number" step="0.01" class="form-control hs_span_view text-end" value="0" oninput="_calcCostSheet()">
+                      <label class="input-label">Overhead Cost</label>
+                    </div>
+                    <div class="col-md-4 view-group">
+                      <input id="csOther" type="number" step="0.01" class="form-control hs_span_view text-end" value="0" oninput="_calcCostSheet()">
+                      <label class="input-label">Other Cost</label>
+                    </div>
+                    <div class="col-md-4 view-group">
+                      <input id="csTotal" type="number" class="form-control hs_span_view text-end fw-bold bg-light" readonly>
+                      <label class="input-label">Total Cost</label>
+                    </div>
+                    <div class="col-md-4 view-group">
+                      <input id="csUnit" type="number" class="form-control hs_span_view text-end fw-bold text-primary bg-light" readonly>
+                      <label class="input-label">Unit Cost (COGS basis)</label>
+                    </div>
+                    <div class="col-md-4 view-group">
+                      <input id="csProduced" type="number" step="0.001" class="form-control hs_span_view text-end" value="0" oninput="_calcCostSheet()">
+                      <label class="input-label">Produced Qty</label>
+                    </div>
+                    <div class="col-md-4 view-group">
+                      <input id="csRejected" type="number" step="0.001" class="form-control hs_span_view text-end" value="0">
+                      <label class="input-label">Rejected Qty</label>
+                    </div>
+                    <div class="col-md-4 view-group">
+                      <input id="csWaste" type="number" step="0.001" class="form-control hs_span_view text-end" value="0">
+                      <label class="input-label">Waste Qty</label>
+                    </div>
+                  </div></div>
+                </div>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-success" type="submit" id="prodSubmitBtn">
+                <span class="spinner-border spinner-border-sm me-2 d-none" id="prodSpinner"></span>
+                <span id="prodBtnText">Save Draft</span>
+              </button>
+              <button type="button" class="btn btn-white" data-bs-dismiss="modal">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- VIEW MODAL -->
+    <div tabindex="-1" id="prodViewModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header"><h5 class="modal-title" id="prodViewTitle"><i class="fa fa-industry me-1 text-primary"></i> Production Details</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+          <div class="modal-body" id="prodViewBody"></div>
+          <div class="modal-footer"><button type="button" class="btn btn-white" data-bs-dismiss="modal">Close</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script th:inline="none">
+  (function () {
+    'use strict';
+    const BASE='/production/orders', BOM_BASE='/production/boms';
+    const ITEM_URL='/inventory/items/search';
+    var dt, _lineCount=0, _outCount=0, _uoms=[], _warehouses=[];
+
+    document.addEventListener('DOMContentLoaded', function () {
+      dt = $('#prodTable').DataTable({
+        processing:true,serverSide:false,responsive:true,pageLength:25,
+        ajax:{ url:BASE+'/list',type:'GET',data:function(d){ d.status=document.getElementById('prodStatusFilter').value||''; }},
+        columns:[
+          {data:'sl',orderable:false,width:'40px'},{data:'production_no'},{data:'finished_item'},
+          {data:'bom_code',defaultContent:'—'},{data:'production_date'},
+          {data:'planned_quantity',className:'text-end'},{data:'produced_quantity',className:'text-end'},
+          {data:'output_unit'},{data:'unit_cost',className:'text-end',defaultContent:'—'},
+          {data:'total_cost',className:'text-end',render:function(d){ return parseFloat(d||0).toFixed(2); }},
+          {data:'planned_end_date',defaultContent:'—'},
+          {data:'status_badge',orderable:false,className:'text-center'},
+          {data:'actions',orderable:false,className:'text-center'}
+        ],
+        language:{emptyTable:'No production orders.',processing:'<span class="spinner-border spinner-border-sm me-2"></span> Loading…'}
+      });
+      document.getElementById('prodDate').value = new Date().toISOString().substring(0,10);
+      document.getElementById('prodForm').addEventListener('submit',_onSubmit);
+
+      // Load master data
+      secureFetch('/inventory/uoms/active').then(function(d){ _uoms=d||[]; });
+      secureFetch('/warehouses/active').then(function(d){ _warehouses=d||[]; });
+
+      _loadKpi();
+      _initProdS2s();
+
+      // Check for BOM shortcut from BOM list
+      var pendingBom = sessionStorage.getItem('pendingBomId');
+      if (pendingBom) {
+        sessionStorage.removeItem('pendingBomId');
+        setTimeout(function(){ prodOpenCreate(pendingBom); },400);
+      }
+    });
+
+    window._reloadKpi = function() { dt.ajax.reload(); _loadKpi(); };
+
+    function _loadKpi() {
+      secureFetch('/production/dashboard/summary').then(function(d){
+        document.getElementById('kpiDraft').textContent      = d.draft      || '0';
+        document.getElementById('kpiInProgress').textContent = d.inProgress || '0';
+        document.getElementById('kpiCompleted').textContent  = d.completed  || '0';
+        document.getElementById('kpiBoms').textContent       = d.activeBoms || '0';
+      });
+    }
+
+    function _initProdS2s(finishedPre,finishedTxt,bomPre,bomTxt) {
+      ['#prodFinishedItemId','#prodBomId'].forEach(function(sel){ var $e=$(sel); if($e.hasClass('select2-hidden-accessible')) $e.select2('destroy'); });
+
+      $('#prodFinishedItemId').select2({dropdownParent:$('#prodModal'),width:'100%',placeholder:'— Finished Item —',allowClear:true,minimumInputLength:0,
+        ajax:{url:ITEM_URL,dataType:'json',delay:250,data:function(p){return{search:p.term||'',page:p.page||1};},
+          processResults:function(d,p){p.page=p.page||1;return{results:(d.items||[]).map(function(i){return{id:i.id,text:i.text};}),pagination:{more:d.hasMore||false}};},cache:true}
+      });
+      if (finishedPre) $('#prodFinishedItemId').append(new Option(finishedTxt||'',finishedPre,true,true)).trigger('change');
+
+      $('#prodBomId').select2({dropdownParent:$('#prodModal'),width:'100%',placeholder:'— BOM (optional) —',allowClear:true,minimumInputLength:0,
+        ajax:{url:BOM_BASE+'/search',dataType:'json',delay:250,data:function(p){return{search:p.term||'',page:p.page||1};},
+          processResults:function(d,p){p.page=p.page||1;return{results:(d.items||[]).map(function(i){return{id:i.id,text:i.text};}),pagination:{more:d.hasMore||false}};},cache:true}
+      });
+      if (bomPre) $('#prodBomId').append(new Option(bomTxt||'',bomPre,true,true)).trigger('change');
+
+      // Auto-populate inputs when BOM is selected
+      $('#prodBomId').off('select2:select').on('select2:select',function(e){
+        var bomId=e.params.data.id;
+        var whId=document.getElementById('prodOutputWhId').value;
+        var qty=parseFloat(document.getElementById('prodPlannedQty').value)||null;
+        secureFetch(BOM_BASE+'/populate?bomId='+bomId+(whId?'&warehouseId='+whId:'')+(qty?'&quantity='+qty:'')).then(function(res){
+          if (!res.success) return;
+          var o=res.obj.defaultData;
+          // Pre-fill finished item + unit
+          if (o.finishedItemId) {
+            $('#prodFinishedItemId').append(new Option(o.finishedItemDisplay||'',o.finishedItemId,true,true)).trigger('change');
+          }
+          if (o.outputUnitId) _populateUomAndWh('prodOutputUnitId','prodOutputWhId');
+          // Clear and re-fill input lines
+          document.querySelectorAll('#prodInputBody .prod-raw-s2').forEach(function(el){ if($(el).hasClass('select2-hidden-accessible')) $(el).select2('destroy'); });
+          document.getElementById('prodInputBody').innerHTML=''; _lineCount=0;
+          (o.inputs||[]).forEach(function(inp){ prodAddInput(inp); });
+          _calcInputTotal();
+        });
+      });
+
+      _populateUomAndWh('prodOutputUnitId','prodOutputWhId');
+    }
+
+    function _populateUomAndWh(uomSelId, whSelId, preUom, preWh) {
+      var us=document.getElementById(uomSelId); us.innerHTML='<option value="">— UOM —</option>';
+      _uoms.forEach(function(u){ us.insertAdjacentHTML('beforeend','<option value="'+u.id+'"'+(preUom==u.id?' selected':'')+'>'+u.code+'</option>'); });
+      var ws=document.getElementById(whSelId); ws.innerHTML='<option value="">— Warehouse —</option>';
+      _warehouses.forEach(function(w){ ws.insertAdjacentHTML('beforeend','<option value="'+w.id+'"'+(preWh==w.id?' selected':'')+'>'+w.code+' — '+w.name+'</option>'); });
+    }
+
+    function _initRawS2(el, preId, preText) {
+      var $el=$(el);
+      if ($el.hasClass('select2-hidden-accessible')) $el.select2('destroy');
+      $el.select2({dropdownParent:$('#prodModal'),width:'100%',placeholder:'— Item —',allowClear:true,minimumInputLength:0,
+        ajax:{url:ITEM_URL,dataType:'json',delay:250,data:function(p){return{search:p.term||'',page:p.page||1};},
+          processResults:function(d,p){p.page=p.page||1;return{results:(d.items||[]).map(function(i){return{id:i.id,text:i.text};}),pagination:{more:d.hasMore||false}};},cache:true}
+      });
+      if (preId) $el.append(new Option(preText||'',preId,true,true)).trigger('change');
+      $el.on('select2:select',function(e){
+        var tr=el.closest('tr');
+        tr.querySelector('[data-field="rawItemId"]').value=e.params.data.id;
+        _calcInputTotal();
+      });
+      $el.on('select2:clear',function(){ el.closest('tr').querySelector('[data-field="rawItemId"]').value=''; });
+    }
+
+    window._onPlannedQtyChange = function() { /* could auto-scale BOM if BOM selected */ };
+
+    window.prodOpenCreate = function(bomId) {
+      _resetProdForm();
+      document.getElementById('prodModalTitle').innerHTML='<i class="fa fa-plus me-1 text-success"></i> New Production Order';
+      document.getElementById('prodBtnText').textContent='Save Draft';
+      if (bomId) setTimeout(function(){
+        $('#prodBomId').append(new Option('',bomId,true,true)).trigger('change');
+        // Fire select2:select to populate inputs
+        $('#prodBomId').trigger({type:'select2:select',params:{data:{id:bomId,text:''}}});
+      }, 200);
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('prodModal')).show();
+    };
+
+    window.prodAddInput = function(data) {
+      _lineCount++;
+      var n=_lineCount;
+      var uomOpts='<option value="">UOM</option>'; _uoms.forEach(function(u){ uomOpts+='<option value="'+u.id+'"'+(data&&data.unitId==u.id?' selected':'')+'>'+u.code+'</option>'; });
+      var whOpts='<option value="">WH</option>';  _warehouses.forEach(function(w){ whOpts+='<option value="'+w.id+'"'+(data&&data.warehouseId==w.id?' selected':'')+'>'+w.code+'</option>'; });
+      var html='<tr id="pinp_'+n+'">'
+        +'<td class="text-center">'+n+'</td>'
+        +'<td><input type="hidden" data-field="rawItemId" value="'+(data&&data.rawItemId?data.rawItemId:'')+'"><select class="form-select form-select-sm prod-raw-s2"></select></td>'
+        +'<td><select class="form-select form-select-sm" data-field="unitId">'+uomOpts+'</select></td>'
+        +'<td><select class="form-select form-select-sm" data-field="warehouseId">'+whOpts+'</select></td>'
+        +'<td><input type="number" step="0.001" class="form-control form-control-sm text-end" data-field="plannedQty" value="'+(data?data.plannedQuantity||'0':'0')+'"></td>'
+        +'<td><input type="number" step="0.001" class="form-control form-control-sm text-end" data-field="actualQty" value="'+(data?data.actualQuantity||'0':'0')+'" oninput="_calcInputTotal()"></td>'
+        +'<td><input type="number" step="0.0001" class="form-control form-control-sm text-end" data-field="unitCost" value="'+(data?data.unitCost||'0':'0')+'" oninput="_calcInputTotal()"></td>'
+        +'<td><input type="number" class="form-control form-control-sm text-end bg-light" data-field="totalCost" readonly value="'+(data?data.totalCost||'0':'0')+'"></td>'
+        +'<td><input type="text" class="form-control form-control-sm" data-field="remarks" value="'+(data&&data.remarks?data.remarks:'')+'" maxlength="200"></td>'
+        +'<td><button type="button" class="btn btn-sm btn-outline-danger" onclick="prodRemoveInput('+n+')"><i class="fa fa-times"></i></button></td>'
+        +'</tr>';
+      document.getElementById('prodInputBody').insertAdjacentHTML('beforeend',html);
+      var rawSel=document.querySelector('#pinp_'+n+' .prod-raw-s2');
+      _initRawS2(rawSel, data?data.rawItemId:null, data?data.rawItemDisplay:null);
+    };
+
+    window.prodRemoveInput = function(n) {
+      var r=document.getElementById('pinp_'+n);
+      if (r) { r.querySelectorAll('.prod-raw-s2').forEach(function(el){ if($(el).hasClass('select2-hidden-accessible')) $(el).select2('destroy'); }); r.remove(); _calcInputTotal(); }
+    };
+
+    window._calcInputTotal = function() {
+      var tot=0;
+      document.querySelectorAll('#prodInputBody tr').forEach(function(tr){
+        var aq=parseFloat(tr.querySelector('[data-field="actualQty"]').value)||0;
+        var uc=parseFloat(tr.querySelector('[data-field="unitCost"]').value)||0;
+        var tc=(aq*uc);
+        tr.querySelector('[data-field="totalCost"]').value=tc.toFixed(2);
+        tot+=tc;
+      });
+      document.getElementById('prodInputTotal').textContent=tot.toFixed(2);
+      document.getElementById('csMaterial').value=tot.toFixed(2);
+      _calcCostSheet();
+    };
+
+    window.prodAddOutput = function(data) {
+      _outCount++;
+      var n=_outCount;
+      var uomOpts='<option value="">UOM</option>'; _uoms.forEach(function(u){ uomOpts+='<option value="'+u.id+'"'+(data&&data.unitId==u.id?' selected':'')+'>'+u.code+'</option>'; });
+      var whOpts='<option value="">WH</option>';  _warehouses.forEach(function(w){ whOpts+='<option value="'+w.id+'"'+(data&&data.warehouseId==w.id?' selected':'')+'>'+w.code+'</option>'; });
+      var html='<tr id="pout_'+n+'">'
+        +'<td class="text-center">'+n+'</td>'
+        +'<td><select class="form-select form-select-sm" data-field="finishedItemId">'+/* link to finished item */''+'</select></td>'
+        +'<td><select class="form-select form-select-sm" data-field="unitId">'+uomOpts+'</select></td>'
+        +'<td><select class="form-select form-select-sm" data-field="warehouseId">'+whOpts+'</select></td>'
+        +'<td><input type="number" step="0.001" class="form-control form-control-sm text-end" data-field="quantity" value="'+(data?data.quantity||'0':'0')+'"></td>'
+        +'<td><input type="number" step="0.001" class="form-control form-control-sm text-end" data-field="rejectedQty" value="0"></td>'
+        +'<td><input type="text" class="form-control form-control-sm" data-field="batchNo" value="'+(data&&data.batchNo?data.batchNo:'')+'" maxlength="100"></td>'
+        +'<td><input type="text" class="form-control form-control-sm" data-field="remarks" value="'+(data&&data.remarks?data.remarks:'')+'" maxlength="200"></td>'
+        +'<td><button type="button" class="btn btn-sm btn-outline-danger" onclick="prodRemoveOutput('+n+')"><i class="fa fa-times"></i></button></td>'
+        +'</tr>';
+      document.getElementById('prodOutputBody').insertAdjacentHTML('beforeend',html);
+    };
+
+    window.prodRemoveOutput = function(n) { var r=document.getElementById('pout_'+n); if(r) r.remove(); };
+
+    window._calcCostSheet = function() {
+      var mat=parseFloat(document.getElementById('csMaterial').value)||0;
+      var lab=parseFloat(document.getElementById('csLabor').value)||0;
+      var oh =parseFloat(document.getElementById('csOverhead').value)||0;
+      var ot =parseFloat(document.getElementById('csOther').value)||0;
+      var tot=mat+lab+oh+ot;
+      document.getElementById('csTotal').value=tot.toFixed(2);
+      var prod=parseFloat(document.getElementById('csProduced').value)||0;
+      document.getElementById('csUnit').value=(prod>0?(tot/prod).toFixed(4):'0.0000');
+    };
+
+    window.prodShow = function(id) {
+      secureFetch(BASE+'/show/'+id).then(function(res){
+        if (!res.success) { Swal.fire('Error',res.message,'error'); return; }
+        var o=res.obj.defaultData;
+        document.getElementById('prodViewTitle').innerHTML='<i class="fa fa-industry me-1 text-primary"></i> '+o.productionNo;
+        var html='<div class="hs-box"><div class="row g-2">'
+          +_vf('Production No',o.productionNo)+_vf('Status',o.status)
+          +_vf('Finished Item',o.finishedItemDisplay||'—')+_vf('BOM',o.bomDisplay||'—')
+          +_vf('Production Date',o.productionDate)+_vf('Plan. End',o.plannedEndDate||'—')
+          +_vf('Planned Qty',o.plannedQuantity)+_vf('Produced Qty',o.producedQuantity)
+          +_vf('Output Warehouse',o.outputWarehouseDisplay||'—')+_vf('Cost Center',o.costCenterDisplay||'—')
+          +'</div>'
+          +'<h6 class="border-bottom pb-1 mt-3 mb-2">Cost Sheet</h6><div class="row g-2">'
+          +_vf('Material Cost',parseFloat(o.materialCost||0).toFixed(2))
+          +_vf('Labor Cost',parseFloat(o.laborCost||0).toFixed(2))
+          +_vf('Overhead',parseFloat(o.overheadCost||0).toFixed(2))
+          +_vf('Other',parseFloat(o.otherCost||0).toFixed(2))
+          +_vf('Total Cost','<strong>'+parseFloat(o.totalCost||0).toFixed(2)+'</strong>')
+          +_vf('Unit Cost','<strong class="text-primary">'+parseFloat(o.unitCost||0).toFixed(4)+'</strong>')
+          +'</div>'
+          +'<h6 class="border-bottom pb-1 mt-3 mb-2">Raw Material Inputs</h6>'
+          +'<table class="table table-sm table-bordered"><thead class="table-light"><tr>'
+          +'<th>#</th><th>Item</th><th>UOM</th><th class="text-end">Planned</th><th class="text-end">Actual</th><th class="text-end">Unit Cost</th><th class="text-end">Total Cost</th>'
+          +'</tr></thead><tbody>';
+        (o.inputs||[]).forEach(function(inp){
+          html+='<tr><td>'+inp.lineNumber+'</td><td>'+inp.rawItemDisplay+'</td><td>'+inp.unitDisplay+'</td>'
+            +'<td class="text-end">'+(inp.plannedQuantity||'—')+'</td>'
+            +'<td class="text-end fw-bold">'+parseFloat(inp.actualQuantity||0).toFixed(3)+'</td>'
+            +'<td class="text-end">'+parseFloat(inp.unitCost||0).toFixed(4)+'</td>'
+            +'<td class="text-end text-danger fw-bold">'+parseFloat(inp.totalCost||0).toFixed(2)+'</td></tr>';
+        });
+        html+='</tbody></table>'
+          +'<h6 class="border-bottom pb-1 mt-3 mb-2">Outputs / Finished Goods</h6>'
+          +'<table class="table table-sm table-bordered"><thead class="table-light"><tr>'
+          +'<th>#</th><th>Item</th><th>Lot</th><th class="text-end">Qty</th><th class="text-end">Unit Cost</th><th class="text-end">Total Cost</th>'
+          +'</tr></thead><tbody>';
+        (o.outputs||[]).forEach(function(out){
+          html+='<tr><td>'+out.lineNumber+'</td><td>'+out.finishedItemDisplay+'</td>'
+            +'<td>'+(out.lotDisplay||'—')+'</td>'
+            +'<td class="text-end fw-bold">'+parseFloat(out.quantity||0).toFixed(3)+'</td>'
+            +'<td class="text-end">'+parseFloat(out.unitCost||0).toFixed(4)+'</td>'
+            +'<td class="text-end text-success fw-bold">'+parseFloat(out.totalCost||0).toFixed(2)+'</td></tr>';
+        });
+        html+='</tbody></table></div>';
+        document.getElementById('prodViewBody').innerHTML=html;
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('prodViewModal')).show();
+      });
+    };
+
+    function _statusAction(id, endpoint, title, msg, color) {
+      Swal.fire({title:title,text:msg,icon:'question',showCancelButton:true,confirmButtonText:'Yes',confirmButtonColor:color||'#0d6efd'})
+        .then(function(r){ if (!r.isConfirmed) return;
+          secureFetch(BASE+'/'+endpoint+'/'+id,{method:'POST'}).then(function(d){
+            if (d.success) { Swal.fire({icon:'success',title:'Done!',text:d.message,timer:1800,showConfirmButton:false}); dt.ajax.reload(null,false); _loadKpi(); }
+            else Swal.fire('Error',d.message,'error');
+          });
+        });
+    }
+
+    window.prodEdit   = function(id) { secureFetch(BASE+'/show/'+id).then(function(res){ if(!res.success){Swal.fire('Error',res.message,'error');return;} var o=res.obj.defaultData; _resetProdForm(); document.getElementById('prodId').value=o.id; document.getElementById('prodNo').value=o.productionNo||''; document.getElementById('prodDate').value=o.productionDate||''; document.getElementById('prodPlannedQty').value=o.plannedQuantity||''; document.getElementById('prodPlannedStart').value=o.plannedStartDate||''; document.getElementById('prodPlannedEnd').value=o.plannedEndDate||''; document.getElementById('prodRemarks').value=o.remarks||''; document.getElementById('csLabor').value=o.laborCost||'0'; document.getElementById('csOverhead').value=o.overheadCost||'0'; document.getElementById('csOther').value=o.otherCost||'0'; document.getElementById('csProduced').value=o.producedQuantity||'0'; document.getElementById('csRejected').value=o.rejectedQuantity||'0'; document.getElementById('csWaste').value=o.wasteQuantity||'0'; _initProdS2s(o.finishedItemId,o.finishedItemDisplay,o.bomId,o.bomDisplay); setTimeout(function(){ _populateUomAndWh('prodOutputUnitId','prodOutputWhId',o.outputUnitId,o.outputWarehouseId); },300); (o.inputs||[]).forEach(function(inp){ prodAddInput(inp); }); _calcInputTotal(); document.getElementById('prodModalTitle').innerHTML='<i class="fa fa-pencil me-1 text-warning"></i> Edit Production Order'; document.getElementById('prodBtnText').textContent='Update'; bootstrap.Modal.getOrCreateInstance(document.getElementById('prodModal')).show(); }); };
+
+    window.prodSubmit  = function(id) { _statusAction(id,'submit','Submit?','Order will move to SUBMITTED.'); };
+    window.prodApprove = function(id) { _statusAction(id,'approve','Approve?','Order will be APPROVED.','#198754'); };
+    window.prodRelease = function(id) { _statusAction(id,'release','Release?','Order will be released to floor.','#20c997'); };
+    window.prodStart   = function(id) { _statusAction(id,'start','Start Production?','Status → IN_PROGRESS.','#fd7e14'); };
+    window.prodCancel  = function(id) { Swal.fire({title:'Cancel Order?',input:'textarea',inputPlaceholder:'Reason…',icon:'warning',showCancelButton:true,confirmButtonText:'Cancel Order',confirmButtonColor:'#dc3545'}).then(function(r){ if(!r.isConfirmed) return; secureFetch(BASE+'/cancel/'+id+'?remarks='+encodeURIComponent(r.value||''),{method:'POST'}).then(function(d){ if(d.success){Swal.fire({icon:'success',title:'Cancelled',text:d.message,timer:1400,showConfirmButton:false});dt.ajax.reload(null,false);_loadKpi();}else Swal.fire('Error',d.message,'error'); }); }); };
+
+    window.prodComplete = function(id) {
+      Swal.fire({title:'Complete Production?',text:'Raw material stock will be issued. Finished goods will be received with calculated unit cost.',icon:'warning',showCancelButton:true,confirmButtonText:'Complete',confirmButtonColor:'#198754'})
+        .then(function(r){ if (!r.isConfirmed) return;
+          secureFetch(BASE+'/complete/'+id,{method:'POST'}).then(function(d){
+            if (d.success) { Swal.fire({icon:'success',title:'Completed!',text:d.message,timer:2000,showConfirmButton:false}); dt.ajax.reload(null,false); _loadKpi(); }
+            else Swal.fire('Error',d.message,'error');
+          });
+        });
+    };
+
+    function _onSubmit(e) {
+      e.preventDefault();
+      var sb=document.getElementById('prodSubmitBtn'),sp=document.getElementById('prodSpinner'),bt=document.getElementById('prodBtnText');
+      hsDisableButton(sb,sp,bt);
+      var inputs=[], outputs=[];
+      document.querySelectorAll('#prodInputBody tr').forEach(function(tr,idx){
+        var rid=tr.querySelector('[data-field="rawItemId"]').value;
+        if (!rid) return;
+        inputs.push({lineNumber:idx+1,rawItemId:rid,
+          unitId:tr.querySelector('[data-field="unitId"]').value||null,
+          warehouseId:tr.querySelector('[data-field="warehouseId"]').value||null,
+          plannedQuantity:parseFloat(tr.querySelector('[data-field="plannedQty"]').value)||0,
+          actualQuantity:parseFloat(tr.querySelector('[data-field="actualQty"]').value)||0,
+          unitCost:parseFloat(tr.querySelector('[data-field="unitCost"]').value)||0,
+          totalCost:parseFloat(tr.querySelector('[data-field="totalCost"]').value)||0,
+          remarks:tr.querySelector('[data-field="remarks"]').value||null});
+      });
+      document.querySelectorAll('#prodOutputBody tr').forEach(function(tr,idx){
+        var fid=tr.querySelector('[data-field="finishedItemId"]').value||null;
+        outputs.push({lineNumber:idx+1,finishedItemId:fid,
+          unitId:tr.querySelector('[data-field="unitId"]').value||null,
+          warehouseId:tr.querySelector('[data-field="warehouseId"]').value||null,
+          quantity:parseFloat(tr.querySelector('[data-field="quantity"]').value)||0,
+          rejectedQuantity:parseFloat(tr.querySelector('[data-field="rejectedQty"]').value)||0,
+          batchNo:tr.querySelector('[data-field="batchNo"]').value||null,
+          remarks:tr.querySelector('[data-field="remarks"]').value||null});
+      });
+      secureFetch(BASE+'/save',{method:'POST',body:JSON.stringify({
+        id              : document.getElementById('prodId').value||null,
+        bomId           : $('#prodBomId').val()||null,
+        finishedItemId  : $('#prodFinishedItemId').val()||null,
+        outputWarehouseId: document.getElementById('prodOutputWhId').value||null,
+        outputUnitId    : document.getElementById('prodOutputUnitId').value||null,
+        productionDate  : document.getElementById('prodDate').value,
+        plannedStartDate: document.getElementById('prodPlannedStart').value||null,
+        plannedEndDate  : document.getElementById('prodPlannedEnd').value||null,
+        plannedQuantity : parseFloat(document.getElementById('prodPlannedQty').value)||null,
+        producedQuantity: parseFloat(document.getElementById('csProduced').value)||0,
+        rejectedQuantity: parseFloat(document.getElementById('csRejected').value)||0,
+        wasteQuantity   : parseFloat(document.getElementById('csWaste').value)||0,
+        laborCost       : parseFloat(document.getElementById('csLabor').value)||0,
+        overheadCost    : parseFloat(document.getElementById('csOverhead').value)||0,
+        otherCost       : parseFloat(document.getElementById('csOther').value)||0,
+        remarks         : document.getElementById('prodRemarks').value||null,
+        inputs, outputs
+      })}).then(function(d){
+        if (d.success) { hsAfterSaveMessages(d,dt); _loadKpi(); bootstrap.Modal.getOrCreateInstance(document.getElementById('prodModal')).hide(); }
+        else Swal.fire('Error',d.message,'error');
+      }).catch(function(err){ Swal.fire('Error',err.message||'Request failed.','error'); })
+        .finally(function(){ hsEnableButton(sb,sp,bt); });
+    }
+
+    function _resetProdForm() {
+      ['#prodFinishedItemId','#prodBomId'].forEach(function(sel){ var $e=$(sel); if($e.hasClass('select2-hidden-accessible')) $e.select2('destroy'); });
+      document.querySelectorAll('.prod-raw-s2').forEach(function(el){ if($(el).hasClass('select2-hidden-accessible')) $(el).select2('destroy'); });
+      document.getElementById('prodForm').reset();
+      document.getElementById('prodId').value=''; document.getElementById('prodInputBody').innerHTML='';
+      document.getElementById('prodOutputBody').innerHTML=''; _lineCount=0; _outCount=0;
+      document.getElementById('prodDate').value=new Date().toISOString().substring(0,10);
+      ['csMaterial','csLabor','csOverhead','csOther','csTotal','csUnit','csProduced','csRejected','csWaste'].forEach(function(id){ document.getElementById(id).value='0'; });
+      _initProdS2s();
+    }
+
+    function _vf(l,v){ return '<div class="col-md-4 view-group"><label class="view-label">'+l+'</label><span class="form-control hs_span_show">'+(v!=null?v:'—')+'</span></div>'; }
+  })();
+  </script>
+</section>
+</html>

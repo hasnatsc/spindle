@@ -135,7 +135,7 @@ ON CONFLICT (menu_code) DO NOTHING;
 INSERT INTO app_menus (menu_code,menu_name,menu_url,icon,parent_id,display_order,menu_type,module_name,required_permission,active,visible)
 SELECT v.* FROM (VALUES
   ('M_PRD_MASTERS',         'Masters',               '#',                                'fas fa-layer-group',    (SELECT id FROM app_menus WHERE menu_code='M_PRODUCTION'), 10,'GROUP','PRODUCTION',NULL,TRUE,TRUE),
-  ('M_BOM',                 'Bill of Materials',     '/production/bom',                   'fas fa-list-check',     (SELECT id FROM app_menus WHERE menu_code='M_PRD_MASTERS'), 10,'LEAF','PRODUCTION','production.bom.view',TRUE,TRUE),
+  ('M_BOM',                 'Bill of Materials',     '/production/boms',                   'fas fa-list-check',     (SELECT id FROM app_menus WHERE menu_code='M_PRD_MASTERS'), 10,'LEAF','PRODUCTION','production.bom.view',TRUE,TRUE),
   ('M_PRD_TRANSACTIONS',    'Production',            '#',                                'fas fa-gears',          (SELECT id FROM app_menus WHERE menu_code='M_PRODUCTION'), 20,'GROUP','PRODUCTION',NULL,TRUE,TRUE),
   ('M_PRD_ORDER',           'Production Orders',     '/production/orders',                'fas fa-file-pen',       (SELECT id FROM app_menus WHERE menu_code='M_PRD_TRANSACTIONS'), 10,'LEAF','PRODUCTION','production.order.view',TRUE,TRUE),
   ('M_PRD_MATERIAL_REQ',    'Material Requisition',  '/production/material-requisitions', 'fas fa-clipboard-list', (SELECT id FROM app_menus WHERE menu_code='M_PRD_TRANSACTIONS'), 20,'LEAF','PRODUCTION','production.material.view',TRUE,TRUE),
@@ -325,8 +325,8 @@ INSERT INTO sec_permissions (name, module, description, url_pattern, http_method
 ('inventory.storereq.view',     'INVENTORY',     'View store requisitions',      '/inventory/store-requisitions', 'GET', TRUE),
 ('inventory.materialissue.view','INVENTORY',     'View material issue',          '/inventory/material-issue',     'GET', TRUE),
 -- Production
-('production.bom.view',         'PRODUCTION',    'View BOM',                     '/production/bom',               'GET', TRUE),
-('production.bom.create',       'PRODUCTION',    'Create BOM',                   '/production/bom',               'POST',TRUE),
+('production.bom.view',         'PRODUCTION',    'View BOM',                     '/production/boms',               'GET', TRUE),
+('production.bom.create',       'PRODUCTION',    'Create BOM',                   '/production/boms',               'POST',TRUE),
 ('production.order.view',       'PRODUCTION',    'View production orders',       '/production/orders',            'GET', TRUE),
 ('production.order.create',     'PRODUCTION',    'Create production order',      '/production/orders',            'POST',TRUE),
 ('production.order.approve',    'PRODUCTION',    'Approve production order',     '/production/orders/*/approve',  'POST',TRUE),

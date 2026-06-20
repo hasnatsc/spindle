@@ -225,4 +225,8 @@ public class CommonUtils {
         }
         return sb.toString();
     }
+
+    public static BigDecimal nvl(BigDecimal value, BigDecimal defaultValue) {
+        return value == null ? defaultValue : value;
+    }
 }

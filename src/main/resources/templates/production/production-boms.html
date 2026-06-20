@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<!--
+  production/production-boms.html    GET /production/boms
+  JS prefix: bom*
+  BOM CRUD — multi-line raw material table, AJAX Select2 for items/UOM
+  "Create Production Order" shortcut button per BOM row
+-->
+<html th:replace="~{layout/base :: layout('Bill of Materials', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
+<section>
+  <ol class="breadcrumb float-xl-end">
+    <li class="breadcrumb-item"><a th:href="@{/dashboard}">Home</a></li>
+    <li class="breadcrumb-item">Production</li>
+    <li class="breadcrumb-item active">Bill of Materials</li>
+  </ol>
+  <h1 class="page-header">Bill of Materials <small>define raw material recipes for finished products</small></h1>
+
+  <div class="d-flex gap-2 mb-3 flex-wrap">
+    <a th:href="@{/production/boms}"   class="btn btn-sm btn-primary"><i class="fa fa-list me-1"></i> BOM Templates</a>
+    <a th:href="@{/production/orders}" class="btn btn-sm btn-outline-primary"><i class="fa fa-industry me-1"></i> Production Orders</a>
+  </div>
+
+  <div class="panel panel-inverse">
+    <div class="panel-heading">
+      <div class="panel-title">
+        <a href="javascript:;" onclick="bomOpenCreate()">
+          <span class="badge btn btn-outline-success"><i class="fa fa-plus me-1"></i> New BOM</span>
+        </a>
+      </div>
+      <div class="panel-heading-btn">
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-default" data-toggle="panel-expand"><i class="fa fa-expand"></i></a>
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-success" data-toggle="panel-reload"><i class="fa fa-redo"></i></a>
+      </div>
+    </div>
+    <div class="panel-body">
+      <table id="bomTable" width="100%" class="table table-striped table-bordered align-middle">
+        <thead><tr>
+          <th width="1%">SL</th><th>BOM Code</th><th>BOM Name</th><th>Ver.</th>
+          <th>Finished Item</th>
+          <th class="text-end">Output Qty</th><th>Unit</th>
+          <th class="text-center">Yield %</th>
+          <th class="text-center">Lines</th>
+          <th class="text-center">Default</th>
+          <th class="text-center">Status</th>
+          <th class="text-center" width="15%">Actions</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <!-- CREATE / EDIT MODAL -->
+    <div tabindex="-1" id="bomModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="bomModalTitle"><i class="fa fa-list me-1 text-success"></i> New BOM</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <form id="bomForm" novalidate>
+            <div class="modal-body">
+              <div class="hs-box">
+                <input type="hidden" id="bomId">
+                <h6 class="text-muted border-bottom pb-1 mb-2">Header</h6>
+                <div class="row g-2 mb-3">
+                  <div class="col-md-3 view-group">
+                    <input id="bomCode" type="text" class="form-control hs_span_view text-uppercase" maxlength="50" required>
+                    <label class="input-label">BOM Code <span class="text-danger">*</span></label>
+                  </div>
+                  <div class="col-md-5 view-group">
+                    <input id="bomName" type="text" class="form-control hs_span_view" maxlength="200" required>
+                    <label class="input-label">BOM Name <span class="text-danger">*</span></label>
+                  </div>
+                  <div class="col-md-2 view-group">
+                    <input id="bomVersion" type="text" class="form-control hs_span_view" maxlength="20" value="1.0">
+                    <label class="input-label">Version</label>
+                  </div>
+                  <div class="col-md-2 d-flex align-items-center gap-2 mt-2">
+                    <div class="form-check form-switch">
+                      <input class="form-check-input" type="checkbox" id="bomActive" checked>
+                      <label class="form-check-label" for="bomActive">Active</label>
+                    </div>
+                    <div class="form-check form-switch">
+                      <input class="form-check-input" type="checkbox" id="bomDefault">
+                      <label class="form-check-label" for="bomDefault">Default</label>
+                    </div>
+                  </div>
+                  <!-- Finished Item S2 -->
+                  <div class="col-md-6 view-group">
+                    <select id="bomFinishedItemId" class="form-select hs_span_view"></select>
+                    <label class="input-label">Finished Item <span class="text-danger">*</span></label>
+                  </div>
+                  <!-- Output UOM -->
+                  <div class="col-md-3 view-group">
+                    <select id="bomOutputUnitId" class="form-select hs_span_view">
+                      <option value="">— UOM —</option>
+                    </select>
+                    <label class="input-label">Output UOM <span class="text-danger">*</span></label>
+                  </div>
+                  <div class="col-md-2 view-group">
+                    <input id="bomOutputQty" type="number" step="0.001" min="0.001" class="form-control hs_span_view text-end" value="1">
+                    <label class="input-label">Output Qty <span class="text-danger">*</span></label>
+                  </div>
+                  <div class="col-md-2 view-group">
+                    <input id="bomYield" type="number" step="0.01" min="1" max="100" class="form-control hs_span_view text-end" value="100.00">
+                    <label class="input-label">Yield %</label>
+                  </div>
+                  <div class="col-12 view-group">
+                    <textarea id="bomDesc" class="form-control hs_span_view" rows="1" placeholder="Description…"></textarea>
+                    <label class="input-label">Description</label>
+                  </div>
+                </div>
+
+                <!-- RAW MATERIAL LINES -->
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                  <strong>Raw Material Lines</strong>
+                  <button type="button" class="btn btn-sm btn-outline-primary" onclick="bomAddLine()"><i class="fa fa-plus me-1"></i> Add Line</button>
+                </div>
+                <div class="table-responsive">
+                  <table class="table table-sm table-bordered">
+                    <thead class="table-light"><tr>
+                      <th width="4%">#</th>
+                      <th width="32%">Raw Material <span class="text-danger">*</span></th>
+                      <th width="10%">UOM <span class="text-danger">*</span></th>
+                      <th class="text-end" width="12%">Qty <span class="text-danger">*</span></th>
+                      <th class="text-end" width="10%">Scrap %</th>
+                      <th class="text-center" width="8%">Optional</th>
+                      <th>Remarks</th>
+                      <th width="4%"></th>
+                    </tr></thead>
+                    <tbody id="bomLineBody"></tbody>
+                    <tfoot><tr class="fw-bold bg-light">
+                      <td colspan="3" class="text-end">Total Planned Cost:</td>
+                      <td id="bomTotalQty" class="text-end">0.000</td>
+                      <td colspan="4"></td>
+                    </tr></tfoot>
+                  </table>
+                </div>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-success" type="submit" id="bomSubmitBtn">
+                <span class="spinner-border spinner-border-sm me-2 d-none" id="bomSpinner"></span>
+                <span id="bomBtnText">Save</span>
+              </button>
+              <button type="button" class="btn btn-white" data-bs-dismiss="modal">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- VIEW MODAL -->
+    <div tabindex="-1" id="bomViewModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header"><h5 class="modal-title"><i class="fa fa-list me-1 text-primary"></i> BOM Details</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+          <div class="modal-body" id="bomViewBody"></div>
+          <div class="modal-footer"><button type="button" class="btn btn-white" data-bs-dismiss="modal">Close</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script th:inline="none">
+  (function () {
+    'use strict';
+    const BASE='/production/boms', ITEM_URL='/inventory/items/search', UOM_URL='/inventory/uoms/active';
+    var dt, _lineCount=0, _uoms=[];
+
+    document.addEventListener('DOMContentLoaded', function () {
+      dt = $('#bomTable').DataTable({
+        processing:true,serverSide:false,responsive:true,pageLength:25,
+        ajax:{ url: BASE+'/list', type:'GET' },
+        columns:[
+          {data:'sl',orderable:false,width:'40px'},{data:'bom_code'},{data:'bom_name'},
+          {data:'bom_version',className:'text-center'},
+          {data:'finished_item'},{data:'output_quantity',className:'text-end'},
+          {data:'output_unit',className:'text-center'},
+          {data:'yield_percent',className:'text-center'},
+          {data:'item_count',className:'text-center'},
+          {data:'default_badge',orderable:false,className:'text-center'},
+          {data:'status_badge',orderable:false,className:'text-center'},
+          {data:'actions',orderable:false,className:'text-center'}
+        ],
+        language:{emptyTable:'No BOMs.',processing:'<span class="spinner-border spinner-border-sm me-2"></span> Loading…'}
+      });
+      document.getElementById('bomForm').addEventListener('submit',_onSubmit);
+      // Load UOMs once
+      secureFetch(UOM_URL).then(function(data){ _uoms=data||[]; _populateUomSelect('bomOutputUnitId'); });
+      _initFinishedItemS2(null,null);
+    });
+
+    function _populateUomSelect(selId, selected) {
+      var sel=document.getElementById(selId);
+      sel.innerHTML='<option value="">— UOM —</option>';
+      _uoms.forEach(function(u){ sel.insertAdjacentHTML('beforeend','<option value="'+u.id+'">'+u.code+' ('+u.name+')</option>'); });
+      if (selected) sel.value=selected;
+    }
+
+    function _initFinishedItemS2(preId, preText) {
+      var $el=$('#bomFinishedItemId');
+      if ($el.hasClass('select2-hidden-accessible')) $el.select2('destroy');
+      $el.select2({dropdownParent:$('#bomModal'),width:'100%',placeholder:'— Finished Item —',allowClear:true,minimumInputLength:0,
+        ajax:{url:ITEM_URL,dataType:'json',delay:250,data:function(p){return{search:p.term||'',page:p.page||1};},
+          processResults:function(d,p){p.page=p.page||1;return{results:(d.items||[]).map(function(i){return{id:i.id,text:i.text};}),pagination:{more:d.hasMore||false}};},cache:true},
+        templateResult:function(r){return r.text;},templateSelection:function(r){return r.text||r.id;}
+      });
+      if (preId) $el.append(new Option(preText||'',preId,true,true)).trigger('change');
+    }
+
+    function _initRawItemS2(el, preId, preText) {
+      var $el=$(el);
+      if ($el.hasClass('select2-hidden-accessible')) $el.select2('destroy');
+      $el.select2({dropdownParent:$('#bomModal'),width:'100%',placeholder:'— Raw Material —',allowClear:true,minimumInputLength:0,
+        ajax:{url:ITEM_URL,dataType:'json',delay:250,data:function(p){return{search:p.term||'',page:p.page||1};},
+          processResults:function(d,p){p.page=p.page||1;return{results:(d.items||[]).map(function(i){return{id:i.id,text:i.text};}),pagination:{more:d.hasMore||false}};},cache:true},
+        templateResult:function(r){return r.text;},templateSelection:function(r){return r.text||r.id;}
+      });
+      if (preId) $el.append(new Option(preText||'',preId,true,true)).trigger('change');
+      $el.on('select2:select',function(e){ el.closest('tr').querySelector('[data-field="rawItemId"]').value=e.params.data.id; });
+      $el.on('select2:clear',function(){ el.closest('tr').querySelector('[data-field="rawItemId"]').value=''; });
+    }
+
+    window.bomOpenCreate = function() {
+      _resetForm();
+      document.getElementById('bomModalTitle').innerHTML='<i class="fa fa-plus me-1 text-success"></i> New BOM';
+      document.getElementById('bomBtnText').textContent='Save';
+      bomAddLine();
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('bomModal')).show();
+    };
+
+    window.bomAddLine = function(data) {
+      _lineCount++;
+      var n=_lineCount;
+      var uomOpts='<option value="">— UOM —</option>';
+      _uoms.forEach(function(u){ uomOpts+='<option value="'+u.id+'"'+(data&&data.unitId==u.id?' selected':'')+'>'+u.code+'</option>'; });
+      var html='<tr id="bomLine_'+n+'">'
+        +'<td class="text-center fw-bold">'+n+'</td>'
+        +'<td><input type="hidden" data-field="rawItemId" value="'+(data&&data.rawItemId?data.rawItemId:'')+'"><select class="form-select form-select-sm bom-raw-s2"></select></td>'
+        +'<td><select class="form-select form-select-sm" data-field="unitId">'+uomOpts+'</select></td>'
+        +'<td><input type="number" step="0.0001" min="0" class="form-control form-control-sm text-end" data-field="quantity" value="'+(data?data.quantity||'1':'1')+'" oninput="_calcBomTotal()"></td>'
+        +'<td><input type="number" step="0.01" min="0" max="100" class="form-control form-control-sm text-end" data-field="scrapPct" value="'+(data?data.scrapPct||'0.00':'0.00')+'"></td>'
+        +'<td class="text-center"><input type="checkbox" class="form-check-input" data-field="isOptional" '+(data&&data.isOptional?'checked':'')+'></td>'
+        +'<td><input type="text" class="form-control form-control-sm" data-field="remarks" value="'+(data&&data.remarks?data.remarks:'')+'" maxlength="200"></td>'
+        +'<td><button type="button" class="btn btn-sm btn-outline-danger" onclick="bomRemoveLine('+n+')"><i class="fa fa-times"></i></button></td>'
+        +'</tr>';
+      document.getElementById('bomLineBody').insertAdjacentHTML('beforeend',html);
+      var rawSel=document.querySelector('#bomLine_'+n+' .bom-raw-s2');
+      _initRawItemS2(rawSel, data?data.rawItemId:null, data?data.rawItemDisplay:null);
+    };
+
+    window.bomRemoveLine = function(n) {
+      var r=document.getElementById('bomLine_'+n);
+      if (r) { r.querySelectorAll('.bom-raw-s2').forEach(function(el){ if($(el).hasClass('select2-hidden-accessible')) $(el).select2('destroy'); }); r.remove(); _calcBomTotal(); }
+    };
+
+    window._calcBomTotal = function() {
+      var tot=0;
+      document.querySelectorAll('#bomLineBody tr [data-field="quantity"]').forEach(function(el){ tot+=parseFloat(el.value)||0; });
+      document.getElementById('bomTotalQty').textContent=tot.toFixed(3);
+    };
+
+    window.bomShow = function(id) {
+      secureFetch(BASE+'/show/'+id).then(function(res){
+        if (!res.success) { Swal.fire('Error',res.message,'error'); return; }
+        var o=res.obj.defaultData;
+        var html='<div class="hs-box"><div class="row g-2">'
+          +_vf('Code',o.bomCode)+_vf('Name',o.bomName)+_vf('Version',o.bomVersion)
+          +_vf('Finished Item',o.finishedItemDisplay||'—')
+          +_vf('Output',o.outputQuantity+' '+o.outputUnitDisplay)
+          +_vf('Yield %',o.yieldPercent+'%')
+          +_vf('Active',o.active?'<span class="badge bg-success">Yes</span>':'No')
+          +_vf('Default',o.isDefault?'<span class="badge bg-primary">Default</span>':'No')
+          +_vf('Description',o.description||'—')
+          +'</div>'
+          +'<h6 class="border-bottom pb-1 mt-3 mb-2">Raw Materials</h6>'
+          +'<table class="table table-sm table-bordered"><thead class="table-light"><tr><th>#</th><th>Item</th><th>UOM</th><th class="text-end">Qty</th><th class="text-end">Scrap%</th><th class="text-center">Optional</th></tr></thead><tbody>';
+        (o.items||[]).forEach(function(l){
+          html+='<tr><td>'+l.lineNumber+'</td><td>'+l.rawItemDisplay+'</td><td>'+l.unitDisplay+'</td>'
+            +'<td class="text-end fw-bold">'+parseFloat(l.quantity).toFixed(4)+'</td>'
+            +'<td class="text-end">'+parseFloat(l.scrapPct||0).toFixed(2)+'%</td>'
+            +'<td class="text-center">'+(l.isOptional?'<span class="badge bg-info text-dark">Optional</span>':'—')+'</td></tr>';
+        });
+        html+='</tbody></table></div>';
+        document.getElementById('bomViewBody').innerHTML=html;
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('bomViewModal')).show();
+      });
+    };
+
+    window.bomEdit = function(id) {
+      secureFetch(BASE+'/show/'+id).then(function(res){
+        if (!res.success) { Swal.fire('Error',res.message,'error'); return; }
+        var o=res.obj.defaultData; _resetForm();
+        document.getElementById('bomId').value       = o.id;
+        document.getElementById('bomCode').value     = o.bomCode||'';
+        document.getElementById('bomName').value     = o.bomName||'';
+        document.getElementById('bomVersion').value  = o.bomVersion||'1.0';
+        document.getElementById('bomYield').value    = o.yieldPercent||'100.00';
+        document.getElementById('bomOutputQty').value= o.outputQuantity||'1';
+        document.getElementById('bomDesc').value     = o.description||'';
+        document.getElementById('bomActive').checked = o.active!==false;
+        document.getElementById('bomDefault').checked= o.isDefault===true;
+        _populateUomSelect('bomOutputUnitId', o.outputUnitId);
+        _initFinishedItemS2(o.finishedItemId, o.finishedItemDisplay);
+        (o.items||[]).forEach(function(l){ bomAddLine(l); });
+        _calcBomTotal();
+        document.getElementById('bomModalTitle').innerHTML='<i class="fa fa-pencil me-1 text-warning"></i> Edit BOM';
+        document.getElementById('bomBtnText').textContent='Update';
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('bomModal')).show();
+      });
+    };
+
+    window.bomToggle = function(id) { hsChangeStatus(BASE+'/toggle/'+id,dt,'BOM'); };
+    window.bomDelete = function(id) { hsConfirmDelete(BASE+'/delete/'+id,dt); };
+
+    window.bomCreateProduction = function(id) {
+      sessionStorage.setItem('pendingBomId',id);
+      window.location.href='/production/orders';
+    };
+
+    function _onSubmit(e) {
+      e.preventDefault();
+      var sb=document.getElementById('bomSubmitBtn'),sp=document.getElementById('bomSpinner'),bt=document.getElementById('bomBtnText');
+      hsDisableButton(sb,sp,bt);
+      var lines=[];
+      document.querySelectorAll('#bomLineBody tr').forEach(function(tr,idx){
+        var rid=tr.querySelector('[data-field="rawItemId"]').value;
+        var uid=tr.querySelector('[data-field="unitId"]').value;
+        var qty=parseFloat(tr.querySelector('[data-field="quantity"]').value)||0;
+        if (!rid||!uid||qty<=0) return;
+        lines.push({
+          lineNumber  : idx+1,
+          rawItemId   : rid,
+          unitId      : uid,
+          quantity    : qty,
+          scrapPct    : parseFloat(tr.querySelector('[data-field="scrapPct"]').value)||0,
+          isOptional  : tr.querySelector('[data-field="isOptional"]').checked,
+          remarks     : tr.querySelector('[data-field="remarks"]').value||null
+        });
+      });
+      secureFetch(BASE+'/save',{method:'POST',body:JSON.stringify({
+        id            : document.getElementById('bomId').value||null,
+        bomCode       : document.getElementById('bomCode').value,
+        bomName       : document.getElementById('bomName').value,
+        bomVersion    : document.getElementById('bomVersion').value||'1.0',
+        finishedItemId: $('#bomFinishedItemId').val()||null,
+        outputUnitId  : document.getElementById('bomOutputUnitId').value||null,
+        outputQuantity: parseFloat(document.getElementById('bomOutputQty').value)||1,
+        yieldPercent  : parseFloat(document.getElementById('bomYield').value)||100,
+        description   : document.getElementById('bomDesc').value||null,
+        active        : document.getElementById('bomActive').checked,
+        isDefault     : document.getElementById('bomDefault').checked,
+        items         : lines
+      })}).then(function(d){
+        if (d.success) { hsAfterSaveMessages(d,dt); bootstrap.Modal.getOrCreateInstance(document.getElementById('bomModal')).hide(); }
+        else Swal.fire('Error',d.message,'error');
+      }).catch(function(err){ Swal.fire('Error',err.message||'Request failed.','error'); })
+        .finally(function(){ hsEnableButton(sb,sp,bt); });
+    }
+
+    function _resetForm() {
+      if ($('#bomFinishedItemId').hasClass('select2-hidden-accessible')) $('#bomFinishedItemId').select2('destroy');
+      document.querySelectorAll('.bom-raw-s2').forEach(function(el){ if($(el).hasClass('select2-hidden-accessible')) $(el).select2('destroy'); });
+      document.getElementById('bomForm').reset();
+      document.getElementById('bomId').value=''; document.getElementById('bomLineBody').innerHTML=''; _lineCount=0;
+      document.getElementById('bomActive').checked=true; document.getElementById('bomDefault').checked=false;
+      document.getElementById('bomVersion').value='1.0'; document.getElementById('bomYield').value='100.00';
+      document.getElementById('bomOutputQty').value='1';
+      _populateUomSelect('bomOutputUnitId');
+      _initFinishedItemS2(null,null);
+    }
+    function _vf(l,v){ return '<div class="col-md-4 view-group"><label class="view-label">'+l+'</label><span class="form-control hs_span_show">'+(v!=null?v:'—')+'</span></div>'; }
+  })();
+  </script>
+</section>
+</html>

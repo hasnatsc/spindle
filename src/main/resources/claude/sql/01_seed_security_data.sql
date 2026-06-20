@@ -260,11 +260,11 @@ ON CONFLICT (name) DO NOTHING;
 
 -- ─── PRODUCTION ───────────────────────────────────────────────────────────────
 INSERT INTO sec_permissions (name, description, url_pattern, http_method, module, category, active, created_at, updated_at) VALUES
-('PRD.ORDER.VIEW',            'View production orders',     '/production-orders/**',      'GET',    'PRODUCTION', 'PRODUCTION', true, NOW(), NOW()),
-('PRD.ORDER.CREATE',          'Create production order',    '/production-orders/save',    'POST',   'PRODUCTION', 'PRODUCTION', true, NOW(), NOW()),
-('PRD.ORDER.EDIT',            'Edit production order',      '/production-orders/save',    'POST',   'PRODUCTION', 'PRODUCTION', true, NOW(), NOW()),
-('PRD.ORDER.DELETE',          'Delete production order',    '/production-orders/delete/**','DELETE','PRODUCTION', 'PRODUCTION', true, NOW(), NOW()),
-('PRD.ORDER.APPROVE',         'Approve production order',   '/production-orders/approve/**','POST', 'PRODUCTION', 'PRODUCTION', true, NOW(), NOW()),
+('PRD.ORDER.VIEW',            'View production orders',     '/production/orders/**',      'GET',    'PRODUCTION', 'PRODUCTION', true, NOW(), NOW()),
+('PRD.ORDER.CREATE',          'Create production order',    '/production/orders/save',    'POST',   'PRODUCTION', 'PRODUCTION', true, NOW(), NOW()),
+('PRD.ORDER.EDIT',            'Edit production order',      '/production/orders/save',    'POST',   'PRODUCTION', 'PRODUCTION', true, NOW(), NOW()),
+('PRD.ORDER.DELETE',          'Delete production order',    '/production/orders/delete/**','DELETE','PRODUCTION', 'PRODUCTION', true, NOW(), NOW()),
+('PRD.ORDER.APPROVE',         'Approve production order',   '/production/orders/approve/**','POST', 'PRODUCTION', 'PRODUCTION', true, NOW(), NOW()),
 ('PRD.MATERIAL_REQ.VIEW',     'View material requisitions', '/production/material-req/**','GET',    'PRODUCTION', 'PRODUCTION', true, NOW(), NOW()),
 ('PRD.MATERIAL_REQ.CREATE',   'Create material requisition','/production/material-req/save','POST', 'PRODUCTION', 'PRODUCTION', true, NOW(), NOW())
 ON CONFLICT (name) DO NOTHING;
@@ -980,7 +980,7 @@ SELECT 'HRM_PAYROLL',   'Payroll Processing','/hrm/payroll',          'fa fa-mon
 
 -- ── PRODUCTION ORDERS leaves ──────────────────────────────────────────────────
 INSERT INTO app_menus (menu_code, menu_name, menu_url, icon, parent_id, display_order, menu_type, module_name, required_permission, target, active, visible, deleted, created_at, updated_at)
-SELECT 'PRD_ORDER',     'Production Orders', '/production-orders',    'fa fa-cogs', g.id, 10, 'LEAF', 'PRODUCTION', 'PRD.ORDER.VIEW', '_self', true, true, false, NOW(), NOW() FROM app_menus g WHERE g.menu_code = 'GRP_PRD_ORDERS' ON CONFLICT (menu_code) DO NOTHING;
+SELECT 'PRD_ORDER',     'Production Orders', '/production/orders',    'fa fa-cogs', g.id, 10, 'LEAF', 'PRODUCTION', 'PRD.ORDER.VIEW', '_self', true, true, false, NOW(), NOW() FROM app_menus g WHERE g.menu_code = 'GRP_PRD_ORDERS' ON CONFLICT (menu_code) DO NOTHING;
 
 -- ── PRODUCTION MATERIALS leaves ───────────────────────────────────────────────
 INSERT INTO app_menus (menu_code, menu_name, menu_url, icon, parent_id, display_order, menu_type, module_name, required_permission, target, active, visible, deleted, created_at, updated_at)
