@@ -1,7 +1,10 @@
 package com.asg.spindleserp.setup.service;
 
 import com.asg.spindleserp.common.dto.DataTableResponse;
+import com.asg.spindleserp.common.enums.DocumentType;
 import com.asg.spindleserp.common.util.CommonUtils;
+import com.asg.spindleserp.organization.entity.Organization;
+import com.asg.spindleserp.security.auth.ContextProvider;
 import com.asg.spindleserp.setup.dto.DocumentSequenceDTO;
 import com.asg.spindleserp.setup.entity.DocumentSequence;
 import com.asg.spindleserp.setup.repository.DocumentSequenceRepository;
@@ -23,14 +26,14 @@ import java.util.Map;
 public class DocumentSequenceServiceImpl implements DocumentSequenceService {
 
     private final DocumentSequenceRepository sequenceRepository;
-    private final JdbcTemplate               jdbcTemplate;
+    private final JdbcTemplate jdbcTemplate;
 
     // ── CREATE ────────────────────────────────────────────────────────────────
 
     @Override
     public DocumentSequenceDTO create(DocumentSequenceDTO dto) {
-        Long   orgId    = dto.getOrganizationId();
-        String prefix   = dto.getPrefix().trim().toUpperCase();
+        Long orgId = dto.getOrganizationId();
+        String prefix = dto.getPrefix().trim().toUpperCase();
         String yearCode = dto.getYearCode().trim();
 
         if (sequenceRepository.existsByOrganizationIdAndPrefixAndYearCode(orgId, prefix, yearCode))
@@ -53,8 +56,8 @@ public class DocumentSequenceServiceImpl implements DocumentSequenceService {
     @Override
     public DocumentSequenceDTO update(Long id, DocumentSequenceDTO dto) {
         DocumentSequence entity = findEntityById(id);
-        Long   orgId    = dto.getOrganizationId();
-        String prefix   = dto.getPrefix().trim().toUpperCase();
+        Long orgId = dto.getOrganizationId();
+        String prefix = dto.getPrefix().trim().toUpperCase();
         String yearCode = dto.getYearCode().trim();
 
         boolean changed = !entity.getPrefix().equals(prefix) || !entity.getYearCode().equals(yearCode);
@@ -73,15 +76,20 @@ public class DocumentSequenceServiceImpl implements DocumentSequenceService {
 
     // ── READ ──────────────────────────────────────────────────────────────────
 
-    @Override @Transactional(readOnly = true)
-    public DocumentSequenceDTO findById(Long id) { return toDTO(findEntityById(id)); }
+    @Override
+    @Transactional(readOnly = true)
+    public DocumentSequenceDTO findById(Long id) {
+        return toDTO(findEntityById(id));
+    }
 
-    @Override @Transactional(readOnly = true)
+    @Override
+    @Transactional(readOnly = true)
     public List<DocumentSequenceDTO> findAll() {
         return sequenceRepository.findAll().stream().map(this::toDTO).toList();
     }
 
-    @Override @Transactional(readOnly = true)
+    @Override
+    @Transactional(readOnly = true)
     public List<DocumentSequenceDTO> findByOrg(Long orgId) {
         return sequenceRepository.findByOrganizationIdOrderByPrefixAscYearCodeDesc(orgId)
                 .stream().map(this::toDTO).toList();
@@ -90,9 +98,18 @@ public class DocumentSequenceServiceImpl implements DocumentSequenceService {
     // ── DELETE ────────────────────────────────────────────────────────────────
 
     @Override
-    public void delete(Long id) { sequenceRepository.delete(findEntityById(id)); }
+    public void delete(Long id) {
+        sequenceRepository.delete(findEntityById(id));
+    }
 
     // ── NEXT DOCUMENT NUMBER ──────────────────────────────────────────────────
+
+    @Override
+    public String nextDocumentNumberByDocType(DocumentType documentType) {
+        Organization organization = ContextProvider.getOrganizationReference();
+        if (organization == null) throw new IllegalStateException("Organization context is missing.");
+        return nextDocumentNumber(organization.getId(), documentType.getCode() + "-" + organization.getCode(), String.valueOf(java.time.Year.now().getValue()));
+    }
 
     /**
      * Atomically increments the counter and returns the formatted document number.
@@ -103,54 +120,49 @@ public class DocumentSequenceServiceImpl implements DocumentSequenceService {
     public String nextDocumentNumber(Long orgId, String prefix, String yearCode) {
         String p = prefix.trim().toUpperCase();
         String y = yearCode.trim();
-
         // Upsert — create seed row if missing
         if (!sequenceRepository.existsByOrganizationIdAndPrefixAndYearCode(orgId, p, y)) {
             DocumentSequence seed = DocumentSequence.builder()
                     .organizationId(orgId)
-                    .prefix(p).yearCode(y).lastSeq(0)
+                    .prefix(p).yearCode(y).lastSeq(1)
                     .createdAt(LocalDateTime.now()).updatedAt(LocalDateTime.now())
                     .build();
             sequenceRepository.saveAndFlush(seed);
         }
-
         sequenceRepository.increment(orgId, p, y);
         sequenceRepository.flush();
-
-        DocumentSequence seq = sequenceRepository
-                .findByOrganizationIdAndPrefixAndYearCode(orgId, p, y)
-                .orElseThrow(() -> new IllegalStateException("Sequence row missing after increment."));
-
+        DocumentSequence seq = sequenceRepository.findByOrganizationIdAndPrefixAndYearCode(orgId, p, y).orElseThrow(() -> new IllegalStateException("Sequence row missing after increment."));
         return String.format("%s-%s-%06d", p, y, seq.getLastSeq());
     }
 
     // ── DATATABLE ─────────────────────────────────────────────────────────────
 
-    @Override @Transactional(readOnly = true)
+    @Override
+    @Transactional(readOnly = true)
     public DataTableResponse datatableList(int draw, int start, int length, String search) {
         String where = "WHERE 1=1 "
                 + CommonUtils.searchILike(search, Arrays.asList("ds.prefix", "ds.year_code"));
 
         String sql = String.format("""
-            SELECT
-                ROW_NUMBER() OVER (ORDER BY ds.id DESC)      AS sl,
-                COUNT(*)     OVER ()                         AS full_count,
-                ds.id,
-                ds.prefix,
-                ds.year_code,
-                ds.last_seq,
-                ds.prefix || '-' || ds.year_code || '-' || LPAD(ds.last_seq::text, 6, '0') AS last_number,
-                TO_CHAR(ds.updated_at, 'DD-Mon-YYYY HH24:MI')                               AS updated_at,
-                '<div class="btn-group">'
-                    || '<a href="javascript:;" onclick="seqShow('   || ds.id || ')" class="btn btn-white btn-sm" title="View"><i class="fas fa-eye text-success"></i></a>'
-                    || '<a href="javascript:;" onclick="seqEdit('   || ds.id || ')" class="btn btn-white btn-sm" title="Edit"><i class="fa-regular fa-pen-to-square text-warning"></i></a>'
-                    || '<a href="javascript:;" onclick="seqDelete(' || ds.id || ')" class="btn btn-white btn-sm" title="Delete"><i class="fa-regular fa-trash-can text-danger"></i></a>'
-                    || '</div>'                              AS actions
-            FROM stp_document_sequences ds
-            %s
-            ORDER BY ds.id DESC
-            OFFSET %d LIMIT %d
-            """, where, start, length);
+                SELECT
+                    ROW_NUMBER() OVER (ORDER BY ds.id DESC)      AS sl,
+                    COUNT(*)     OVER ()                         AS full_count,
+                    ds.id,
+                    ds.prefix,
+                    ds.year_code,
+                    ds.last_seq,
+                    ds.prefix || '-' || ds.year_code || '-' || LPAD(ds.last_seq::text, 6, '0') AS last_number,
+                    TO_CHAR(ds.updated_at, 'DD-Mon-YYYY HH24:MI')                               AS updated_at,
+                    '<div class="btn-group">'
+                        || '<a href="javascript:;" onclick="seqShow('   || ds.id || ')" class="btn btn-white btn-sm" title="View"><i class="fas fa-eye text-success"></i></a>'
+                        || '<a href="javascript:;" onclick="seqEdit('   || ds.id || ')" class="btn btn-white btn-sm" title="Edit"><i class="fa-regular fa-pen-to-square text-warning"></i></a>'
+                        || '<a href="javascript:;" onclick="seqDelete(' || ds.id || ')" class="btn btn-white btn-sm" title="Delete"><i class="fa-regular fa-trash-can text-danger"></i></a>'
+                        || '</div>'                              AS actions
+                FROM stp_document_sequences ds
+                %s
+                ORDER BY ds.id DESC
+                OFFSET %d LIMIT %d
+                """, where, start, length);
 
         List<Map<String, Object>> rows = jdbcTemplate.queryForList(sql);
         long total = rows.isEmpty() ? 0L : CommonUtils.toLong(rows.get(0).get("full_count"));

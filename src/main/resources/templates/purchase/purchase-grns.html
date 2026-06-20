@@ -537,7 +537,7 @@
 
     function _onSubmit(e) {
       e.preventDefault();
-      var sb = document.getElementById('grnSubmitBtn'), sp = document.getElementById('grnSpinner'), bt = document.getElementById('grnBtnText');
+      var sb = document.getElementById('grnSubmitBtn'), sp = document.getElementById('grnSpinner'), bt = document.getElementById('grnBtnText'), fm = document.getElementById('grnForm');
       hsDisableButton(sb, sp, bt);
       secureFetch(BASE + '/save', { method:'POST', body: JSON.stringify({
         id              : document.getElementById('grnId').value || null,
@@ -555,7 +555,7 @@
       })}).then(function(d){
         if (d.success) {
           document.getElementById('grnId').value = d.id || '';
-          hsAfterSaveMessages(d, dt);
+          hsAfterSaveMessages(d.success, d.message, fm, dt);
           bootstrap.Modal.getOrCreateInstance(document.getElementById('grnModal')).hide();
         } else { Swal.fire('Error', d.message, 'error'); }
       }).catch(function(err){ Swal.fire('Error', err.message||'Request failed.', 'error'); })

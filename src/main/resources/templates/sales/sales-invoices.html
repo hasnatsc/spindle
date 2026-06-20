@@ -597,7 +597,7 @@
 
     function _onSubmit(e) {
       e.preventDefault();
-      var sb=document.getElementById('siSubmitBtn'), sp=document.getElementById('siSpinner'), bt=document.getElementById('siBtnText');
+      var sb=document.getElementById('siSubmitBtn'), sp=document.getElementById('siSpinner'), bt=document.getElementById('siBtnText'), fm = document.getElementById('siForm');
       hsDisableButton(sb, sp, bt);
       secureFetch(BASE + '/save', { method:'POST', body: JSON.stringify({
         id              : document.getElementById('siId').value        || null,
@@ -622,7 +622,7 @@
       })}).then(function(d){
         if (d.success) {
           document.getElementById('siId').value = d.id || '';
-          hsAfterSaveMessages(d, dt);
+          hsAfterSaveMessages(d.success, d.message, fm, dt);
           bootstrap.Modal.getOrCreateInstance(document.getElementById('siModal')).hide();
         } else { Swal.fire('Error', d.message, 'error'); }
       }).catch(function(err){ Swal.fire('Error', err.message||'Request failed.', 'error'); })

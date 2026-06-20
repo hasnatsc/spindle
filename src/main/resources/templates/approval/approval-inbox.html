@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<!--
+  approval/approval-inbox.html    GET /approval/inbox
+  JS prefix: inbox*
+  My pending approvals — Approve / Reject / Return / Hold actions with Swal input
+-->
+<html th:replace="~{layout/base :: layout('Approval Inbox', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
+<section>
+  <ol class="breadcrumb float-xl-end">
+    <li class="breadcrumb-item"><a th:href="@{/dashboard}">Home</a></li>
+    <li class="breadcrumb-item">Approval</li>
+    <li class="breadcrumb-item active">My Inbox</li>
+  </ol>
+  <h1 class="page-header">Approval Inbox <small>pending approvals assigned to you</small></h1>
+
+  <div class="d-flex gap-2 mb-3 flex-wrap">
+    <a th:href="@{/approval/configs}"     class="btn btn-sm btn-outline-primary"><i class="fa fa-cogs me-1"></i> Configs</a>
+    <a th:href="@{/approval/inbox}"       class="btn btn-sm btn-primary"><i class="fa fa-inbox me-1"></i> My Inbox</a>
+    <a th:href="@{/approval/requests}"    class="btn btn-sm btn-outline-primary"><i class="fa fa-list-check me-1"></i> All Requests</a>
+    <a th:href="@{/approval/delegations}" class="btn btn-sm btn-outline-primary"><i class="fa fa-user-friends me-1"></i> Delegations</a>
+  </div>
+
+  <!-- KPI ROW -->
+  <div class="row g-3 mb-3">
+    <div class="col-6 col-md-3"><div class="widget widget-stats bg-primary"><div class="stats-icon"><i class="fas fa-clock"></i></div><div class="stats-info"><h4>PENDING IN INBOX</h4><p id="kpiPending">—</p></div></div></div>
+    <div class="col-6 col-md-3"><div class="widget widget-stats bg-orange"><div class="stats-icon"><i class="fas fa-exclamation-circle"></i></div><div class="stats-info"><h4>URGENT</h4><p id="kpiUrgent">—</p></div></div></div>
+    <div class="col-6 col-md-3"><div class="widget widget-stats bg-green"><div class="stats-icon"><i class="fas fa-check-circle"></i></div><div class="stats-info"><h4>APPROVED (ORG)</h4><p id="kpiApproved">—</p></div></div></div>
+    <div class="col-6 col-md-3"><div class="widget widget-stats bg-red"><div class="stats-icon"><i class="fas fa-times-circle"></i></div><div class="stats-info"><h4>REJECTED (ORG)</h4><p id="kpiRejected">—</p></div></div></div>
+  </div>
+
+  <div class="panel panel-inverse">
+    <div class="panel-heading">
+      <div class="panel-title fw-bold"><i class="fa fa-inbox me-1 text-primary"></i> Pending Approvals</div>
+      <div class="panel-heading-btn">
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-default" data-toggle="panel-expand"><i class="fa fa-expand"></i></a>
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-success" data-toggle="panel-reload"><i class="fa fa-redo"></i></a>
+      </div>
+    </div>
+    <div class="panel-body">
+      <table id="inboxTable" width="100%" class="table table-striped table-bordered align-middle">
+        <thead><tr>
+          <th width="1%">SL</th>
+          <th>Priority</th>
+          <th>Doc Type</th><th>Reference No</th>
+          <th>Submitted By</th>
+          <th class="text-end">Amount</th>
+          <th>Date</th><th>Due Date</th>
+          <th>Progress</th><th>Summary</th>
+          <th class="text-center" width="16%">Actions</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- REQUEST DETAIL MODAL (for review before decision) -->
+  <div tabindex="-1" id="inboxDetailModal" class="modal fade">
+    <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header bg-primary text-white">
+          <h5 class="modal-title" id="inboxDetailTitle"><i class="fa fa-eye me-1"></i> Review Request</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body" id="inboxDetailBody"></div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-success" id="inboxApproveDetailBtn" onclick="_approveFromModal()"><i class="fas fa-check me-1"></i> Approve</button>
+          <button type="button" class="btn btn-danger"  onclick="_rejectFromModal()"><i class="fas fa-times me-1"></i> Reject</button>
+          <button type="button" class="btn btn-warning" onclick="_returnFromModal()"><i class="fas fa-reply me-1"></i> Return</button>
+          <button type="button" class="btn btn-white" data-bs-dismiss="modal">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script th:inline="none">
+  (function () {
+    'use strict';
+    const BASE = '/approval/inbox', REQ_BASE = '/approval/requests';
+    var dt, _currentReqId = null;
+
+    document.addEventListener('DOMContentLoaded', function () {
+      dt = $('#inboxTable').DataTable({
+        processing:true,serverSide:false,responsive:true,pageLength:25,
+        ajax:{ url: BASE+'/list', type:'GET' },
+        columns:[
+          {data:'sl',orderable:false,width:'40px'},
+          {data:'urgent_badge',orderable:false,className:'text-center'},
+          {data:'document_type'},{data:'reference_number'},
+          {data:'requester_name',defaultContent:'—'},
+          {data:'document_amount',className:'text-end',render:function(d){ return d&&d!=='—'?parseFloat(d).toFixed(2):'—'; }},
+          {data:'document_date',defaultContent:'—'},
+          {data:'due_date',defaultContent:'—'},
+          {data:'progress',className:'text-center'},
+          {data:'document_summary',defaultContent:'—'},
+          {data:'actions',orderable:false,className:'text-center'}
+        ],
+        language:{emptyTable:'<div class="text-center py-4"><i class="fas fa-check-circle text-success fa-2x mb-2"></i><br>No pending approvals. Your inbox is clear!</div>',processing:'<span class="spinner-border spinner-border-sm me-2"></span> Loading…'}
+      });
+      _loadKpi();
+    });
+
+    function _loadKpi() {
+      secureFetch('/approval/dashboard/summary').then(function(data){
+        document.getElementById('kpiPending').textContent  = data.pendingInbox  || '0';
+        document.getElementById('kpiUrgent').textContent   = data.urgentPending || '0';
+        document.getElementById('kpiApproved').textContent = data.totalApproved || '0';
+        document.getElementById('kpiRejected').textContent = data.totalRejected || '0';
+      });
+    }
+
+    window.inboxShow = function(id) {
+      _currentReqId = id;
+      secureFetch(BASE+'/show/'+id).then(function(res) {
+        if (!res.success) { Swal.fire('Error',res.message,'error'); return; }
+        var o = res.obj.defaultData;
+        document.getElementById('inboxDetailTitle').innerHTML =
+          '<i class="fa fa-eye me-1"></i> Review: ' + o.documentType + ' — ' + o.referenceNumber;
+        var html = '<div class="hs-box"><div class="row g-2">'
+          +_vf('Document Type',o.documentType)     +_vf('Reference No',o.referenceNumber)
+          +_vf('Submitted By',o.requesterName||'—') +_vf('Amount',o.documentAmount ? parseFloat(o.documentAmount).toFixed(2) : '—')
+          +_vf('Document Date',o.documentDate||'—') +_vf('Due Date',o.dueDate||'—')
+          +_vf('Level',o.currentLevelNumber+' of '+o.totalLevels)
+          +_vf('Current Approver',o.currentApproverRole||'—')
+          +_vf('Status',o.status)
+          +_vf('Urgent',o.isUrgent?'<span class="badge bg-danger">YES</span>':'No')
+          +'</div>'
+          +'<div class="mt-2 p-2 border rounded bg-light"><strong>Summary:</strong> '+(o.documentSummary||'—')+'</div>'
+          +'<h6 class="border-bottom pb-1 mt-3 mb-2">Approval History</h6>'
+          +'<table class="table table-sm table-bordered"><thead class="table-light"><tr>'
+          +'<th>#</th><th>Level</th><th>By</th><th>Action</th><th>Comments</th><th>Date</th>'
+          +'</tr></thead><tbody>';
+        (o.history||[]).forEach(function(h){
+          var actionBadge = {
+            'APPROVED':'<span class="badge bg-success">Approved</span>',
+            'REJECTED':'<span class="badge bg-danger">Rejected</span>',
+            'RETURNED':'<span class="badge bg-warning text-dark">Returned</span>',
+            'HOLD'    :'<span class="badge bg-orange">On Hold</span>',
+            'SUBMITTED':'<span class="badge bg-info text-dark">Submitted</span>',
+            'CANCELLED':'<span class="badge bg-secondary">Cancelled</span>'
+          }[h.action] || '<span class="badge bg-light text-dark">'+h.action+'</span>';
+          html+='<tr><td>'+h.levelNumber+'</td><td>'+h.levelName+'</td><td>'+h.actorName+'</td>'
+            +'<td>'+actionBadge+'</td>'
+            +'<td>'+(h.comments||h.rejectionReason||h.returnReason||'—')+'</td>'
+            +'<td>'+(h.actionAt?h.actionAt.substring(0,16):'—')+'</td></tr>';
+        });
+        html += '</tbody></table></div>';
+        document.getElementById('inboxDetailBody').innerHTML = html;
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('inboxDetailModal')).show();
+      });
+    };
+
+    window.inboxApprove = function(id) {
+      _currentReqId = id;
+      Swal.fire({
+        title:'Approve Request?',
+        input:'textarea',inputPlaceholder:'Comments (optional)…',
+        icon:'question',showCancelButton:true,confirmButtonText:'Approve',confirmButtonColor:'#198754'
+      }).then(function(r){
+        if (!r.isConfirmed) return;
+        _doAction(BASE+'/approve/'+id, r.value||'', dt);
+      });
+    };
+
+    window.inboxReject = function(id) {
+      _currentReqId = id;
+      Swal.fire({
+        title:'Reject Request?',
+        input:'textarea',inputPlaceholder:'Reason for rejection…',inputAttributes:{required:true},
+        icon:'warning',showCancelButton:true,confirmButtonText:'Reject',confirmButtonColor:'#dc3545',
+        preConfirm:function(val){ if (!val) Swal.showValidationMessage('Rejection reason is required.'); return val; }
+      }).then(function(r){
+        if (!r.isConfirmed) return;
+        _doAction(BASE+'/reject/'+id+'?reason='+encodeURIComponent(r.value), null, dt);
+      });
+    };
+
+    window.inboxReturn = function(id) {
+      _currentReqId = id;
+      Swal.fire({
+        title:'Return for Correction?',
+        input:'textarea',inputPlaceholder:'What needs to be corrected?',inputAttributes:{required:true},
+        icon:'info',showCancelButton:true,confirmButtonText:'Return',confirmButtonColor:'#ffc107',
+        preConfirm:function(val){ if (!val) Swal.showValidationMessage('Return reason is required.'); return val; }
+      }).then(function(r){
+        if (!r.isConfirmed) return;
+        _doAction(BASE+'/return/'+id+'?reason='+encodeURIComponent(r.value), null, dt);
+      });
+    };
+
+    // Actions from detail modal
+    window._approveFromModal = function() {
+      if (!_currentReqId) return;
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('inboxDetailModal')).hide();
+      inboxApprove(_currentReqId);
+    };
+    window._rejectFromModal = function() {
+      if (!_currentReqId) return;
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('inboxDetailModal')).hide();
+      inboxReject(_currentReqId);
+    };
+    window._returnFromModal = function() {
+      if (!_currentReqId) return;
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('inboxDetailModal')).hide();
+      inboxReturn(_currentReqId);
+    };
+
+    function _doAction(url, body, table) {
+      secureFetch(url, { method:'POST', body: body ? JSON.stringify({comments:body}) : null }).then(function(d){
+        if (d.success) {
+          Swal.fire({ icon:'success', title:'Done!', text:d.message, timer:1600, showConfirmButton:false });
+          table.ajax.reload(null,false);
+          _loadKpi();
+        } else Swal.fire('Error',d.message,'error');
+      });
+    }
+
+    function _vf(l,v){ return '<div class="col-md-4 view-group"><label class="view-label">'+l+'</label><span class="form-control hs_span_show">'+(v!=null?v:'—')+'</span></div>'; }
+  })();
+  </script>
+</section>
+</html>

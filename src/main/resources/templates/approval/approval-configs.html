@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<!--
+  approval/approval-configs.html    GET /approval/configs
+  JS prefix: cfg*
+  Approval config CRUD with multi-level approver setup
+-->
+<html th:replace="~{layout/base :: layout('Approval Configs', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
+<section>
+  <ol class="breadcrumb float-xl-end">
+    <li class="breadcrumb-item"><a th:href="@{/dashboard}">Home</a></li>
+    <li class="breadcrumb-item">Approval</li>
+    <li class="breadcrumb-item active">Configs</li>
+  </ol>
+  <h1 class="page-header">Approval Configs <small>define multi-level approval workflows per document type</small></h1>
+
+  <div class="d-flex gap-2 mb-3 flex-wrap">
+    <a th:href="@{/approval/configs}"     class="btn btn-sm btn-primary"><i class="fa fa-cogs me-1"></i> Configs</a>
+    <a th:href="@{/approval/inbox}"       class="btn btn-sm btn-outline-primary"><i class="fa fa-inbox me-1"></i> My Inbox</a>
+    <a th:href="@{/approval/requests}"    class="btn btn-sm btn-outline-primary"><i class="fa fa-list-check me-1"></i> All Requests</a>
+    <a th:href="@{/approval/delegations}" class="btn btn-sm btn-outline-primary"><i class="fa fa-user-friends me-1"></i> Delegations</a>
+  </div>
+
+  <div class="panel panel-inverse">
+    <div class="panel-heading">
+      <div class="panel-title">
+        <a href="javascript:;" onclick="cfgOpenCreate()">
+          <span class="badge btn btn-outline-success"><i class="fa fa-plus me-1"></i> New Config</span>
+        </a>
+      </div>
+      <div class="panel-heading-btn">
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-default" data-toggle="panel-expand"><i class="fa fa-expand"></i></a>
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-success" data-toggle="panel-reload"><i class="fa fa-redo"></i></a>
+      </div>
+    </div>
+    <div class="panel-body">
+      <table id="cfgTable" width="100%" class="table table-striped table-bordered align-middle">
+        <thead><tr>
+          <th width="1%">SL</th><th>Code</th><th>Name</th>
+          <th>Doc Type</th><th>Module</th><th>Flow</th>
+          <th class="text-center">Levels</th>
+          <th class="text-center">Priority</th>
+          <th>Min Amt</th><th>Max Amt</th>
+          <th class="text-center">Status</th>
+          <th class="text-center" width="14%">Actions</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <!-- CREATE / EDIT MODAL -->
+    <div tabindex="-1" id="cfgModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="cfgModalTitle"><i class="fa fa-cogs me-1 text-success"></i> New Approval Config</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <form id="cfgForm" novalidate>
+            <div class="modal-body">
+              <div class="hs-box">
+                <input type="hidden" id="cfgId">
+
+                <h6 class="text-muted border-bottom pb-1 mb-2">Workflow Header</h6>
+                <div class="row g-2 mb-3">
+                  <div class="col-md-3 view-group">
+                    <input id="cfgCode" type="text" class="form-control hs_span_view text-uppercase" maxlength="50" required>
+                    <label class="input-label">Code <span class="text-danger">*</span></label>
+                  </div>
+                  <div class="col-md-5 view-group">
+                    <input id="cfgName" type="text" class="form-control hs_span_view" maxlength="200" required>
+                    <label class="input-label">Name <span class="text-danger">*</span></label>
+                  </div>
+                  <div class="col-md-4 view-group">
+                    <select id="cfgModule" class="form-select hs_span_view" required>
+                      <option value="">— Module —</option>
+                      <option value="PURCHASE">Purchase</option>
+                      <option value="SALES">Sales</option>
+                      <option value="INVENTORY">Inventory</option>
+                      <option value="FINANCE_ACCOUNTS">Finance / Accounts</option>
+                      <option value="PRODUCTION">Production</option>
+                      <option value="HRM">HRM</option>
+                      <option value="CRM">CRM</option>
+                      <option value="COMMERCIAL">Commercial</option>
+                      <option value="CORE_SECURITY">Security</option>
+                    </select>
+                    <label class="input-label">Module <span class="text-danger">*</span></label>
+                  </div>
+                  <div class="col-md-4 view-group">
+                    <select id="cfgDocType" class="form-select hs_span_view" required>
+                      <option value="">— Document Type —</option>
+                      <option value="PURCHASE_ORDER">Purchase Order</option>
+                      <option value="PURCHASE_INVOICE">Purchase Invoice</option>
+                      <option value="GOODS_RECEIPT_NOTE">Goods Receipt Note</option>
+                      <option value="SALES_ORDER">Sales Order</option>
+                      <option value="SALES_INVOICE">Sales Invoice</option>
+                      <option value="PAYMENT_VOUCHER">Payment Voucher</option>
+                      <option value="RECEIPT_VOUCHER">Receipt Voucher</option>
+                      <option value="JOURNAL_VOUCHER">Journal Voucher</option>
+                      <option value="STOCK_ADJUSTMENT">Stock Adjustment</option>
+                      <option value="STOCK_TRANSFER">Stock Transfer</option>
+                      <option value="PRODUCTION_ORDER">Production Order</option>
+                      <option value="LEAVE_APPLICATION">Leave Application</option>
+                      <option value="LOAN_APPLICATION">Loan Application</option>
+                      <option value="EXPENSE_CLAIM">Expense Claim</option>
+                    </select>
+                    <label class="input-label">Document Type <span class="text-danger">*</span></label>
+                  </div>
+                  <div class="col-md-4 view-group">
+                    <select id="cfgFlowType" class="form-select hs_span_view">
+                      <option value="SEQUENTIAL">Sequential (one by one)</option>
+                      <option value="PARALLEL">Parallel (all at once)</option>
+                    </select>
+                    <label class="input-label">Flow Type</label>
+                  </div>
+                  <div class="col-md-2 view-group">
+                    <input id="cfgPriority" type="number" class="form-control hs_span_view text-end" placeholder="1">
+                    <label class="input-label">Priority</label>
+                  </div>
+                  <div class="col-md-2 view-group">
+                    <input id="cfgEscHours" type="number" class="form-control hs_span_view text-end" placeholder="24">
+                    <label class="input-label">Auto-Escalation (hrs)</label>
+                  </div>
+                  <div class="col-md-3 view-group">
+                    <input id="cfgMinAmt" type="number" step="0.01" class="form-control hs_span_view text-end" placeholder="0.00">
+                    <label class="input-label">Min Amount</label>
+                  </div>
+                  <div class="col-md-3 view-group">
+                    <input id="cfgMaxAmt" type="number" step="0.01" class="form-control hs_span_view text-end" placeholder="No limit">
+                    <label class="input-label">Max Amount</label>
+                  </div>
+                  <div class="col-md-4 d-flex align-items-center gap-3 mt-2">
+                    <div class="form-check form-switch">
+                      <input class="form-check-input" type="checkbox" id="cfgActive" checked>
+                      <label class="form-check-label" for="cfgActive">Active</label>
+                    </div>
+                    <div class="form-check form-switch">
+                      <input class="form-check-input" type="checkbox" id="cfgReminders">
+                      <label class="form-check-label" for="cfgReminders">Enable Reminders</label>
+                    </div>
+                  </div>
+                  <div class="col-12 view-group">
+                    <textarea id="cfgDesc" class="form-control hs_span_view" rows="1" placeholder="Description…"></textarea>
+                    <label class="input-label">Description</label>
+                  </div>
+                </div>
+
+                <!-- APPROVAL LEVELS -->
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                  <strong>Approval Levels <small class="text-muted">(in order for SEQUENTIAL)</small></strong>
+                  <button type="button" class="btn btn-sm btn-outline-primary" onclick="cfgAddLevel()"><i class="fa fa-plus me-1"></i> Add Level</button>
+                </div>
+                <div class="table-responsive">
+                  <table class="table table-sm table-bordered">
+                    <thead class="table-light"><tr>
+                      <th width="5%">#</th>
+                      <th width="15%">Level Name <span class="text-danger">*</span></th>
+                      <th width="22%">Approver User (AJAX S2)</th>
+                      <th width="20%">Approver Description</th>
+                      <th class="text-center">Can Approve w/ Changes</th>
+                      <th class="text-center">Can Delegate</th>
+                      <th class="text-center">Can Hold</th>
+                      <th class="text-center">Active</th>
+                      <th width="4%"></th>
+                    </tr></thead>
+                    <tbody id="cfgLevelBody"></tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-success" type="submit" id="cfgSubmitBtn">
+                <span class="spinner-border spinner-border-sm me-2 d-none" id="cfgSpinner"></span>
+                <span id="cfgBtnText">Save</span>
+              </button>
+              <button type="button" class="btn btn-white" data-bs-dismiss="modal">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- VIEW MODAL -->
+    <div tabindex="-1" id="cfgViewModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header"><h5 class="modal-title"><i class="fa fa-cogs me-1 text-primary"></i> Config Details</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+          <div class="modal-body" id="cfgViewBody"></div>
+          <div class="modal-footer"><button type="button" class="btn btn-white" data-bs-dismiss="modal">Close</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script th:inline="none">
+  (function () {
+    'use strict';
+    const BASE = '/approval/configs';
+    var dt, _levelCount = 0;
+
+    document.addEventListener('DOMContentLoaded', function () {
+      dt = $('#cfgTable').DataTable({
+        processing:true,serverSide:false,responsive:true,pageLength:25,
+        ajax:{ url: BASE+'/list', type:'GET' },
+        columns:[
+          {data:'sl',orderable:false,width:'40px'},{data:'code'},{data:'name'},
+          {data:'document_type'},{data:'module'},{data:'flow_type'},
+          {data:'level_count',className:'text-center'},
+          {data:'priority',className:'text-center',defaultContent:'—'},
+          {data:'min_amount',defaultContent:'—'},{data:'max_amount',defaultContent:'—'},
+          {data:'status_badge',orderable:false,className:'text-center'},
+          {data:'actions',orderable:false,className:'text-center'}
+        ],
+        language:{emptyTable:'No approval configs.',processing:'<span class="spinner-border spinner-border-sm me-2"></span> Loading…'}
+      });
+      document.getElementById('cfgForm').addEventListener('submit', _onSubmit);
+    });
+
+    function _initUserS2(el, preId, preText) {
+      var $el = $(el);
+      if ($el.hasClass('select2-hidden-accessible')) $el.select2('destroy');
+      $el.select2({
+        dropdownParent: $('#cfgModal'), width: '100%',
+        placeholder: '— Approver —', allowClear: true, minimumInputLength: 0,
+        ajax: {
+          url: '/users/search', dataType: 'json', delay: 250,
+          data: function(p){ return { search: p.term||'', page: p.page||1 }; },
+          processResults: function(d,p){ p.page=p.page||1; return { results:(d.items||[]).map(function(i){return{id:i.id,text:i.text};}), pagination:{more:d.hasMore||false} }; },
+          cache: true
+        },
+        templateResult: function(r){ return r.text; }, templateSelection: function(r){ return r.text||r.id; }
+      });
+      if (preId) $el.append(new Option(preText||'', preId, true, true)).trigger('change');
+      $el.on('select2:select', function(e){ el.closest('tr').querySelector('[data-field="approverUserId"]').value = e.params.data.id||''; });
+      $el.on('select2:clear', function(){ el.closest('tr').querySelector('[data-field="approverUserId"]').value = ''; });
+    }
+
+    window.cfgOpenCreate = function() {
+      _resetForm();
+      document.getElementById('cfgModalTitle').innerHTML = '<i class="fa fa-plus me-1 text-success"></i> New Approval Config';
+      document.getElementById('cfgBtnText').textContent  = 'Save';
+      cfgAddLevel();
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('cfgModal')).show();
+    };
+
+    window.cfgAddLevel = function(data) {
+      _levelCount++;
+      var n = _levelCount;
+      var html = '<tr id="cfgLvl_'+n+'">'
+        +'<td class="text-center fw-bold">'+n+'</td>'
+        +'<td><input type="text" class="form-control form-control-sm" data-field="levelName" value="'+(data?data.levelName||'':'') +'" required maxlength="100" placeholder="e.g. HOD Approval"></td>'
+        +'<td><input type="hidden" data-field="approverUserId" value="'+(data?data.approverUserId||'':'') +'"><select class="form-select form-select-sm cfg-user-s2"></select></td>'
+        +'<td><input type="text" class="form-control form-control-sm" data-field="approverDescription" value="'+(data?data.approverDescription||'':'') +'" placeholder="e.g. Head of Department"></td>'
+        +'<td class="text-center"><input type="checkbox" class="form-check-input" data-field="canApproveWithChanges" '+(data&&data.canApproveWithChanges?'checked':'') +'></td>'
+        +'<td class="text-center"><input type="checkbox" class="form-check-input" data-field="canDelegate" '+(data&&data.canDelegate?'checked':'') +'></td>'
+        +'<td class="text-center"><input type="checkbox" class="form-check-input" data-field="canHold" '+(data&&data.canHold?'checked':'') +'></td>'
+        +'<td class="text-center"><input type="checkbox" class="form-check-input" data-field="levelActive" '+(data&&data.active!==false?'checked':'checked') +'></td>'
+        +'<td><button type="button" class="btn btn-sm btn-outline-danger" onclick="cfgRemoveLevel('+n+')"><i class="fa fa-times"></i></button></td>'
+        +'</tr>';
+      document.getElementById('cfgLevelBody').insertAdjacentHTML('beforeend', html);
+      var sel = document.querySelector('#cfgLvl_'+n+' .cfg-user-s2');
+      _initUserS2(sel, data?data.approverUserId:null, data?data.approverUserDisplay:null);
+    };
+
+    window.cfgRemoveLevel = function(n) {
+      var row = document.getElementById('cfgLvl_'+n);
+      if (row) {
+        var s2 = row.querySelector('.cfg-user-s2');
+        if (s2 && $(s2).hasClass('select2-hidden-accessible')) $(s2).select2('destroy');
+        row.remove();
+      }
+    };
+
+    window.cfgShow = function(id) {
+      secureFetch(BASE+'/show/'+id).then(function(res) {
+        if (!res.success) { Swal.fire('Error',res.message,'error'); return; }
+        var o = res.obj.defaultData;
+        var html = '<div class="hs-box"><div class="row g-2">'
+          +_vf('Code',o.code)+_vf('Name',o.name)
+          +_vf('Document Type',o.documentType)+_vf('Module',o.module)
+          +_vf('Flow Type',o.flowType)+_vf('Priority',o.priority||'—')
+          +_vf('Min Amount',o.minAmount||'—')+_vf('Max Amount',o.maxAmount||'—')
+          +_vf('Auto Escalation',o.autoEscalationHours ? o.autoEscalationHours+' hrs' : '—')
+          +_vf('Active',o.active?'<span class="badge bg-success">Yes</span>':'<span class="badge bg-secondary">No</span>')
+          +'</div>'
+          +'<h6 class="border-bottom pb-1 mt-3 mb-2">Approval Levels</h6>'
+          +'<table class="table table-sm table-bordered"><thead class="table-light"><tr>'
+          +'<th>#</th><th>Level Name</th><th>Approver</th><th>Description</th><th class="text-center">Delegate</th><th class="text-center">Hold</th><th class="text-center">Active</th>'
+          +'</tr></thead><tbody>';
+        (o.levels||[]).forEach(function(l){
+          html+='<tr><td>'+l.levelNumber+'</td><td><strong>'+l.levelName+'</strong></td>'
+            +'<td>'+(l.approverUserDisplay||'<span class="text-muted">Unassigned</span>')+'</td>'
+            +'<td>'+(l.approverDescription||'—')+'</td>'
+            +'<td class="text-center">'+(l.canDelegate?'<span class="badge bg-success">Yes</span>':'—')+'</td>'
+            +'<td class="text-center">'+(l.canHold?'<span class="badge bg-warning text-dark">Yes</span>':'—')+'</td>'
+            +'<td class="text-center">'+(l.active?'<span class="badge bg-success">Active</span>':'<span class="badge bg-secondary">Inactive</span>')+'</td></tr>';
+        });
+        html += '</tbody></table></div>';
+        document.getElementById('cfgViewBody').innerHTML = html;
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('cfgViewModal')).show();
+      });
+    };
+
+    window.cfgEdit = function(id) {
+      secureFetch(BASE+'/show/'+id).then(function(res) {
+        if (!res.success) { Swal.fire('Error',res.message,'error'); return; }
+        var o = res.obj.defaultData; _resetForm();
+        document.getElementById('cfgId').value          = o.id;
+        document.getElementById('cfgCode').value         = o.code||'';
+        document.getElementById('cfgName').value         = o.name||'';
+        document.getElementById('cfgModule').value       = o.module||'';
+        document.getElementById('cfgDocType').value      = o.documentType||'';
+        document.getElementById('cfgFlowType').value     = o.flowType||'SEQUENTIAL';
+        document.getElementById('cfgPriority').value     = o.priority||'';
+        document.getElementById('cfgEscHours').value     = o.autoEscalationHours||'';
+        document.getElementById('cfgMinAmt').value       = o.minAmount||'';
+        document.getElementById('cfgMaxAmt').value       = o.maxAmount||'';
+        document.getElementById('cfgDesc').value         = o.description||'';
+        document.getElementById('cfgActive').checked     = o.active !== false;
+        document.getElementById('cfgReminders').checked  = o.enableReminders === true;
+        (o.levels||[]).forEach(function(l){ cfgAddLevel(l); });
+        document.getElementById('cfgModalTitle').innerHTML = '<i class="fa fa-pencil me-1 text-warning"></i> Edit Config';
+        document.getElementById('cfgBtnText').textContent  = 'Update';
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('cfgModal')).show();
+      });
+    };
+
+    window.cfgToggle = function(id) { hsChangeStatus(BASE+'/toggle/'+id, dt, 'Config'); };
+    window.cfgDelete = function(id) { hsConfirmDelete(BASE+'/delete/'+id, dt); };
+
+    function _onSubmit(e) {
+      e.preventDefault();
+      var sb=document.getElementById('cfgSubmitBtn'),sp=document.getElementById('cfgSpinner'),bt=document.getElementById('cfgBtnText');
+      hsDisableButton(sb,sp,bt);
+      var levels=[];
+      document.querySelectorAll('#cfgLevelBody tr').forEach(function(tr,idx){
+        var lname = tr.querySelector('[data-field="levelName"]').value;
+        if (!lname) return;
+        levels.push({
+          levelNumber         : idx+1,
+          levelName           : lname,
+          approverUserId      : tr.querySelector('[data-field="approverUserId"]').value||null,
+          approverDescription : tr.querySelector('[data-field="approverDescription"]').value||null,
+          canApproveWithChanges:tr.querySelector('[data-field="canApproveWithChanges"]').checked,
+          canDelegate         : tr.querySelector('[data-field="canDelegate"]').checked,
+          canHold             : tr.querySelector('[data-field="canHold"]').checked,
+          active              : tr.querySelector('[data-field="levelActive"]').checked
+        });
+      });
+      secureFetch(BASE+'/save',{method:'POST',body:JSON.stringify({
+        id                  : document.getElementById('cfgId').value||null,
+        code                : document.getElementById('cfgCode').value,
+        name                : document.getElementById('cfgName').value,
+        module              : document.getElementById('cfgModule').value,
+        documentType        : document.getElementById('cfgDocType').value,
+        flowType            : document.getElementById('cfgFlowType').value,
+        priority            : parseInt(document.getElementById('cfgPriority').value)||null,
+        autoEscalationHours : parseInt(document.getElementById('cfgEscHours').value)||null,
+        minAmount           : parseFloat(document.getElementById('cfgMinAmt').value)||null,
+        maxAmount           : parseFloat(document.getElementById('cfgMaxAmt').value)||null,
+        description         : document.getElementById('cfgDesc').value||null,
+        active              : document.getElementById('cfgActive').checked,
+        enableReminders     : document.getElementById('cfgReminders').checked,
+        levels
+      })}).then(function(d){
+        if (d.success) { hsAfterSaveMessages(d,dt); bootstrap.Modal.getOrCreateInstance(document.getElementById('cfgModal')).hide(); }
+        else Swal.fire('Error',d.message,'error');
+      }).catch(function(err){ Swal.fire('Error',err.message||'Request failed.','error'); })
+        .finally(function(){ hsEnableButton(sb,sp,bt); });
+    }
+
+    function _resetForm() {
+      document.querySelectorAll('.cfg-user-s2').forEach(function(el){ if($(el).hasClass('select2-hidden-accessible')) $(el).select2('destroy'); });
+      document.getElementById('cfgForm').reset();
+      document.getElementById('cfgId').value = '';
+      document.getElementById('cfgLevelBody').innerHTML = '';
+      _levelCount = 0;
+      document.getElementById('cfgActive').checked    = true;
+      document.getElementById('cfgReminders').checked = false;
+      document.getElementById('cfgFlowType').value    = 'SEQUENTIAL';
+    }
+    function _vf(l,v){ return '<div class="col-md-4 view-group"><label class="view-label">'+l+'</label><span class="form-control hs_span_show">'+(v!=null?v:'—')+'</span></div>'; }
+  })();
+  </script>
+</section>
+</html>

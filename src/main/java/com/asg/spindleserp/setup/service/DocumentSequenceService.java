@@ -1,6 +1,7 @@
 package com.asg.spindleserp.setup.service;
 
 import com.asg.spindleserp.common.dto.DataTableResponse;
+import com.asg.spindleserp.common.enums.DocumentType;
 import com.asg.spindleserp.setup.dto.DocumentSequenceDTO;
 import com.asg.spindleserp.setup.entity.DocumentSequence;
 
@@ -18,6 +19,7 @@ public interface DocumentSequenceService {
      * Atomically increment lastSeq and return the next formatted document number.
      * Format: {PREFIX}-{YY}-{NNNNNN}
      */
+    String nextDocumentNumberByDocType(DocumentType documentType);
     String nextDocumentNumber(Long orgId, String prefix, String yearCode);
 
     DataTableResponse datatableList(int draw, int start, int length, String search);

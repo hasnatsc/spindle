@@ -530,6 +530,9 @@ public class PurchaseServiceImpl implements PurchaseService {
         e.setUpdatedBy(user);
         if (e.getCreatedAt() == null) e.setCreatedAt(LocalDateTime.now());
         e.setUpdatedAt(LocalDateTime.now());
+        if (e.getDocumentNo() == null || e.getDocumentNo().isBlank()) {
+            e.setDocumentNo(seqService.nextDocumentNumber(e.getOrganization().getId(), e.getDocumentType().getCode() + "-" + Objects.requireNonNull(ContextProvider.getOrganizationReference()).getCode(), String.valueOf(java.time.Year.now().getValue())));
+        }
     }
 
     private void syncLines(PurchaseDocumentDTO dto, BusinessDocument parent) {

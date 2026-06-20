@@ -21,7 +21,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
@@ -33,17 +32,17 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class SalesServiceImpl implements SalesService {
 
-    private final BusinessDocumentRepository     docRepo;
+    private final BusinessDocumentRepository docRepo;
     private final BusinessDocumentLineRepository lineRepo;
     private final InventoryStockBalanceRepository balanceRepo;
-    private final InventoryTransactionRepository  txRepo;
-    private final InventoryLotRepository          lotRepo;
-    private final ChartOfAccountSubRepository     subRepo;
-    private final OrganizationRepository          orgRepo;
-    private final WarehouseRepository             whRepo;
-    private final ItemRepository                  itemRepo;
-    private final DocumentSequenceService         seqService;
-    private final JdbcTemplate                    jdbcTemplate;
+    private final InventoryTransactionRepository txRepo;
+    private final InventoryLotRepository lotRepo;
+    private final ChartOfAccountSubRepository subRepo;
+    private final OrganizationRepository orgRepo;
+    private final WarehouseRepository whRepo;
+    private final ItemRepository itemRepo;
+    private final DocumentSequenceService seqService;
+    private final JdbcTemplate jdbcTemplate;
 
     // =========================================================================
     // SAVE
@@ -78,10 +77,10 @@ public class SalesServiceImpl implements SalesService {
         guardDraft(doc);
         String type = doc.getDocumentType().name();
         switch (type) {
-            case "SALES_ORDER"   -> confirmSO(doc);
-            case "DELIVERY_ORDER"-> confirmDelivery(doc);
+            case "SALES_ORDER" -> confirmSO(doc);
+            case "DELIVERY_ORDER" -> confirmDelivery(doc);
             case "SALES_INVOICE" -> confirmInvoice(doc);
-            case "CREDIT_NOTE"   -> confirmCreditNote(doc);
+            case "CREDIT_NOTE" -> confirmCreditNote(doc);
             default -> throw new IllegalArgumentException("Unsupported sales document type: " + type);
         }
         doc.setStatus("CONFIRMED");
@@ -103,9 +102,7 @@ public class SalesServiceImpl implements SalesService {
             // Validate available qty before issuing
             BigDecimal avail = availableQty(line, doc.getWarehouse().getId());
             if (avail.compareTo(line.getQuantity()) < 0) {
-                throw new IllegalArgumentException(
-                    "Insufficient stock for item '" + line.getItemCode() +
-                    "'. Available: " + avail + ", Required: " + line.getQuantity());
+                throw new IllegalArgumentException("Insufficient stock for item '" + line.getItemCode() + "'. Available: " + avail + ", Required: " + line.getQuantity());
             }
             postStockTransaction(doc, line, MovementType.SALES_ISSUE, doc.getWarehouse());
         }
@@ -127,8 +124,7 @@ public class SalesServiceImpl implements SalesService {
             });
         }
         doc.setAccountingPosted(true);
-        log.info("Sales Invoice {} confirmed. AR updated for customer {}.",
-                doc.getDocumentNo(), doc.getParty() != null ? doc.getParty().getId() : "N/A");
+        log.info("Sales Invoice {} confirmed. AR updated for customer {}.", doc.getDocumentNo(), doc.getParty() != null ? doc.getParty().getId() : "N/A");
     }
 
     private void confirmCreditNote(BusinessDocument doc) {
@@ -177,7 +173,9 @@ public class SalesServiceImpl implements SalesService {
 
     @Override
     @Transactional(readOnly = true)
-    public SalesDocumentDTO findById(Long id) { return toDTO(findDoc(id)); }
+    public SalesDocumentDTO findById(Long id) {
+        return toDTO(findDoc(id));
+    }
 
     // =========================================================================
     // POPULATE FROM SOURCE
@@ -192,23 +190,22 @@ public class SalesServiceImpl implements SalesService {
         }
 
         SalesDocumentDTO child = SalesDocumentDTO.builder()
-            .documentType(childType)
-            .documentDate(LocalDate.now())
-            .status("DRAFT")
-            .parentDocumentId(parent.getId())
-            .parentDocumentNo(parent.getDocumentNo())
-            .parentDocumentType(parent.getDocumentType().name())
-            .partyId(parent.getParty() != null ? parent.getParty().getId() : null)
-            .partyDisplay(parent.getParty() != null
-                ? parent.getParty().getSubAccountCode() + " — " + parent.getParty().getSubAccountName() : null)
-            .warehouseId(parent.getWarehouse() != null ? parent.getWarehouse().getId() : null)
-            .warehouseDisplay(parent.getWarehouse() != null ? parent.getWarehouse().getWarehouseName() : null)
-            .currency(parent.getCurrency())
-            .exchangeRate(parent.getExchangeRate())
-            .customerPoNo(parent.getReferenceNo())
-            .referenceNo(parent.getDocumentNo())
-            .incoterms(parent.getIncoterms())
-            .build();
+                .documentType(childType)
+                .documentDate(LocalDate.now())
+                .status("DRAFT")
+                .parentDocumentId(parent.getId())
+                .parentDocumentNo(parent.getDocumentNo())
+                .parentDocumentType(parent.getDocumentType().name())
+                .partyId(parent.getParty() != null ? parent.getParty().getId() : null)
+                .partyDisplay(parent.getParty() != null ? parent.getParty().getSubAccountCode() + " — " + parent.getParty().getSubAccountName() : null)
+                .warehouseId(parent.getWarehouse() != null ? parent.getWarehouse().getId() : null)
+                .warehouseDisplay(parent.getWarehouse() != null ? parent.getWarehouse().getWarehouseName() : null)
+                .currency(parent.getCurrency())
+                .exchangeRate(parent.getExchangeRate())
+                .customerPoNo(parent.getReferenceNo())
+                .referenceNo(parent.getDocumentNo())
+                .incoterms(parent.getIncoterms())
+                .build();
 
         List<SalesDocumentDTO.LineDTO> lines = parent.getLines().stream().map(pl -> {
             SalesDocumentDTO.LineDTO line = new SalesDocumentDTO.LineDTO();
@@ -256,62 +253,62 @@ public class SalesServiceImpl implements SalesService {
     @Transactional(readOnly = true)
     public DataTableResponse datatableList(String documentType, int draw, int start, int length, String search) {
         Long orgId = SecurityHelper.currentOrgId().orElse(null);
-        String fn  = jsFnPrefix(documentType);
+        String fn = jsFnPrefix(documentType);
 
         String where = "WHERE d.document_type = '" + documentType + "'"
-            + " AND d.is_deleted = false"
-            + (orgId != null ? " AND d.organization_id = " + orgId : "")
-            + CommonUtils.searchILike(search, Arrays.asList(
+                + " AND d.is_deleted = false"
+                + (orgId != null ? " AND d.organization_id = " + orgId : "")
+                + CommonUtils.searchILike(search, Arrays.asList(
                 "d.document_no", "d.reference_no",
                 "s.sub_account_code", "s.sub_account_name", "d.status"));
 
         String nextDocSql = nextDocActionButton(documentType, fn);
 
         String sql = String.format("""
-            SELECT
-                ROW_NUMBER() OVER (ORDER BY d.id DESC)                              AS sl,
-                COUNT(*)     OVER ()                                                AS full_count,
-                d.id,
-                d.document_no,
-                COALESCE(d.document_no_manual, '—')                                AS document_no_manual,
-                d.document_type,
-                TO_CHAR(d.document_date, 'DD-Mon-YYYY')                             AS document_date,
-                COALESCE(s.sub_account_code || ' — ' || s.sub_account_name, '—')   AS customer_name,
-                COALESCE(w.warehouse_name, '—')                                     AS warehouse_name,
-                COALESCE(d.total_amount::text,  '—')                                AS total_amount,
-                COALESCE(d.paid_amount::text,   '—')                                AS paid_amount,
-                COALESCE(d.due_amount::text,    '—')                                AS due_amount,
-                COALESCE(d.reference_no, '—')                                       AS reference_no,
-                COALESCE(pd.document_no, '—')                                       AS parent_doc_no,
-                d.stock_posted,
-                d.accounting_posted,
-                TO_CHAR(d.created_at, 'DD-Mon-YYYY')                                AS created_at,
-                COALESCE(d.created_by, '—')                                         AS created_by,
-                CASE d.status
-                    WHEN 'DRAFT'     THEN '<span class="badge bg-secondary">Draft</span>'
-                    WHEN 'CONFIRMED' THEN '<span class="badge bg-success">Confirmed</span>'
-                    WHEN 'CANCELLED' THEN '<span class="badge bg-danger">Cancelled</span>'
-                    WHEN 'CLOSED'    THEN '<span class="badge bg-dark">Closed</span>'
-                    ELSE '<span class="badge bg-info">' || d.status || '</span>'
-                END AS status_badge,
-                '<div class="btn-group">'
-                    || '<a href="javascript:;" onclick="%1$sShow('     || d.id || ')" class="btn btn-white btn-sm" title="View"><i class="fas fa-eye text-success"></i></a>'
-                    || CASE WHEN d.status = 'DRAFT' THEN
-                        '<a href="javascript:;" onclick="%1$sEdit('    || d.id || ')" class="btn btn-white btn-sm" title="Edit"><i class="fa-regular fa-pen-to-square text-warning"></i></a>'
-                        || '<a href="javascript:;" onclick="%1$sConfirm(' || d.id || ')" class="btn btn-white btn-sm" title="Confirm"><i class="fas fa-check-circle text-primary"></i></a>'
-                        || '<a href="javascript:;" onclick="%1$sCancel(' || d.id || ')" class="btn btn-white btn-sm" title="Cancel"><i class="fas fa-ban text-secondary"></i></a>'
-                        || '<a href="javascript:;" onclick="%1$sDelete(' || d.id || ')" class="btn btn-white btn-sm" title="Delete"><i class="fa-regular fa-trash-can text-danger"></i></a>'
-                       ELSE '' END
-                    || %2$s
-                    || '</div>'                                                      AS actions
-            FROM  global_business_documents    d
-            LEFT  JOIN acc_chart_of_accounts_sub s  ON s.id  = d.party_id
-            LEFT  JOIN org_warehouses            w  ON w.id  = d.warehouse_id
-            LEFT  JOIN global_business_documents pd ON pd.id = d.parent_document_id
-            %3$s
-            ORDER BY d.id DESC
-            OFFSET %4$d LIMIT %5$d
-            """, fn, nextDocSql, where, start, length);
+                SELECT
+                    ROW_NUMBER() OVER (ORDER BY d.id DESC)                              AS sl,
+                    COUNT(*)     OVER ()                                                AS full_count,
+                    d.id,
+                    d.document_no,
+                    COALESCE(d.document_no_manual, '—')                                AS document_no_manual,
+                    d.document_type,
+                    TO_CHAR(d.document_date, 'DD-Mon-YYYY')                             AS document_date,
+                    COALESCE(s.sub_account_code || ' — ' || s.sub_account_name, '—')   AS customer_name,
+                    COALESCE(w.warehouse_name, '—')                                     AS warehouse_name,
+                    COALESCE(d.total_amount::text,  '—')                                AS total_amount,
+                    COALESCE(d.paid_amount::text,   '—')                                AS paid_amount,
+                    COALESCE(d.due_amount::text,    '—')                                AS due_amount,
+                    COALESCE(d.reference_no, '—')                                       AS reference_no,
+                    COALESCE(pd.document_no, '—')                                       AS parent_doc_no,
+                    d.stock_posted,
+                    d.accounting_posted,
+                    TO_CHAR(d.created_at, 'DD-Mon-YYYY')                                AS created_at,
+                    COALESCE(d.created_by, '—')                                         AS created_by,
+                    CASE d.status
+                        WHEN 'DRAFT'     THEN '<span class="badge bg-secondary">Draft</span>'
+                        WHEN 'CONFIRMED' THEN '<span class="badge bg-success">Confirmed</span>'
+                        WHEN 'CANCELLED' THEN '<span class="badge bg-danger">Cancelled</span>'
+                        WHEN 'CLOSED'    THEN '<span class="badge bg-dark">Closed</span>'
+                        ELSE '<span class="badge bg-info">' || d.status || '</span>'
+                    END AS status_badge,
+                    '<div class="btn-group">'
+                        || '<a href="javascript:;" onclick="%1$sShow('     || d.id || ')" class="btn btn-white btn-sm" title="View"><i class="fas fa-eye text-success"></i></a>'
+                        || CASE WHEN d.status = 'DRAFT' THEN
+                            '<a href="javascript:;" onclick="%1$sEdit('    || d.id || ')" class="btn btn-white btn-sm" title="Edit"><i class="fa-regular fa-pen-to-square text-warning"></i></a>'
+                            || '<a href="javascript:;" onclick="%1$sConfirm(' || d.id || ')" class="btn btn-white btn-sm" title="Confirm"><i class="fas fa-check-circle text-primary"></i></a>'
+                            || '<a href="javascript:;" onclick="%1$sCancel(' || d.id || ')" class="btn btn-white btn-sm" title="Cancel"><i class="fas fa-ban text-secondary"></i></a>'
+                            || '<a href="javascript:;" onclick="%1$sDelete(' || d.id || ')" class="btn btn-white btn-sm" title="Delete"><i class="fa-regular fa-trash-can text-danger"></i></a>'
+                           ELSE '' END
+                        || %2$s
+                        || '</div>'                                                      AS actions
+                FROM  global_business_documents    d
+                LEFT  JOIN acc_chart_of_accounts_sub s  ON s.id  = d.party_id
+                LEFT  JOIN org_warehouses            w  ON w.id  = d.warehouse_id
+                LEFT  JOIN global_business_documents pd ON pd.id = d.parent_document_id
+                %3$s
+                ORDER BY d.id DESC
+                OFFSET %4$d LIMIT %5$d
+                """, fn, nextDocSql, where, start, length);
 
         List<Map<String, Object>> rows = jdbcTemplate.queryForList(sql);
         long total = rows.isEmpty() ? 0L : CommonUtils.toLong(rows.get(0).get("full_count"));
@@ -326,21 +323,21 @@ public class SalesServiceImpl implements SalesService {
     @Transactional(readOnly = true)
     public List<Map<String, Object>> openSOsForCustomer(Long customerId) {
         String sql = """
-            SELECT d.id,
-                   d.document_no,
-                   TO_CHAR(d.document_date, 'DD-Mon-YYYY') AS document_date,
-                   COALESCE(d.total_amount, 0)              AS total_amount,
-                   d.reference_no,
-                   COUNT(l.id)                              AS line_count
-            FROM  global_business_documents d
-            LEFT  JOIN global_business_document_lines l ON l.document_id = d.id
-            WHERE d.document_type = 'SALES_ORDER'
-              AND d.status        = 'CONFIRMED'
-              AND d.is_deleted    = false
-              AND d.party_id      = ?
-            GROUP BY d.id, d.document_no, d.document_date, d.total_amount, d.reference_no
-            ORDER BY d.document_date DESC
-            """;
+                SELECT d.id,
+                       d.document_no,
+                       TO_CHAR(d.document_date, 'DD-Mon-YYYY') AS document_date,
+                       COALESCE(d.total_amount, 0)              AS total_amount,
+                       d.reference_no,
+                       COUNT(l.id)                              AS line_count
+                FROM  global_business_documents d
+                LEFT  JOIN global_business_document_lines l ON l.document_id = d.id
+                WHERE d.document_type = 'SALES_ORDER'
+                  AND d.status        = 'CONFIRMED'
+                  AND d.is_deleted    = false
+                  AND d.party_id      = ?
+                GROUP BY d.id, d.document_no, d.document_date, d.total_amount, d.reference_no
+                ORDER BY d.document_date DESC
+                """;
         return jdbcTemplate.queryForList(sql, customerId);
     }
 
@@ -348,18 +345,18 @@ public class SalesServiceImpl implements SalesService {
     @Transactional(readOnly = true)
     public List<Map<String, Object>> confirmedDeliveriesForCustomer(Long customerId) {
         String sql = """
-            SELECT d.id,
-                   d.document_no,
-                   TO_CHAR(d.document_date, 'DD-Mon-YYYY') AS document_date,
-                   COALESCE(d.total_amount, 0)              AS total_amount,
-                   d.reference_no
-            FROM  global_business_documents d
-            WHERE d.document_type = 'DELIVERY_ORDER'
-              AND d.status        = 'CONFIRMED'
-              AND d.is_deleted    = false
-              AND d.party_id      = ?
-            ORDER BY d.document_date DESC
-            """;
+                SELECT d.id,
+                       d.document_no,
+                       TO_CHAR(d.document_date, 'DD-Mon-YYYY') AS document_date,
+                       COALESCE(d.total_amount, 0)              AS total_amount,
+                       d.reference_no
+                FROM  global_business_documents d
+                WHERE d.document_type = 'DELIVERY_ORDER'
+                  AND d.status        = 'CONFIRMED'
+                  AND d.is_deleted    = false
+                  AND d.party_id      = ?
+                ORDER BY d.document_date DESC
+                """;
         return jdbcTemplate.queryForList(sql, customerId);
     }
 
@@ -370,44 +367,44 @@ public class SalesServiceImpl implements SalesService {
     @Override
     public SalesDocumentDTO toDTO(BusinessDocument e) {
         SalesDocumentDTO d = SalesDocumentDTO.builder()
-            .id(e.getId())
-            .documentNo(e.getDocumentNo())
-            .documentNoManual(e.getDocumentNoManual())
-            .documentType(e.getDocumentType() != null ? e.getDocumentType().name() : null)
-            .documentDate(e.getDocumentDate())
-            .status(e.getStatus())
-            .referenceNo(e.getReferenceNo())
-            .currency(e.getCurrency())
-            .exchangeRate(e.getExchangeRate())
-            .incoterms(e.getIncoterms())
-            .portOfLoading(e.getPortOfLoading())
-            .portOfDischarge(e.getPortOfDischarge())
-            .vesselName(e.getVesselName())
-            .blNumber(e.getBlNumber())
-            .containerNumber(e.getContainerNumber())
-            .challanNo(e.getChallanNo())
-            .vehicleNumber(e.getVehicleNumber())
-            .driverName(e.getDriverName())
-            .deliveryAddress(e.getDeliveryAddress())
-            .requiredDate(e.getRequiredDate())
-            .deliveryDate(e.getDeliveryDate())
-            .validityDate(e.getValidityDate())
-            .subtotalAmount(e.getSubtotalAmount())
-            .discountAmount(e.getDiscountAmount())
-            .taxAmount(e.getTaxAmount())
-            .otherCharges(e.getOtherCharges())
-            .totalAmount(e.getTotalAmount())
-            .paidAmount(e.getPaidAmount())
-            .dueAmount(e.getDueAmount())
-            .stockPosted(e.isStockPosted())
-            .accountingPosted(e.isAccountingPosted())
-            .termsAndConditions(e.getTermsAndConditions())
-            .remarks(e.getRemarks())
-            .createdAt(e.getCreatedAt() != null ? e.getCreatedAt().toString() : null)
-            .updatedAt(e.getUpdatedAt() != null ? e.getUpdatedAt().toString() : null)
-            .createdBy(e.getCreatedBy())
-            .updatedBy(e.getUpdatedBy())
-            .build();
+                .id(e.getId())
+                .documentNo(e.getDocumentNo())
+                .documentNoManual(e.getDocumentNoManual())
+                .documentType(e.getDocumentType() != null ? e.getDocumentType().name() : null)
+                .documentDate(e.getDocumentDate())
+                .status(e.getStatus())
+                .referenceNo(e.getReferenceNo())
+                .currency(e.getCurrency())
+                .exchangeRate(e.getExchangeRate())
+                .incoterms(e.getIncoterms())
+                .portOfLoading(e.getPortOfLoading())
+                .portOfDischarge(e.getPortOfDischarge())
+                .vesselName(e.getVesselName())
+                .blNumber(e.getBlNumber())
+                .containerNumber(e.getContainerNumber())
+                .challanNo(e.getChallanNo())
+                .vehicleNumber(e.getVehicleNumber())
+                .driverName(e.getDriverName())
+                .deliveryAddress(e.getDeliveryAddress())
+                .requiredDate(e.getRequiredDate())
+                .deliveryDate(e.getDeliveryDate())
+                .validityDate(e.getValidityDate())
+                .subtotalAmount(e.getSubtotalAmount())
+                .discountAmount(e.getDiscountAmount())
+                .taxAmount(e.getTaxAmount())
+                .otherCharges(e.getOtherCharges())
+                .totalAmount(e.getTotalAmount())
+                .paidAmount(e.getPaidAmount())
+                .dueAmount(e.getDueAmount())
+                .stockPosted(e.isStockPosted())
+                .accountingPosted(e.isAccountingPosted())
+                .termsAndConditions(e.getTermsAndConditions())
+                .remarks(e.getRemarks())
+                .createdAt(e.getCreatedAt() != null ? e.getCreatedAt().toString() : null)
+                .updatedAt(e.getUpdatedAt() != null ? e.getUpdatedAt().toString() : null)
+                .createdBy(e.getCreatedBy())
+                .updatedBy(e.getUpdatedBy())
+                .build();
 
         if (e.getParty() != null) {
             d.setPartyId(e.getParty().getId());
@@ -493,6 +490,9 @@ public class SalesServiceImpl implements SalesService {
         e.setUpdatedBy(user);
         if (e.getCreatedAt() == null) e.setCreatedAt(LocalDateTime.now());
         e.setUpdatedAt(LocalDateTime.now());
+        if (e.getDocumentNo() == null || e.getDocumentNo().isBlank()) {
+            e.setDocumentNo(seqService.nextDocumentNumberByDocType(e.getDocumentType()));
+        }
     }
 
     private void syncLines(SalesDocumentDTO dto, BusinessDocument parent) {
@@ -503,22 +503,22 @@ public class SalesServiceImpl implements SalesService {
             if (ld.getItemId() == null) continue;
             var item = itemRepo.getReferenceById(ld.getItemId());
             BusinessDocumentLine line = BusinessDocumentLine.builder()
-                .organizationId(parent.getOrganization().getId())
-                .document(parent)
-                .item(item)
-                .lineNumber(num++)
-                .itemCode(ld.getItemCode())
-                .itemName(ld.getItemName())
-                .unitCode(ld.getUnitCode())
-                .quantity(ld.getQuantity())
-                .deliveredQty(ld.getDeliveredQty())
-                .unitPrice(ld.getUnitPrice())
-                .discountAmount(ld.getDiscountAmount())
-                .taxAmount(ld.getTaxAmount())
-                .lineAmount(ld.getLineAmount())
-                .qualityStatus(ld.getQualityStatus())
-                .remarks(ld.getRemarks())
-                .build();
+                    .organizationId(parent.getOrganization().getId())
+                    .document(parent)
+                    .item(item)
+                    .lineNumber(num++)
+                    .itemCode(ld.getItemCode())
+                    .itemName(ld.getItemName())
+                    .unitCode(ld.getUnitCode())
+                    .quantity(ld.getQuantity())
+                    .deliveredQty(ld.getDeliveredQty())
+                    .unitPrice(ld.getUnitPrice())
+                    .discountAmount(ld.getDiscountAmount())
+                    .taxAmount(ld.getTaxAmount())
+                    .lineAmount(ld.getLineAmount())
+                    .qualityStatus(ld.getQualityStatus())
+                    .remarks(ld.getRemarks())
+                    .build();
             if (ld.getSourceLineId() != null) line.setSourceLine(lineRepo.getReferenceById(ld.getSourceLineId()));
             if (ld.getLotId() != null) line.setInventoryLot(lotRepo.getReferenceById(ld.getLotId()));
             parent.getLines().add(line);
@@ -527,13 +527,13 @@ public class SalesServiceImpl implements SalesService {
 
     private void recalcTotals(BusinessDocument doc) {
         BigDecimal subtotal = doc.getLines().stream()
-            .map(l -> l.getLineAmount() != null ? l.getLineAmount() : BigDecimal.ZERO)
-            .reduce(BigDecimal.ZERO, BigDecimal::add);
+                .map(l -> l.getLineAmount() != null ? l.getLineAmount() : BigDecimal.ZERO)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal discount = doc.getDiscountAmount() != null ? doc.getDiscountAmount() : BigDecimal.ZERO;
-        BigDecimal tax      = doc.getLines().stream()
-            .map(l -> l.getTaxAmount() != null ? l.getTaxAmount() : BigDecimal.ZERO)
-            .reduce(BigDecimal.ZERO, BigDecimal::add);
-        BigDecimal other    = doc.getOtherCharges() != null ? doc.getOtherCharges() : BigDecimal.ZERO;
+        BigDecimal tax = doc.getLines().stream()
+                .map(l -> l.getTaxAmount() != null ? l.getTaxAmount() : BigDecimal.ZERO)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal other = doc.getOtherCharges() != null ? doc.getOtherCharges() : BigDecimal.ZERO;
         doc.setSubtotalAmount(subtotal);
         doc.setTaxAmount(tax);
         BigDecimal total = subtotal.subtract(discount).add(tax).add(other);
@@ -548,33 +548,33 @@ public class SalesServiceImpl implements SalesService {
         boolean isInbound = isInbound(movType);
         BigDecimal qty = isInbound ? line.getQuantity() : line.getQuantity().negate();
 
-        InventoryLot lot   = line.getInventoryLot();
-        Long         lotId = lot != null ? lot.getId() : null;
+        InventoryLot lot = line.getInventoryLot();
+        Long lotId = lot != null ? lot.getId() : null;
 
         InventoryStockBalance balance = balanceRepo
-            .findByItemIdAndWarehouseIdAndLotId(line.getItem().getId(), warehouse.getId(), lotId)
-            .orElseGet(() -> InventoryStockBalance.builder()
-                .item(line.getItem()).warehouse(warehouse).lot(lot)
-                .quantity(BigDecimal.ZERO).reservedQuantity(BigDecimal.ZERO).build());
+                .findByItemIdAndWarehouseIdAndLotId(line.getItem().getId(), warehouse.getId(), lotId)
+                .orElseGet(() -> InventoryStockBalance.builder()
+                        .item(line.getItem()).warehouse(warehouse).lot(lot)
+                        .quantity(BigDecimal.ZERO).reservedQuantity(BigDecimal.ZERO).build());
 
         BigDecimal newQty = balance.getQuantity().add(qty);
         if (!isInbound && newQty.compareTo(BigDecimal.ZERO) < 0)
             throw new IllegalArgumentException(
-                "Negative stock for item '" + line.getItemCode() + "' in warehouse '" + warehouse.getWarehouseCode() + "'.");
+                    "Negative stock for item '" + line.getItemCode() + "' in warehouse '" + warehouse.getWarehouseCode() + "'.");
 
         balance.setQuantity(newQty);
         balance.setLastTransactionTime(LocalDateTime.now());
         balanceRepo.save(balance);
 
         txRepo.save(InventoryTransaction.builder()
-            .organizationId(doc.getOrganization().getId())
-            .item(line.getItem()).warehouse(warehouse).lot(lot)
-            .businessDocument(doc).documentType(doc.getDocumentType().name())
-            .movementType(movType).transactionDate(doc.getDocumentDate())
-            .quantity(line.getQuantity()).unitCost(line.getUnitPrice())
-            .totalCost(line.getLineAmount()).balanceAfter(newQty)
-            .remarks(line.getRemarks())
-            .build());
+                .organizationId(doc.getOrganization().getId())
+                .item(line.getItem()).warehouse(warehouse).lot(lot)
+                .businessDocument(doc).documentType(doc.getDocumentType().name())
+                .movementType(movType).transactionDate(doc.getDocumentDate())
+                .quantity(line.getQuantity()).unitCost(line.getUnitPrice())
+                .totalCost(line.getLineAmount()).balanceAfter(newQty)
+                .remarks(line.getRemarks())
+                .build());
     }
 
     private void checkAndCloseParentSO(BusinessDocument so) {
@@ -582,19 +582,22 @@ public class SalesServiceImpl implements SalesService {
             BigDecimal delivered = l.getDeliveredQty() != null ? l.getDeliveredQty() : BigDecimal.ZERO;
             return delivered.compareTo(l.getQuantity()) >= 0;
         });
-        if (allDelivered) { so.setStatus("CLOSED"); docRepo.save(so); }
+        if (allDelivered) {
+            so.setStatus("CLOSED");
+            docRepo.save(so);
+        }
     }
 
     private BigDecimal availableQty(BusinessDocumentLine line, Long warehouseId) {
         Long lotId = line.getInventoryLot() != null ? line.getInventoryLot().getId() : null;
         return balanceRepo.findByItemIdAndWarehouseIdAndLotId(line.getItem().getId(), warehouseId, lotId)
-            .map(b -> b.getQuantity().subtract(b.getReservedQuantity()))
-            .orElse(BigDecimal.ZERO);
+                .map(b -> b.getQuantity().subtract(b.getReservedQuantity()))
+                .orElse(BigDecimal.ZERO);
     }
 
     private boolean isInbound(MovementType mt) {
         return mt == MovementType.RETURN_FROM_CUSTOMER || mt == MovementType.PURCHASE_RECEIPT
-            || mt == MovementType.TRANSFER_IN || mt == MovementType.ADJUSTMENT_IN;
+                || mt == MovementType.TRANSFER_IN || mt == MovementType.ADJUSTMENT_IN;
     }
 
     private BusinessDocument findDoc(Long id) {
@@ -608,28 +611,25 @@ public class SalesServiceImpl implements SalesService {
 
     private String jsFnPrefix(String type) {
         return switch (type) {
-            case "SALES_ORDER"    -> "so";
+            case "SALES_ORDER" -> "so";
             case "DELIVERY_ORDER" -> "dn";
-            case "SALES_INVOICE"  -> "si";
-            case "CREDIT_NOTE"    -> "cn";
+            case "SALES_INVOICE" -> "si";
+            case "CREDIT_NOTE" -> "cn";
             default -> "doc";
         };
     }
 
     private String nextDocActionButton(String docType, String fn) {
         return switch (docType) {
-            case "SALES_ORDER" ->
-                "CASE WHEN d.status = 'CONFIRMED' THEN " +
-                "'<a href=\"javascript:;\" onclick=\"createDeliveryFromSO(' || d.id || ')\" class=\"btn btn-white btn-sm\" title=\"Create Delivery\"><i class=\"fas fa-shipping-fast text-teal\"></i></a>' " +
-                "ELSE '' END";
-            case "DELIVERY_ORDER" ->
-                "CASE WHEN d.status = 'CONFIRMED' THEN " +
-                "'<a href=\"javascript:;\" onclick=\"createInvoiceFromDelivery(' || d.id || ')\" class=\"btn btn-white btn-sm\" title=\"Create Invoice\"><i class=\"fas fa-file-invoice-dollar text-orange\"></i></a>' " +
-                "ELSE '' END";
-            case "SALES_INVOICE" ->
-                "CASE WHEN d.status = 'CONFIRMED' AND COALESCE(d.due_amount, 0) > 0 THEN " +
-                "'<a href=\"javascript:;\" onclick=\"createReceiptFromInvoice(' || d.id || ')\" class=\"btn btn-white btn-sm\" title=\"Collect Payment\"><i class=\"fas fa-money-bill-wave text-primary\"></i></a>' " +
-                "ELSE '' END";
+            case "SALES_ORDER" -> "CASE WHEN d.status = 'CONFIRMED' THEN " +
+                    "'<a href=\"javascript:;\" onclick=\"createDeliveryFromSO(' || d.id || ')\" class=\"btn btn-white btn-sm\" title=\"Create Delivery\"><i class=\"fas fa-shipping-fast text-teal\"></i></a>' " +
+                    "ELSE '' END";
+            case "DELIVERY_ORDER" -> "CASE WHEN d.status = 'CONFIRMED' THEN " +
+                    "'<a href=\"javascript:;\" onclick=\"createInvoiceFromDelivery(' || d.id || ')\" class=\"btn btn-white btn-sm\" title=\"Create Invoice\"><i class=\"fas fa-file-invoice-dollar text-orange\"></i></a>' " +
+                    "ELSE '' END";
+            case "SALES_INVOICE" -> "CASE WHEN d.status = 'CONFIRMED' AND COALESCE(d.due_amount, 0) > 0 THEN " +
+                    "'<a href=\"javascript:;\" onclick=\"createReceiptFromInvoice(' || d.id || ')\" class=\"btn btn-white btn-sm\" title=\"Collect Payment\"><i class=\"fas fa-money-bill-wave text-primary\"></i></a>' " +
+                    "ELSE '' END";
             default -> "''";
         };
     }

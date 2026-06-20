@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<!--
+  approval/approval-requests.html    GET /approval/requests
+  JS prefix: req*
+  Admin view of all approval requests — status filter + history timeline
+-->
+<html th:replace="~{layout/base :: layout('Approval Requests', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
+<section>
+  <ol class="breadcrumb float-xl-end">
+    <li class="breadcrumb-item"><a th:href="@{/dashboard}">Home</a></li>
+    <li class="breadcrumb-item">Approval</li>
+    <li class="breadcrumb-item active">All Requests</li>
+  </ol>
+  <h1 class="page-header">Approval Requests <small>all workflow instances across the organization</small></h1>
+
+  <div class="d-flex gap-2 mb-3 flex-wrap">
+    <a th:href="@{/approval/configs}"     class="btn btn-sm btn-outline-primary"><i class="fa fa-cogs me-1"></i> Configs</a>
+    <a th:href="@{/approval/inbox}"       class="btn btn-sm btn-outline-primary"><i class="fa fa-inbox me-1"></i> My Inbox</a>
+    <a th:href="@{/approval/requests}"    class="btn btn-sm btn-primary"><i class="fa fa-list-check me-1"></i> All Requests</a>
+    <a th:href="@{/approval/delegations}" class="btn btn-sm btn-outline-primary"><i class="fa fa-user-friends me-1"></i> Delegations</a>
+  </div>
+
+  <div class="panel panel-inverse">
+    <div class="panel-heading">
+      <div class="panel-title d-flex gap-2 align-items-center flex-wrap">
+        <span class="fw-bold">All Approval Requests</span>
+        <select id="reqStatusFilter" class="form-select form-select-sm" style="width:180px" onchange="dt.ajax.reload()">
+          <option value="">All Status</option>
+          <option value="IN_APPROVAL">In Approval</option>
+          <option value="SUBMITTED">Submitted</option>
+          <option value="APPROVED">Approved</option>
+          <option value="REJECTED">Rejected</option>
+          <option value="RETURNED">Returned</option>
+          <option value="HOLD">On Hold</option>
+          <option value="CANCELLED">Cancelled</option>
+          <option value="COMPLETED">Completed</option>
+        </select>
+      </div>
+      <div class="panel-heading-btn">
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-default" data-toggle="panel-expand"><i class="fa fa-expand"></i></a>
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-success" data-toggle="panel-reload"><i class="fa fa-redo"></i></a>
+      </div>
+    </div>
+    <div class="panel-body">
+      <table id="reqTable" width="100%" class="table table-striped table-bordered align-middle">
+        <thead><tr>
+          <th width="1%">SL</th>
+          <th>Priority</th>
+          <th>Doc Type</th><th>Reference</th>
+          <th>Submitted By</th>
+          <th class="text-end">Amount</th>
+          <th>Date</th>
+          <th>Due</th>
+          <th>Level</th>
+          <th>Current Approver</th>
+          <th class="text-center">Status</th>
+          <th class="text-center" width="13%">Actions</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <!-- HISTORY / DETAIL MODAL -->
+    <div tabindex="-1" id="reqViewModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header"><h5 class="modal-title" id="reqViewTitle"><i class="fa fa-list-check me-1 text-primary"></i> Request Details</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+          <div class="modal-body" id="reqViewBody"></div>
+          <div class="modal-footer"><button type="button" class="btn btn-white" data-bs-dismiss="modal">Close</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script th:inline="none">
+  (function () {
+    'use strict';
+    const BASE = '/approval/requests';
+    var dt;
+
+    document.addEventListener('DOMContentLoaded', function () {
+      dt = $('#reqTable').DataTable({
+        processing:true,serverSide:false,responsive:true,pageLength:25,
+        ajax:{ url: BASE+'/list', type:'GET', data:function(d){ d.status=document.getElementById('reqStatusFilter').value||''; }},
+        columns:[
+          {data:'sl',orderable:false,width:'40px'},
+          {data:'urgent_badge',orderable:false,className:'text-center'},
+          {data:'document_type'},{data:'reference_number'},
+          {data:'requester_name',defaultContent:'—'},
+          {data:'document_amount',className:'text-end',render:function(d){ return d&&d!=='—'?parseFloat(d).toFixed(2):'—'; }},
+          {data:'submitted_at',defaultContent:'—'},
+          {data:'due_date',defaultContent:'—'},
+          {data:'current_level_number',className:'text-center',render:function(d,t,r){ return (r.current_level_number||'?')+' / '+(r.total_levels||'?'); }},
+          {data:'current_approver',defaultContent:'—'},
+          {data:'status_badge',orderable:false,className:'text-center'},
+          {data:'actions',orderable:false,className:'text-center'}
+        ],
+        language:{emptyTable:'No approval requests.',processing:'<span class="spinner-border spinner-border-sm me-2"></span> Loading…'}
+      });
+    });
+
+    window.reqShow = function(id) {
+      secureFetch(BASE+'/show/'+id).then(function(res) {
+        if (!res.success) { Swal.fire('Error',res.message,'error'); return; }
+        var o = res.obj.defaultData;
+        document.getElementById('reqViewTitle').innerHTML =
+          '<i class="fa fa-list-check me-1 text-primary"></i> ' + o.documentType + ' — ' + o.referenceNumber;
+        var html = '<div class="hs-box"><div class="row g-2">'
+          +_vf('Doc Type',o.documentType)           +_vf('Reference',o.referenceNumber)
+          +_vf('Submitted By',o.requesterName||'—') +_vf('Amount',o.documentAmount?parseFloat(o.documentAmount).toFixed(2):'—')
+          +_vf('Document Date',o.documentDate||'—') +_vf('Due Date',o.dueDate||'—')
+          +_vf('Status',o.status)
+          +_vf('Level',o.currentLevelNumber+' of '+o.totalLevels)
+          +_vf('Current Approver Role',o.currentApproverRole||'—')
+          +_vf('Current Approver',o.currentApproverDisplay||'—')
+          +_vf('Final Action By',o.finalActionBy||'—')
+          +_vf('Final Remarks',o.finalRemarks||'—')
+          +'</div>'
+          + (o.documentSummary ? '<div class="mt-2 p-2 border rounded bg-light"><strong>Summary:</strong> '+o.documentSummary+'</div>' : '')
+          +'<h6 class="border-bottom pb-1 mt-3 mb-2">Approval Trail</h6>'
+          +'<div class="table-responsive"><table class="table table-sm table-bordered"><thead class="table-light"><tr>'
+          +'<th>#</th><th>Level</th><th>Actor</th><th>Designation</th><th>Action</th><th>Comments / Reason</th><th>Date/Time</th>'
+          +'</tr></thead><tbody>';
+        (o.history||[]).forEach(function(h){
+          var badge = {
+            'APPROVED':'<span class="badge bg-success">Approved</span>',
+            'REJECTED':'<span class="badge bg-danger">Rejected</span>',
+            'RETURNED':'<span class="badge bg-warning text-dark">Returned</span>',
+            'HOLD'    :'<span class="badge bg-orange">On Hold</span>',
+            'RELEASED':'<span class="badge bg-info text-dark">Released</span>',
+            'SUBMITTED':'<span class="badge bg-info text-dark">Submitted</span>',
+            'CANCELLED':'<span class="badge bg-secondary">Cancelled</span>'
+          }[h.action] || '<span class="badge bg-light text-dark">'+h.action+'</span>';
+          html+='<tr><td>'+h.levelNumber+'</td><td>'+h.levelName+'</td>'
+            +'<td><strong>'+h.actorName+'</strong></td>'
+            +'<td>'+(h.actorDesignation||'—')+'</td>'
+            +'<td>'+badge+'</td>'
+            +'<td>'+(h.comments||h.rejectionReason||h.returnReason||'—')+'</td>'
+            +'<td>'+(h.actionAt?h.actionAt.substring(0,16):'—')+'</td></tr>';
+        });
+        if (!(o.history||[]).length) html+='<tr><td colspan="7" class="text-center text-muted">No history yet.</td></tr>';
+        html += '</tbody></table></div></div>';
+        document.getElementById('reqViewBody').innerHTML = html;
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('reqViewModal')).show();
+      });
+    };
+
+    window.reqCancel = function(id) {
+      Swal.fire({
+        title:'Cancel Request?',
+        input:'textarea',inputPlaceholder:'Cancellation reason…',
+        icon:'warning',showCancelButton:true,confirmButtonText:'Cancel Request',confirmButtonColor:'#dc3545'
+      }).then(function(r){
+        if (!r.isConfirmed) return;
+        var params = r.value ? '?reason='+encodeURIComponent(r.value) : '';
+        secureFetch(BASE+'/cancel/'+id+params,{method:'POST'}).then(function(d){
+          if (d.success) {
+            Swal.fire({icon:'success',title:'Cancelled',text:d.message,timer:1600,showConfirmButton:false});
+            dt.ajax.reload(null,false);
+          } else Swal.fire('Error',d.message,'error');
+        });
+      });
+    };
+
+    function _vf(l,v){ return '<div class="col-md-4 view-group"><label class="view-label">'+l+'</label><span class="form-control hs_span_show">'+(v!=null?v:'—')+'</span></div>'; }
+  })();
+  </script>
+</section>
+</html>
