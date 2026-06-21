@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<!--
+  commercial/commercial-imports.html    GET /commercial/imports
+  JS prefix: ci*   (reuses same service endpoints, invoiceType=IMPORT)
+  Import Commercial Invoice CRUD — DRAFT → FINALIZED → POSTED
+  Identical structure to commercial-exports.html — just IMPORT type + GRN link
+-->
+<html th:replace="~{layout/base :: layout('Import Documents', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
+<section>
+  <ol class="breadcrumb float-xl-end">
+    <li class="breadcrumb-item"><a th:href="@{/dashboard}">Home</a></li>
+    <li class="breadcrumb-item">Commercial</li>
+    <li class="breadcrumb-item active">Import Documents</li>
+  </ol>
+  <h1 class="page-header">Import Documents <small>commercial invoices for inbound shipments</small></h1>
+
+  <div class="d-flex gap-2 mb-3 flex-wrap">
+    <a th:href="@{/commercial/exports}" class="btn btn-sm btn-outline-primary"><i class="fa fa-plane-departure me-1"></i> Export Docs</a>
+    <a th:href="@{/commercial/imports}" class="btn btn-sm btn-primary"><i class="fa fa-plane-arrival me-1"></i> Import Docs</a>
+    <a th:href="@{/commercial/lc}"      class="btn btn-sm btn-outline-primary"><i class="fa fa-file-contract me-1"></i> LC Settlements</a>
+  </div>
+
+  <!-- KPI same as exports page -->
+  <div class="row g-3 mb-3">
+    <div class="col-6 col-md-3"><div class="widget widget-stats bg-secondary"><div class="stats-icon"><i class="fa fa-pen"></i></div><div class="stats-info"><h4>EXPORT DRAFT</h4><p id="kpiExDraft">—</p></div></div></div>
+    <div class="col-6 col-md-3"><div class="widget widget-stats bg-blue"><div class="stats-icon"><i class="fa fa-check"></i></div><div class="stats-info"><h4>EXPORT FINALIZED</h4><p id="kpiExFinal">—</p></div></div></div>
+    <div class="col-6 col-md-3"><div class="widget widget-stats bg-orange"><div class="stats-icon"><i class="fa fa-plane-arrival"></i></div><div class="stats-info"><h4>IMPORT DRAFT</h4><p id="kpiImDraft">—</p></div></div></div>
+    <div class="col-6 col-md-3"><div class="widget widget-stats bg-green"><div class="stats-icon"><i class="fa fa-file-invoice"></i></div><div class="stats-info"><h4>IMPORT FINALIZED</h4><p id="kpiImFinal">—</p></div></div></div>
+  </div>
+
+  <div class="panel panel-inverse">
+    <div class="panel-heading">
+      <div class="panel-title">
+        <a href="javascript:;" onclick="ciOpenCreate()">
+          <span class="badge btn btn-outline-success"><i class="fa fa-plus me-1"></i> New Import Invoice</span>
+        </a>
+      </div>
+      <div class="panel-heading-btn">
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-default" data-toggle="panel-expand"><i class="fa fa-expand"></i></a>
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-success" data-toggle="panel-reload"><i class="fa fa-redo"></i></a>
+      </div>
+    </div>
+    <div class="panel-body">
+      <table id="ciTable" width="100%" class="table table-striped table-bordered align-middle">
+        <thead><tr>
+          <th width="1%">SL</th><th>Invoice No</th><th>Date</th>
+          <th>LC</th><th>Supplier</th>
+          <th>Currency</th><th class="text-end">Amount</th><th class="text-end">BDT</th>
+          <th>Incoterms</th><th>BL No</th><th>Vessel</th>
+          <th class="text-center">Items</th>
+          <th class="text-center">Status</th>
+          <th class="text-center" width="14%">Actions</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <!-- CREATE / EDIT MODAL (Import) -->
+    <div tabindex="-1" id="ciModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="ciModalTitle"><i class="fa fa-plane-arrival me-1 text-warning"></i> New Import Invoice</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <form id="ciForm" novalidate>
+            <div class="modal-body">
+              <input type="hidden" id="ciId">
+              <input type="hidden" id="ciInvoiceType" value="IMPORT">
+              <ul class="nav nav-tabs mb-3">
+                <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#tabCiHeader">Header</a></li>
+                <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tabCiItems">Items</a></li>
+                <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tabCiShipping">Shipping</a></li>
+                <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tabCiTerms">Terms</a></li>
+              </ul>
+              <div class="tab-content">
+                <div class="tab-pane fade show active" id="tabCiHeader">
+                  <div class="hs-box"><div class="row g-2">
+                    <div class="col-md-3 view-group"><input id="ciInvoiceNo" type="text" class="form-control hs_span_view bg-light" readonly placeholder="Auto"><label class="input-label">Invoice No</label></div>
+                    <div class="col-md-3 view-group"><input id="ciDate" type="date" class="form-control hs_span_view" required><label class="input-label">Invoice Date <span class="text-danger">*</span></label></div>
+                    <div class="col-md-3 view-group"><input id="ciCurrency" type="text" class="form-control hs_span_view text-uppercase" maxlength="10" placeholder="USD" required><label class="input-label">Currency <span class="text-danger">*</span></label></div>
+                    <div class="col-md-3 view-group"><input id="ciExchangeRate" type="number" step="0.0001" class="form-control hs_span_view text-end" value="1" oninput="_recalcBdt()"><label class="input-label">Exchange Rate</label></div>
+                    <div class="col-md-6 view-group"><select id="ciLcId" class="form-select hs_span_view"></select><label class="input-label">Letter of Credit (LC)</label></div>
+                    <div class="col-md-6 view-group"><select id="ciPartyId" class="form-select hs_span_view"></select><label class="input-label">Supplier / Shipper</label></div>
+                    <div class="col-md-4 view-group"><input id="ciGrnId" type="number" class="form-control hs_span_view text-end" placeholder="GRN ID (optional)"><label class="input-label">GRN Reference</label></div>
+                    <div class="col-12 view-group"><textarea id="ciRemarks" class="form-control hs_span_view" rows="1" placeholder="Remarks…"></textarea><label class="input-label">Remarks</label></div>
+                  </div></div>
+                </div>
+                <div class="tab-pane fade" id="tabCiItems">
+                  <div class="hs-box">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                      <strong>Invoice Items</strong>
+                      <button type="button" class="btn btn-sm btn-outline-primary" onclick="ciAddItem()"><i class="fa fa-plus me-1"></i> Add Item</button>
+                    </div>
+                    <div class="table-responsive">
+                      <table class="table table-sm table-bordered">
+                        <thead class="table-light"><tr><th>#</th><th width="28%">Item</th><th width="8%">Unit</th><th>Description</th><th class="text-end" width="10%">Qty</th><th class="text-end" width="12%">Unit Price</th><th class="text-end" width="12%">Total</th><th width="4%"></th></tr></thead>
+                        <tbody id="ciItemBody"></tbody>
+                        <tfoot><tr class="fw-bold bg-light"><td colspan="6" class="text-end">Total:</td><td id="ciTotalAmt" class="text-end fw-bold">0.00</td><td></td></tr></tfoot>
+                      </table>
+                    </div>
+                    <div class="row g-2 mt-2">
+                      <div class="col-md-3 view-group"><input id="ciTotalDisplay" type="text" class="form-control hs_span_view text-end fw-bold bg-light" readonly><label class="input-label">Total (currency)</label></div>
+                      <div class="col-md-3 view-group"><input id="ciBdtTotal" type="text" class="form-control hs_span_view text-end fw-bold bg-light" readonly><label class="input-label">Total BDT</label></div>
+                    </div>
+                  </div>
+                </div>
+                <div class="tab-pane fade" id="tabCiShipping">
+                  <div class="hs-box"><div class="row g-2">
+                    <div class="col-md-4 view-group"><input id="ciIncoterms" type="text" class="form-control hs_span_view" maxlength="255" placeholder="e.g. CIF Chittagong"><label class="input-label">Incoterms</label></div>
+                    <div class="col-md-4 view-group"><input id="ciPortLoading" type="text" class="form-control hs_span_view" maxlength="255"><label class="input-label">Port of Loading</label></div>
+                    <div class="col-md-4 view-group"><input id="ciPortDischarge" type="text" class="form-control hs_span_view" maxlength="255"><label class="input-label">Port of Discharge</label></div>
+                    <div class="col-md-4 view-group"><input id="ciVessel" type="text" class="form-control hs_span_view" maxlength="255"><label class="input-label">Vessel Name</label></div>
+                    <div class="col-md-4 view-group"><input id="ciBl" type="text" class="form-control hs_span_view" maxlength="255"><label class="input-label">BL Number</label></div>
+                    <div class="col-md-4 view-group"><input id="ciContainer" type="text" class="form-control hs_span_view" maxlength="255"><label class="input-label">Container No</label></div>
+                  </div></div>
+                </div>
+                <div class="tab-pane fade" id="tabCiTerms">
+                  <div class="hs-box">
+                    <div class="d-flex justify-content-between align-items-center mb-2"><strong>Terms &amp; Conditions</strong><button type="button" class="btn btn-sm btn-outline-primary" onclick="ciAddTerm()"><i class="fa fa-plus me-1"></i> Add Term</button></div>
+                    <div class="table-responsive">
+                      <table class="table table-sm table-bordered">
+                        <thead class="table-light"><tr><th>#</th><th width="30%">Title</th><th>Description</th><th width="4%"></th></tr></thead>
+                        <tbody id="ciTermBody"></tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-success" type="submit" id="ciSubmitBtn">
+                <span class="spinner-border spinner-border-sm me-2 d-none" id="ciSpinner"></span>
+                <span id="ciBtnText">Save Draft</span>
+              </button>
+              <button type="button" class="btn btn-white" data-bs-dismiss="modal">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- VIEW MODAL -->
+    <div tabindex="-1" id="ciViewModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header"><h5 class="modal-title" id="ciViewTitle"><i class="fa fa-plane-arrival me-1 text-warning"></i> Invoice Details</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+          <div class="modal-body" id="ciViewBody"></div>
+          <div class="modal-footer"><button type="button" class="btn btn-white" data-bs-dismiss="modal">Close</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script th:inline="none">
+  (function () {
+    'use strict';
+    const BASE='/commercial/invoices', INVOICE_TYPE='IMPORT';
+    const SUB_URL='/accounts/sub-accounts/search', ITEM_URL='/inventory/items/search';
+    var dt, _lineCount=0, _termCount=0;
+
+    document.addEventListener('DOMContentLoaded', function () {
+      dt=$('#ciTable').DataTable({
+        processing:true,serverSide:false,responsive:true,pageLength:25,
+        ajax:{url:BASE+'/list',type:'GET',data:function(d){ d.invoiceType=INVOICE_TYPE; }},
+        columns:[
+          {data:'sl',orderable:false,width:'40px'},{data:'invoice_no'},
+          {data:'invoice_date'},{data:'lc_name',defaultContent:'—'},
+          {data:'party_name',defaultContent:'—'},{data:'currency'},
+          {data:'total_amount',className:'text-end',render:function(d){ return parseFloat(d||0).toFixed(2); }},
+          {data:'total_amount_bdt',className:'text-end',render:function(d){ return parseFloat(d||0).toFixed(2); }},
+          {data:'incoterms',defaultContent:'—'},{data:'bl_number',defaultContent:'—'},
+          {data:'vessel_name',defaultContent:'—'},
+          {data:'item_count',className:'text-center'},
+          {data:'status_badge',orderable:false,className:'text-center'},
+          {data:'actions',orderable:false,className:'text-center'}
+        ],
+        language:{emptyTable:'No import invoices.',processing:'<span class="spinner-border spinner-border-sm me-2"></span> Loading…'}
+      });
+      document.getElementById('ciDate').value=new Date().toISOString().substring(0,10);
+      document.getElementById('ciForm').addEventListener('submit',_onSubmit);
+      _initS2s(); _loadKpi();
+    });
+
+    function _loadKpi() {
+      secureFetch('/commercial/dashboard/summary').then(function(d){
+        document.getElementById('kpiExDraft').textContent =d.exportDraft    ||'0';
+        document.getElementById('kpiExFinal').textContent =d.exportFinalized||'0';
+        document.getElementById('kpiImDraft').textContent =d.importDraft    ||'0';
+        document.getElementById('kpiImFinal').textContent =d.importFinalized||'0';
+      });
+    }
+
+    function _initS2(sel, par, url, ph, preId, preTxt) {
+      var $e=$(sel); if ($e.hasClass('select2-hidden-accessible')) $e.select2('destroy');
+      $e.select2({dropdownParent:$(par),width:'100%',placeholder:ph,allowClear:true,minimumInputLength:0,
+        ajax:{url,dataType:'json',delay:250,data:function(p){return{search:p.term||'',page:p.page||1};},
+          processResults:function(d,p){p.page=p.page||1;return{results:(d.items||[]).map(function(i){return{id:i.id,text:i.text};}),pagination:{more:d.hasMore||false}};},cache:true}
+      });
+      if (preId) $e.append(new Option(preTxt||'',preId,true,true)).trigger('change');
+    }
+
+    function _initS2s(lcPre,lcTxt,partyPre,partyTxt) {
+      _initS2('#ciLcId','#ciModal',SUB_URL,'— LC Account —',lcPre,lcTxt);
+      _initS2('#ciPartyId','#ciModal',SUB_URL,'— Supplier —',partyPre,partyTxt);
+    }
+
+    function _initItemS2(el,preId,preTxt) {
+      var $el=$(el); if ($el.hasClass('select2-hidden-accessible')) $el.select2('destroy');
+      $el.select2({dropdownParent:$('#ciModal'),width:'100%',placeholder:'— Item —',allowClear:true,minimumInputLength:0,
+        ajax:{url:ITEM_URL,dataType:'json',delay:250,data:function(p){return{search:p.term||'',page:p.page||1};},
+          processResults:function(d,p){p.page=p.page||1;return{results:(d.items||[]).map(function(i){return{id:i.id,text:i.text};}),pagination:{more:d.hasMore||false}};},cache:true}
+      });
+      if (preId) $el.append(new Option(preTxt||'',preId,true,true)).trigger('change');
+      $el.on('select2:select',function(e){ el.closest('tr').querySelector('[data-field="itemId"]').value=e.params.data.id; _calcTotal(); });
+      $el.on('select2:clear',function(){ el.closest('tr').querySelector('[data-field="itemId"]').value=''; });
+    }
+
+    window.ciOpenCreate=function(){ _resetForm(); document.getElementById('ciModalTitle').innerHTML='<i class="fa fa-plus me-1 text-warning"></i> New Import Invoice'; document.getElementById('ciBtnText').textContent='Save Draft'; bootstrap.Modal.getOrCreateInstance(document.getElementById('ciModal')).show(); };
+
+    window.ciAddItem=function(data){ _lineCount++; var n=_lineCount;
+      var html='<tr id="ciItem_'+n+'"><td class="text-center">'+n+'</td>'
+        +'<td><input type="hidden" data-field="itemId" value="'+(data&&data.itemId?data.itemId:'')+'"><select class="form-select form-select-sm ci-item-s2"></select></td>'
+        +'<td><input type="text" class="form-control form-control-sm" data-field="unit" value="'+(data&&data.unit?data.unit:'')+'" maxlength="20"></td>'
+        +'<td><input type="text" class="form-control form-control-sm" data-field="description" value="'+(data&&data.description?data.description:'')+'" maxlength="500"></td>'
+        +'<td><input type="number" step="0.001" class="form-control form-control-sm text-end" data-field="quantity" value="'+(data?data.quantity||'1':'1')+'" oninput="_calcTotal()"></td>'
+        +'<td><input type="number" step="0.0001" class="form-control form-control-sm text-end" data-field="unitPrice" value="'+(data?data.unitPrice||'0':'0')+'" oninput="_calcTotal()"></td>'
+        +'<td><input type="number" class="form-control form-control-sm text-end bg-light" data-field="totalAmount" readonly value="'+(data?data.totalAmount||'0':'0')+'"></td>'
+        +'<td><button type="button" class="btn btn-sm btn-outline-danger" onclick="ciRemoveItem('+n+')"><i class="fa fa-times"></i></button></td></tr>';
+      document.getElementById('ciItemBody').insertAdjacentHTML('beforeend',html);
+      _initItemS2(document.querySelector('#ciItem_'+n+' .ci-item-s2'),data?data.itemId:null,data?data.itemDisplay:null);
+    };
+    window.ciRemoveItem=function(n){ var r=document.getElementById('ciItem_'+n); if(r){ r.querySelectorAll('.ci-item-s2').forEach(function(el){ if($(el).hasClass('select2-hidden-accessible')) $(el).select2('destroy'); }); r.remove(); _calcTotal(); } };
+    window.ciAddTerm=function(data){ _termCount++; var n=_termCount;
+      var html='<tr id="ciTerm_'+n+'"><td class="text-center">'+n+'</td>'
+        +'<td><input type="text" class="form-control form-control-sm" data-field="title" value="'+(data&&data.title?data.title:'')+'" required maxlength="200"></td>'
+        +'<td><textarea class="form-control form-control-sm" data-field="description" rows="1">'+(data&&data.description?data.description:'')+'</textarea></td>'
+        +'<td><button type="button" class="btn btn-sm btn-outline-danger" onclick="ciRemoveTerm('+n+')"><i class="fa fa-times"></i></button></td></tr>';
+      document.getElementById('ciTermBody').insertAdjacentHTML('beforeend',html);
+    };
+    window.ciRemoveTerm=function(n){ var r=document.getElementById('ciTerm_'+n); if(r) r.remove(); };
+
+    window._calcTotal=function(){ var tot=0; document.querySelectorAll('#ciItemBody tr').forEach(function(tr){ var q=parseFloat(tr.querySelector('[data-field="quantity"]').value)||0,p=parseFloat(tr.querySelector('[data-field="unitPrice"]').value)||0,t=(q*p); tr.querySelector('[data-field="totalAmount"]').value=t.toFixed(2); tot+=t; }); document.getElementById('ciTotalAmt').textContent=tot.toFixed(2); document.getElementById('ciTotalDisplay').value=tot.toFixed(2); _recalcBdt(tot); };
+    window._recalcBdt=function(tot){ if(tot===undefined) tot=parseFloat(document.getElementById('ciTotalDisplay').value)||0; var rate=parseFloat(document.getElementById('ciExchangeRate').value)||1; document.getElementById('ciBdtTotal').value=(tot*rate).toFixed(2); };
+
+    window.ciShow=function(id){ secureFetch(BASE+'/show/'+id).then(function(res){ if(!res.success){Swal.fire('Error',res.message,'error');return;} var o=res.obj.defaultData; document.getElementById('ciViewTitle').innerHTML='<i class="fa fa-plane-arrival me-1 text-warning"></i> '+o.invoiceNo; var html='<div class="hs-box"><div class="row g-2">'+_vf('Invoice No',o.invoiceNo)+_vf('Date',o.invoiceDate)+_vf('Status',o.status)+_vf('LC',o.lcDisplay||'—')+_vf('Supplier',o.partyDisplay||'—')+_vf('Currency',o.currency)+_vf('Total',parseFloat(o.totalAmount||0).toFixed(2)+' '+o.currency)+_vf('BDT',parseFloat(o.totalAmountBdt||0).toFixed(2))+_vf('Incoterms',o.incoterms||'—')+_vf('BL',o.blNumber||'—')+_vf('Vessel',o.vesselName||'—')+_vf('GRN Ref',o.grnId||'—')+'</div><h6 class="border-bottom pb-1 mt-3 mb-2">Items</h6><table class="table table-sm table-bordered"><thead class="table-light"><tr><th>#</th><th>Item</th><th>Unit</th><th class="text-end">Qty</th><th class="text-end">Price</th><th class="text-end">Total</th></tr></thead><tbody>'; var gt=0; (o.items||[]).forEach(function(it,i){ gt+=parseFloat(it.totalAmount||0); html+='<tr><td>'+(i+1)+'</td><td>'+it.itemDisplay+'</td><td>'+(it.unit||'—')+'</td><td class="text-end">'+parseFloat(it.quantity||0).toFixed(3)+'</td><td class="text-end">'+parseFloat(it.unitPrice||0).toFixed(4)+'</td><td class="text-end fw-bold">'+parseFloat(it.totalAmount||0).toFixed(2)+'</td></tr>'; }); html+='<tr class="fw-bold bg-light"><td colspan="5" class="text-end">Grand Total:</td><td class="text-end text-success">'+gt.toFixed(2)+'</td></tr></tbody></table></div>'; document.getElementById('ciViewBody').innerHTML=html; bootstrap.Modal.getOrCreateInstance(document.getElementById('ciViewModal')).show(); }); };
+
+    window.ciEdit=function(id){ secureFetch(BASE+'/show/'+id).then(function(res){ if(!res.success){Swal.fire('Error',res.message,'error');return;} var o=res.obj.defaultData; _resetForm(); document.getElementById('ciId').value=o.id; document.getElementById('ciInvoiceNo').value=o.invoiceNo||''; document.getElementById('ciDate').value=o.invoiceDate||''; document.getElementById('ciCurrency').value=o.currency||''; document.getElementById('ciExchangeRate').value=o.exchangeRate||'1'; document.getElementById('ciIncoterms').value=o.incoterms||''; document.getElementById('ciPortLoading').value=o.portOfLoading||''; document.getElementById('ciPortDischarge').value=o.portOfDischarge||''; document.getElementById('ciVessel').value=o.vesselName||''; document.getElementById('ciBl').value=o.blNumber||''; document.getElementById('ciContainer').value=o.containerNo||''; document.getElementById('ciGrnId').value=o.grnId||''; document.getElementById('ciRemarks').value=o.remarks||''; _initS2s(o.lcId,o.lcDisplay,o.partyId,o.partyDisplay); (o.items||[]).forEach(function(it){ ciAddItem(it); }); (o.terms||[]).forEach(function(t){ ciAddTerm(t); }); _calcTotal(); document.getElementById('ciModalTitle').innerHTML='<i class="fa fa-pencil me-1 text-warning"></i> Edit Import Invoice'; document.getElementById('ciBtnText').textContent='Update'; bootstrap.Modal.getOrCreateInstance(document.getElementById('ciModal')).show(); }); };
+
+    window.ciFinalize=function(id){ _sa(id,'finalize','Finalize Invoice?','Will be FINALIZED.','#198754'); };
+    window.ciPost=function(id){ _sa(id,'post','Post Invoice?','Will be POSTED.','#0d6efd'); };
+    window.ciDelete=function(id){ hsConfirmDelete(BASE+'/delete/'+id,dt); };
+    window.ciCancel=function(id){ Swal.fire({title:'Cancel?',input:'textarea',inputPlaceholder:'Reason…',icon:'warning',showCancelButton:true,confirmButtonText:'Cancel Invoice',confirmButtonColor:'#dc3545'}).then(function(r){ if(!r.isConfirmed) return; secureFetch(BASE+'/cancel/'+id+'?remarks='+encodeURIComponent(r.value||''),{method:'POST'}).then(function(d){ if(d.success){Swal.fire({icon:'success',title:'Cancelled',text:d.message,timer:1400,showConfirmButton:false});dt.ajax.reload(null,false);_loadKpi();}else Swal.fire('Error',d.message,'error'); }); }); };
+
+    function _sa(id,endpoint,title,msg,color){ Swal.fire({title,text:msg,icon:'question',showCancelButton:true,confirmButtonText:'Confirm',confirmButtonColor:color}).then(function(r){ if(!r.isConfirmed) return; secureFetch(BASE+'/'+endpoint+'/'+id,{method:'POST'}).then(function(d){ if(d.success){Swal.fire({icon:'success',title:'Done!',text:d.message,timer:1600,showConfirmButton:false});dt.ajax.reload(null,false);_loadKpi();}else Swal.fire('Error',d.message,'error'); }); }); }
+
+    function _onSubmit(e) {
+      e.preventDefault();
+      var sb=document.getElementById('ciSubmitBtn'),sp=document.getElementById('ciSpinner'),bt=document.getElementById('ciBtnText');
+      hsDisableButton(sb,sp,bt);
+      var items=[],terms=[];
+      document.querySelectorAll('#ciItemBody tr').forEach(function(tr,idx){ var iid=tr.querySelector('[data-field="itemId"]').value; if(!iid) return; items.push({lineNumber:idx+1,itemId:iid,unit:tr.querySelector('[data-field="unit"]').value||null,description:tr.querySelector('[data-field="description"]').value||null,quantity:parseFloat(tr.querySelector('[data-field="quantity"]').value)||0,unitPrice:parseFloat(tr.querySelector('[data-field="unitPrice"]').value)||0,totalAmount:parseFloat(tr.querySelector('[data-field="totalAmount"]').value)||0}); });
+      document.querySelectorAll('#ciTermBody tr').forEach(function(tr,idx){ var title=tr.querySelector('[data-field="title"]').value; if(!title) return; terms.push({sortOrder:idx+1,title,description:tr.querySelector('[data-field="description"]').value||null}); });
+      secureFetch(BASE+'/save',{method:'POST',body:JSON.stringify({id:document.getElementById('ciId').value||null,invoiceType:INVOICE_TYPE,invoiceDate:document.getElementById('ciDate').value,currency:document.getElementById('ciCurrency').value,exchangeRate:parseFloat(document.getElementById('ciExchangeRate').value)||1,lcId:$('#ciLcId').val()||null,partyId:$('#ciPartyId').val()||null,incoterms:document.getElementById('ciIncoterms').value||null,portOfLoading:document.getElementById('ciPortLoading').value||null,portOfDischarge:document.getElementById('ciPortDischarge').value||null,vesselName:document.getElementById('ciVessel').value||null,blNumber:document.getElementById('ciBl').value||null,containerNo:document.getElementById('ciContainer').value||null,grnId:parseInt(document.getElementById('ciGrnId').value)||null,remarks:document.getElementById('ciRemarks').value||null,items,terms})}).then(function(d){ if(d.success){hsAfterSaveMessages(d,dt);_loadKpi();bootstrap.Modal.getOrCreateInstance(document.getElementById('ciModal')).hide();}else Swal.fire('Error',d.message,'error'); }).catch(function(err){ Swal.fire('Error',err.message||'Request failed.','error'); }).finally(function(){ hsEnableButton(sb,sp,bt); });
+    }
+
+    function _resetForm(){ ['#ciLcId','#ciPartyId'].forEach(function(s){ var $e=$(s); if($e.hasClass('select2-hidden-accessible')) $e.select2('destroy'); }); document.querySelectorAll('.ci-item-s2').forEach(function(el){ if($(el).hasClass('select2-hidden-accessible')) $(el).select2('destroy'); }); document.getElementById('ciForm').reset(); document.getElementById('ciId').value=''; document.getElementById('ciInvoiceType').value=INVOICE_TYPE; document.getElementById('ciDate').value=new Date().toISOString().substring(0,10); document.getElementById('ciExchangeRate').value='1'; document.getElementById('ciItemBody').innerHTML=''; document.getElementById('ciTermBody').innerHTML=''; document.getElementById('ciTotalAmt').textContent='0.00'; document.getElementById('ciTotalDisplay').value=''; document.getElementById('ciBdtTotal').value=''; _lineCount=0; _termCount=0; _initS2s(); }
+    function _vf(l,v){ return '<div class="col-md-4 view-group"><label class="view-label">'+l+'</label><span class="form-control hs_span_show">'+(v!=null?v:'—')+'</span></div>'; }
+  })();
+  </script>
+</section>
+</html>

@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<!--
+  commercial/commercial-lc.html    GET /commercial/lc
+  JS prefix: stl*
+  LC Settlements — PENDING → SETTLED → REVERSED
+  LC filter via Select2, amount breakdown with live BDT calc
+-->
+<html th:replace="~{layout/base :: layout('LC Settlements', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
+<section>
+  <ol class="breadcrumb float-xl-end">
+    <li class="breadcrumb-item"><a th:href="@{/dashboard}">Home</a></li>
+    <li class="breadcrumb-item">Commercial</li>
+    <li class="breadcrumb-item active">LC Settlements</li>
+  </ol>
+  <h1 class="page-header">LC Settlements <small>track Letter of Credit payment settlements</small></h1>
+
+  <div class="d-flex gap-2 mb-3 flex-wrap">
+    <a th:href="@{/commercial/exports}" class="btn btn-sm btn-outline-primary"><i class="fa fa-plane-departure me-1"></i> Export Docs</a>
+    <a th:href="@{/commercial/imports}" class="btn btn-sm btn-outline-primary"><i class="fa fa-plane-arrival me-1"></i> Import Docs</a>
+    <a th:href="@{/commercial/lc}"      class="btn btn-sm btn-primary"><i class="fa fa-file-contract me-1"></i> LC Settlements</a>
+  </div>
+
+  <!-- KPI -->
+  <div class="row g-3 mb-3">
+    <div class="col-6 col-md-3"><div class="widget widget-stats bg-warning"><div class="stats-icon"><i class="fa fa-hourglass-half"></i></div><div class="stats-info"><h4>PENDING</h4><p id="kpiPending">—</p></div></div></div>
+    <div class="col-6 col-md-3"><div class="widget widget-stats bg-green"><div class="stats-icon"><i class="fa fa-check-double"></i></div><div class="stats-info"><h4>SETTLED</h4><p id="kpiSettled">—</p></div></div></div>
+    <div class="col-6 col-md-3"><div class="widget widget-stats bg-secondary"><div class="stats-icon"><i class="fa fa-plane-departure"></i></div><div class="stats-info"><h4>EXPORT DRAFT</h4><p id="kpiExDraft">—</p></div></div></div>
+    <div class="col-6 col-md-3"><div class="widget widget-stats bg-orange"><div class="stats-icon"><i class="fa fa-plane-arrival"></i></div><div class="stats-info"><h4>IMPORT DRAFT</h4><p id="kpiImDraft">—</p></div></div></div>
+  </div>
+
+  <div class="panel panel-inverse">
+    <div class="panel-heading">
+      <div class="panel-title d-flex gap-2 align-items-center flex-wrap">
+        <a href="javascript:;" onclick="stlOpenCreate()">
+          <span class="badge btn btn-outline-success"><i class="fa fa-plus me-1"></i> New Settlement</span>
+        </a>
+        <!-- LC filter S2 -->
+        <div style="width:280px">
+          <select id="lcFilter" class="form-select form-select-sm"></select>
+        </div>
+        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="_clearLcFilter()"><i class="fa fa-times me-1"></i>Clear</button>
+      </div>
+      <div class="panel-heading-btn">
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-default" data-toggle="panel-expand"><i class="fa fa-expand"></i></a>
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-success" data-toggle="panel-reload"><i class="fa fa-redo"></i></a>
+      </div>
+    </div>
+    <div class="panel-body">
+      <table id="stlTable" width="100%" class="table table-striped table-bordered align-middle">
+        <thead><tr>
+          <th width="1%">SL</th><th>LC Account</th><th>Date</th>
+          <th>Type</th>
+          <th class="text-end">USD</th>
+          <th class="text-end">Rate</th>
+          <th class="text-end">BDT</th>
+          <th class="text-end">Charges</th>
+          <th class="text-end">Commission</th>
+          <th class="text-end">Interest</th>
+          <th class="text-end">Loan Amt</th>
+          <th class="text-center">Status</th>
+          <th class="text-center" width="13%">Actions</th>
+        </tr></thead>
+        <tbody></tbody>
+        <tfoot>
+          <tr class="fw-bold bg-light">
+            <td colspan="4" class="text-end">Page Totals:</td>
+            <td id="ftUsd"  class="text-end">0.00</td>
+            <td></td>
+            <td id="ftBdt"  class="text-end">0.00</td>
+            <td id="ftCharges" class="text-end">0.00</td>
+            <td id="ftComm"    class="text-end">0.00</td>
+            <td id="ftInt"     class="text-end">0.00</td>
+            <td id="ftLoan"    class="text-end">0.00</td>
+            <td colspan="2"></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+
+    <!-- CREATE / EDIT MODAL -->
+    <div tabindex="-1" id="stlModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="stlModalTitle"><i class="fa fa-file-contract me-1 text-success"></i> New LC Settlement</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <form id="stlForm" novalidate>
+            <div class="modal-body">
+              <div class="hs-box">
+                <input type="hidden" id="stlId">
+                <div class="row g-2">
+                  <!-- LC S2 -->
+                  <div class="col-md-12 view-group">
+                    <select id="stlLcId" class="form-select hs_span_view"></select>
+                    <label class="input-label">LC Account <span class="text-danger">*</span></label>
+                  </div>
+                  <div class="col-md-4 view-group">
+                    <input id="stlDate" type="date" class="form-control hs_span_view" required>
+                    <label class="input-label">Settlement Date <span class="text-danger">*</span></label>
+                  </div>
+                  <div class="col-md-4 view-group">
+                    <select id="stlType" class="form-select hs_span_view">
+                      <option value="">— Type —</option>
+                      <option value="SIGHT">Sight</option>
+                      <option value="USANCE">Usance</option>
+                      <option value="LOAN_ADJUSTMENT">Loan Adjustment</option>
+                    </select>
+                    <label class="input-label">Settlement Type</label>
+                  </div>
+                  <div class="col-md-4 view-group">
+                    <input id="stlRate" type="number" step="0.0001" class="form-control hs_span_view text-end" value="1" oninput="_calcBdt()">
+                    <label class="input-label">Exchange Rate</label>
+                  </div>
+                  <div class="col-md-4 view-group">
+                    <input id="stlUsd" type="number" step="0.01" class="form-control hs_span_view text-end" value="0" oninput="_calcBdt()">
+                    <label class="input-label">Amount USD</label>
+                  </div>
+                  <div class="col-md-4 view-group">
+                    <input id="stlBdt" type="number" step="0.01" class="form-control hs_span_view text-end bg-light" readonly>
+                    <label class="input-label">Amount BDT (auto)</label>
+                  </div>
+                  <div class="col-md-4 view-group">
+                    <input id="stlMargin" type="number" step="0.01" class="form-control hs_span_view text-end" value="0">
+                    <label class="input-label">Margin Used</label>
+                  </div>
+                  <div class="col-md-3 view-group">
+                    <input id="stlCharges" type="number" step="0.01" class="form-control hs_span_view text-end" value="0">
+                    <label class="input-label">Bank Charges</label>
+                  </div>
+                  <div class="col-md-3 view-group">
+                    <input id="stlCommission" type="number" step="0.01" class="form-control hs_span_view text-end" value="0">
+                    <label class="input-label">Commission</label>
+                  </div>
+                  <div class="col-md-3 view-group">
+                    <input id="stlInterest" type="number" step="0.01" class="form-control hs_span_view text-end" value="0">
+                    <label class="input-label">Interest</label>
+                  </div>
+                  <div class="col-md-3 view-group">
+                    <input id="stlLoan" type="number" step="0.01" class="form-control hs_span_view text-end" value="0">
+                    <label class="input-label">Loan Amount</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-success" type="submit" id="stlSubmitBtn">
+                <span class="spinner-border spinner-border-sm me-2 d-none" id="stlSpinner"></span>
+                <span id="stlBtnText">Save</span>
+              </button>
+              <button type="button" class="btn btn-white" data-bs-dismiss="modal">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- VIEW MODAL -->
+    <div tabindex="-1" id="stlViewModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+          <div class="modal-header"><h5 class="modal-title"><i class="fa fa-file-contract me-1 text-primary"></i> Settlement Details</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+          <div class="modal-body" id="stlViewBody"></div>
+          <div class="modal-footer"><button type="button" class="btn btn-white" data-bs-dismiss="modal">Close</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script th:inline="none">
+  (function () {
+    'use strict';
+    const BASE='/commercial/settlements', SUB_URL='/accounts/sub-accounts/search';
+    var dt, _lcFilter=null;
+
+    document.addEventListener('DOMContentLoaded', function () {
+      dt=$('#stlTable').DataTable({
+        processing:true,serverSide:false,responsive:true,pageLength:25,
+        ajax:{url:BASE+'/list',type:'GET',data:function(d){ if(_lcFilter) d.lcId=_lcFilter; }},
+        columns:[
+          {data:'sl',orderable:false,width:'40px'},{data:'lc_name'},
+          {data:'settlement_date'},{data:'settlement_type',defaultContent:'—'},
+          {data:'amount_usd',className:'text-end',render:function(d){ return parseFloat(d||0).toFixed(2); }},
+          {data:'exchange_rate',className:'text-end',defaultContent:'—'},
+          {data:'amount_bdt',className:'text-end',render:function(d){ return parseFloat(d||0).toFixed(2); }},
+          {data:'charges',className:'text-end',render:function(d){ return parseFloat(d||0).toFixed(2); }},
+          {data:'commission',className:'text-end',render:function(d){ return parseFloat(d||0).toFixed(2); }},
+          {data:'interest',className:'text-end',render:function(d){ return parseFloat(d||0).toFixed(2); }},
+          {data:'loan_amount',className:'text-end',render:function(d){ return parseFloat(d||0).toFixed(2); }},
+          {data:'status_badge',orderable:false,className:'text-center'},
+          {data:'actions',orderable:false,className:'text-center'}
+        ],
+        footerCallback:function(){
+          var api=this.api();
+          var cols={4:'ftUsd',6:'ftBdt',7:'ftCharges',8:'ftComm',9:'ftInt',10:'ftLoan'};
+          Object.entries(cols).forEach(function([ci,elId]){
+            document.getElementById(elId).textContent=api.column(parseInt(ci),{page:'current'}).data()
+              .reduce(function(a,b){ return (parseFloat(a)||0)+(parseFloat(b)||0); },0).toFixed(2);
+          });
+        },
+        language:{emptyTable:'No LC settlements.',processing:'<span class="spinner-border spinner-border-sm me-2"></span> Loading…'}
+      });
+      document.getElementById('stlDate').value=new Date().toISOString().substring(0,10);
+      document.getElementById('stlForm').addEventListener('submit',_onSubmit);
+      _initLcS2('#stlLcId','#stlModal',null,null);
+      _initLcFilterS2();
+      _loadKpi();
+    });
+
+    function _loadKpi() {
+      secureFetch('/commercial/dashboard/summary').then(function(d){
+        document.getElementById('kpiPending').textContent   = d.pendingSettlements||'0';
+        document.getElementById('kpiSettled').textContent   = d.totalSettlements  ||'0';
+        document.getElementById('kpiExDraft').textContent   = d.exportDraft       ||'0';
+        document.getElementById('kpiImDraft').textContent   = d.importDraft       ||'0';
+      });
+    }
+
+    function _initLcS2(selector, parent, preId, preText) {
+      var $el=$(selector); if ($el.hasClass('select2-hidden-accessible')) $el.select2('destroy');
+      $el.select2({dropdownParent:$(parent),width:'100%',placeholder:'— LC Account —',allowClear:true,minimumInputLength:0,
+        ajax:{url:SUB_URL,dataType:'json',delay:250,data:function(p){return{search:p.term||'',page:p.page||1};},
+          processResults:function(d,p){p.page=p.page||1;return{results:(d.items||[]).map(function(i){return{id:i.id,text:i.text};}),pagination:{more:d.hasMore||false}};},cache:true}
+      });
+      if (preId) $el.append(new Option(preText||'',preId,true,true)).trigger('change');
+    }
+
+    function _initLcFilterS2() {
+      $('#lcFilter').select2({width:'100%',placeholder:'— Filter by LC —',allowClear:true,minimumInputLength:0,
+        ajax:{url:SUB_URL,dataType:'json',delay:250,data:function(p){return{search:p.term||'',page:p.page||1};},
+          processResults:function(d,p){p.page=p.page||1;return{results:(d.items||[]).map(function(i){return{id:i.id,text:i.text};}),pagination:{more:d.hasMore||false}};},cache:true}
+      });
+      $('#lcFilter').on('select2:select',function(e){ _lcFilter=e.params.data.id; dt.ajax.reload(); });
+      $('#lcFilter').on('select2:clear',function(){ _lcFilter=null; dt.ajax.reload(); });
+    }
+
+    window._clearLcFilter=function(){ if($('#lcFilter').hasClass('select2-hidden-accessible')) $('#lcFilter').val(null).trigger('change'); _lcFilter=null; dt.ajax.reload(); };
+
+    window._calcBdt=function(){ var usd=parseFloat(document.getElementById('stlUsd').value)||0; var rate=parseFloat(document.getElementById('stlRate').value)||1; document.getElementById('stlBdt').value=(usd*rate).toFixed(2); };
+
+    window.stlOpenCreate=function(){
+      if ($('#stlLcId').hasClass('select2-hidden-accessible')) $('#stlLcId').select2('destroy');
+      document.getElementById('stlForm').reset();
+      document.getElementById('stlId').value=''; document.getElementById('stlRate').value='1';
+      ['stlUsd','stlBdt','stlMargin','stlCharges','stlCommission','stlInterest','stlLoan'].forEach(function(id){ document.getElementById(id).value='0'; });
+      document.getElementById('stlDate').value=new Date().toISOString().substring(0,10);
+      document.getElementById('stlModalTitle').innerHTML='<i class="fa fa-plus me-1 text-success"></i> New LC Settlement';
+      document.getElementById('stlBtnText').textContent='Save';
+      _initLcS2('#stlLcId','#stlModal',null,null);
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('stlModal')).show();
+    };
+
+    window.stlShow=function(id){ secureFetch(BASE+'/show/'+id).then(function(res){ if(!res.success){Swal.fire('Error',res.message,'error');return;} var o=res.obj.defaultData; var html='<div class="hs-box"><div class="row g-2">'+_vf('LC',o.lcDisplay||'—')+_vf('Date',o.settlementDate)+_vf('Type',o.settlementType||'—')+_vf('Status',o.status)+_vf('Rate',o.exchangeRate||'—')+_vf('USD',parseFloat(o.amountUsd||0).toFixed(2))+_vf('BDT',parseFloat(o.amountBdt||0).toFixed(2))+_vf('Margin',parseFloat(o.marginUsed||0).toFixed(2))+_vf('Charges',parseFloat(o.charges||0).toFixed(2))+_vf('Commission',parseFloat(o.commission||0).toFixed(2))+_vf('Interest',parseFloat(o.interest||0).toFixed(2))+_vf('Loan',parseFloat(o.loanAmount||0).toFixed(2))+'</div></div>'; document.getElementById('stlViewBody').innerHTML=html; bootstrap.Modal.getOrCreateInstance(document.getElementById('stlViewModal')).show(); }); };
+
+    window.stlEdit=function(id){ secureFetch(BASE+'/show/'+id).then(function(res){ if(!res.success){Swal.fire('Error',res.message,'error');return;} var o=res.obj.defaultData; if($('#stlLcId').hasClass('select2-hidden-accessible')) $('#stlLcId').select2('destroy'); document.getElementById('stlForm').reset(); document.getElementById('stlId').value=o.id; document.getElementById('stlDate').value=o.settlementDate||''; document.getElementById('stlType').value=o.settlementType||''; document.getElementById('stlRate').value=o.exchangeRate||'1'; document.getElementById('stlUsd').value=o.amountUsd||'0'; document.getElementById('stlBdt').value=o.amountBdt||'0'; document.getElementById('stlMargin').value=o.marginUsed||'0'; document.getElementById('stlCharges').value=o.charges||'0'; document.getElementById('stlCommission').value=o.commission||'0'; document.getElementById('stlInterest').value=o.interest||'0'; document.getElementById('stlLoan').value=o.loanAmount||'0'; _initLcS2('#stlLcId','#stlModal',o.lcId,o.lcDisplay); document.getElementById('stlModalTitle').innerHTML='<i class="fa fa-pencil me-1 text-warning"></i> Edit Settlement'; document.getElementById('stlBtnText').textContent='Update'; bootstrap.Modal.getOrCreateInstance(document.getElementById('stlModal')).show(); }); };
+
+    window.stlSettle=function(id){ Swal.fire({title:'Mark as SETTLED?',icon:'question',showCancelButton:true,confirmButtonText:'Yes, Settle',confirmButtonColor:'#198754'}).then(function(r){ if(!r.isConfirmed) return; secureFetch(BASE+'/settle/'+id,{method:'POST'}).then(function(d){ if(d.success){Swal.fire({icon:'success',title:'Settled!',text:d.message,timer:1500,showConfirmButton:false});dt.ajax.reload(null,false);_loadKpi();}else Swal.fire('Error',d.message,'error'); }); }); };
+    window.stlReverse=function(id){ Swal.fire({title:'Reverse Settlement?',text:'This will mark the settlement as REVERSED.',icon:'warning',showCancelButton:true,confirmButtonText:'Reverse',confirmButtonColor:'#dc3545'}).then(function(r){ if(!r.isConfirmed) return; secureFetch(BASE+'/reverse/'+id,{method:'POST'}).then(function(d){ if(d.success){Swal.fire({icon:'info',title:'Reversed',text:d.message,timer:1400,showConfirmButton:false});dt.ajax.reload(null,false);_loadKpi();}else Swal.fire('Error',d.message,'error'); }); }); };
+    window.stlDelete=function(id){ hsConfirmDelete(BASE+'/delete/'+id,dt); };
+
+    function _onSubmit(e) {
+      e.preventDefault();
+      var sb=document.getElementById('stlSubmitBtn'),sp=document.getElementById('stlSpinner'),bt=document.getElementById('stlBtnText');
+      hsDisableButton(sb,sp,bt);
+      secureFetch(BASE+'/save',{method:'POST',body:JSON.stringify({
+        id          : document.getElementById('stlId').value||null,
+        lcId        : $('#stlLcId').val()||null,
+        settlementDate: document.getElementById('stlDate').value,
+        settlementType: document.getElementById('stlType').value||null,
+        exchangeRate: parseFloat(document.getElementById('stlRate').value)||1,
+        amountUsd   : parseFloat(document.getElementById('stlUsd').value)||0,
+        amountBdt   : parseFloat(document.getElementById('stlBdt').value)||0,
+        marginUsed  : parseFloat(document.getElementById('stlMargin').value)||0,
+        charges     : parseFloat(document.getElementById('stlCharges').value)||0,
+        commission  : parseFloat(document.getElementById('stlCommission').value)||0,
+        interest    : parseFloat(document.getElementById('stlInterest').value)||0,
+        loanAmount  : parseFloat(document.getElementById('stlLoan').value)||0
+      })}).then(function(d){
+        if (d.success) { hsAfterSaveMessages(d,dt); _loadKpi(); bootstrap.Modal.getOrCreateInstance(document.getElementById('stlModal')).hide(); }
+        else Swal.fire('Error',d.message,'error');
+      }).catch(function(err){ Swal.fire('Error',err.message||'Request failed.','error'); })
+        .finally(function(){ hsEnableButton(sb,sp,bt); });
+    }
+    function _vf(l,v){ return '<div class="col-md-4 view-group"><label class="view-label">'+l+'</label><span class="form-control hs_span_show">'+(v!=null?v:'—')+'</span></div>'; }
+  })();
+  </script>
+</section>
+</html>
