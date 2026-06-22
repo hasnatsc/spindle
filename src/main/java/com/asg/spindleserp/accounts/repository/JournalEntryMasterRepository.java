@@ -23,9 +23,7 @@ import java.util.Optional;
  *  - Aging support helpers
  */
 @Repository
-public interface JournalEntryMasterRepository
-        extends JpaRepository<JournalEntryMaster, Long>,
-                JpaSpecificationExecutor<JournalEntryMaster> {
+public interface JournalEntryMasterRepository extends JpaRepository<JournalEntryMaster, Long>, JpaSpecificationExecutor<JournalEntryMaster> {
 
     Optional<JournalEntryMaster> findByVoucherNo(String voucherNo);
 
@@ -37,8 +35,7 @@ public interface JournalEntryMasterRepository
 
     List<JournalEntryMaster> findByOrganizationIdAndVoucherStatus(Long orgId, String status);
 
-    List<JournalEntryMaster> findByOrganizationIdAndVoucherTypeAndVoucherStatus(
-            Long orgId, VoucherType voucherType, String status);
+    List<JournalEntryMaster> findByOrganizationIdAndVoucherTypeAndVoucherStatus(Long orgId, VoucherType voucherType, String status);
 
     @Query("""
             SELECT j FROM JournalEntryMaster j
@@ -48,8 +45,7 @@ public interface JournalEntryMasterRepository
               AND j.totalAmount     > j.allocatedAmount
             ORDER BY j.dueDate ASC NULLS LAST, j.voucherDate ASC
             """)
-    List<JournalEntryMaster> findOpenForParty(@Param("orgId")   Long orgId,
-                                               @Param("partyId") Long partyId);
+    List<JournalEntryMaster> findOpenForParty(@Param("orgId")   Long orgId, @Param("partyId") Long partyId);
 
     @Query("""
             SELECT j FROM JournalEntryMaster j
@@ -60,9 +56,7 @@ public interface JournalEntryMasterRepository
               AND j.totalAmount     > j.allocatedAmount
             ORDER BY j.dueDate ASC NULLS LAST, j.voucherDate ASC
             """)
-    List<JournalEntryMaster> findOpenForPartyAndType(@Param("orgId")     Long orgId,
-                                                      @Param("partyId")   Long partyId,
-                                                      @Param("partyType") String partyType);
+    List<JournalEntryMaster> findOpenForPartyAndType(@Param("orgId")     Long orgId, @Param("partyId")   Long partyId, @Param("partyType") String partyType);
 
     @Modifying
     @Query("""
@@ -95,6 +89,11 @@ public interface JournalEntryMasterRepository
               AND j.voucherStatus   = 'POSTED'
               AND j.totalAmount     > j.allocatedAmount
             """)
-    BigDecimal sumOutstandingByPartyType(@Param("orgId")     Long orgId,
-                                          @Param("partyType") String partyType);
+    BigDecimal sumOutstandingByPartyType(@Param("orgId")     Long orgId, @Param("partyType") String partyType);
+
+    Optional<JournalEntryMaster> findByOrganizationIdAndReferenceNoAndVoucherType(
+            Long organizationId,
+            String referenceNo,
+            VoucherType voucherType
+    );
 }
