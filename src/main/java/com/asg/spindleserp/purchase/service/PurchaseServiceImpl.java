@@ -118,8 +118,8 @@ public class PurchaseServiceImpl implements PurchaseService {
             throw new IllegalStateException("Warehouse is required to confirm GRN.");
 
         for (BusinessDocumentLine line : doc.getLines()) {
-            InventoryLot lot = resolveOrCreateLot(doc, line);
-            if (lot != null) line.setInventoryLot(lot);
+//            InventoryLot lot = resolveOrCreateLot(doc, line);
+//            if (lot != null) line.setInventoryLot(lot);
             postStockTransaction(doc, line, MovementType.PURCHASE_RECEIPT, doc.getWarehouse());
         }
         doc.setStockPosted(true);

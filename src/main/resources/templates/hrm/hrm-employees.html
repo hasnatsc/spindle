@@ -143,12 +143,12 @@
                   <div class="hs-box"><div class="row g-2">
                     <!-- Department S2 -->
                     <div class="col-md-6 view-group">
-                      <select id="empDeptId" class="form-select hs_span_view"></select>
+                      <select id="empDeptId" class="form-select hs_span_view" required></select>
                       <label class="input-label">Department <span class="text-danger">*</span></label>
                     </div>
                     <!-- Designation S2 -->
                     <div class="col-md-6 view-group">
-                      <select id="empDesigId" class="form-select hs_span_view"></select>
+                      <select id="empDesigId" class="form-select hs_span_view" required></select>
                       <label class="input-label">Designation <span class="text-danger">*</span></label>
                     </div>
                     <!-- Reporting Manager S2 -->
@@ -499,7 +499,14 @@
 
     function _onSubmit(e) {
       e.preventDefault();
-      var sb=document.getElementById('empSubmitBtn'),sp=document.getElementById('empSpinner'),bt=document.getElementById('empBtnText');
+      var empForm = document.getElementById('empForm');
+      var validateValid = $(empForm).parsley();
+
+      // Parsley validation
+      if (!validateValid.validate()) {
+        return;
+      }
+      var sb=document.getElementById('empSubmitBtn'),sp=document.getElementById('empSpinner'),bt=document.getElementById('empBtnText'), fm = document.getElementById('empForm');
       hsDisableButton(sb,sp,bt);
       secureFetch(BASE+'/save',{method:'POST',body:JSON.stringify({
         id                    : document.getElementById('empId').value||null,
@@ -536,7 +543,7 @@
         emergencyContactPhone : document.getElementById('empEmergencyPhone').value||null,
         emergencyContactRelation: document.getElementById('empEmergencyRel').value||null
       })}).then(function(d){
-        if (d.success) { hsAfterSaveMessages(d,dt); _loadKpi(); bootstrap.Modal.getOrCreateInstance(document.getElementById('empModal')).hide(); }
+        if (d.success) { hsAfterSaveMessages(d.success, d.message, fm, dt); _loadKpi(); bootstrap.Modal.getOrCreateInstance(document.getElementById('empModal')).hide(); }
         else Swal.fire('Error',d.message,'error');
       }).catch(function(err){ Swal.fire('Error',err.message||'Request failed.','error'); })
         .finally(function(){ hsEnableButton(sb,sp,bt); });

@@ -165,7 +165,7 @@
     'use strict';
     const BASE='/production/boms', ITEM_URL='/inventory/items/search', UOM_URL='/inventory/uoms/active';
     var dt, _lineCount=0, _uoms=[];
-
+    let bomForm = document.getElementById('bomForm');
     document.addEventListener('DOMContentLoaded', function () {
       dt = $('#bomTable').DataTable({
         processing:true,serverSide:false,responsive:true,pageLength:25,
@@ -183,7 +183,7 @@
         ],
         language:{emptyTable:'No BOMs.',processing:'<span class="spinner-border spinner-border-sm me-2"></span> Loading…'}
       });
-      document.getElementById('bomForm').addEventListener('submit',_onSubmit);
+      bomForm.addEventListener('submit',_onSubmit);
       // Load UOMs once
       secureFetch(UOM_URL).then(function(data){ _uoms=data||[]; _populateUomSelect('bomOutputUnitId'); });
       _initFinishedItemS2(null,null);
@@ -319,6 +319,10 @@
 
     function _onSubmit(e) {
       e.preventDefault();
+      var validateValid = $(bomForm).parsley();
+      if (!validateValid.validate()) {
+        return;
+      }
       var sb=document.getElementById('bomSubmitBtn'),sp=document.getElementById('bomSpinner'),bt=document.getElementById('bomBtnText');
       hsDisableButton(sb,sp,bt);
       var lines=[];
@@ -351,7 +355,7 @@
         isDefault     : document.getElementById('bomDefault').checked,
         items         : lines
       })}).then(function(d){
-        if (d.success) { hsAfterSaveMessages(d,dt); bootstrap.Modal.getOrCreateInstance(document.getElementById('bomModal')).hide(); }
+        if (d.success) { hsAfterSaveMessages(d.success, d.message, bomForm, dt); bootstrap.Modal.getOrCreateInstance(document.getElementById('bomModal')).hide(); }
         else Swal.fire('Error',d.message,'error');
       }).catch(function(err){ Swal.fire('Error',err.message||'Request failed.','error'); })
         .finally(function(){ hsEnableButton(sb,sp,bt); });
