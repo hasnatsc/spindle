@@ -3,8 +3,21 @@
   accounts/payment-voucher.html    GET /accounts/payment-vouchers
   voucherType = PAYMENT_VOUCHER
   Party = SUPPLIER | EMPLOYEE (payer)
-  Bank/Cash = the account being credited (where money goes out)
-  Allocation = settles open payable invoices
+  Bank/Cash = account credited (money goes out)
+  Allocation = settles open PURCHASE_VOUCHER JEM rows
+
+  PI → Payment bridge:
+    purchase-invoices.html: createPaymentFromInvoice(piId)
+      → GET /purchase/docs/payment-prefill?invoiceId=piId
+      → sessionStorage.setItem('pvPrefill', JSON.stringify(VoucherDTO))
+      → window.location.href = '/accounts/payment-vouchers'
+    HERE: DOMContentLoaded reads pvPrefill → pvOpenCreate(data)
+      → _pvApplyPrefill(data) fills all fields + allocation row
+    User picks bank/cash → "Save & Post" button
+      → POST /accounts/vouchers/save (DRAFT)
+      → POST /accounts/vouchers/post/{id} body:{ allocations:[...] }
+      → VoucherServiceImpl.post() + processAllocations()
+      → supplier.currentBalance -= payment, JEM.allocatedAmount += payment
 -->
 <html th:replace="~{layout/base :: layout('Payment Voucher', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
 <section>
@@ -31,7 +44,8 @@
     <div class="panel-body">
       <table id="pvTable" width="100%" class="table table-striped table-bordered align-middle">
         <thead><tr>
-          <th width="1%">SL</th><th>Voucher No</th><th>Date</th>
+          <th width="1%">SL</th>
+          <th>Voucher No</th><th>Date</th>
           <th>Party</th><th>Mode</th>
           <th class="text-end">Amount</th>
           <th class="text-end">Allocated</th>
@@ -43,12 +57,14 @@
       </table>
     </div>
 
-    <!-- MODAL -->
+    <!-- ══ PAYMENT MODAL ══════════════════════════════════════════════════════ -->
     <div tabindex="-1" id="pvModal" class="modal fade">
       <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
         <div class="modal-content">
           <div class="modal-header">
-            <h5 class="modal-title" id="pvModalTitle"><i class="fa fa-money-bill-transfer me-1 text-success"></i> New Payment Voucher</h5>
+            <h5 class="modal-title" id="pvModalTitle">
+              <i class="fa fa-money-bill-transfer me-1 text-success"></i> New Payment Voucher
+            </h5>
             <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
           </div>
           <form id="pvForm" novalidate>
@@ -56,10 +72,11 @@
               <div class="hs-box">
                 <input type="hidden" id="pvId">
 
-                <!-- HEADER -->
+                <!-- Header Row -->
                 <div class="row g-2 mb-3">
                   <div class="col-md-3 view-group">
-                    <input id="pvNo" type="text" class="form-control hs_span_view bg-light" readonly placeholder="Auto-generated">
+                    <input id="pvNo" type="text" class="form-control hs_span_view bg-light"
+                           readonly placeholder="Auto-generated">
                     <label class="input-label">Voucher No</label>
                   </div>
                   <div class="col-md-3 view-group">
@@ -71,7 +88,8 @@
                     <label class="input-label">Reference No</label>
                   </div>
                   <div class="col-md-3 view-group">
-                    <select id="pvPartyType" class="form-select hs_span_view" required onchange="pvOnPartyTypeChange()">
+                    <select id="pvPartyType" class="form-select hs_span_view" required
+                            onchange="pvOnPartyTypeChange()">
                       <option value="">— Party Type —</option>
                       <option value="SUPPLIER">SUPPLIER</option>
                       <option value="EMPLOYEE">EMPLOYEE</option>
@@ -79,13 +97,15 @@
                     <label class="input-label">Party Type <span class="text-danger">*</span></label>
                   </div>
 
-                  <!-- Party AJAX S2 -->
                   <div class="col-md-6 view-group">
                     <select id="pvPartyId" class="form-select hs_span_view"></select>
-                    <label class="input-label">Party (Search Supplier / Employee) <span class="text-danger">*</span></label>
+                    <label class="input-label">Party (Supplier / Employee) <span class="text-danger">*</span></label>
+                  </div>
+                  <!-- AP balance badge — shown when prefilled from PI -->
+                  <div class="col-md-6 d-flex align-items-end pb-1">
+                    <small id="pvPartyBalance" class="text-muted fst-italic"></small>
                   </div>
 
-                  <!-- Bank Account AJAX S2 -->
                   <div class="col-md-6 view-group">
                     <select id="pvBankId" class="form-select hs_span_view"></select>
                     <label class="input-label">Payment From (Bank / Cash) <span class="text-danger">*</span></label>
@@ -94,13 +114,16 @@
                   <div class="col-md-4 view-group">
                     <select id="pvPayMode" class="form-select hs_span_view">
                       <option value="">— Mode —</option>
-                      <option>BANK_TRANSFER</option><option>CHEQUE</option>
-                      <option>CASH</option><option>ONLINE</option>
+                      <option>BANK_TRANSFER</option>
+                      <option>CHEQUE</option>
+                      <option>CASH</option>
+                      <option>ONLINE</option>
                     </select>
                     <label class="input-label">Payment Mode</label>
                   </div>
                   <div class="col-md-4 view-group">
-                    <input id="pvChequeNo" type="text" class="form-control hs_span_view" maxlength="50" placeholder="Cheque / Ref">
+                    <input id="pvChequeNo" type="text" class="form-control hs_span_view"
+                           maxlength="50" placeholder="Cheque / Ref">
                     <label class="input-label">Cheque No</label>
                   </div>
                   <div class="col-md-4 view-group">
@@ -108,16 +131,23 @@
                     <label class="input-label">Cheque Date</label>
                   </div>
                   <div class="col-md-4 view-group">
-                    <input id="pvAmount" type="number" step="0.01" min="0" class="form-control hs_span_view text-end fw-bold" required oninput="pvRecalcUnalloc()">
+                    <input id="pvAmount" type="number" step="0.01" min="0"
+                           class="form-control hs_span_view text-end fw-bold"
+                           required oninput="pvRecalcUnalloc()">
                     <label class="input-label">Payment Amount <span class="text-danger">*</span></label>
                   </div>
+                  <div class="col-md-4 view-group">
+                    <input id="pvDueDate" type="date" class="form-control hs_span_view">
+                    <label class="input-label">Due Date</label>
+                  </div>
                   <div class="col-12 view-group">
-                    <textarea id="pvNarration" class="form-control hs_span_view" rows="1" placeholder="Narration…"></textarea>
+                    <textarea id="pvNarration" class="form-control hs_span_view" rows="1"
+                              placeholder="Narration…"></textarea>
                     <label class="input-label">Narration</label>
                   </div>
                 </div>
 
-                <!-- ALLOCATION SUMMARY -->
+                <!-- Allocation Summary Strip -->
                 <div class="row mb-2" id="pvAllocSummary">
                   <div class="col-4">
                     <div class="alert alert-light py-1 mb-0 d-flex justify-content-between">
@@ -139,10 +169,13 @@
                   </div>
                 </div>
 
-                <!-- ALLOCATION LINES -->
+                <!-- Allocation Lines -->
                 <div class="d-flex justify-content-between align-items-center mb-2 mt-2">
-                  <strong>Invoice Allocation <small class="text-muted">(head-to-head settlement)</small></strong>
-                  <button type="button" class="btn btn-sm btn-outline-primary" onclick="pvLoadOpenInvoices()">
+                  <strong>Invoice Allocation
+                    <small class="text-muted">(head-to-head settlement)</small>
+                  </strong>
+                  <button type="button" class="btn btn-sm btn-outline-primary"
+                          onclick="pvLoadOpenInvoices()">
                     <i class="fa fa-download me-1"></i> Load Open Invoices
                   </button>
                 </div>
@@ -181,16 +214,20 @@
       </div>
     </div>
 
-    <!-- VIEW MODAL -->
+    <!-- ══ VIEW MODAL ════════════════════════════════════════════════════════ -->
     <div tabindex="-1" id="pvViewModal" class="modal fade">
       <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
         <div class="modal-content">
           <div class="modal-header">
-            <h5 class="modal-title"><i class="fa fa-money-bill-transfer me-1 text-primary"></i> Payment Details</h5>
+            <h5 class="modal-title">
+              <i class="fa fa-money-bill-transfer me-1 text-primary"></i> Payment Details
+            </h5>
             <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
           </div>
           <div class="modal-body" id="pvViewBody"></div>
-          <div class="modal-footer"><button type="button" class="btn btn-white" data-bs-dismiss="modal">Close</button></div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-white" data-bs-dismiss="modal">Close</button>
+          </div>
         </div>
       </div>
     </div>
@@ -199,38 +236,65 @@
   <script th:inline="none">
   (function () {
     'use strict';
-    const BASE    = '/accounts/vouchers';
-    const SUB_URL = '/accounts/sub-accounts/search';
+
+    var BASE    = '/accounts/vouchers';
+    var SUB_URL = '/accounts/sub-accounts/search';
     var dt;
 
+    // ── Boot ─────────────────────────────────────────────────────────────────
     document.addEventListener('DOMContentLoaded', function () {
+
+      // DataTable
       dt = $('#pvTable').DataTable({
         processing: true, serverSide: false, responsive: true, pageLength: 25,
         ajax: { url: BASE + '/list?voucherType=PAYMENT_VOUCHER', type: 'GET' },
         columns: [
-          { data: 'sl', orderable: false, width: '40px' },
-          { data: 'voucher_no', defaultContent: '—' },
-          { data: 'voucher_date' },
-          { data: 'party_name', defaultContent: '—' },
-          { data: 'payment_mode', defaultContent: '—' },
-          { data: 'total_amount',     className: 'text-end fw-bold', render: function(d){ return parseFloat(d||0).toFixed(2); }},
-          { data: 'allocated_amount', className: 'text-end text-success', render: function(d){ return parseFloat(d||0).toFixed(2); }},
-          { data: 'due_amount',       className: 'text-end text-warning', render: function(d){ return parseFloat(d||0).toFixed(2); }},
-          { data: 'status_badge', orderable: false, className: 'text-center' },
-          { data: 'actions',     orderable: false, className: 'text-center' }
+          { data: 'sl',               orderable: false, width: '40px' },
+          { data: 'voucher_no',       defaultContent: '—' },
+          { data: 'voucher_date',     defaultContent: '—' },
+          { data: 'party_name',       defaultContent: '—' },
+          { data: 'payment_mode',     defaultContent: '—' },
+          { data: 'total_amount',     className: 'text-end fw-bold',
+            render: function(d){ return parseFloat(d||0).toFixed(2); } },
+          { data: 'allocated_amount', className: 'text-end text-success',
+            render: function(d){ return parseFloat(d||0).toFixed(2); } },
+          { data: 'due_amount',       className: 'text-end text-warning',
+            render: function(d){ return parseFloat(d||0).toFixed(2); } },
+          { data: 'status_badge',     orderable: false, className: 'text-center' },
+          { data: 'actions',          orderable: false, className: 'text-center' }
         ],
-        language: { emptyTable: 'No payment vouchers.', processing: '<span class="spinner-border spinner-border-sm me-2"></span> Loading…' }
+        language: {
+          emptyTable: 'No payment vouchers.',
+          processing: '<span class="spinner-border spinner-border-sm me-2"></span> Loading…'
+        }
       });
-      document.getElementById('pvDate').value = new Date().toISOString().substring(0,10);
+
+      document.getElementById('pvDate').value = new Date().toISOString().substring(0, 10);
       document.getElementById('pvForm').addEventListener('submit', _onSubmit);
       _initPartyS2(null, null);
       _initBankS2(null, null);
+
+      // ── KEY: Read pvPrefill from sessionStorage (set by createPaymentFromInvoice) ──
+      // This fires when payment-voucher.html is navigated to from purchase-invoices.html
+      (function _checkPvPrefill() {
+        var raw = sessionStorage.getItem('pvPrefill');
+        if (!raw) return;
+        sessionStorage.removeItem('pvPrefill');   // consume once — prevent re-open on refresh
+        try {
+          var dto = JSON.parse(raw);
+          if (dto && dto.voucherType === 'PAYMENT_VOUCHER') {
+            // Small delay so modal infrastructure is fully ready
+            setTimeout(function(){ pvOpenCreate(dto); }, 200);
+          }
+        } catch(e) {
+          console.error('pvPrefill parse error:', e);
+        }
+      })();
     });
 
-    // ── S2 helpers ────────────────────────────────────────────────────────
-
+    // ── S2: Party ─────────────────────────────────────────────────────────────
     function _initPartyS2(preId, preText) {
-      var $el = $('#pvPartyId');
+      var $el  = $('#pvPartyId');
       if ($el.hasClass('select2-hidden-accessible')) $el.select2('destroy');
       var type = document.getElementById('pvPartyType').value || 'SUPPLIER';
       $el.select2({
@@ -239,15 +303,20 @@
         ajax: {
           url: SUB_URL, dataType: 'json', delay: 250,
           data: function(p){ return { search: p.term||'', subAccountType: type, page: p.page||1 }; },
-          processResults: function(data, p){ p.page=p.page||1; return { results:(data.items||[]).map(function(i){return{id:i.id,text:i.text};}), pagination:{more:data.hasMore||false} }; },
+          processResults: function(data, p){
+            p.page = p.page||1;
+            return { results: (data.items||[]).map(function(i){ return { id: i.id, text: i.text }; }),
+                     pagination: { more: data.hasMore||false } };
+          },
           cache: false
         },
         templateResult: function(r){ return r.loading ? r.text : r.text; },
-        templateSelection: function(r){ return r.text||r.id; }
+        templateSelection: function(r){ return r.text || r.id; }
       });
       if (preId) $el.append(new Option(preText||'', preId, true, true)).trigger('change');
     }
 
+    // ── S2: Bank / Cash ───────────────────────────────────────────────────────
     function _initBankS2(preId, preText) {
       var $el = $('#pvBankId');
       if ($el.hasClass('select2-hidden-accessible')) $el.select2('destroy');
@@ -257,11 +326,15 @@
         ajax: {
           url: SUB_URL + '?subAccountType=BANK,CASH', dataType: 'json', delay: 250,
           data: function(p){ return { search: p.term||'', page: p.page||1 }; },
-          processResults: function(data, p){ p.page=p.page||1; return { results:(data.items||[]).map(function(i){return{id:i.id,text:i.text};}), pagination:{more:data.hasMore||false} }; },
+          processResults: function(data, p){
+            p.page = p.page||1;
+            return { results: (data.items||[]).map(function(i){ return { id: i.id, text: i.text }; }),
+                     pagination: { more: data.hasMore||false } };
+          },
           cache: true
         },
         templateResult: function(r){ return r.loading ? r.text : r.text; },
-        templateSelection: function(r){ return r.text||r.id; }
+        templateSelection: function(r){ return r.text || r.id; }
       });
       if (preId) $el.append(new Option(preText||'', preId, true, true)).trigger('change');
     }
@@ -270,14 +343,14 @@
       $('#pvPartyId').val(null).trigger('change');
       _initPartyS2(null, null);
       document.getElementById('pvAllocBody').innerHTML = '';
+      document.getElementById('pvPartyBalance').textContent = '';
     };
 
-    // ── Load open invoices ────────────────────────────────────────────────
-
+    // ── Load open invoices (manual button) ────────────────────────────────────
     window.pvLoadOpenInvoices = function() {
       var partyId   = $('#pvPartyId').val();
       var partyType = document.getElementById('pvPartyType').value;
-      if (!partyId) { Swal.fire('Warning','Please select a party first.','warning'); return; }
+      if (!partyId) { Swal.fire('Warning', 'Please select a party first.', 'warning'); return; }
       secureFetch(BASE + '/open-for-party?partyId=' + partyId + '&partyType=' + partyType)
         .then(function(data) {
           document.getElementById('pvAllocBody').innerHTML = '';
@@ -286,31 +359,120 @@
               '<tr><td colspan="11" class="text-center text-muted">No open invoices for this party.</td></tr>';
             return;
           }
-          data.forEach(function(inv, i) {
-            var remaining = parseFloat(inv.due_amount||0);
-            var html = '<tr id="pvAllocRow_' + inv.id + '">'
-              + '<td>' + (i+1) + '<input type="hidden" data-field="sourceVoucherId" value="' + inv.id + '"></td>'
-              + '<td><strong>' + (inv.voucher_no||'—') + '</strong></td>'
-              + '<td>' + (inv.voucher_type||'—') + '</td>'
-              + '<td>' + (inv.voucher_date||'—') + '</td>'
-              + '<td class="' + (parseFloat(inv.days_overdue||0)>0 ? 'text-danger fw-bold' : '') + '">'
-              +   (inv.due_date||'—') + (parseFloat(inv.days_overdue||0)>0 ? ' <small>('+inv.days_overdue+' days)</small>' : '') + '</td>'
-              + '<td class="text-end">' + parseFloat(inv.total_amount||0).toFixed(2) + '</td>'
-              + '<td class="text-end text-success">' + parseFloat(inv.allocated_amount||0).toFixed(2) + '</td>'
-              + '<td class="text-end fw-bold">' + remaining.toFixed(2) + '</td>'
-              + '<td><input type="number" step="0.01" min="0" max="' + remaining + '" class="form-control form-control-sm text-end" '
-              +   'data-field="allocatedAmount" value="' + remaining.toFixed(2) + '" oninput="pvRecalcUnalloc()"></td>'
-              + '<td><input type="number" step="0.01" min="0" class="form-control form-control-sm text-end" '
-              +   'data-field="discountAmount" value="0" oninput="pvRecalcUnalloc()"></td>'
-              + '<td><input type="number" step="0.01" min="0" class="form-control form-control-sm text-end" '
-              +   'data-field="writeOffAmount" value="0" oninput="pvRecalcUnalloc()"></td>'
-              + '</tr>';
-            document.getElementById('pvAllocBody').insertAdjacentHTML('beforeend', html);
-          });
+          data.forEach(function(inv, i){ _pvAddAllocRow(inv, i); });
           pvRecalcUnalloc();
         });
     };
 
+    /**
+     * Adds one allocation row to #pvAllocBody.
+     * Called both from pvLoadOpenInvoices (open-for-party API data)
+     * AND from _pvApplyPrefill (VoucherDTO.AllocationDTO pre-filled from PI).
+     *
+     * Handles two shapes:
+     *   A) open-for-party API: { id, voucher_no, voucher_type, voucher_date, due_date,
+     *                            total_amount, allocated_amount, due_amount, days_overdue }
+     *   B) VoucherDTO.AllocationDTO: { sourceVoucherId, sourceVoucherNo, sourceVoucherType,
+     *                                  sourceTotal, sourceAlreadyAllocated, sourceRemaining,
+     *                                  allocatedAmount, sourceDueDate }
+     */
+    function _pvAddAllocRow(inv, i) {
+      // Normalise both shapes
+      var srcId      = inv.sourceVoucherId || inv.id;
+      var vno        = inv.sourceVoucherNo  || inv.voucher_no  || '—';
+      var vtype      = inv.sourceVoucherType|| inv.voucher_type|| '—';
+      var vdate      = inv.voucher_date     || '—';
+      var ddate      = inv.sourceDueDate    || inv.due_date    || '—';
+      var total      = parseFloat(inv.sourceTotal      || inv.total_amount      || 0);
+      var settled    = parseFloat(inv.sourceAlreadyAllocated || inv.allocated_amount || 0);
+      var remaining  = parseFloat(inv.sourceRemaining  || inv.due_amount        || 0);
+      var defaultAmt = parseFloat(inv.allocatedAmount  || remaining);
+      var overdue    = parseFloat(inv.days_overdue || 0);
+
+      var html = '<tr id="pvAllocRow_' + srcId + '">'
+        + '<td>' + (i + 1)
+        +   '<input type="hidden" data-field="sourceVoucherId" value="' + srcId + '">'
+        + '</td>'
+        + '<td><strong>' + vno + '</strong></td>'
+        + '<td>' + vtype + '</td>'
+        + '<td>' + vdate + '</td>'
+        + '<td class="' + (overdue > 0 ? 'text-danger fw-bold' : '') + '">'
+        +   ddate + (overdue > 0 ? ' <small>(' + overdue + 'd)</small>' : '')
+        + '</td>'
+        + '<td class="text-end">'            + total.toFixed(2)    + '</td>'
+        + '<td class="text-end text-success">'+ settled.toFixed(2)  + '</td>'
+        + '<td class="text-end fw-bold">'    + remaining.toFixed(2) + '</td>'
+        + '<td><input type="number" step="0.01" min="0" max="' + remaining + '"'
+        +   ' class="form-control form-control-sm text-end"'
+        +   ' data-field="allocatedAmount"'
+        +   ' value="' + defaultAmt.toFixed(2) + '"'
+        +   ' oninput="pvRecalcUnalloc()"></td>'
+        + '<td><input type="number" step="0.01" min="0"'
+        +   ' class="form-control form-control-sm text-end"'
+        +   ' data-field="discountAmount" value="0" oninput="pvRecalcUnalloc()"></td>'
+        + '<td><input type="number" step="0.01" min="0"'
+        +   ' class="form-control form-control-sm text-end"'
+        +   ' data-field="writeOffAmount" value="0" oninput="pvRecalcUnalloc()"></td>'
+        + '</tr>';
+      document.getElementById('pvAllocBody').insertAdjacentHTML('beforeend', html);
+    }
+
+    // ── Apply prefill data from PI → Payment bridge ───────────────────────────
+    /**
+     * Fills all Payment Voucher form fields from a VoucherDTO returned by
+     * GET /purchase/docs/payment-prefill?invoiceId=
+     *
+     * Called by pvOpenCreate(data) when data is provided.
+     */
+    function _pvApplyPrefill(dto) {
+      // Dates
+      if (dto.voucherDate)
+        document.getElementById('pvDate').value = dto.voucherDate;
+      if (dto.dueDate)
+        document.getElementById('pvDueDate').value = dto.dueDate;
+
+      // Reference and narration
+      if (dto.referenceNo)
+        document.getElementById('pvRef').value = dto.referenceNo;
+      if (dto.narration)
+        document.getElementById('pvNarration').value = dto.narration;
+
+      // Payment amount
+      if (dto.totalAmount)
+        document.getElementById('pvAmount').value = parseFloat(dto.totalAmount).toFixed(2);
+
+      // Party type
+      var partyType = dto.partyType || 'SUPPLIER';
+      document.getElementById('pvPartyType').value = partyType;
+
+      // Supplier Select2 — pre-select without AJAX round-trip
+      if (dto.partyId && dto.partyDisplay) {
+        var $s2 = $('#pvPartyId');
+        if ($s2.hasClass('select2-hidden-accessible')) $s2.select2('destroy');
+        // Re-init with the correct party type, then inject selected option
+        _initPartyS2(dto.partyId, dto.partyDisplay);
+        // Show AP balance badge
+        if (dto.partyBalance != null) {
+          document.getElementById('pvPartyBalance').textContent =
+            'Current AP Balance: ' + parseFloat(dto.partyBalance).toLocaleString('en-BD',
+              { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' BDT';
+        }
+      }
+
+      // Pre-fill allocation rows from the pre-built AllocationDTO list
+      if (dto.allocations && dto.allocations.length > 0) {
+        document.getElementById('pvAllocBody').innerHTML = '';
+        dto.allocations.forEach(function(a, i){ _pvAddAllocRow(a, i); });
+        pvRecalcUnalloc();
+      }
+
+      // Focus bank/cash S2 (the only field the user still needs to fill)
+      setTimeout(function(){
+        try { $('#pvBankId').select2('open'); } catch(e){}
+      }, 400);
+    }
+
+    // ── Recalculate allocation totals ─────────────────────────────────────────
     window.pvRecalcUnalloc = function() {
       var total = parseFloat(document.getElementById('pvAmount').value) || 0;
       var allocated = 0;
@@ -328,13 +490,24 @@
       document.getElementById('pvSumUnalloc').textContent   = (total - allocated).toFixed(2);
     };
 
-    // ── CRUD ──────────────────────────────────────────────────────────────
+    // ── CRUD ──────────────────────────────────────────────────────────────────
 
-    window.pvOpenCreate = function() {
+    /**
+     * Opens New Payment Voucher modal.
+     * @param {Object|null} prefill — optional VoucherDTO from PI payment bridge.
+     *                                When provided all fields are auto-filled.
+     */
+    window.pvOpenCreate = function(prefill) {
       _resetForm();
-      document.getElementById('pvModalTitle').innerHTML = '<i class="fa fa-plus me-1 text-success"></i> New Payment Voucher';
-      document.getElementById('pvBtnText').textContent  = 'Save Draft';
+      document.getElementById('pvModalTitle').innerHTML =
+        '<i class="fa fa-plus me-1 text-success"></i> New Payment Voucher';
+      document.getElementById('pvBtnText').textContent = 'Save Draft';
       bootstrap.Modal.getOrCreateInstance(document.getElementById('pvModal')).show();
+
+      // Apply prefill AFTER modal is shown (so S2 dropdownParent renders correctly)
+      if (prefill && prefill.voucherType === 'PAYMENT_VOUCHER') {
+        setTimeout(function(){ _pvApplyPrefill(prefill); }, 100);
+      }
     };
 
     window.pvShow = function(id) {
@@ -342,26 +515,35 @@
         if (!res.success) { Swal.fire('Error', res.message, 'error'); return; }
         var o = res.obj.defaultData;
         var html = '<div class="hs-box"><div class="row g-2">'
-          + _vf('Voucher No', o.voucherNo||'—')  + _vf('Date', o.voucherDate)   + _vf('Status', o.voucherStatus)
-          + _vf('Party', o.partyDisplay||'—')     + _vf('Bank/Cash', o.bankAccountDisplay||'—')
-          + _vf('Mode', o.paymentMode||'—')       + _vf('Cheque No', o.chequeNumber||'—')
-          + _vf('Amount', parseFloat(o.totalAmount||0).toFixed(2))
-          + _vf('Allocated', parseFloat(o.allocatedAmount||0).toFixed(2))
+          + _vf('Voucher No',  o.voucherNo||'—')
+          + _vf('Date',        o.voucherDate||'—')
+          + _vf('Status',      o.voucherStatus||'—')
+          + _vf('Party',       o.partyDisplay||'—')
+          + _vf('Bank/Cash',   o.bankAccountDisplay||'—')
+          + _vf('Mode',        o.paymentMode||'—')
+          + _vf('Cheque No',   o.chequeNumber||'—')
+          + _vf('Amount',      parseFloat(o.totalAmount||0).toFixed(2))
+          + _vf('Allocated',   parseFloat(o.allocatedAmount||0).toFixed(2))
           + _vf('Unallocated', parseFloat(o.dueAmount||0).toFixed(2))
-          + '<div class="col-12 view-group"><label class="view-label">Narration</label><span class="form-control hs_span_show">'+(o.narration||'—')+'</span></div>'
+          + '<div class="col-12 view-group"><label class="view-label">Narration</label>'
+          +   '<span class="form-control hs_span_show">' + (o.narration||'—') + '</span></div>'
           + '</div>';
         if (o.allocations && o.allocations.length) {
           html += '<table class="table table-sm table-bordered mt-3"><thead class="table-light"><tr>'
-                + '<th>#</th><th>Invoice No</th><th>Type</th><th>Due Date</th>'
-                + '<th class="text-end">Invoice Total</th><th class="text-end">Allocated</th><th class="text-end">Discount</th>'
-                + '</tr></thead><tbody>';
-          o.allocations.forEach(function(a,i){
-            html += '<tr><td>'+(i+1)+'</td><td>'+a.sourceVoucherNo+'</td><td>'+a.sourceVoucherType+'</td>'
-                  + '<td>'+(a.sourceDueDate||'—')+'</td>'
-                  + '<td class="text-end">'+parseFloat(a.sourceTotal||0).toFixed(2)+'</td>'
-                  + '<td class="text-end text-success fw-bold">'+parseFloat(a.allocatedAmount||0).toFixed(2)+'</td>'
-                  + '<td class="text-end">'+parseFloat(a.discountAmount||0).toFixed(2)+'</td>'
-                  + '</tr>';
+            + '<th>#</th><th>Invoice No</th><th>Type</th><th>Due Date</th>'
+            + '<th class="text-end">Invoice Total</th>'
+            + '<th class="text-end">Allocated</th>'
+            + '<th class="text-end">Discount</th>'
+            + '</tr></thead><tbody>';
+          o.allocations.forEach(function(a, i){
+            html += '<tr><td>' + (i+1) + '</td>'
+              + '<td>' + (a.sourceVoucherNo||'—') + '</td>'
+              + '<td>' + (a.sourceVoucherType||'—') + '</td>'
+              + '<td>' + (a.sourceDueDate||'—') + '</td>'
+              + '<td class="text-end">' + parseFloat(a.sourceTotal||0).toFixed(2) + '</td>'
+              + '<td class="text-end text-success fw-bold">' + parseFloat(a.allocatedAmount||0).toFixed(2) + '</td>'
+              + '<td class="text-end">' + parseFloat(a.discountAmount||0).toFixed(2) + '</td>'
+              + '</tr>';
           });
           html += '</tbody></table>';
         }
@@ -377,30 +559,32 @@
         var o = res.obj.defaultData;
         _resetForm();
         document.getElementById('pvId').value        = o.id;
-        document.getElementById('pvNo').value         = o.voucherNo||'';
-        document.getElementById('pvDate').value       = o.voucherDate||'';
-        document.getElementById('pvRef').value        = o.referenceNo||'';
-        document.getElementById('pvPartyType').value  = o.partyType||'';
-        document.getElementById('pvPayMode').value    = o.paymentMode||'';
-        document.getElementById('pvChequeNo').value   = o.chequeNumber||'';
-        document.getElementById('pvChequeDate').value = o.chequeDate||'';
-        document.getElementById('pvAmount').value     = o.totalAmount||'';
-        document.getElementById('pvNarration').value  = o.narration||'';
+        document.getElementById('pvNo').value        = o.voucherNo     || '';
+        document.getElementById('pvDate').value      = o.voucherDate   || '';
+        document.getElementById('pvRef').value       = o.referenceNo   || '';
+        document.getElementById('pvPartyType').value = o.partyType     || '';
+        document.getElementById('pvPayMode').value   = o.paymentMode   || '';
+        document.getElementById('pvChequeNo').value  = o.chequeNumber  || '';
+        document.getElementById('pvChequeDate').value= o.chequeDate    || '';
+        document.getElementById('pvAmount').value    = o.totalAmount   || '';
+        document.getElementById('pvNarration').value = o.narration     || '';
+        if (o.dueDate) document.getElementById('pvDueDate').value = o.dueDate;
         _initPartyS2(o.partyId, o.partyDisplay);
         _initBankS2(o.bankAccountId, o.bankAccountDisplay);
-        document.getElementById('pvModalTitle').innerHTML = '<i class="fa fa-pencil me-1 text-warning"></i> Edit Payment Voucher';
-        document.getElementById('pvBtnText').textContent  = 'Update Draft';
+        document.getElementById('pvModalTitle').innerHTML =
+          '<i class="fa fa-pencil me-1 text-warning"></i> Edit Payment Voucher';
+        document.getElementById('pvBtnText').textContent = 'Update Draft';
         bootstrap.Modal.getOrCreateInstance(document.getElementById('pvModal')).show();
       });
     };
 
+    // ── Post ─────────────────────────────────────────────────────────────────
     window.pvPostCurrent = function() {
       var form = document.getElementById('pvForm');
       if (!form.checkValidity()) { form.reportValidity(); return; }
       var vId = document.getElementById('pvId').value;
       if (!vId) {
-        // Save first, then post
-        _saveAndThen(function(savedId) { _doPost(savedId); });
+        _saveAndThen(function(savedId){ _doPost(savedId); });
       } else {
         _doPost(vId);
       }
@@ -413,58 +597,92 @@
         body: JSON.stringify({ allocations: allocations })
       }).then(function(d){
         if (d.success) {
-          Swal.fire({ icon:'success', title:'Posted!', text:d.message, timer:1800, showConfirmButton:false });
+          Swal.fire({ icon: 'success', title: 'Posted!', text: d.message,
+            timer: 1800, showConfirmButton: false });
           bootstrap.Modal.getOrCreateInstance(document.getElementById('pvModal')).hide();
           dt.ajax.reload(null, false);
-        } else { Swal.fire('Error', d.message, 'error'); }
+        } else {
+          Swal.fire('Error', d.message, 'error');
+        }
       });
     }
 
     window.pvReverse = function(id) {
-      Swal.fire({ title:'Reverse Payment?', text:'A reversal entry will be created and allocations will be reversed.',
-        icon:'warning', showCancelButton:true, confirmButtonText:'Yes, Reverse!', confirmButtonColor:'#dc3545',
-        input:'text', inputPlaceholder:'Reason (optional)' })
-        .then(function(r){
-          if (!r.isConfirmed) return;
-          secureFetch(BASE + '/reverse/' + id + '?narration=' + encodeURIComponent(r.value||''), { method:'POST' })
-            .then(function(d){
-              if (d.success) { Swal.fire({ icon:'success', title:'Reversed!', text:d.message, timer:1800, showConfirmButton:false }); dt.ajax.reload(null,false); }
-              else { Swal.fire('Error', d.message, 'error'); }
-            });
-        });
+      Swal.fire({
+        title: 'Reverse Payment?',
+        text: 'A reversal entry will be created and allocations will be reversed.',
+        icon: 'warning', showCancelButton: true,
+        confirmButtonText: 'Yes, Reverse!', confirmButtonColor: '#dc3545',
+        input: 'text', inputPlaceholder: 'Reason (optional)'
+      }).then(function(r){
+        if (!r.isConfirmed) return;
+        secureFetch(BASE + '/reverse/' + id + '?narration=' + encodeURIComponent(r.value||''),
+          { method: 'POST' })
+          .then(function(d){
+            if (d.success) {
+              Swal.fire({ icon: 'success', title: 'Reversed!', text: d.message,
+                timer: 1800, showConfirmButton: false });
+              dt.ajax.reload(null, false);
+            } else {
+              Swal.fire('Error', d.message, 'error');
+            }
+          });
+      });
+    };
+
+    window.pvPost = function(id) {
+      Swal.fire({
+        title: 'Post Voucher?', icon: 'question', showCancelButton: true,
+        confirmButtonText: 'Post'
+      }).then(function(r){
+        if (!r.isConfirmed) return;
+        _doPost(id);
+      });
     };
 
     window.pvDelete = function(id) { hsConfirmDelete(BASE + '/delete/' + id, dt); };
 
+    // ── Save ─────────────────────────────────────────────────────────────────
     function _onSubmit(e) {
       e.preventDefault();
-      var sb = document.getElementById('pvSubmitBtn'), sp = document.getElementById('pvSpinner'), bt = document.getElementById('pvBtnText');
+      var sb = document.getElementById('pvSubmitBtn');
+      var sp = document.getElementById('pvSpinner');
+      var bt = document.getElementById('pvBtnText');
       hsDisableButton(sb, sp, bt);
-      _saveAndThen(function(){ dt.ajax.reload(null,false); })
+      _saveAndThen(function(){ dt.ajax.reload(null, false); })
         .finally(function(){ hsEnableButton(sb, sp, bt); });
     }
 
     function _saveAndThen(cb) {
-      return secureFetch(BASE + '/save', { method:'POST', body: JSON.stringify({
-        id             : document.getElementById('pvId').value || null,
-        voucherType    : 'PAYMENT_VOUCHER',
-        voucherDate    : document.getElementById('pvDate').value,
-        referenceNo    : document.getElementById('pvRef').value || null,
-        partyType      : document.getElementById('pvPartyType').value,
-        partyId        : $('#pvPartyId').val() || null,
-        bankAccountId  : $('#pvBankId').val() || null,
-        paymentMode    : document.getElementById('pvPayMode').value || null,
-        chequeNumber   : document.getElementById('pvChequeNo').value || null,
-        chequeDate     : document.getElementById('pvChequeDate').value || null,
-        totalAmount    : parseFloat(document.getElementById('pvAmount').value) || null,
-        narration      : document.getElementById('pvNarration').value || null
-      })}).then(function(d){
+      return secureFetch(BASE + '/save', {
+        method: 'POST',
+        body: JSON.stringify({
+          id           : document.getElementById('pvId').value || null,
+          voucherType  : 'PAYMENT_VOUCHER',
+          voucherDate  : document.getElementById('pvDate').value,
+          dueDate      : document.getElementById('pvDueDate').value || null,
+          referenceNo  : document.getElementById('pvRef').value     || null,
+          partyType    : document.getElementById('pvPartyType').value,
+          partyId      : $('#pvPartyId').val()  || null,
+          bankAccountId: $('#pvBankId').val()   || null,
+          paymentMode  : document.getElementById('pvPayMode').value    || null,
+          chequeNumber : document.getElementById('pvChequeNo').value   || null,
+          chequeDate   : document.getElementById('pvChequeDate').value || null,
+          totalAmount  : parseFloat(document.getElementById('pvAmount').value) || null,
+          narration    : document.getElementById('pvNarration').value  || null
+        })
+      }).then(function(d){
         if (d.success) {
           document.getElementById('pvId').value = d.id;
-          Swal.fire({ icon:'success', title:'Saved!', text:d.message, timer:1200, showConfirmButton:false });
+          Swal.fire({ icon: 'success', title: 'Saved!', text: d.message,
+            timer: 1200, showConfirmButton: false });
           if (cb) cb(d.id);
-        } else { Swal.fire('Error', d.message, 'error'); }
-      }).catch(function(err){ Swal.fire('Error', err.message||'Request failed.', 'error'); });
+        } else {
+          Swal.fire('Error', d.message, 'error');
+        }
+      }).catch(function(err){
+        Swal.fire('Error', err.message || 'Request failed.', 'error');
+      });
     }
 
     function _collectAllocations() {
@@ -472,13 +690,13 @@
       document.querySelectorAll('#pvAllocBody tr').forEach(function(tr){
         var srcId = tr.querySelector('[data-field="sourceVoucherId"]');
         if (!srcId || !srcId.value) return;
-        var amt = parseFloat(tr.querySelector('[data-field="allocatedAmount"]').value)||0;
+        var amt = parseFloat(tr.querySelector('[data-field="allocatedAmount"]').value) || 0;
         if (amt <= 0) return;
         allocs.push({
           sourceVoucherId: srcId.value,
           allocatedAmount: amt,
-          discountAmount : parseFloat(tr.querySelector('[data-field="discountAmount"]').value)||0,
-          writeOffAmount : parseFloat(tr.querySelector('[data-field="writeOffAmount"]').value)||0,
+          discountAmount : parseFloat(tr.querySelector('[data-field="discountAmount"]').value) || 0,
+          writeOffAmount : parseFloat(tr.querySelector('[data-field="writeOffAmount"]').value) || 0,
           allocationDate : document.getElementById('pvDate').value
         });
       });
@@ -486,22 +704,26 @@
     }
 
     function _resetForm() {
-      ['#pvPartyId','#pvBankId'].forEach(function(s){
-        if($(s).hasClass('select2-hidden-accessible')) $(s).select2('destroy');
+      ['#pvPartyId', '#pvBankId'].forEach(function(s){
+        if ($(s).hasClass('select2-hidden-accessible')) $(s).select2('destroy');
       });
       document.getElementById('pvForm').reset();
-      document.getElementById('pvId').value = '';
-      document.getElementById('pvAllocBody').innerHTML = '';
-      ['pvSumTotal','pvSumAllocated','pvSumUnalloc'].forEach(function(id){ document.getElementById(id).textContent='0.00'; });
-      document.getElementById('pvDate').value = new Date().toISOString().substring(0,10);
+      document.getElementById('pvId').value           = '';
+      document.getElementById('pvAllocBody').innerHTML= '';
+      document.getElementById('pvPartyBalance').textContent = '';
+      ['pvSumTotal','pvSumAllocated','pvSumUnalloc'].forEach(function(id){
+        document.getElementById(id).textContent = '0.00';
+      });
+      document.getElementById('pvDate').value = new Date().toISOString().substring(0, 10);
       _initPartyS2(null, null);
       _initBankS2(null, null);
     }
 
     function _vf(label, value) {
-      return '<div class="col-md-4 view-group"><label class="view-label">'+label+'</label>'
-           + '<span class="form-control hs_span_show">'+(value!=null?value:'—')+'</span></div>';
+      return '<div class="col-md-4 view-group"><label class="view-label">' + label + '</label>'
+           + '<span class="form-control hs_span_show">' + (value != null ? value : '—') + '</span></div>';
     }
+
   })();
   </script>
 </section>

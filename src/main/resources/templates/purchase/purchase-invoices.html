@@ -3,8 +3,13 @@
   purchase/purchase-invoices.html    GET /purchase/invoices
   documentType = PURCHASE_INVOICE
   JS prefix: pi
-  Cascade: "Make Payment" button on CONFIRMED rows → createPaymentFromInvoice(id)
-  Auto-opens modal if navigated from GRN cascade (sessionStorage pendingPurchaseDoc)
+  Cascade chain:
+    GRN → (cascade populate) → Invoice draft → Confirm
+      → PURCHASE_VOUCHER JEM auto-created by PurchaseServiceImpl.confirmInvoice()
+      → 💰 button visible (due_amount > 0)
+      → createPaymentFromInvoice(id) → GET /purchase/docs/payment-prefill?invoiceId=
+      → sessionStorage.pvPrefill → redirect /accounts/payment-vouchers
+      → payment-voucher.html reads pvPrefill → pvOpenCreate(data) prefills form
 -->
 <html th:replace="~{layout/base :: layout('Purchase Invoices', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
 <section>
@@ -24,6 +29,8 @@
     <a th:href="@{/purchase/invoices}"    class="btn btn-sm btn-primary"><i class="fa fa-file-invoice me-1"></i> Invoices</a>
     <i class="fas fa-angle-right align-self-center text-muted"></i>
     <a th:href="@{/purchase/debit-notes}" class="btn btn-sm btn-outline-danger"><i class="fa fa-file-minus me-1"></i> Debit Notes</a>
+    <i class="fas fa-angle-right align-self-center text-muted"></i>
+    <a th:href="@{/accounts/payment-vouchers}" class="btn btn-sm btn-outline-warning"><i class="fa fa-money-check-dollar me-1"></i> Payments</a>
   </div>
 
   <div class="panel panel-inverse">
@@ -44,8 +51,11 @@
     <div class="panel-body">
       <table id="piTable" width="100%" class="table table-striped table-bordered align-middle">
         <thead><tr>
-          <th width="1%">SL</th><th>Invoice No</th><th>Date</th>
-          <th>Supplier</th><th>From GRN</th>
+          <th width="1%">SL</th>
+          <th>Invoice No</th>
+          <th>Date</th>
+          <th>Supplier</th>
+          <th>From GRN</th>
           <th class="text-end">Total</th>
           <th class="text-end text-success">Paid</th>
           <th class="text-end text-danger">Due</th>
@@ -56,12 +66,14 @@
       </table>
     </div>
 
-    <!-- INVOICE MODAL -->
+    <!-- ══ INVOICE MODAL ══════════════════════════════════════════════════════ -->
     <div tabindex="-1" id="piModal" class="modal fade">
       <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
         <div class="modal-content">
           <div class="modal-header">
-            <h5 class="modal-title" id="piModalTitle"><i class="fa fa-file-invoice me-1 text-success"></i> New Purchase Invoice</h5>
+            <h5 class="modal-title" id="piModalTitle">
+              <i class="fa fa-file-invoice me-1 text-success"></i> New Purchase Invoice
+            </h5>
             <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
           </div>
           <form id="piForm" novalidate>
@@ -69,6 +81,7 @@
               <div class="hs-box">
                 <input type="hidden" id="piId">
                 <input type="hidden" id="piParentId">
+
                 <div class="row g-2 mb-3">
                   <div class="col-md-3 view-group">
                     <input id="piNo" type="text" class="form-control hs_span_view bg-light" readonly placeholder="Auto">
@@ -106,13 +119,15 @@
 
                 <div class="alert alert-warning py-2 mb-2">
                   <i class="fas fa-balance-scale me-1"></i>
-                  Confirming this invoice will <strong>increase supplier payable</strong> balance.
-                  Create a <strong>Payment Voucher</strong> to settle.
+                  Confirming this invoice will <strong>increase supplier payable</strong> and create a
+                  <strong>Purchase Voucher</strong> in GL. Use the <strong>💰 Make Payment</strong> button to settle.
                 </div>
 
                 <div class="d-flex justify-content-between align-items-center mb-2">
                   <strong>Invoice Lines</strong>
-                  <button type="button" class="btn btn-sm btn-outline-primary" onclick="piAddLine()"><i class="fa fa-plus me-1"></i> Add Line</button>
+                  <button type="button" class="btn btn-sm btn-outline-primary" onclick="piAddLine()">
+                    <i class="fa fa-plus me-1"></i> Add Line
+                  </button>
                 </div>
                 <div class="table-responsive">
                   <table class="table table-sm table-bordered">
@@ -129,16 +144,22 @@
                     </tr></tfoot>
                   </table>
                 </div>
+
                 <div class="row justify-content-end mt-2 g-1">
                   <div class="col-md-4">
                     <table class="table table-sm table-bordered mb-0">
                       <tr><td class="text-end">Subtotal</td><td class="text-end" id="piSubtotal">0.00</td></tr>
                       <tr><td class="text-end">Discount</td>
-                          <td><input type="number" step="0.01" id="piDiscount" class="form-control form-control-sm text-end" value="0" oninput="piRecalcTotals()"></td></tr>
+                          <td><input type="number" step="0.01" id="piDiscount" class="form-control form-control-sm text-end"
+                               value="0" oninput="piRecalcTotals()"></td></tr>
                       <tr><td class="text-end">Tax</td><td class="text-end" id="piTax">0.00</td></tr>
                       <tr><td class="text-end">Other</td>
-                          <td><input type="number" step="0.01" id="piOther" class="form-control form-control-sm text-end" value="0" oninput="piRecalcTotals()"></td></tr>
-                      <tr class="table-primary fw-bold"><td class="text-end">Grand Total</td><td class="text-end" id="piGrandTotal">0.00</td></tr>
+                          <td><input type="number" step="0.01" id="piOther" class="form-control form-control-sm text-end"
+                               value="0" oninput="piRecalcTotals()"></td></tr>
+                      <tr class="table-primary fw-bold">
+                        <td class="text-end">Grand Total</td>
+                        <td class="text-end" id="piGrandTotal">0.00</td>
+                      </tr>
                     </table>
                   </div>
                 </div>
@@ -156,28 +177,42 @@
       </div>
     </div>
 
-    <!-- GRN PICKER -->
+    <!-- ══ GRN PICKER ════════════════════════════════════════════════════════ -->
     <div tabindex="-1" id="grnPicker" class="modal fade">
       <div class="modal-dialog modal-dialog-centered modal-lg">
         <div class="modal-content">
-          <div class="modal-header"><h5 class="modal-title">Select GRN</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+          <div class="modal-header">
+            <h5 class="modal-title">Select GRN</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
           <div class="modal-body">
             <div class="mb-3"><select id="grnPickerSupplier" class="form-select"></select></div>
-            <table class="table table-sm table-hover"><thead class="table-light"><tr><th>GRN No</th><th>Date</th><th class="text-end">Total</th><th></th></tr></thead>
-            <tbody id="grnPickerBody"></tbody></table>
+            <table class="table table-sm table-hover">
+              <thead class="table-light"><tr>
+                <th>GRN No</th><th>Date</th><th class="text-end">Total</th><th></th>
+              </tr></thead>
+              <tbody id="grnPickerBody"></tbody>
+            </table>
           </div>
-          <div class="modal-footer"><button type="button" class="btn btn-white" data-bs-dismiss="modal">Cancel</button></div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-white" data-bs-dismiss="modal">Cancel</button>
+          </div>
         </div>
       </div>
     </div>
 
-    <!-- VIEW MODAL -->
+    <!-- ══ VIEW MODAL ════════════════════════════════════════════════════════ -->
     <div tabindex="-1" id="piViewModal" class="modal fade">
       <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
         <div class="modal-content">
-          <div class="modal-header"><h5 class="modal-title"><i class="fa fa-file-invoice me-1 text-primary"></i> Invoice Details</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+          <div class="modal-header">
+            <h5 class="modal-title"><i class="fa fa-file-invoice me-1 text-primary"></i> Invoice Details</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
           <div class="modal-body" id="piViewBody"></div>
-          <div class="modal-footer"><button type="button" class="btn btn-white" data-bs-dismiss="modal">Close</button></div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-white" data-bs-dismiss="modal">Close</button>
+          </div>
         </div>
       </div>
     </div>
@@ -186,151 +221,151 @@
   <script th:inline="none">
   (function () {
     'use strict';
-    const BASE    = '/purchase/docs';
-    const DOC_TYPE = 'PURCHASE_INVOICE';
-    const SUB_URL  = '/accounts/sub-accounts/search';
-    const ITEM_URL = '/inventory/items/search';
+
+    var BASE     = '/purchase/docs';
+    var DOC_TYPE = 'PURCHASE_INVOICE';
+    var SUB_URL  = '/accounts/sub-accounts/search';
+    var ITEM_URL = '/inventory/items/search';
     var dt, _lineCount = 0;
 
+    // ── Boot ─────────────────────────────────────────────────────────────────
     document.addEventListener('DOMContentLoaded', function () {
+
+      // DataTable
       dt = $('#piTable').DataTable({
         processing: true, serverSide: false, responsive: true, pageLength: 25,
         ajax: { url: BASE + '/list?documentType=' + DOC_TYPE, type: 'GET' },
         columns: [
-          { data: 'sl', orderable: false, width: '40px' },
-          { data: 'document_no', defaultContent: '—' }, { data: 'document_date' },
-          { data: 'supplier_name',  defaultContent: '—' },
-          { data: 'reference_no',   defaultContent: '—' },
-          { data: 'total_amount',   className: 'text-end fw-bold', render: function(d){ return parseFloat(d||0).toFixed(2); }},
-          { data: 'paid_amount',    className: 'text-end text-success', render: function(d){ return parseFloat(d||0).toFixed(2); }},
-          { data: 'due_amount',     className: 'text-end text-danger',  render: function(d){ return parseFloat(d||0).toFixed(2); }},
-          { data: 'status_badge',   orderable: false, className: 'text-center' },
-          { data: 'actions',        orderable: false, className: 'text-center' }
+          { data: 'sl',            orderable: false, width: '40px' },
+          { data: 'document_no',   defaultContent: '—' },
+          { data: 'document_date', defaultContent: '—' },
+          { data: 'supplier_name', defaultContent: '—' },
+          { data: 'reference_no',  defaultContent: '—' },
+          { data: 'total_amount',  className: 'text-end fw-bold',
+            render: function(d){ return parseFloat(d||0).toFixed(2); } },
+          { data: 'paid_amount',   className: 'text-end text-success',
+            render: function(d){ return parseFloat(d||0).toFixed(2); } },
+          { data: 'due_amount',    className: 'text-end text-danger',
+            render: function(d){ return parseFloat(d||0).toFixed(2); } },
+          { data: 'status_badge',  orderable: false, className: 'text-center' },
+          { data: 'actions',       orderable: false, className: 'text-center' }
         ],
-        language: { emptyTable: 'No purchase invoices.', processing: '<span class="spinner-border spinner-border-sm me-2"></span> Loading…' }
+        language: {
+          emptyTable: 'No purchase invoices.',
+          processing: '<span class="spinner-border spinner-border-sm me-2"></span> Loading…'
+        }
       });
-      document.getElementById('piDate').value = new Date().toISOString().substring(0,10);
+
+      document.getElementById('piDate').value = new Date().toISOString().substring(0, 10);
       document.getElementById('piForm').addEventListener('submit', _onSubmit);
       _initSupplierS2(null, null);
       _initGrnPickerS2();
 
-
-      /**
-       * Opens a Payment Voucher pre-filled from the confirmed Purchase Invoice.
-       * Called by the 💰 action button rendered by nextDocActionButton() in
-       * PurchaseServiceImpl for CONFIRMED PURCHASE_INVOICE rows with due_amount > 0.
-       *
-       * @param {number} piId  - the Purchase Invoice BusinessDocument.id
-       */
-      window.createPaymentFromInvoice = function (piId) {
-        // Show a loading indicator on the button (optional — using SweetAlert2 toast)
-        if (typeof toast === 'function') {
-          toast('Loading', 'Preparing payment voucher…', 'info', 1500);
-        }
-
-        secureFetch('/purchase/docs/payment-prefill?invoiceId=' + piId)
-                .then(function (data) {
-                  if (!data.success) {
-                    Swal.fire({ icon: 'error', title: 'Cannot Create Payment', text: data.message });
-                    return;
-                  }
-
-                  var voucherDto = data.obj && data.obj.defaultData ? data.obj.defaultData : null;
-                  if (!voucherDto) {
-                    Swal.fire({ icon: 'error', title: 'Error', text: 'No voucher data returned.' });
-                    return;
-                  }
-
-                  // Store the pre-filled VoucherDTO in sessionStorage.
-                  // The payment-voucher.html page reads this on load to pre-fill the form.
-                  try {
-                    sessionStorage.setItem('pvPrefill', JSON.stringify(voucherDto));
-                  } catch (e) {
-                    console.warn('sessionStorage unavailable — payment form will open blank.', e);
-                  }
-
-                  // Navigate to the Payment Voucher page.
-                  // That page's DOMContentLoaded handler will read pvPrefill and call pvOpenCreate(data).
-                  window.location.href = '/accounts/payment-vouchers';
-                })
-                .catch(function (err) {
-                  Swal.fire({ icon: 'error', title: 'Error', text: err.message || 'Failed to load payment data.' });
-                });
-      };
-
-
-
-      // Auto-open from GRN cascade
+      // ── Auto-open from GRN cascade (pendingPurchaseDoc) ───────────────────
       var pending = sessionStorage.getItem('pendingPurchaseDoc');
       if (pending) {
         sessionStorage.removeItem('pendingPurchaseDoc');
-        try { _openWithData(JSON.parse(pending)); } catch(e){}
+        try { _openWithData(JSON.parse(pending)); } catch(e) { console.error(e); }
       }
     });
 
+    // ── Select2: Supplier ─────────────────────────────────────────────────────
     function _initSupplierS2(preId, preText) {
       var $el = $('#piSupplierId');
       if ($el.hasClass('select2-hidden-accessible')) $el.select2('destroy');
       $el.select2({
         dropdownParent: $('#piModal'), width: '100%',
         placeholder: '— Search Supplier —', allowClear: true, minimumInputLength: 0,
-        ajax: { url: SUB_URL, dataType: 'json', delay: 250,
-          data: function(p){ return { search: p.term||'', subAccountType:'SUPPLIER', page: p.page||1 }; },
-          processResults: function(data, p){ p.page=p.page||1; return { results:(data.items||[]).map(function(i){return{id:i.id,text:i.text};}), pagination:{more:data.hasMore||false} }; },
-          cache: false },
-        templateResult: function(r){ return r.text; }, templateSelection: function(r){ return r.text||r.id; }
+        ajax: {
+          url: SUB_URL, dataType: 'json', delay: 250,
+          data: function(p){ return { search: p.term||'', subAccountType: 'SUPPLIER', page: p.page||1 }; },
+          processResults: function(data, p){
+            p.page = p.page||1;
+            return { results: (data.items||[]).map(function(i){ return { id: i.id, text: i.text }; }),
+                     pagination: { more: data.hasMore||false } };
+          },
+          cache: false
+        },
+        templateResult: function(r){ return r.text; },
+        templateSelection: function(r){ return r.text || r.id; }
       });
       if (preId) $el.append(new Option(preText||'', preId, true, true)).trigger('change');
     }
 
+    // ── Select2: Item (per line) ──────────────────────────────────────────────
     function _initItemS2(el, preId, preText) {
       var $el = $(el);
       if ($el.hasClass('select2-hidden-accessible')) $el.select2('destroy');
       $el.select2({
-        dropdownParent: $('#piModal'), width: '100%', placeholder: '— Item —', allowClear: true, minimumInputLength: 0,
-        ajax: { url: ITEM_URL, dataType: 'json', delay: 250,
+        dropdownParent: $('#piModal'), width: '100%',
+        placeholder: '— Item —', allowClear: true, minimumInputLength: 0,
+        ajax: {
+          url: ITEM_URL, dataType: 'json', delay: 250,
           data: function(p){ return { search: p.term||'', page: p.page||1 }; },
-          processResults: function(data, p){ p.page=p.page||1; return { results:(data.items||[]).map(function(i){return{id:i.id,text:i.text,uom:i.uom};}), pagination:{more:data.hasMore||false} }; },
-          cache: true },
-        templateResult: function(r){ return r.text; }, templateSelection: function(r){ return r.text||r.id; }
+          processResults: function(data, p){
+            p.page = p.page||1;
+            return { results: (data.items||[]).map(function(i){ return { id: i.id, text: i.text, uom: i.uom }; }),
+                     pagination: { more: data.hasMore||false } };
+          },
+          cache: true
+        },
+        templateResult: function(r){ return r.text; },
+        templateSelection: function(r){ return r.text || r.id; }
       });
       if (preId) $el.append(new Option(preText||'', preId, true, true)).trigger('change');
       $el.on('select2:select', function(e){
-        var tr=el.closest('tr'), d=e.params.data;
+        var tr = el.closest('tr'), d = e.params.data;
         tr.querySelector('[data-field="itemId"]').value   = d.id  || '';
         tr.querySelector('[data-field="unitCode"]').value = d.uom || '';
         piCalcLine(tr);
       });
-      $el.on('select2:clear', function(){ var tr=el.closest('tr'); tr.querySelector('[data-field="itemId"]').value=''; });
+      $el.on('select2:clear', function(){
+        el.closest('tr').querySelector('[data-field="itemId"]').value = '';
+      });
     }
 
+    // ── Select2: GRN Picker Supplier ──────────────────────────────────────────
     function _initGrnPickerS2() {
       $('#grnPickerSupplier').select2({
         dropdownParent: $('#grnPicker'), width: '100%',
         placeholder: '— Search Supplier —', allowClear: true, minimumInputLength: 0,
-        ajax: { url: SUB_URL, dataType: 'json', delay: 250,
-          data: function(p){ return { search: p.term||'', subAccountType:'SUPPLIER', page: p.page||1 }; },
-          processResults: function(data, p){ p.page=p.page||1; return { results:(data.items||[]).map(function(i){return{id:i.id,text:i.text};}), pagination:{more:data.hasMore||false} }; },
-          cache: false }
+        ajax: {
+          url: SUB_URL, dataType: 'json', delay: 250,
+          data: function(p){ return { search: p.term||'', subAccountType: 'SUPPLIER', page: p.page||1 }; },
+          processResults: function(data, p){
+            p.page = p.page||1;
+            return { results: (data.items||[]).map(function(i){ return { id: i.id, text: i.text }; }),
+                     pagination: { more: data.hasMore||false } };
+          },
+          cache: false
+        }
       }).on('select2:select', function(e){
-        secureFetch(BASE + '/confirmed-grns?supplierId=' + e.params.data.id).then(function(data) {
-          var body = document.getElementById('grnPickerBody');
-          body.innerHTML = '';
-          if (!data||!data.length) { body.innerHTML='<tr><td colspan="4" class="text-center text-muted">No confirmed GRNs.</td></tr>'; return; }
-          data.forEach(function(g){
-            body.insertAdjacentHTML('beforeend',
-              '<tr><td><strong>'+(g.document_no||'—')+'</strong></td><td>'+(g.document_date||'—')+'</td>'
-              + '<td class="text-end">'+parseFloat(g.total_amount||0).toFixed(2)+'</td>'
-              + '<td><button class="btn btn-sm btn-primary" onclick="selectGRNForInvoice('+g.id+',\''+( g.document_no||'')+'\'  )">Select</button></td></tr>');
+        secureFetch(BASE + '/confirmed-grns?supplierId=' + e.params.data.id)
+          .then(function(data) {
+            var body = document.getElementById('grnPickerBody');
+            body.innerHTML = '';
+            if (!data || !data.length) {
+              body.innerHTML = '<tr><td colspan="4" class="text-center text-muted">No confirmed GRNs.</td></tr>';
+              return;
+            }
+            data.forEach(function(g) {
+              body.insertAdjacentHTML('beforeend',
+                '<tr><td><strong>' + (g.document_no||'—') + '</strong></td>'
+                + '<td>' + (g.document_date||'—') + '</td>'
+                + '<td class="text-end">' + parseFloat(g.total_amount||0).toFixed(2) + '</td>'
+                + '<td><button class="btn btn-sm btn-primary" '
+                + 'onclick="selectGRNForInvoice(' + g.id + ',\'' + (g.document_no||'') + '\')">Select</button></td></tr>');
+            });
           });
-        });
       });
     }
 
+    // ── Open / Create ─────────────────────────────────────────────────────────
     window.piOpenCreate = function() {
       _resetForm();
-      document.getElementById('piModalTitle').innerHTML = '<i class="fa fa-plus me-1 text-success"></i> New Invoice';
-      document.getElementById('piBtnText').textContent  = 'Save Draft';
+      document.getElementById('piModalTitle').innerHTML =
+        '<i class="fa fa-plus me-1 text-success"></i> New Invoice';
+      document.getElementById('piBtnText').textContent = 'Save Draft';
       piAddLine();
       bootstrap.Modal.getOrCreateInstance(document.getElementById('piModal')).show();
     };
@@ -342,220 +377,335 @@
     window.selectGRNForInvoice = function(grnId) {
       bootstrap.Modal.getOrCreateInstance(document.getElementById('grnPicker')).hide();
       secureFetch(BASE + '/populate?parentId=' + grnId + '&childType=PURCHASE_INVOICE')
-        .then(function(res){ if (res.success) _openWithData(res.obj.defaultData); else Swal.fire('Error',res.message,'error'); });
+        .then(function(res){
+          if (res.success) _openWithData(res.obj.defaultData);
+          else Swal.fire('Error', res.message, 'error');
+        });
     };
 
     function _openWithData(data) {
       _resetForm();
-      document.getElementById('piParentId').value  = data.parentDocumentId || '';
-      document.getElementById('piGrnRef').value    = data.parentDocumentNo  || '';
-      document.getElementById('piDate').value      = data.documentDate     || new Date().toISOString().substring(0,10);
-      document.getElementById('piCurrency').value  = data.currency         || '';
+      document.getElementById('piParentId').value = data.parentDocumentId || '';
+      document.getElementById('piGrnRef').value   = data.parentDocumentNo  || '';
+      document.getElementById('piDate').value     = data.documentDate || new Date().toISOString().substring(0,10);
+      document.getElementById('piCurrency').value = data.currency || '';
       _initSupplierS2(data.partyId, data.partyDisplay);
       (data.lines||[]).forEach(function(l){ piAddLine(l); });
       piRecalcTotals();
-      document.getElementById('piModalTitle').innerHTML = '<i class="fa fa-file-invoice me-1 text-info"></i> New Invoice from GRN '+(data.parentDocumentNo||'');
-      document.getElementById('piBtnText').textContent  = 'Save Draft';
+      document.getElementById('piModalTitle').innerHTML =
+        '<i class="fa fa-file-invoice me-1 text-info"></i> New Invoice from GRN ' + (data.parentDocumentNo||'');
+      document.getElementById('piBtnText').textContent = 'Save Draft';
       bootstrap.Modal.getOrCreateInstance(document.getElementById('piModal')).show();
     }
 
-    window.piAddLine = function(data) {
-      _lineCount++;
-      var n = _lineCount;
-      var html = '<tr id="piLine_'+n+'">'
-        + '<td>'+n+'</td>'
-        + '<td><input type="hidden" data-field="itemId" value="'+(data?data.itemId||'':'')+'">'
-        +   '<input type="hidden" data-field="sourceLineId" value="'+(data?data.sourceLineId||'':'')+'">'
-        +   '<input type="hidden" data-field="lotId" value="'+(data?data.lotId||'':'')+'">'
-        +   '<select class="form-select form-select-sm pi-item-s2"></select></td>'
-        + '<td><input type="text" class="form-control form-control-sm" data-field="unitCode" value="'+(data?data.unitCode||'':'') + '" readonly></td>'
-        + '<td><input type="number" step="0.001" min="0" class="form-control form-control-sm text-end" data-field="quantity" value="'+(data?data.quantity||'':'') + '" oninput="piCalcLine(this.closest(\'tr\'))" required></td>'
-        + '<td><input type="number" step="0.0001" min="0" class="form-control form-control-sm text-end" data-field="unitPrice" value="'+(data?data.unitPrice||'':'') + '" oninput="piCalcLine(this.closest(\'tr\'))"></td>'
-        + '<td><input type="number" step="0.01" min="0" class="form-control form-control-sm text-end" data-field="discountAmount" value="'+(data?data.discountAmount||'0':'0') + '" oninput="piCalcLine(this.closest(\'tr\'))"></td>'
-        + '<td><input type="number" step="0.01" min="0" class="form-control form-control-sm text-end" data-field="taxAmount" value="'+(data?data.taxAmount||'0':'0') + '" oninput="piCalcLine(this.closest(\'tr\'))"></td>'
-        + '<td><input type="text" class="form-control form-control-sm text-end bg-light" data-field="lineAmount" readonly value="'+(data?data.lineAmount||'0.00':'0.00')+'"></td>'
-        + '<td><small class="text-muted">'+(data?data.lotNumber||'—':'—')+'</small></td>'
-        + '<td><button type="button" class="btn btn-sm btn-outline-danger" onclick="piRemoveLine('+n+')"><i class="fa fa-times"></i></button></td>'
-        + '</tr>';
-      document.getElementById('piLineBody').insertAdjacentHTML('beforeend', html);
-      var sel = document.querySelector('#piLine_'+n+' .pi-item-s2');
-      _initItemS2(sel, data?data.itemId:null, data?(data.itemCode||'')+(data.itemName?' — '+data.itemName:''):null);
-    };
-
-    window.piRemoveLine = function(n) {
-      var row = document.getElementById('piLine_'+n);
-      if (row) { var s2=row.querySelector('.pi-item-s2'); if(s2&&$(s2).hasClass('select2-hidden-accessible')) $(s2).select2('destroy'); row.remove(); }
-      piRecalcTotals();
-    };
-    window.piCalcLine = function(tr) {
-      var q=parseFloat(tr.querySelector('[data-field="quantity"]').value)||0;
-      var p=parseFloat(tr.querySelector('[data-field="unitPrice"]').value)||0;
-      var d=parseFloat(tr.querySelector('[data-field="discountAmount"]').value)||0;
-      var t=parseFloat(tr.querySelector('[data-field="taxAmount"]').value)||0;
-      tr.querySelector('[data-field="lineAmount"]').value=((q*p)-d+t).toFixed(2);
-      piRecalcTotals();
-    };
-    window.piRecalcTotals = function() {
-      var sub=0,tax=0;
-      document.querySelectorAll('#piLineBody tr').forEach(function(tr){
-        sub+=parseFloat(tr.querySelector('[data-field="lineAmount"]').value)||0;
-        tax+=parseFloat(tr.querySelector('[data-field="taxAmount"]').value)||0;
-      });
-      var disc=parseFloat(document.getElementById('piDiscount').value)||0;
-      var other=parseFloat(document.getElementById('piOther').value)||0;
-      var grand=sub-disc+other;
-      document.getElementById('piSubtotal').textContent=sub.toFixed(2);
-      document.getElementById('piTax').textContent=tax.toFixed(2);
-      document.getElementById('piGrandTotal').textContent=grand.toFixed(2);
-      document.getElementById('piTotal').textContent=sub.toFixed(2);
-    };
-
+    // ── CRUD: Show / Edit / Confirm / Cancel / Delete ─────────────────────────
     window.piShow = function(id) {
       secureFetch(BASE + '/show/' + id).then(function(res) {
-        if (!res.success) { Swal.fire('Error',res.message,'error'); return; }
+        if (!res.success) { Swal.fire('Error', res.message, 'error'); return; }
         var o = res.obj.defaultData;
         var html = '<div class="hs-box"><div class="row g-2">'
-          + _vf('Invoice No', o.documentNo||'—') + _vf('Date', o.documentDate)
-          + _vf('Supplier', o.partyDisplay||'—') + _vf('Status', o.status)
-          + _vf('From GRN', o.parentDocumentNo||'—')
-          + _vf('Total', parseFloat(o.totalAmount||0).toFixed(2))
-          + _vf('Paid', parseFloat(o.paidAmount||0).toFixed(2))
-          + _vf('Due',  parseFloat(o.dueAmount||0).toFixed(2))
+          + _vf('Invoice No',  o.documentNo||'—')
+          + _vf('Date',        o.documentDate||'—')
+          + _vf('Supplier',    o.partyDisplay||'—')
+          + _vf('Status',      o.status||'—')
+          + _vf('From GRN',    o.parentDocumentNo||'—')
+          + _vf('Total',       parseFloat(o.totalAmount||0).toFixed(2))
+          + _vf('Paid',        parseFloat(o.paidAmount||0).toFixed(2))
+          + _vf('Due',         parseFloat(o.dueAmount||0).toFixed(2))
+          + _vf('GL Posted',   o.accountingPosted ? 'Yes ✓' : 'No')
           + '</div>'
-                + '<table class="table table-sm table-bordered mt-3"><thead class="table-light"><tr>'
-                + '<th>#</th><th>Item</th><th>UOM</th><th class="text-end">Recv Qty</th>'
-                + '<th class="text-end">Unit Price</th><th class="text-end">Amount</th><th>Lot</th><th>QC</th>'
-                + '</tr></thead><tbody>';
-        (o.lines||[]).forEach(function(l,i){
-          html += '<tr><td>'+(i+1)+'</td><td>'+(l.itemCode||'')+(l.itemName?' — '+l.itemName:'')+'</td>'
-                  + '<td>'+(l.unitCode||'—')+'</td>'
-                  + '<td class="text-end">'+parseFloat(l.receivedQty||l.quantity||0).toFixed(3)+'</td>'
-                  + '<td class="text-end">'+parseFloat(l.unitPrice||0).toFixed(4)+'</td>'
-                  + '<td class="text-end fw-bold">'+parseFloat(l.lineAmount||0).toFixed(2)+'</td>'
-                  + '<td>'+(l.lotNumber||'—')+'</td>'
-                  + '<td>'+(l.qualityStatus||'—')+'</td></tr>';
+          + '<table class="table table-sm table-bordered mt-3"><thead class="table-light"><tr>'
+          + '<th>#</th><th>Item</th><th>UOM</th><th class="text-end">Recv Qty</th>'
+          + '<th class="text-end">Unit Price</th><th class="text-end">Amount</th><th>Lot</th><th>QC</th>'
+          + '</tr></thead><tbody>';
+        (o.lines||[]).forEach(function(l, i){
+          html += '<tr><td>' + (i+1) + '</td>'
+            + '<td>' + (l.itemCode||'') + (l.itemName ? ' — ' + l.itemName : '') + '</td>'
+            + '<td>' + (l.unitCode||'—') + '</td>'
+            + '<td class="text-end">' + parseFloat(l.receivedQty||l.quantity||0).toFixed(3) + '</td>'
+            + '<td class="text-end">' + parseFloat(l.unitPrice||0).toFixed(4) + '</td>'
+            + '<td class="text-end fw-bold">' + parseFloat(l.lineAmount||0).toFixed(2) + '</td>'
+            + '<td>' + (l.lotNumber||'—') + '</td>'
+            + '<td>' + (l.qualityStatus||'—') + '</td></tr>';
         });
         html += '</tbody></table></div>';
         document.getElementById('piViewBody').innerHTML = html;
         bootstrap.Modal.getOrCreateInstance(document.getElementById('piViewModal')).show();
       });
     };
+
     window.piEdit = function(id) {
       secureFetch(BASE + '/show/' + id).then(function(res) {
-        if (!res.success) { Swal.fire('Error',res.message,'error'); return; }
+        if (!res.success) { Swal.fire('Error', res.message, 'error'); return; }
         var o = res.obj.defaultData;
         _resetForm();
         document.getElementById('piId').value       = o.id;
-        document.getElementById('piParentId').value = o.parentDocumentId||'';
-        document.getElementById('piGrnRef').value   = o.parentDocumentNo||'';
-        document.getElementById('piNo').value       = o.documentNo||'';
-        document.getElementById('piDate').value     = o.documentDate||'';
-        document.getElementById('piRemarks').value  = o.remarks||'';
-        document.getElementById('piDiscount').value = o.discountAmount||'0';
-        document.getElementById('piOther').value    = o.otherCharges||'0';
+        document.getElementById('piParentId').value = o.parentDocumentId || '';
+        document.getElementById('piGrnRef').value   = o.parentDocumentNo  || '';
+        document.getElementById('piNo').value       = o.documentNo || '';
+        document.getElementById('piDate').value     = o.documentDate || '';
+        document.getElementById('piRemarks').value  = o.remarks || '';
+        document.getElementById('piDiscount').value = o.discountAmount || '0';
+        document.getElementById('piOther').value    = o.otherCharges   || '0';
         _initSupplierS2(o.partyId, o.partyDisplay);
         (o.lines||[]).forEach(function(l){ piAddLine(l); });
         piRecalcTotals();
-        document.getElementById('piModalTitle').innerHTML='<i class="fa fa-pencil me-1 text-warning"></i> Edit Invoice';
-        document.getElementById('piBtnText').textContent='Update';
+        document.getElementById('piModalTitle').innerHTML =
+          '<i class="fa fa-pencil me-1 text-warning"></i> Edit Invoice';
+        document.getElementById('piBtnText').textContent = 'Update';
         bootstrap.Modal.getOrCreateInstance(document.getElementById('piModal')).show();
       });
     };
-    window.piConfirm = function(id) {
-      Swal.fire({ title:'Confirm Invoice?', text:'Supplier payable balance will be increased.',
-        icon:'warning', showCancelButton:true, confirmButtonText:'Yes, Confirm!' })
-        .then(function(r){ if (!r.isConfirmed) return;
-          secureFetch(BASE + '/confirm/' + id, { method:'POST' }).then(function(d){
-            if (d.success) { Swal.fire({ icon:'success', title:'Confirmed!', text:d.message, timer:1600, showConfirmButton:false }); dt.ajax.reload(null,false); }
-            else { Swal.fire('Error',d.message,'error'); } }); });
-    };
-    window.piCancel = function(id) {
-      Swal.fire({ title:'Cancel Invoice?', icon:'warning', showCancelButton:true, confirmButtonColor:'#dc3545', confirmButtonText:'Cancel Invoice' })
-        .then(function(r){ if (!r.isConfirmed) return;
-          secureFetch(BASE + '/cancel/' + id, { method:'POST' }).then(function(d){
-            if (d.success) { Swal.fire({ icon:'success', timer:1400, title:'Cancelled', text:d.message, showConfirmButton:false }); dt.ajax.reload(null,false); }
-            else { Swal.fire('Error',d.message,'error'); } }); });
-    };
-    window.piDelete = function(id) { hsConfirmDelete(BASE + '/delete/' + id, dt); };
 
-    // Cascade: open Payment Voucher page pre-filled with this invoice's supplier & amount
-    window.createPaymentFromInvoice = function(invId) {
-      secureFetch(BASE + '/show/' + invId).then(function(res) {
-        if (!res.success) { Swal.fire('Error',res.message,'error'); return; }
-        var o = res.obj.defaultData;
-        var pv = {
-          voucherType      : 'PAYMENT_VOUCHER',
-          partyType        : 'SUPPLIER',
-          partyId          : o.partyId,
-          partyDisplay     : o.partyDisplay,
-          totalAmount      : o.dueAmount,
-          allocations      : [{ sourceVoucherId: invId, allocatedAmount: o.dueAmount }]
-        };
-        sessionStorage.setItem('pendingPaymentVoucher', JSON.stringify(pv));
-        window.location.href = '/accounts/payment-vouchers';
+    window.piConfirm = function(id) {
+      Swal.fire({
+        title: 'Confirm Invoice?',
+        text: 'Supplier payable will increase and a Purchase Voucher will be created in GL.',
+        icon: 'warning', showCancelButton: true, confirmButtonText: 'Yes, Confirm!'
+      }).then(function(r){
+        if (!r.isConfirmed) return;
+        secureFetch(BASE + '/confirm/' + id, { method: 'POST' }).then(function(d){
+          if (d.success) {
+            Swal.fire({ icon: 'success', title: 'Confirmed!', text: d.message,
+              timer: 1600, showConfirmButton: false });
+            dt.ajax.reload(null, false);
+          } else {
+            Swal.fire('Error', d.message, 'error');
+          }
+        });
       });
     };
 
+    window.piCancel = function(id) {
+      Swal.fire({
+        title: 'Cancel Invoice?', icon: 'warning', showCancelButton: true,
+        confirmButtonColor: '#dc3545', confirmButtonText: 'Cancel Invoice'
+      }).then(function(r){
+        if (!r.isConfirmed) return;
+        secureFetch(BASE + '/cancel/' + id, { method: 'POST' }).then(function(d){
+          if (d.success) {
+            Swal.fire({ icon: 'success', timer: 1400, title: 'Cancelled',
+              text: d.message, showConfirmButton: false });
+            dt.ajax.reload(null, false);
+          } else {
+            Swal.fire('Error', d.message, 'error');
+          }
+        });
+      });
+    };
+
+    window.piDelete = function(id) { hsConfirmDelete(BASE + '/delete/' + id, dt); };
+
+    // ── THE KEY FIX: createPaymentFromInvoice ─────────────────────────────────
+    /**
+     * Called by the 💰 DataTable action button on CONFIRMED PURCHASE_INVOICE rows
+     * where due_amount > 0.  (Rendered by PurchaseServiceImpl.nextDocActionButton())
+     *
+     * Full flow:
+     *   1. GET /purchase/docs/payment-prefill?invoiceId={id}
+     *      → PurchaseServiceImpl.populatePaymentFromInvoice()
+     *      → finds the PURCHASE_VOUCHER JEM (referenceNo = PI.documentNo)
+     *      → returns VoucherDTO { voucherType=PAYMENT_VOUCHER, partyId, totalAmount=dueAmount,
+     *                             allocations:[{ sourceVoucherId=JEM.id, allocatedAmount=dueAmount }] }
+     *   2. Stores VoucherDTO in sessionStorage key 'pvPrefill'
+     *   3. Navigates to /accounts/payment-vouchers
+     *   4. payment-voucher.html DOMContentLoaded reads 'pvPrefill', calls pvOpenCreate(data)
+     *   5. User picks bank/cash account → Save Draft → Post
+     *   6. POST /accounts/vouchers/post/{id} body:{ allocations:[...] }
+     *      → VoucherServiceImpl.processAllocations() → VoucherAllocation row created
+     *      → masterRepo.addAllocation(JEM.id, amount) → JEM.allocatedAmount updated
+     *      → adjustSubAccountBalance() → supplier.currentBalance -= payment
+     */
+    window.createPaymentFromInvoice = function(piId) {
+      Swal.fire({
+        title: 'Preparing Payment…',
+        text: 'Loading invoice data from accounts.',
+        didOpen: function(){ Swal.showLoading(); },
+        allowOutsideClick: false
+      });
+
+      secureFetch('/purchase/docs/payment-prefill?invoiceId=' + piId)
+        .then(function(data) {
+          Swal.close();
+          if (!data.success) {
+            Swal.fire({ icon: 'error', title: 'Cannot Create Payment', text: data.message });
+            return;
+          }
+          var dto = data.obj && data.obj.defaultData ? data.obj.defaultData : null;
+          if (!dto) {
+            Swal.fire({ icon: 'error', title: 'Error', text: 'No voucher data returned from server.' });
+            return;
+          }
+          // Persist across page navigation
+          try {
+            sessionStorage.setItem('pvPrefill', JSON.stringify(dto));
+          } catch(e) {
+            console.warn('sessionStorage write failed:', e);
+          }
+          window.location.href = '/accounts/payment-vouchers';
+        })
+        .catch(function(err) {
+          Swal.close();
+          Swal.fire({ icon: 'error', title: 'Error', text: err.message || 'Request failed.' });
+        });
+    };
+
+    // ── Line management ───────────────────────────────────────────────────────
+    window.piAddLine = function(data) {
+      _lineCount++;
+      var n = _lineCount;
+      var html = '<tr id="piLine_' + n + '">'
+        + '<td>' + n + '</td>'
+        + '<td>'
+        +   '<input type="hidden" data-field="itemId"     value="' + (data ? data.itemId     ||'' : '') + '">'
+        +   '<input type="hidden" data-field="sourceLineId" value="' + (data ? data.sourceLineId||'' : '') + '">'
+        +   '<input type="hidden" data-field="lotId"      value="' + (data ? data.lotId      ||'' : '') + '">'
+        +   '<select class="form-select form-select-sm pi-item-s2"></select>'
+        + '</td>'
+        + '<td><input type="text" class="form-control form-control-sm" data-field="unitCode"'
+        +   ' value="' + (data ? data.unitCode||'' : '') + '" readonly></td>'
+        + '<td><input type="number" step="0.001" min="0" class="form-control form-control-sm text-end"'
+        +   ' data-field="quantity" value="' + (data ? data.quantity||'' : '') + '"'
+        +   ' oninput="piCalcLine(this.closest(\'tr\'))" required></td>'
+        + '<td><input type="number" step="0.0001" min="0" class="form-control form-control-sm text-end"'
+        +   ' data-field="unitPrice" value="' + (data ? data.unitPrice||'' : '') + '"'
+        +   ' oninput="piCalcLine(this.closest(\'tr\'))"></td>'
+        + '<td><input type="number" step="0.01" min="0" class="form-control form-control-sm text-end"'
+        +   ' data-field="discountAmount" value="' + (data ? data.discountAmount||'0' : '0') + '"'
+        +   ' oninput="piCalcLine(this.closest(\'tr\'))"></td>'
+        + '<td><input type="number" step="0.01" min="0" class="form-control form-control-sm text-end"'
+        +   ' data-field="taxAmount" value="' + (data ? data.taxAmount||'0' : '0') + '"'
+        +   ' oninput="piCalcLine(this.closest(\'tr\'))"></td>'
+        + '<td><input type="text" class="form-control form-control-sm text-end bg-light"'
+        +   ' data-field="lineAmount" readonly value="' + (data ? data.lineAmount||'0.00' : '0.00') + '"></td>'
+        + '<td><small class="text-muted">' + (data ? data.lotNumber||'—' : '—') + '</small></td>'
+        + '<td><button type="button" class="btn btn-sm btn-outline-danger"'
+        +   ' onclick="piRemoveLine(' + n + ')"><i class="fa fa-times"></i></button></td>'
+        + '</tr>';
+      document.getElementById('piLineBody').insertAdjacentHTML('beforeend', html);
+      var sel = document.querySelector('#piLine_' + n + ' .pi-item-s2');
+      _initItemS2(sel,
+        data ? data.itemId : null,
+        data ? (data.itemCode||'') + (data.itemName ? ' — ' + data.itemName : '') : null);
+    };
+
+    window.piRemoveLine = function(n) {
+      var row = document.getElementById('piLine_' + n);
+      if (row) {
+        var s2 = row.querySelector('.pi-item-s2');
+        if (s2 && $(s2).hasClass('select2-hidden-accessible')) $(s2).select2('destroy');
+        row.remove();
+      }
+      piRecalcTotals();
+    };
+
+    window.piCalcLine = function(tr) {
+      var q = parseFloat(tr.querySelector('[data-field="quantity"]').value)      || 0;
+      var p = parseFloat(tr.querySelector('[data-field="unitPrice"]').value)     || 0;
+      var d = parseFloat(tr.querySelector('[data-field="discountAmount"]').value)|| 0;
+      var t = parseFloat(tr.querySelector('[data-field="taxAmount"]').value)     || 0;
+      tr.querySelector('[data-field="lineAmount"]').value = ((q * p) - d + t).toFixed(2);
+      piRecalcTotals();
+    };
+
+    window.piRecalcTotals = function() {
+      var sub = 0, tax = 0;
+      document.querySelectorAll('#piLineBody tr').forEach(function(tr){
+        sub += parseFloat(tr.querySelector('[data-field="lineAmount"]').value) || 0;
+        tax += parseFloat(tr.querySelector('[data-field="taxAmount"]').value)  || 0;
+      });
+      var disc  = parseFloat(document.getElementById('piDiscount').value) || 0;
+      var other = parseFloat(document.getElementById('piOther').value)    || 0;
+      var grand = sub - disc + other;
+      document.getElementById('piSubtotal').textContent  = sub.toFixed(2);
+      document.getElementById('piTax').textContent       = tax.toFixed(2);
+      document.getElementById('piGrandTotal').textContent= grand.toFixed(2);
+      document.getElementById('piTotal').textContent     = sub.toFixed(2);
+    };
+
+    // ── Save ─────────────────────────────────────────────────────────────────
     function _onSubmit(e) {
       e.preventDefault();
-      var sb=document.getElementById('piSubmitBtn'), sp=document.getElementById('piSpinner'), bt=document.getElementById('piBtnText'), fm = document.getElementById('piForm');
-      hsDisableButton(sb,sp,bt);
-      secureFetch(BASE + '/save', { method:'POST', body: JSON.stringify({
-        id              : document.getElementById('piId').value||null,
-        documentType    : 'PURCHASE_INVOICE',
-        documentDate    : document.getElementById('piDate').value,
-        partyId         : $('#piSupplierId').val()||null,
-        referenceNo     : document.getElementById('piGrnRef').value||null,
-        currency        : document.getElementById('piCurrency')?document.getElementById('piCurrency').value:null,
-        remarks         : document.getElementById('piRemarks').value||null,
-        discountAmount  : parseFloat(document.getElementById('piDiscount').value)||0,
-        otherCharges    : parseFloat(document.getElementById('piOther').value)||0,
-        parentDocumentId: document.getElementById('piParentId').value||null,
-        lines           : _collectLines()
-      })}).then(function(d){
-        if (d.success) { document.getElementById('piId').value=d.id||'';  hsAfterSaveMessages(d.success, d.message, fm, dt); bootstrap.Modal.getOrCreateInstance(document.getElementById('piModal')).hide(); }
-        else { Swal.fire('Error',d.message,'error'); }
-      }).catch(function(err){ Swal.fire('Error',err.message||'Request failed.','error'); })
-        .finally(function(){ hsEnableButton(sb,sp,bt); });
+      var sb = document.getElementById('piSubmitBtn');
+      var sp = document.getElementById('piSpinner');
+      var bt = document.getElementById('piBtnText');
+      var fm = document.getElementById('piForm');
+      hsDisableButton(sb, sp, bt);
+      secureFetch(BASE + '/save', {
+        method: 'POST',
+        body: JSON.stringify({
+          id              : document.getElementById('piId').value || null,
+          documentType    : 'PURCHASE_INVOICE',
+          documentDate    : document.getElementById('piDate').value,
+          partyId         : $('#piSupplierId').val() || null,
+          referenceNo     : document.getElementById('piGrnRef').value || null,
+          currency        : document.getElementById('piCurrency').value || null,
+          remarks         : document.getElementById('piRemarks').value || null,
+          discountAmount  : parseFloat(document.getElementById('piDiscount').value) || 0,
+          otherCharges    : parseFloat(document.getElementById('piOther').value)    || 0,
+          parentDocumentId: document.getElementById('piParentId').value || null,
+          lines           : _collectLines()
+        })
+      }).then(function(d){
+        if (d.success) {
+          document.getElementById('piId').value = d.id || '';
+          hsAfterSaveMessages(d.success, d.message, fm, dt);
+          bootstrap.Modal.getOrCreateInstance(document.getElementById('piModal')).hide();
+        } else {
+          Swal.fire('Error', d.message, 'error');
+        }
+      }).catch(function(err){
+        Swal.fire('Error', err.message || 'Request failed.', 'error');
+      }).finally(function(){
+        hsEnableButton(sb, sp, bt);
+      });
     }
 
     function _collectLines() {
-      var lines=[];
-      document.querySelectorAll('#piLineBody tr').forEach(function(tr,idx){
-        var itemId=tr.querySelector('[data-field="itemId"]').value;
+      var lines = [];
+      document.querySelectorAll('#piLineBody tr').forEach(function(tr, idx){
+        var itemId = tr.querySelector('[data-field="itemId"]').value;
         if (!itemId) return;
         lines.push({
-          lineNumber     : idx+1,
-          sourceLineId   : tr.querySelector('[data-field="sourceLineId"]').value||null,
+          lineNumber     : idx + 1,
+          sourceLineId   : tr.querySelector('[data-field="sourceLineId"]').value || null,
           itemId         : itemId,
-          unitCode       : tr.querySelector('[data-field="unitCode"]').value||null,
-          quantity       : parseFloat(tr.querySelector('[data-field="quantity"]').value)||null,
-          unitPrice      : parseFloat(tr.querySelector('[data-field="unitPrice"]').value)||null,
-          discountAmount : parseFloat(tr.querySelector('[data-field="discountAmount"]').value)||0,
-          taxAmount      : parseFloat(tr.querySelector('[data-field="taxAmount"]').value)||0,
-          lineAmount     : parseFloat(tr.querySelector('[data-field="lineAmount"]').value)||0,
-          lotId          : tr.querySelector('[data-field="lotId"]').value||null
+          unitCode       : tr.querySelector('[data-field="unitCode"]').value      || null,
+          quantity       : parseFloat(tr.querySelector('[data-field="quantity"]').value)       || null,
+          unitPrice      : parseFloat(tr.querySelector('[data-field="unitPrice"]').value)      || null,
+          discountAmount : parseFloat(tr.querySelector('[data-field="discountAmount"]').value) || 0,
+          taxAmount      : parseFloat(tr.querySelector('[data-field="taxAmount"]').value)      || 0,
+          lineAmount     : parseFloat(tr.querySelector('[data-field="lineAmount"]').value)     || 0,
+          lotId          : tr.querySelector('[data-field="lotId"]').value || null
         });
       });
       return lines;
     }
 
     function _resetForm() {
-      document.querySelectorAll('.pi-item-s2').forEach(function(el){ if($(el).hasClass('select2-hidden-accessible')) $(el).select2('destroy'); });
+      document.querySelectorAll('.pi-item-s2').forEach(function(el){
+        if ($(el).hasClass('select2-hidden-accessible')) $(el).select2('destroy');
+      });
       document.getElementById('piForm').reset();
-      document.getElementById('piId').value=''; document.getElementById('piParentId').value='';
-      document.getElementById('piLineBody').innerHTML=''; document.getElementById('piTotal').textContent='0.00';
-      ['piSubtotal','piTax','piGrandTotal'].forEach(function(id){ document.getElementById(id).textContent='0.00'; });
-      _lineCount=0;
-      document.getElementById('piDate').value=new Date().toISOString().substring(0,10);
-      document.getElementById('piDiscount').value='0'; document.getElementById('piOther').value='0';
-      _initSupplierS2(null,null);
+      document.getElementById('piId').value        = '';
+      document.getElementById('piParentId').value  = '';
+      document.getElementById('piLineBody').innerHTML = '';
+      document.getElementById('piTotal').textContent  = '0.00';
+      ['piSubtotal','piTax','piGrandTotal'].forEach(function(id){
+        document.getElementById(id).textContent = '0.00';
+      });
+      _lineCount = 0;
+      document.getElementById('piDate').value     = new Date().toISOString().substring(0,10);
+      document.getElementById('piDiscount').value = '0';
+      document.getElementById('piOther').value    = '0';
+      _initSupplierS2(null, null);
     }
 
     function _vf(label, value) {
-      return '<div class="col-md-4 view-group"><label class="view-label">'+label+'</label>'
-           + '<span class="form-control hs_span_show">'+(value!=null?value:'—')+'</span></div>';
+      return '<div class="col-md-4 view-group"><label class="view-label">' + label + '</label>'
+           + '<span class="form-control hs_span_show">' + (value != null ? value : '—') + '</span></div>';
     }
+
   })();
   </script>
 </section>
