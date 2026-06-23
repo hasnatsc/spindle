@@ -1,6 +1,6 @@
 -- =============================================================================
 --  Spindle ERP  —  Complete Menu + Permission + Role-Menu Seed  v3.0
---  File   : 02_seed_menu_permission_complete.sql
+--  File   : 00_seed_menu_permission_complete.sql
 --  Target : PostgreSQL
 --
 --  Covers ALL modules (including CRM, Budget, Fixed Assets):

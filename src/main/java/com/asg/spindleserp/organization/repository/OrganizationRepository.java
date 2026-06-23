@@ -9,9 +9,7 @@ import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface OrganizationRepository
-        extends JpaRepository<Organization, Long>,
-                JpaSpecificationExecutor<Organization> {
+public interface OrganizationRepository extends JpaRepository<Organization, Long>, JpaSpecificationExecutor<Organization> {
 
     Optional<Organization> findByCode(String code);
 
@@ -20,4 +18,6 @@ public interface OrganizationRepository
     boolean existsByCode(String code);
 
     boolean existsByCodeAndIdNot(String code, Long id);
+
+    Optional<Organization> findFirstByOrderByIdAsc();
 }
