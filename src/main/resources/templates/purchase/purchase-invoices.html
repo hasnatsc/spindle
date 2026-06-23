@@ -214,6 +214,52 @@
       _initSupplierS2(null, null);
       _initGrnPickerS2();
 
+
+      /**
+       * Opens a Payment Voucher pre-filled from the confirmed Purchase Invoice.
+       * Called by the 💰 action button rendered by nextDocActionButton() in
+       * PurchaseServiceImpl for CONFIRMED PURCHASE_INVOICE rows with due_amount > 0.
+       *
+       * @param {number} piId  - the Purchase Invoice BusinessDocument.id
+       */
+      window.createPaymentFromInvoice = function (piId) {
+        // Show a loading indicator on the button (optional — using SweetAlert2 toast)
+        if (typeof toast === 'function') {
+          toast('Loading', 'Preparing payment voucher…', 'info', 1500);
+        }
+
+        secureFetch('/purchase/docs/payment-prefill?invoiceId=' + piId)
+                .then(function (data) {
+                  if (!data.success) {
+                    Swal.fire({ icon: 'error', title: 'Cannot Create Payment', text: data.message });
+                    return;
+                  }
+
+                  var voucherDto = data.obj && data.obj.defaultData ? data.obj.defaultData : null;
+                  if (!voucherDto) {
+                    Swal.fire({ icon: 'error', title: 'Error', text: 'No voucher data returned.' });
+                    return;
+                  }
+
+                  // Store the pre-filled VoucherDTO in sessionStorage.
+                  // The payment-voucher.html page reads this on load to pre-fill the form.
+                  try {
+                    sessionStorage.setItem('pvPrefill', JSON.stringify(voucherDto));
+                  } catch (e) {
+                    console.warn('sessionStorage unavailable — payment form will open blank.', e);
+                  }
+
+                  // Navigate to the Payment Voucher page.
+                  // That page's DOMContentLoaded handler will read pvPrefill and call pvOpenCreate(data).
+                  window.location.href = '/accounts/payment-vouchers';
+                })
+                .catch(function (err) {
+                  Swal.fire({ icon: 'error', title: 'Error', text: err.message || 'Failed to load payment data.' });
+                });
+      };
+
+
+
       // Auto-open from GRN cascade
       var pending = sessionStorage.getItem('pendingPurchaseDoc');
       if (pending) {
@@ -304,7 +350,7 @@
       document.getElementById('piParentId').value  = data.parentDocumentId || '';
       document.getElementById('piGrnRef').value    = data.parentDocumentNo  || '';
       document.getElementById('piDate').value      = data.documentDate     || new Date().toISOString().substring(0,10);
-      document.getElementById('poCurrency').value  = data.currency         || '';
+      document.getElementById('piCurrency').value  = data.currency         || '';
       _initSupplierS2(data.partyId, data.partyDisplay);
       (data.lines||[]).forEach(function(l){ piAddLine(l); });
       piRecalcTotals();
@@ -375,7 +421,21 @@
           + _vf('Total', parseFloat(o.totalAmount||0).toFixed(2))
           + _vf('Paid', parseFloat(o.paidAmount||0).toFixed(2))
           + _vf('Due',  parseFloat(o.dueAmount||0).toFixed(2))
-          + '</div></div>';
+          + '</div>'
+                + '<table class="table table-sm table-bordered mt-3"><thead class="table-light"><tr>'
+                + '<th>#</th><th>Item</th><th>UOM</th><th class="text-end">Recv Qty</th>'
+                + '<th class="text-end">Unit Price</th><th class="text-end">Amount</th><th>Lot</th><th>QC</th>'
+                + '</tr></thead><tbody>';
+        (o.lines||[]).forEach(function(l,i){
+          html += '<tr><td>'+(i+1)+'</td><td>'+(l.itemCode||'')+(l.itemName?' — '+l.itemName:'')+'</td>'
+                  + '<td>'+(l.unitCode||'—')+'</td>'
+                  + '<td class="text-end">'+parseFloat(l.receivedQty||l.quantity||0).toFixed(3)+'</td>'
+                  + '<td class="text-end">'+parseFloat(l.unitPrice||0).toFixed(4)+'</td>'
+                  + '<td class="text-end fw-bold">'+parseFloat(l.lineAmount||0).toFixed(2)+'</td>'
+                  + '<td>'+(l.lotNumber||'—')+'</td>'
+                  + '<td>'+(l.qualityStatus||'—')+'</td></tr>';
+        });
+        html += '</tbody></table></div>';
         document.getElementById('piViewBody').innerHTML = html;
         bootstrap.Modal.getOrCreateInstance(document.getElementById('piViewModal')).show();
       });
@@ -438,7 +498,7 @@
 
     function _onSubmit(e) {
       e.preventDefault();
-      var sb=document.getElementById('piSubmitBtn'), sp=document.getElementById('piSpinner'), bt=document.getElementById('piBtnText');
+      var sb=document.getElementById('piSubmitBtn'), sp=document.getElementById('piSpinner'), bt=document.getElementById('piBtnText'), fm = document.getElementById('piForm');
       hsDisableButton(sb,sp,bt);
       secureFetch(BASE + '/save', { method:'POST', body: JSON.stringify({
         id              : document.getElementById('piId').value||null,
@@ -453,7 +513,7 @@
         parentDocumentId: document.getElementById('piParentId').value||null,
         lines           : _collectLines()
       })}).then(function(d){
-        if (d.success) { document.getElementById('piId').value=d.id||''; hsAfterSaveMessages(d,dt); bootstrap.Modal.getOrCreateInstance(document.getElementById('piModal')).hide(); }
+        if (d.success) { document.getElementById('piId').value=d.id||'';  hsAfterSaveMessages(d.success, d.message, fm, dt); bootstrap.Modal.getOrCreateInstance(document.getElementById('piModal')).hide(); }
         else { Swal.fire('Error',d.message,'error'); }
       }).catch(function(err){ Swal.fire('Error',err.message||'Request failed.','error'); })
         .finally(function(){ hsEnableButton(sb,sp,bt); });

@@ -237,7 +237,7 @@
       bootstrap.Modal.getOrCreateInstance(document.getElementById('dnModal')).show();
     }
 
-    window.dnOpenCreate = function() {
+    window.dnOpenCreate= function() {
       _resetForm();
       document.getElementById('dnModalTitle').innerHTML = '<i class="fa fa-plus me-1 text-danger"></i> New Debit Note';
       document.getElementById('dnBtnText').textContent  = 'Save Draft';
@@ -251,7 +251,7 @@
       var html = '<tr id="dnLine_'+n+'">'
         + '<td>'+n+'</td>'
         + '<td><input type="hidden" data-field="itemId" value="'+(data?data.itemId||'':'')+'"><input type="hidden" data-field="lotId" value="'+(data?data.lotId||'':'')+'"><input type="hidden" data-field="sourceLineId" value="'+(data?data.sourceLineId||'':'')+'"><select class="form-select form-select-sm dn-item-s2"></select></td>'
-        + '<td><input type="text" class="form-control form-control-sm" data-field="unitCode" value="'+(data?data.unitCode||':'':'') + '" readonly></td>'
+        + '<td><input type="text" class="form-control form-control-sm" data-field="unitCode" value="' + (data ? (data.unitCode || '') : '') + '" readonly></td>'
         + '<td><input type="number" step="0.001" min="0" class="form-control form-control-sm text-end" data-field="quantity" value="'+(data?data.quantity||'':'') + '" oninput="dnCalcLine(this.closest(\'tr\'))" required></td>'
         + '<td><input type="number" step="0.0001" class="form-control form-control-sm text-end" data-field="unitPrice" value="'+(data?data.unitPrice||'':'') + '" oninput="dnCalcLine(this.closest(\'tr\'))"></td>'
         + '<td><input type="text" class="form-control form-control-sm text-end bg-light" data-field="lineAmount" readonly value="'+(data?data.lineAmount||'0.00':'0.00')+'"></td>'

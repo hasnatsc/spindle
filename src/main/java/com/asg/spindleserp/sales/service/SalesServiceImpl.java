@@ -507,9 +507,9 @@ public class SalesServiceImpl implements SalesService {
                     .document(parent)
                     .item(item)
                     .lineNumber(num++)
-                    .itemCode(ld.getItemCode())
-                    .itemName(ld.getItemName())
-                    .unitCode(ld.getUnitCode())
+                    .itemCode(item.getItemCode())
+                    .itemName(item.getItemName())
+                    .unitCode(item.getSalesUnitCode())
                     .quantity(ld.getQuantity())
                     .deliveredQty(ld.getDeliveredQty())
                     .unitPrice(ld.getUnitPrice())
@@ -542,9 +542,7 @@ public class SalesServiceImpl implements SalesService {
         doc.setDueAmount(total.subtract(paid));
     }
 
-    private void postStockTransaction(BusinessDocument doc, BusinessDocumentLine line,
-                                      MovementType movType,
-                                      com.asg.spindleserp.organization.entity.Warehouse warehouse) {
+    private void postStockTransaction(BusinessDocument doc, BusinessDocumentLine line, MovementType movType, com.asg.spindleserp.organization.entity.Warehouse warehouse) {
         boolean isInbound = isInbound(movType);
         BigDecimal qty = isInbound ? line.getQuantity() : line.getQuantity().negate();
 

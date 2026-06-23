@@ -206,8 +206,7 @@ public class VoucherController {
 
     @GetMapping("/accounts/vouchers/open-for-party")
     @ResponseBody
-    public List<Map<String, Object>> openForParty(@RequestParam Long partyId,
-                                                   @RequestParam String partyType) {
+    public List<Map<String, Object>> openForParty(@RequestParam Long partyId, @RequestParam String partyType) {
         return voucherService.openVouchersForParty(partyId, partyType);
     }
 

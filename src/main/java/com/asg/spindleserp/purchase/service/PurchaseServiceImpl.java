@@ -1,15 +1,22 @@
 package com.asg.spindleserp.purchase.service;
 
+import com.asg.spindleserp.accounts.dto.VoucherDTO;
+import com.asg.spindleserp.accounts.entity.ChartOfAccount;
+import com.asg.spindleserp.accounts.entity.JournalEntryLine;
+import com.asg.spindleserp.accounts.entity.JournalEntryMaster;
+import com.asg.spindleserp.accounts.repository.ChartOfAccountRepository;
+import com.asg.spindleserp.accounts.repository.ChartOfAccountSubRepository;
+import com.asg.spindleserp.accounts.repository.JournalEntryMasterRepository;
 import com.asg.spindleserp.common.dto.DataTableResponse;
 import com.asg.spindleserp.common.enums.DocumentType;
 import com.asg.spindleserp.common.enums.MovementType;
+import com.asg.spindleserp.common.enums.VoucherType;
 import com.asg.spindleserp.common.util.CommonUtils;
 import com.asg.spindleserp.global.entity.*;
 import com.asg.spindleserp.global.repository.*;
 import com.asg.spindleserp.inventory.repository.ItemRepository;
 import com.asg.spindleserp.organization.repository.OrganizationRepository;
 import com.asg.spindleserp.organization.repository.WarehouseRepository;
-import com.asg.spindleserp.accounts.repository.ChartOfAccountSubRepository;
 import com.asg.spindleserp.purchase.dto.PurchaseDocumentDTO;
 import com.asg.spindleserp.security.auth.ContextProvider;
 import com.asg.spindleserp.security.auth.SecurityHelper;
@@ -34,8 +41,8 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class PurchaseServiceImpl implements PurchaseService {
 
-    private final BusinessDocumentRepository    docRepo;
-    private final BusinessDocumentLineRepository lineRepo;
+    private final BusinessDocumentRepository      docRepo;
+    private final BusinessDocumentLineRepository  lineRepo;
     private final InventoryStockBalanceRepository balanceRepo;
     private final InventoryTransactionRepository  txRepo;
     private final InventoryLotRepository          lotRepo;
@@ -45,6 +52,10 @@ public class PurchaseServiceImpl implements PurchaseService {
     private final ItemRepository                  itemRepo;
     private final DocumentSequenceService         seqService;
     private final JdbcTemplate                    jdbcTemplate;
+
+    // ── NEW: needed for full PI → JournalEntry integration ───────────────────
+    private final JournalEntryMasterRepository    jemRepo;
+    private final ChartOfAccountRepository        coaRepo;
 
     private static final DateTimeFormatter YY = DateTimeFormatter.ofPattern("yy");
 
@@ -81,14 +92,13 @@ public class PurchaseServiceImpl implements PurchaseService {
         BusinessDocument doc = findDoc(id);
         guardDraft(doc);
 
-        String type = doc.getDocumentType().name();
-
-        switch (type) {
-            case "PURCHASE_ORDER" -> confirmPO(doc);
+        switch (doc.getDocumentType().name()) {
+            case "PURCHASE_ORDER"     -> confirmPO(doc);
             case "GOODS_RECEIPT_NOTE" -> confirmGRN(doc);
             case "PURCHASE_INVOICE"   -> confirmInvoice(doc);
             case "DEBIT_NOTE"         -> confirmDebitNote(doc);
-            default -> throw new IllegalArgumentException("Unsupported document type: " + type);
+            default -> throw new IllegalArgumentException(
+                "Unsupported document type: " + doc.getDocumentType().name());
         }
 
         doc.setStatus("CONFIRMED");
@@ -97,66 +107,191 @@ public class PurchaseServiceImpl implements PurchaseService {
         return toDTO(docRepo.save(doc));
     }
 
+    // ── PO: status only, no stock ──────────────────────────────────────────
     private void confirmPO(BusinessDocument doc) {
-        // PO confirmation = no stock movement, just status change
-        // Optionally reserve stock (reservedQuantity) — deferred
         log.info("PO {} confirmed.", doc.getDocumentNo());
     }
 
+    // ── GRN: post PURCHASE_RECEIPT stock transactions ──────────────────────
     private void confirmGRN(BusinessDocument doc) {
         if (doc.getWarehouse() == null)
             throw new IllegalStateException("Warehouse is required to confirm GRN.");
 
         for (BusinessDocumentLine line : doc.getLines()) {
-            // Create InventoryLot if flagged (or if item is lot-tracked with no existing lot)
-            InventoryLot lot = resolveOrCreateLot(doc, line);
-            if (lot != null) line.setInventoryLot(lot);
-
-            // Post PURCHASE_RECEIPT transaction
+//            InventoryLot lot = resolveOrCreateLot(doc, line);
+//            if (lot != null) line.setInventoryLot(lot);
             postStockTransaction(doc, line, MovementType.PURCHASE_RECEIPT, doc.getWarehouse());
         }
         doc.setStockPosted(true);
 
-        // If this GRN is linked to a PO, check if PO is fully received
         if (doc.getParentDocument() != null) {
             checkAndCloseParentPO(doc.getParentDocument());
         }
     }
 
+    // ── PI: create PURCHASE_VOUCHER (JEM) + update supplier balance ────────
+    /**
+     * FIX: Previously only updated ChartOfAccountSub.currentBalance — creating
+     * no JournalEntryMaster record, which meant Payment Vouchers could not
+     * allocate against this invoice (openVouchersForParty returned nothing).
+     *
+     * Now:
+     *  1. Finds the AP control account (SUPPLIER type under ASSET/LIABILITY tree)
+     *  2. Finds the PURCHASE/EXPENSE account (from line items or fallback lookup)
+     *  3. Creates a PURCHASE_VOUCHER JEM with two lines:
+     *       DR  Purchases/Inventory Account   (totalAmount)
+     *       CR  Accounts Payable (sub-account = supplier)  (totalAmount)
+     *  4. Sets doc.journalEntry = the saved JEM  (FK: global_business_documents has no
+     *     direct journal_entry_id, so we store it via reference_no cross-link)
+     *  5. Updates sub-account currentBalance (AP increases)
+     */
     private void confirmInvoice(BusinessDocument doc) {
-        // Update supplier's current balance (AP)
-        if (doc.getParty() != null && doc.getTotalAmount() != null) {
-            subRepo.findById(doc.getParty().getId()).ifPresent(sub -> {
-                BigDecimal current = sub.getCurrentBalance() != null ? sub.getCurrentBalance() : BigDecimal.ZERO;
-                sub.setCurrentBalance(current.add(doc.getTotalAmount()));
-                subRepo.save(sub);
-            });
-        }
+        if (doc.getParty() == null)
+            throw new IllegalStateException("Supplier (party) is required to confirm Purchase Invoice.");
+        if (doc.getTotalAmount() == null || doc.getTotalAmount().compareTo(BigDecimal.ZERO) == 0)
+            throw new IllegalStateException("Invoice total amount cannot be zero.");
+
+        Long orgId = doc.getOrganization().getId();
+        String username = SecurityHelper.currentUsername().orElse("system");
+        String year = String.valueOf(LocalDate.now().getYear()).substring(2);
+
+        // ── Step 1: Resolve AP control account for this supplier ─────────────
+        // Look up the SUPPLIER sub-account's main account (Accounts Payable control account)
+        var supplierSub = subRepo.findById(doc.getParty().getId())
+            .orElseThrow(() -> new IllegalStateException(
+                "Supplier account not found: " + doc.getParty().getId()));
+        ChartOfAccount apAccount = supplierSub.getMainAccount();
+        if (apAccount == null)
+            throw new IllegalStateException(
+                "Supplier '" + supplierSub.getSubAccountName() +
+                "' has no linked main account (AP control account). " +
+                "Set the main account on the supplier sub-account first.");
+
+        // ── Step 2: Resolve Purchase/Expense account ─────────────────────────
+        // Try to find a PURCHASE account from first item's category, else fallback to
+        // an org-level EXPENSE account with code 'PURCH-EXP' or the first EXPENSE account.
+        ChartOfAccount purchaseAccount = resolvePurchaseAccount(orgId);
+        if (purchaseAccount == null)
+            throw new IllegalStateException(
+                "No Purchase/Expense account found for this organization. " +
+                "Create an account of type EXPENSE and configure it as the default purchase account.");
+
+        // ── Step 3: Build PURCHASE_VOUCHER JEM ───────────────────────────────
+        String voucherNo = seqService.nextDocumentNumber(orgId, "PV", year);
+
+        JournalEntryMaster jem = new JournalEntryMaster();
+        jem.setOrganization(doc.getOrganization());
+        jem.setVoucherType(VoucherType.PURCHASE_VOUCHER);
+        jem.setVoucherNo(voucherNo);
+        jem.setVoucherDate(doc.getDocumentDate());
+        jem.setDueDate(doc.getRequiredDate() != null ? doc.getRequiredDate()
+                       : doc.getDocumentDate().plusDays(30));
+        jem.setVoucherStatus("POSTED");    // PI confirm = immediately posted to GL
+        jem.setPosted(true);
+        jem.setReversed(false);
+        jem.setTotalAmount(doc.getTotalAmount());
+        jem.setTotalDebit(doc.getTotalAmount());
+        jem.setTotalCredit(doc.getTotalAmount());
+        jem.setAllocatedAmount(BigDecimal.ZERO);
+        jem.setPartyId(doc.getParty().getId());
+        jem.setPartyType("SUPPLIER");
+        jem.setReferenceNo(doc.getDocumentNo());   // links back to PI doc number
+        jem.setNarration("Purchase Invoice: " + doc.getDocumentNo()
+            + (doc.getReferenceNo() != null ? " / Ref: " + doc.getReferenceNo() : ""));
+        jem.setPostedBy(username);
+        jem.setPostedAt(LocalDateTime.now());
+        jem.setCreatedBy(username);
+        jem.setUpdatedBy(username);
+
+        // Line 1: DEBIT Purchases Account
+        JournalEntryLine drLine = new JournalEntryLine();
+        drLine.setJournalEntry(jem);
+        drLine.setLineNumber(1);
+        drLine.setAccount(purchaseAccount);
+        drLine.setEntryType(JournalEntryLine.EntryType.DEBIT);
+        drLine.setAmount(doc.getTotalAmount());
+        drLine.setNarration("Purchase: " + doc.getDocumentNo());
+        drLine.setOrganization(doc.getOrganization());
+        drLine.setTaxLine(false);
+
+        // Line 2: CREDIT Accounts Payable (sub-account = supplier)
+        JournalEntryLine crLine = new JournalEntryLine();
+        crLine.setJournalEntry(jem);
+        crLine.setLineNumber(2);
+        crLine.setAccount(apAccount);
+        crLine.setSubAccount(supplierSub);
+        crLine.setEntryType(JournalEntryLine.EntryType.CREDIT);
+        crLine.setAmount(doc.getTotalAmount());
+        crLine.setNarration("AP: " + supplierSub.getSubAccountCode()
+            + " — " + supplierSub.getSubAccountName());
+        crLine.setOrganization(doc.getOrganization());
+        crLine.setTaxLine(false);
+
+        jem.getLines().add(drLine);
+        jem.getLines().add(crLine);
+
+        JournalEntryMaster savedJem = jemRepo.save(jem);
+        log.info("Purchase Invoice {} confirmed. PURCHASE_VOUCHER {} created. Party: {}",
+                 doc.getDocumentNo(), savedJem.getVoucherNo(), supplierSub.getSubAccountName());
+
+        // ── Step 4: Update supplier's AP balance ─────────────────────────────
+        // currentBalance INCREASES (we owe more to the supplier)
+        BigDecimal current = supplierSub.getCurrentBalance() != null
+                             ? supplierSub.getCurrentBalance() : BigDecimal.ZERO;
+        supplierSub.setCurrentBalance(current.add(doc.getTotalAmount()));
+        subRepo.save(supplierSub);
+
+        // ── Step 5: Set invoice due amount = total (nothing paid yet) ─────────
+        doc.setPaidAmount(BigDecimal.ZERO);
+        doc.setDueAmount(doc.getTotalAmount());
         doc.setAccountingPosted(true);
-        log.info("Purchase Invoice {} confirmed. Payable updated for party {}.",
-                doc.getDocumentNo(), doc.getParty() != null ? doc.getParty().getId() : "N/A");
     }
 
+    /**
+     * Looks up the purchase/expense account for this org.
+     * Priority:
+     *  1. COA with account_code = 'PURCHASE-ACCOUNT' (org-level config)
+     *  2. First active EXPENSE account whose code starts with 'PURCH'
+     *  3. Any first active EXPENSE account
+     */
+    private ChartOfAccount resolvePurchaseAccount(Long orgId) {
+        // 1. Exact code lookup
+        Optional<ChartOfAccount> exact = coaRepo
+            .findByOrganizationIdAndAccountCodeIgnoreCase(orgId, "PURCHASE-ACCOUNT");
+        if (exact.isPresent()) return exact.get();
+
+        // 2. PURCH* EXPENSE account
+        Optional<ChartOfAccount> byPrefix = coaRepo
+            .findFirstByOrganizationIdAndAccountTypeAndAccountCodeStartingWithIgnoreCaseAndIsActiveTrue(
+                orgId, ChartOfAccount.AccountType.EXPENSE, "PURCH");
+        if (byPrefix.isPresent()) return byPrefix.get();
+
+        // 3. First EXPENSE account
+        return coaRepo
+            .findFirstByOrganizationIdAndAccountTypeAndIsActiveTrue(
+                orgId, ChartOfAccount.AccountType.EXPENSE)
+            .orElse(null);
+    }
+
+    // ── Debit Note: post SUPPLIER_RETURN stock + reduce AP balance ─────────
     private void confirmDebitNote(BusinessDocument doc) {
         if (doc.getWarehouse() == null)
-            throw new IllegalStateException("Warehouse is required to confirm Debit Note (return).");
+            throw new IllegalStateException("Warehouse is required to confirm Debit Note.");
 
         for (BusinessDocumentLine line : doc.getLines()) {
-            // Validate available stock for return
             BigDecimal avail = availableQty(line, doc.getWarehouse().getId());
-            if (avail.compareTo(line.getQuantity()) < 0) {
+            if (avail.compareTo(line.getQuantity()) < 0)
                 throw new IllegalArgumentException(
                     "Insufficient stock to return item '" + line.getItemCode() +
                     "'. Available: " + avail + ", Requested: " + line.getQuantity());
-            }
             postStockTransaction(doc, line, MovementType.SUPPLIER_RETURN, doc.getWarehouse());
         }
         doc.setStockPosted(true);
 
-        // Reduce supplier balance (reducing payable)
         if (doc.getParty() != null && doc.getTotalAmount() != null) {
             subRepo.findById(doc.getParty().getId()).ifPresent(sub -> {
-                BigDecimal current = sub.getCurrentBalance() != null ? sub.getCurrentBalance() : BigDecimal.ZERO;
+                BigDecimal current = sub.getCurrentBalance() != null
+                                     ? sub.getCurrentBalance() : BigDecimal.ZERO;
                 sub.setCurrentBalance(current.subtract(doc.getTotalAmount()));
                 subRepo.save(sub);
             });
@@ -210,9 +345,9 @@ public class PurchaseServiceImpl implements PurchaseService {
     public PurchaseDocumentDTO populateFromSource(Long parentId, String childType) {
         BusinessDocument parent = findDoc(parentId);
 
-        if (!"CONFIRMED".equals(parent.getStatus())) {
-            throw new IllegalStateException("Source document must be CONFIRMED before creating " + childType + ".");
-        }
+        if (!"CONFIRMED".equals(parent.getStatus()))
+            throw new IllegalStateException(
+                "Source document must be CONFIRMED before creating " + childType + ".");
 
         PurchaseDocumentDTO child = PurchaseDocumentDTO.builder()
             .documentType(childType)
@@ -247,27 +382,28 @@ public class PurchaseServiceImpl implements PurchaseService {
 
             switch (childType) {
                 case "GOODS_RECEIPT_NOTE" -> {
-                    // Copy ordered qty; received qty to be filled by user or defaulted
                     line.setQuantity(pl.getQuantity());
-                    line.setReceivedQty(pl.getQuantity()); // default to full qty
+                    line.setReceivedQty(pl.getQuantity());
                     line.setLineAmount(pl.getLineAmount());
                     line.setCreateLot(true);
                 }
                 case "PURCHASE_INVOICE" -> {
-                    // From GRN: use received qty as invoice qty
-                    BigDecimal qty = pl.getReceivedQty() != null ? pl.getReceivedQty() : pl.getQuantity();
+                    BigDecimal qty = pl.getReceivedQty() != null
+                                     ? pl.getReceivedQty() : pl.getQuantity();
                     line.setQuantity(qty);
-                    line.setLotId(pl.getInventoryLot() != null ? pl.getInventoryLot().getId() : null);
-                    line.setLotNumber(pl.getInventoryLot() != null ? pl.getInventoryLot().getLotNumber() : null);
-                    if (pl.getUnitPrice() != null) {
+                    line.setLotId(pl.getInventoryLot() != null
+                                  ? pl.getInventoryLot().getId() : null);
+                    line.setLotNumber(pl.getInventoryLot() != null
+                                      ? pl.getInventoryLot().getLotNumber() : null);
+                    if (pl.getUnitPrice() != null)
                         line.setLineAmount(qty.multiply(pl.getUnitPrice()));
-                    }
                 }
                 case "DEBIT_NOTE" -> {
-                    // Return: copy quantity; user adjusts
                     line.setQuantity(pl.getQuantity());
-                    line.setLotId(pl.getInventoryLot() != null ? pl.getInventoryLot().getId() : null);
-                    line.setLotNumber(pl.getInventoryLot() != null ? pl.getInventoryLot().getLotNumber() : null);
+                    line.setLotId(pl.getInventoryLot() != null
+                                  ? pl.getInventoryLot().getId() : null);
+                    line.setLotNumber(pl.getInventoryLot() != null
+                                      ? pl.getInventoryLot().getLotNumber() : null);
                     line.setLineAmount(pl.getLineAmount());
                 }
             }
@@ -279,14 +415,101 @@ public class PurchaseServiceImpl implements PurchaseService {
     }
 
     // =========================================================================
+    // NEW: POPULATE PAYMENT VOUCHER FROM CONFIRMED PURCHASE INVOICE
+    // =========================================================================
+
+    /**
+     * Called by GET /purchase/docs/payment-prefill?invoiceId={id}
+     *
+     * Returns a pre-filled VoucherDTO ready for the Payment Voucher form.
+     *
+     * Pre-fills:
+     *   voucherType = PAYMENT_VOUCHER
+     *   partyId / partyDisplay = supplier from invoice
+     *   partyType = SUPPLIER
+     *   totalAmount = invoice dueAmount (remaining unpaid)
+     *   narration = "Payment against " + invoice.documentNo
+     *   allocations[0] = {sourceVoucherId = JEM.id, allocatedAmount = dueAmount}
+     *
+     * The frontend opens the Payment Voucher form pre-filled with this data.
+     * User selects the bank/cash account and confirms the payment amount,
+     * then calls POST /accounts/vouchers/save → POST /accounts/vouchers/post/{id}
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public VoucherDTO populatePaymentFromInvoice(Long invoiceId) {
+        BusinessDocument invoice = findDoc(invoiceId);
+
+        if (!"CONFIRMED".equals(invoice.getStatus()))
+            throw new IllegalStateException(
+                "Invoice must be CONFIRMED before creating a payment. Status: "
+                + invoice.getStatus());
+        if (!Boolean.TRUE.equals(invoice.isAccountingPosted()))
+            throw new IllegalStateException(
+                "Invoice " + invoice.getDocumentNo() +
+                " has not been posted to accounts yet. Confirm it first.");
+
+        BigDecimal dueAmount = invoice.getDueAmount() != null
+                               ? invoice.getDueAmount() : BigDecimal.ZERO;
+        if (dueAmount.compareTo(BigDecimal.ZERO) <= 0)
+            throw new IllegalStateException(
+                "Invoice " + invoice.getDocumentNo() +
+                " is already fully paid (due amount = 0).");
+
+        // Find the matching PURCHASE_VOUCHER JEM by reference_no = invoice.documentNo
+        JournalEntryMaster jem = jemRepo
+            .findByOrganizationIdAndReferenceNoAndVoucherType(
+                invoice.getOrganization().getId(),
+                invoice.getDocumentNo(),
+                VoucherType.PURCHASE_VOUCHER)
+            .orElseThrow(() -> new IllegalStateException(
+                "No accounting voucher found for invoice " + invoice.getDocumentNo() +
+                ". Please confirm the invoice again to regenerate the accounting entry."));
+
+        // Build pre-filled VoucherDTO
+        VoucherDTO voucherDTO = new VoucherDTO();
+        voucherDTO.setVoucherType("PAYMENT_VOUCHER");
+        voucherDTO.setVoucherStatus("DRAFT");
+        voucherDTO.setVoucherDate(LocalDate.now());
+        voucherDTO.setDueDate(invoice.getRequiredDate());
+        voucherDTO.setTotalAmount(dueAmount);
+        voucherDTO.setPartyType("SUPPLIER");
+        voucherDTO.setPartyId(invoice.getParty().getId());
+        voucherDTO.setPartyDisplay(invoice.getParty().getSubAccountCode()
+            + " — " + invoice.getParty().getSubAccountName());
+        voucherDTO.setPartyBalance(invoice.getParty().getCurrentBalance());
+        voucherDTO.setReferenceNo(invoice.getDocumentNo());
+        voucherDTO.setNarration("Payment against Purchase Invoice: " + invoice.getDocumentNo());
+
+        // Pre-fill allocation against the JEM
+        VoucherDTO.AllocationDTO alloc = new VoucherDTO.AllocationDTO();
+        alloc.setSourceVoucherId(jem.getId());
+        alloc.setSourceVoucherNo(jem.getVoucherNo());
+        alloc.setSourceVoucherType(jem.getVoucherType().name());
+        alloc.setSourceDueDate(jem.getDueDate());
+        alloc.setSourceTotal(jem.getTotalAmount());
+        alloc.setSourceAlreadyAllocated(jem.getAllocatedAmount());
+        alloc.setSourceRemaining(dueAmount);
+        alloc.setAllocatedAmount(dueAmount);   // default = full settlement
+        alloc.setDiscountAmount(BigDecimal.ZERO);
+        alloc.setWriteOffAmount(BigDecimal.ZERO);
+        alloc.setAllocationDate(LocalDate.now());
+        alloc.setNarration("Settlement of " + invoice.getDocumentNo());
+        voucherDTO.setAllocations(List.of(alloc));
+
+        return voucherDTO;
+    }
+
+    // =========================================================================
     // DATATABLE
     // =========================================================================
 
     @Override
     @Transactional(readOnly = true)
-    public DataTableResponse datatableList(String documentType, int draw, int start, int length, String search) {
-        Long orgId = SecurityHelper.currentOrgId().orElse(null);
-        String fn  = jsFnPrefix(documentType);
+    public DataTableResponse datatableList(String documentType, int draw, int start,
+                                            int length, String search) {
+        Long   orgId = SecurityHelper.currentOrgId().orElse(null);
+        String fn    = jsFnPrefix(documentType);
 
         String where = "WHERE d.document_type = '" + documentType + "'"
             + " AND d.is_deleted = false"
@@ -295,7 +518,6 @@ public class PurchaseServiceImpl implements PurchaseService {
                 "d.document_no", "d.reference_no", "d.document_no_manual",
                 "s.sub_account_code", "s.sub_account_name", "d.status"));
 
-        // "Create GRN from this PO" action — only shown for PURCHASE_ORDER CONFIRMED rows
         String nextDocAction = nextDocActionButton(documentType, fn);
 
         String sql = String.format("""
@@ -436,7 +658,8 @@ public class PurchaseServiceImpl implements PurchaseService {
 
         if (e.getParty() != null) {
             d.setPartyId(e.getParty().getId());
-            d.setPartyDisplay(e.getParty().getSubAccountCode() + " — " + e.getParty().getSubAccountName());
+            d.setPartyDisplay(e.getParty().getSubAccountCode() + " — "
+                              + e.getParty().getSubAccountName());
         }
         if (e.getWarehouse() != null) {
             d.setWarehouseId(e.getWarehouse().getId());
@@ -446,7 +669,7 @@ public class PurchaseServiceImpl implements PurchaseService {
             d.setParentDocumentId(e.getParentDocument().getId());
             d.setParentDocumentNo(e.getParentDocument().getDocumentNo());
             d.setParentDocumentType(e.getParentDocument().getDocumentType() != null
-                    ? e.getParentDocument().getDocumentType().name() : null);
+                ? e.getParentDocument().getDocumentType().name() : null);
         }
 
         List<PurchaseDocumentDTO.LineDTO> lines = e.getLines().stream().map(l -> {
@@ -454,9 +677,7 @@ public class PurchaseServiceImpl implements PurchaseService {
             ld.setId(l.getId());
             ld.setSourceLineId(l.getSourceLine() != null ? l.getSourceLine().getId() : null);
             ld.setLineNumber(l.getLineNumber());
-            if (l.getItem() != null) {
-                ld.setItemId(l.getItem().getId());
-            }
+            if (l.getItem() != null) ld.setItemId(l.getItem().getId());
             ld.setItemCode(l.getItemCode());
             ld.setItemName(l.getItemName());
             ld.setUnitCode(l.getUnitCode());
@@ -509,29 +730,26 @@ public class PurchaseServiceImpl implements PurchaseService {
         e.setTermsAndConditions(dto.getTermsAndConditions());
         e.setRemarks(dto.getRemarks());
 
-        if (e.getOrganization() == null) {
+        if (e.getOrganization() == null)
             e.setOrganization(orgRepo.getReferenceById(orgId));
-        }
-        // Supplier (party)
-        if (dto.getPartyId() != null) {
+        if (dto.getPartyId() != null)
             e.setParty(subRepo.getReferenceById(dto.getPartyId()));
-        }
-        // Warehouse
-        if (dto.getWarehouseId() != null) {
+        if (dto.getWarehouseId() != null)
             e.setWarehouse(whRepo.getReferenceById(dto.getWarehouseId()));
-        }
-        // Parent document (for cascade)
-        if (dto.getParentDocumentId() != null && e.getParentDocument() == null) {
+        if (dto.getParentDocumentId() != null && e.getParentDocument() == null)
             e.setParentDocument(docRepo.getReferenceById(dto.getParentDocumentId()));
-        }
-        // Audit
+
         String user = SecurityHelper.currentUsername().orElse("system");
         if (e.getCreatedBy() == null) e.setCreatedBy(user);
         e.setUpdatedBy(user);
         if (e.getCreatedAt() == null) e.setCreatedAt(LocalDateTime.now());
         e.setUpdatedAt(LocalDateTime.now());
         if (e.getDocumentNo() == null || e.getDocumentNo().isBlank()) {
-            e.setDocumentNo(seqService.nextDocumentNumber(e.getOrganization().getId(), e.getDocumentType().getCode() + "-" + Objects.requireNonNull(ContextProvider.getOrganizationReference()).getCode(), String.valueOf(java.time.Year.now().getValue())));
+            e.setDocumentNo(seqService.nextDocumentNumber(
+                e.getOrganization().getId(),
+                e.getDocumentType().getCode() + "-" +
+                Objects.requireNonNull(ContextProvider.getOrganizationReference()).getCode(),
+                String.valueOf(java.time.Year.now().getValue())));
         }
     }
 
@@ -548,9 +766,9 @@ public class PurchaseServiceImpl implements PurchaseService {
                 .document(parent)
                 .item(item)
                 .lineNumber(num++)
-                .itemCode(ld.getItemCode())
-                .itemName(ld.getItemName())
-                .unitCode(ld.getUnitCode())
+                .itemCode(item.getItemCode())
+                .itemName(item.getItemName())
+                .unitCode(item.getPurchaseUnitCode())
                 .quantity(ld.getQuantity())
                 .deliveredQty(ld.getDeliveredQty())
                 .receivedQty(ld.getReceivedQty())
@@ -567,14 +785,11 @@ public class PurchaseServiceImpl implements PurchaseService {
                 .remarks(ld.getRemarks())
                 .build();
 
-            // Set source line FK for traceability
-            if (ld.getSourceLineId() != null) {
+            if (ld.getSourceLineId() != null)
                 line.setSourceLine(lineRepo.getReferenceById(ld.getSourceLineId()));
-            }
-            // Set lot if already exists
-            if (ld.getLotId() != null) {
+            if (ld.getLotId() != null)
                 line.setInventoryLot(lotRepo.getReferenceById(ld.getLotId()));
-            }
+
             parent.getLines().add(line);
         }
     }
@@ -596,12 +811,9 @@ public class PurchaseServiceImpl implements PurchaseService {
         doc.setDueAmount(total.subtract(paid));
     }
 
-    /**
-     * Posts one InventoryTransaction and upserts InventoryStockBalance.
-     * Mirrors StockMovementServiceImpl.postInventoryTransaction pattern exactly.
-     */
     private void postStockTransaction(BusinessDocument doc, BusinessDocumentLine line,
-                                      MovementType movType, com.asg.spindleserp.organization.entity.Warehouse warehouse) {
+                                       MovementType movType,
+                                       com.asg.spindleserp.organization.entity.Warehouse warehouse) {
         boolean isInbound = isInbound(movType);
         BigDecimal qty = isInbound ? line.getQuantity() : line.getQuantity().negate();
 
@@ -619,16 +831,15 @@ public class PurchaseServiceImpl implements PurchaseService {
                 .build());
 
         BigDecimal newQty = balance.getQuantity().add(qty);
-        if (!isInbound && newQty.compareTo(BigDecimal.ZERO) < 0) {
+        if (!isInbound && newQty.compareTo(BigDecimal.ZERO) < 0)
             throw new IllegalArgumentException(
-                "Negative stock would result for item '" + line.getItemCode() +
+                "Negative stock for item '" + line.getItemCode() +
                 "' in warehouse '" + warehouse.getWarehouseCode() + "'.");
-        }
+
         balance.setQuantity(newQty);
         balance.setLastTransactionTime(LocalDateTime.now());
-        if (isInbound && line.getUnitPrice() != null) {
+        if (isInbound && line.getUnitPrice() != null)
             updateAverageCost(balance, line.getQuantity(), line.getUnitPrice());
-        }
         balanceRepo.save(balance);
 
         InventoryTransaction tx = InventoryTransaction.builder()
@@ -651,24 +862,18 @@ public class PurchaseServiceImpl implements PurchaseService {
 
     private void updateAverageCost(InventoryStockBalance balance, BigDecimal inQty, BigDecimal inCost) {
         if (inQty.compareTo(BigDecimal.ZERO) <= 0) return;
-        BigDecimal oldQty   = balance.getQuantity().subtract(inQty);
-        BigDecimal oldCost  = balance.getAverageCost() != null ? balance.getAverageCost() : BigDecimal.ZERO;
+        BigDecimal oldQty  = balance.getQuantity().subtract(inQty);
+        BigDecimal oldCost = balance.getAverageCost() != null ? balance.getAverageCost() : BigDecimal.ZERO;
         BigDecimal newTotal = oldQty.multiply(oldCost).add(inQty.multiply(inCost));
-        BigDecimal newQty   = balance.getQuantity();
-        if (newQty.compareTo(BigDecimal.ZERO) > 0) {
+        BigDecimal newQty  = balance.getQuantity();
+        if (newQty.compareTo(BigDecimal.ZERO) > 0)
             balance.setAverageCost(newTotal.divide(newQty, 4, RoundingMode.HALF_UP));
-        }
     }
 
     private InventoryLot resolveOrCreateLot(BusinessDocument doc, BusinessDocumentLine line) {
         if (line.getInventoryLot() != null) return line.getInventoryLot();
-
-        // Auto-create lot for GRN if item requires lot tracking
-        // Lot number: GRN-docNo-lineNo
         String lotNumber = doc.getDocumentNo() + "-L" + line.getLineNumber();
         Long orgId = doc.getOrganization().getId();
-
-        // Check if lot already exists
         return lotRepo.findByOrganizationIdAndLotNumber(orgId, lotNumber).orElseGet(() -> {
             InventoryLot lot = InventoryLot.builder()
                 .organizationId(orgId)
@@ -684,7 +889,6 @@ public class PurchaseServiceImpl implements PurchaseService {
     }
 
     private void checkAndCloseParentPO(BusinessDocument po) {
-        // Close PO if all lines are fully received
         boolean allReceived = po.getLines().stream().allMatch(l -> {
             BigDecimal received = l.getReceivedQty() != null ? l.getReceivedQty() : BigDecimal.ZERO;
             return received.compareTo(l.getQuantity()) >= 0;
@@ -716,10 +920,10 @@ public class PurchaseServiceImpl implements PurchaseService {
     }
 
     private void guardDraft(BusinessDocument doc) {
-        if (!"DRAFT".equals(doc.getStatus())) {
+        if (!"DRAFT".equals(doc.getStatus()))
             throw new IllegalStateException(
-                "Document " + doc.getDocumentNo() + " is " + doc.getStatus() + ". Only DRAFT documents can be modified.");
-        }
+                "Document " + doc.getDocumentNo() + " is " + doc.getStatus() +
+                ". Only DRAFT documents can be modified.");
     }
 
     private String jsFnPrefix(String type) {
@@ -728,27 +932,30 @@ public class PurchaseServiceImpl implements PurchaseService {
             case "GOODS_RECEIPT_NOTE" -> "grn";
             case "PURCHASE_INVOICE"   -> "pi";
             case "DEBIT_NOTE"         -> "dn";
-            default -> "doc";
+            default                   -> "doc";
         };
     }
 
-    /**
-     * Builds the SQL expression for the "Create Next Document" cascade button.
-     * Only shown for CONFIRMED rows. Empty string '' is a no-op in SQL concat.
-     */
     private String nextDocActionButton(String docType, String fn) {
         return switch (docType) {
             case "PURCHASE_ORDER" ->
                 "CASE WHEN d.status = 'CONFIRMED' THEN " +
-                "'<a href=\"javascript:;\" onclick=\"createGRNFromPO(' || d.id || ')\" class=\"btn btn-white btn-sm\" title=\"Create GRN\"><i class=\"fas fa-clipboard-check text-teal\"></i></a>' " +
+                "'<a href=\"javascript:;\" onclick=\"createGRNFromPO(' || d.id || ')\" " +
+                "class=\"btn btn-white btn-sm\" title=\"Create GRN\">" +
+                "<i class=\"fas fa-clipboard-check text-teal\"></i></a>' " +
                 "ELSE '''' END";
             case "GOODS_RECEIPT_NOTE" ->
                 "CASE WHEN d.status = 'CONFIRMED' THEN " +
-                "'<a href=\"javascript:;\" onclick=\"createInvoiceFromGRN(' || d.id || ')\" class=\"btn btn-white btn-sm\" title=\"Create Invoice\"><i class=\"fas fa-file-invoice text-orange\"></i></a>' " +
+                "'<a href=\"javascript:;\" onclick=\"createInvoiceFromGRN(' || d.id || ')\" " +
+                "class=\"btn btn-white btn-sm\" title=\"Create Invoice\">" +
+                "<i class=\"fas fa-file-invoice text-orange\"></i></a>' " +
                 "ELSE '''' END";
             case "PURCHASE_INVOICE" ->
-                "CASE WHEN d.status = 'CONFIRMED' AND d.due_amount > 0 THEN " +
-                "'<a href=\"javascript:;\" onclick=\"createPaymentFromInvoice(' || d.id || ')\" class=\"btn btn-white btn-sm\" title=\"Make Payment\"><i class=\"fas fa-money-check-dollar text-primary\"></i></a>' " +
+                // FIX: createPaymentFromInvoice is now wired to the real endpoint
+                "CASE WHEN d.status = 'CONFIRMED' AND COALESCE(d.due_amount,0) > 0 THEN " +
+                "'<a href=\"javascript:;\" onclick=\"createPaymentFromInvoice(' || d.id || ')\" " +
+                "class=\"btn btn-white btn-sm\" title=\"Make Payment\">" +
+                "<i class=\"fas fa-money-check-dollar text-primary\"></i></a>' " +
                 "ELSE '''' END";
             default -> "''";
         };

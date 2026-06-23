@@ -322,7 +322,7 @@
       document.getElementById('dlRef').value      = data.referenceNo||'';
       _initCustomerS2(data.partyId, data.partyDisplay);
       if (data.warehouseId) document.getElementById('dlWarehouseId').value = data.warehouseId;
-      if (data.incoterms) document.getElementById('dlIncoterms').value = data.incoterms;
+      // if (data.incoterms) document.getElementById('dlIncoterms').value = data.incoterms;
       (data.lines||[]).forEach(function(l){ dlAddLine(l); });
       dlRecalcTotal();
       document.getElementById('dlModalTitle').innerHTML = '<i class="fa fa-shipping-fast me-1 text-info"></i> New Delivery from SO '+(data.parentDocumentNo||'');
@@ -440,7 +440,7 @@
 
     function _onSubmit(e) {
       e.preventDefault();
-      var sb=document.getElementById('dlSubmitBtn'),sp=document.getElementById('dlSpinner'),bt=document.getElementById('dlBtnText');
+      var sb=document.getElementById('dlSubmitBtn'),sp=document.getElementById('dlSpinner'),bt=document.getElementById('dlBtnText'), fm = document.getElementById('dlForm');
       hsDisableButton(sb,sp,bt);
       var lines=[];
       document.querySelectorAll('#dlLineBody tr').forEach(function(tr,idx){
@@ -468,7 +468,7 @@
         parentDocumentId:document.getElementById('dlParentId').value||null,
         lines
       })}).then(function(d){
-        if (d.success) { document.getElementById('dlId').value=d.id||''; hsAfterSaveMessages(d,dt); bootstrap.Modal.getOrCreateInstance(document.getElementById('dlModal')).hide(); }
+        if (d.success) { document.getElementById('dlId').value=d.id||''; hsAfterSaveMessages(d.success, d.message, fm, dt); bootstrap.Modal.getOrCreateInstance(document.getElementById('dlModal')).hide(); }
         else { Swal.fire('Error',d.message,'error'); }
       }).catch(function(err){ Swal.fire('Error',err.message||'Request failed.','error'); })
         .finally(function(){ hsEnableButton(sb,sp,bt); });

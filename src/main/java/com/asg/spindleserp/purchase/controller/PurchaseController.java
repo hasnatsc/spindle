@@ -1,7 +1,9 @@
 package com.asg.spindleserp.purchase.controller;
 
+import com.asg.spindleserp.accounts.dto.VoucherDTO;
 import com.asg.spindleserp.common.dto.DataTableResponse;
 import com.asg.spindleserp.purchase.dto.PurchaseDocumentDTO;
+import com.asg.spindleserp.purchase.service.PurchaseDashboardService;
 import com.asg.spindleserp.purchase.service.PurchaseService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -14,40 +16,29 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * PurchaseController — one controller, one service, four document pages.
- *
- * Pages:
- *   GET /purchase/orders          → purchase-orders.html
- *   GET /purchase/grns            → purchase-grns.html
- *   GET /purchase/invoices        → purchase-invoices.html
- *   GET /purchase/debit-notes     → purchase-debit-notes.html
- *
- * Shared REST (discriminated by documentType param or body):
- *   GET    /purchase/docs/list?documentType=PURCHASE_ORDER
- *   GET    /purchase/docs/show/{id}
- *   POST   /purchase/docs/save
- *   POST   /purchase/docs/confirm/{id}
- *   POST   /purchase/docs/cancel/{id}
- *   DELETE /purchase/docs/delete/{id}
- *   GET    /purchase/docs/populate?parentId=&childType=   ← cascade populate
- *   GET    /purchase/docs/open-pos?supplierId=             ← PO picker for GRN
- *   GET    /purchase/docs/confirmed-grns?supplierId=       ← GRN picker for Invoice
- *
- * JS prefix: po / grn / pi / dn
- * Cascade functions called from DataTable action buttons:
- *   createGRNFromPO(poId)           → calls /purchase/docs/populate?parentId=&childType=GOODS_RECEIPT_NOTE
- *   createInvoiceFromGRN(grnId)     → calls /purchase/docs/populate?parentId=&childType=PURCHASE_INVOICE
- *   createPaymentFromInvoice(invId) → opens payment voucher modal pre-filled with invoice
- */
 @Slf4j
 @Controller
 @RequiredArgsConstructor
 public class PurchaseController {
 
-    private final PurchaseService purchaseService;
+    private final PurchaseService          purchaseService;
+    private final PurchaseDashboardService dashboardService;
 
-    // ── Pages ──────────────────────────────────────────────────────────────────
+    // ── DASHBOARD ─────────────────────────────────────────────────────────────
+
+    @GetMapping("/purchase/dashboard")
+    public String dashboardPage(Model model) {
+        model.addAttribute("activePage", "purchase-dashboard");
+        return "dashboard/purchase-dashboard";
+    }
+
+    @GetMapping("/purchase/dashboard/summary")
+    @ResponseBody
+    public Map<String, Object> dashboardSummary() {
+        return dashboardService.summary();
+    }
+
+    // ── DOCUMENT PAGES ────────────────────────────────────────────────────────
 
     @GetMapping("/purchase/orders")
     public String poPage(Model model) {
@@ -81,7 +72,7 @@ public class PurchaseController {
         return "purchase/purchase-debit-notes";
     }
 
-    // ── DataTable ─────────────────────────────────────────────────────────────
+    // ── DATATABLE ─────────────────────────────────────────────────────────────
 
     @GetMapping("/purchase/docs/list")
     @ResponseBody
@@ -94,7 +85,7 @@ public class PurchaseController {
         return purchaseService.datatableList(documentType, draw, start, length, search);
     }
 
-    // ── Show ──────────────────────────────────────────────────────────────────
+    // ── SHOW ──────────────────────────────────────────────────────────────────
 
     @GetMapping("/purchase/docs/show/{id}")
     @ResponseBody
@@ -107,7 +98,7 @@ public class PurchaseController {
         return res;
     }
 
-    // ── Save (create / update DRAFT) ──────────────────────────────────────────
+    // ── SAVE ──────────────────────────────────────────────────────────────────
 
     @PostMapping("/purchase/docs/save")
     @ResponseBody
@@ -115,15 +106,15 @@ public class PurchaseController {
         Map<String, Object> res = new HashMap<>();
         try {
             PurchaseDocumentDTO saved = purchaseService.save(dto);
-            res.put("success", true);
-            res.put("id",      saved.getId());
+            res.put("success",    true);
+            res.put("id",         saved.getId());
             res.put("documentNo", saved.getDocumentNo());
-            res.put("message", dto.getId() != null ? "Document updated." : "Document saved as draft.");
+            res.put("message",    dto.getId() != null ? "Document updated." : "Document saved as draft.");
         } catch (Exception e) { res.put("success", false); res.put("message", e.getMessage()); }
         return res;
     }
 
-    // ── Confirm ───────────────────────────────────────────────────────────────
+    // ── CONFIRM ───────────────────────────────────────────────────────────────
 
     @PostMapping("/purchase/docs/confirm/{id}")
     @ResponseBody
@@ -137,7 +128,7 @@ public class PurchaseController {
         return res;
     }
 
-    // ── Cancel ────────────────────────────────────────────────────────────────
+    // ── CANCEL ────────────────────────────────────────────────────────────────
 
     @PostMapping("/purchase/docs/cancel/{id}")
     @ResponseBody
@@ -151,26 +142,25 @@ public class PurchaseController {
         return res;
     }
 
-    // ── Delete ────────────────────────────────────────────────────────────────
+    // ── DELETE ────────────────────────────────────────────────────────────────
 
     @DeleteMapping("/purchase/docs/delete/{id}")
     @ResponseBody
     public Map<String, Object> delete(@PathVariable Long id) {
         Map<String, Object> res = new HashMap<>();
-        try { purchaseService.delete(id); res.put("success", true); res.put("message", "Document deleted."); }
-        catch (Exception e) { res.put("success", false); res.put("message", e.getMessage()); }
+        try {
+            purchaseService.delete(id);
+            res.put("success", true);
+            res.put("message", "Document deleted.");
+        } catch (Exception e) { res.put("success", false); res.put("message", e.getMessage()); }
         return res;
     }
 
-    // ── Cascade populate ──────────────────────────────────────────────────────
+    // ── CASCADE POPULATE (PO→GRN, GRN→PI, PI→DN) ─────────────────────────────
 
-    /**
-     * Populates a new child DTO from a confirmed parent document.
-     * Called by frontend cascade buttons: createGRNFromPO / createInvoiceFromGRN.
-     */
     @GetMapping("/purchase/docs/populate")
     @ResponseBody
-    public Map<String, Object> populate(@RequestParam Long   parentId,
+    public Map<String, Object> populate(@RequestParam Long parentId,
                                          @RequestParam String childType) {
         Map<String, Object> res = new HashMap<>();
         try {
@@ -181,16 +171,48 @@ public class PurchaseController {
         return res;
     }
 
-    // ── AJAX lookups ──────────────────────────────────────────────────────────
+    // ── PAYMENT PREFILL  PI → Payment Voucher (THE FIX) ──────────────────────
 
-    /** Confirmed POs for a supplier — displayed in GRN form "select PO" picker */
+    /**
+     * Called by createPaymentFromInvoice(piId) in purchase-invoices.html.
+     *
+     * Returns a pre-filled VoucherDTO. JS stores it in sessionStorage then
+     * redirects to /accounts/payment-vouchers. That page reads from sessionStorage
+     * and pre-fills: supplier, amount, due-date, allocation row.
+     *
+     * Full flow:
+     *   1. User clicks 💰 on confirmed PI row  → createPaymentFromInvoice(piId)
+     *   2. JS: GET /purchase/docs/payment-prefill?invoiceId={piId}
+     *   3. Server returns { success, redirectTo, obj.defaultData: VoucherDTO }
+     *   4. JS: sessionStorage.setItem('pvPrefill', JSON.stringify(data.obj.defaultData))
+     *   5. JS: window.location.href = '/accounts/payment-vouchers'
+     *   6. Payment-voucher page: on load → reads sessionStorage.pvPrefill → pvOpenCreate(data)
+     *   7. User picks bank/cash account → Save (DRAFT) → Post
+     *   8. VoucherServiceImpl.post() → processAllocations() → updates JEM.allocatedAmount
+     *   9. PurchaseService.confirmInvoice() already set doc.dueAmount = totalAmount
+     *      After payment posted, VoucherServiceImpl adjusts supplier balance downward
+     */
+    @GetMapping("/purchase/docs/payment-prefill")
+    @ResponseBody
+    public Map<String, Object> paymentPrefill(@RequestParam Long invoiceId) {
+        Map<String, Object> res = new HashMap<>();
+        try {
+            VoucherDTO dto = purchaseService.populatePaymentFromInvoice(invoiceId);
+            res.put("success",    true);
+            res.put("redirectTo", "/accounts/payment-vouchers");
+            res.put("obj",        Map.of("defaultData", dto));
+        } catch (Exception e) { res.put("success", false); res.put("message", e.getMessage()); }
+        return res;
+    }
+
+    // ── AJAX LOOKUPS ──────────────────────────────────────────────────────────
+
     @GetMapping("/purchase/docs/open-pos")
     @ResponseBody
     public List<Map<String, Object>> openPOs(@RequestParam Long supplierId) {
         return purchaseService.openPOsForSupplier(supplierId);
     }
 
-    /** Confirmed GRNs for a supplier — displayed in Invoice form "select GRN" picker */
     @GetMapping("/purchase/docs/confirmed-grns")
     @ResponseBody
     public List<Map<String, Object>> confirmedGRNs(@RequestParam Long supplierId) {
