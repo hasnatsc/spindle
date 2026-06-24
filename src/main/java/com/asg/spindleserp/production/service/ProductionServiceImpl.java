@@ -920,6 +920,7 @@ public class ProductionServiceImpl implements ProductionService {
         int num = 1;
         for (ProductionDTO.InputDTO ld : dtos) {
             if (ld.getRawItemId() == null) continue;
+            ld.setWarehouseId(ContextProvider.getWarehouseId());
             BigDecimal uc = nvl2(ld.getUnitCost());
             BigDecimal ac = nvl2(ld.getActualQuantity());
             ProductionInput inp = ProductionInput.builder()
@@ -963,6 +964,7 @@ public class ProductionServiceImpl implements ProductionService {
         int num = 1;
         for (ProductionDTO.OutputDTO ld : dtos) {
             if (ld.getFinishedItemId() == null) continue;
+            ld.setWarehouseId(ContextProvider.getWarehouseId());
             ProductionOutput out = ProductionOutput.builder()
                 .production(parent)
                 .finishedItem(itemRepo.getReferenceById(ld.getFinishedItemId()))

@@ -146,6 +146,43 @@ VALUES
 -- =============================================================================
 
 INSERT INTO inv_item_categories
+(
+    category_code,
+    category_name,
+    description,
+    is_active,
+    item_type,
+    layer_type,
+    organization_id,
+    parent_category_id,
+    created_at,
+    updated_at,
+    created_by,
+    updated_by
+)
+SELECT
+    v.code,
+    v.name,
+    v.description,
+    TRUE,
+    v.item_type,
+    'ROOT',
+    1,
+    NULL,
+    NOW(),
+    NOW(),
+    'system',
+    'system'
+FROM (
+         VALUES
+             ('CAT-RAW','Raw Materials','Raw material root category','RAW_MATERIAL'),
+             ('CAT-FG','Finished Goods','Finished goods root category','FINISHED_GOOD'),
+             ('CAT-SPARE','Spare Parts','Spare parts root category','SPARE_PARTS'),
+             ('CAT-CONS','Consumables','Consumables root category','CONSUMABLE')
+     ) v(code,name,description,item_type)
+ON CONFLICT ON CONSTRAINT uq_icat_org_code DO NOTHING;
+
+INSERT INTO inv_item_categories
 (category_code, category_name, description, is_active, item_type, layer_type,
  organization_id, parent_category_id, created_at, updated_at, created_by, updated_by)
 SELECT

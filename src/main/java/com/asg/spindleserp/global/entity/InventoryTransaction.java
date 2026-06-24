@@ -40,7 +40,7 @@ public class InventoryTransaction {
     private InventoryLot lot;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "business_document_id", nullable = false)
+    @JoinColumn(name = "business_document_id")
     private BusinessDocument businessDocument;
 
     @Column(nullable = false, length = 50) private String documentType;

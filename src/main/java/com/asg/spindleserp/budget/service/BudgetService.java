@@ -18,6 +18,7 @@ import java.util.Map;
  *   Budget Revisions (supplementary / reallocation)
  *   Inter-line Budget Transfers
  *   Variance report (budgeted vs actual vs committed)
+ *   Dashboard summary (org-wide KPIs)
  */
 public interface BudgetService {
 
@@ -89,6 +90,27 @@ public interface BudgetService {
     /** Returns budgeted vs actual vs committed per head per line for a budget */
     List<Map<String, Object>> varianceReport(Long budgetId);
 
-    /** Summary KPIs for the dashboard panel */
+    /** Summary KPIs for the dashboard panel (single budget) */
     Map<String, Object> budgetSummary(Long budgetId);
+
+    // ── Dashboard ─────────────────────────────────────────────────────────────
+
+    /**
+     * Org-wide budget dashboard summary.
+     * Called by GET /budget/dashboard/summary.
+     *
+     * Response shape:
+     * {
+     *   draft, submitted, approved, active, locked, closed, rejected, returned,
+     *   totalActive, totalActiveBudgeted, totalActiveActual,
+     *   totalActiveCommitted, totalActiveAvailable, avgUtilizationPct,
+     *   overBudgetLineCount, alertLineCount, pendingRevisions, pendingTransfers,
+     *   activeFiscalYear, activeFiscalYearId,
+     *   headTypeBreakdown: [ {headType, totalBudgeted, totalActual} ],
+     *   topOverspentLines: [ {budgetNo, headName, original, actual, overBy} ],
+     *   topBudgets:        [ {budgetNo, budgetName, status, totalBudgeted, utilizationPct} ],
+     *   monthlyActualTrend:[ {month, totalActual} ]  — 12 months from bgt_actuals
+     * }
+     */
+    Map<String, Object> dashboardSummary();
 }

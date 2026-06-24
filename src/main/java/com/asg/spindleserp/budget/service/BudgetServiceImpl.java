@@ -970,4 +970,211 @@ public class BudgetServiceImpl implements BudgetService {
             e.setUpdatedAt(LocalDateTime.now());
         }
     }
+
+    // =========================================================================
+// DASHBOARD SUMMARY  — add this method to BudgetServiceImpl
+// =========================================================================
+
+    /**
+     * Org-wide budget dashboard summary.
+     * Single-pass conditional-aggregation CTE for all status counts + financials,
+     * supplemented by a few small queries for rankings and trends.
+     *
+     * Uses indexes: idx_bgt_org, idx_bgt_status, idx_bbl_budget, idx_bbl_head,
+     *               idx_bbr_budget, idx_bt_budget, idx_ba_date, idx_ba_budget
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public Map<String, Object> dashboardSummary() {
+        Long orgId = SecurityHelper.currentOrgId().orElse(null);
+        String f = orgId != null ? " AND b.organization_id = " + orgId : "";
+        String today = LocalDate.now().toString();
+
+        Map<String, Object> result = new LinkedHashMap<>();
+
+        // ── 1. Status counts + aggregate financials ─────────────────────────────
+        String kpiSql = """
+        SELECT
+          COUNT(*) FILTER (WHERE b.status = 'DRAFT')       AS draft,
+          COUNT(*) FILTER (WHERE b.status = 'SUBMITTED')   AS submitted,
+          COUNT(*) FILTER (WHERE b.status = 'APPROVED')    AS approved,
+          COUNT(*) FILTER (WHERE b.status = 'ACTIVE')      AS active,
+          COUNT(*) FILTER (WHERE b.status = 'LOCKED')      AS locked,
+          COUNT(*) FILTER (WHERE b.status = 'CLOSED')      AS closed,
+          COUNT(*) FILTER (WHERE b.status = 'REJECTED')    AS rejected,
+          COUNT(*) FILTER (WHERE b.status = 'RETURNED')    AS returned,
+          COUNT(*) FILTER (WHERE b.status = 'ACTIVE')      AS total_active,
+          COALESCE(SUM(b.total_budgeted)  FILTER (WHERE b.status = 'ACTIVE'), 0) AS total_active_budgeted,
+          COALESCE(SUM(b.total_actual)    FILTER (WHERE b.status = 'ACTIVE'), 0) AS total_active_actual,
+          COALESCE(SUM(b.total_committed) FILTER (WHERE b.status = 'ACTIVE'), 0) AS total_active_committed,
+          COALESCE(SUM(b.total_available) FILTER (WHERE b.status = 'ACTIVE'), 0) AS total_active_available,
+          COALESCE(AVG(
+              CASE WHEN b.total_budgeted > 0
+                   THEN (b.total_actual / b.total_budgeted) * 100
+              END) FILTER (WHERE b.status = 'ACTIVE'), 0)              AS avg_utilization_pct
+        FROM bgt_budgets b
+        WHERE 1=1""" + f;
+
+        List<Map<String, Object>> kpiRows = jdbcTemplate.queryForList(kpiSql);
+        if (!kpiRows.isEmpty()) {
+            Map<String, Object> r = kpiRows.get(0);
+            result.put("draft",     toLong(r, "draft"));
+            result.put("submitted", toLong(r, "submitted"));
+            result.put("approved",  toLong(r, "approved"));
+            result.put("active",    toLong(r, "active"));
+            result.put("locked",    toLong(r, "locked"));
+            result.put("closed",    toLong(r, "closed"));
+            result.put("rejected",  toLong(r, "rejected"));
+            result.put("returned",  toLong(r, "returned"));
+            result.put("totalActive",           toLong(r, "total_active"));
+            result.put("totalActiveBudgeted",   toBD(r, "total_active_budgeted"));
+            result.put("totalActiveActual",     toBD(r, "total_active_actual"));
+            result.put("totalActiveCommitted",  toBD(r, "total_active_committed"));
+            result.put("totalActiveAvailable",  toBD(r, "total_active_available"));
+            result.put("avgUtilizationPct",     toBD(r, "avg_utilization_pct"));
+        }
+
+        // ── 2. Over-budget lines + alert-threshold lines ────────────────────────
+        String alertSql = """
+        SELECT
+          COUNT(*) FILTER (WHERE bl.actual_amount > bl.revised_amount
+                              AND bl.revised_amount > 0)  AS over_budget_line_count,
+          COUNT(*) FILTER (WHERE bl.revised_amount > 0
+            AND (bl.actual_amount / bl.revised_amount) * 100 >= b.alert_threshold_pct
+            AND bl.actual_amount <= bl.revised_amount)    AS alert_line_count
+        FROM bgt_budget_lines bl
+        JOIN bgt_budgets b ON b.id = bl.budget_id
+        WHERE b.status = 'ACTIVE'""" + (orgId != null ? " AND b.organization_id = " + orgId : "");
+        List<Map<String, Object>> alertRows = jdbcTemplate.queryForList(alertSql);
+        if (!alertRows.isEmpty()) {
+            result.put("overBudgetLineCount", toLong(alertRows.get(0), "over_budget_line_count"));
+            result.put("alertLineCount",      toLong(alertRows.get(0), "alert_line_count"));
+        }
+
+        // ── 3. Pending revisions + transfers ───────────────────────────────────
+        String revSql = "SELECT COUNT(*) FROM bgt_budget_revisions r JOIN bgt_budgets b ON b.id = r.budget_id WHERE r.status IN ('DRAFT','SUBMITTED')"
+                + (orgId != null ? " AND b.organization_id = " + orgId : "");
+        String tfrSql = "SELECT COUNT(*) FROM bgt_transfers t JOIN bgt_budgets b ON b.id = t.budget_id WHERE t.status = 'PENDING'"
+                + (orgId != null ? " AND b.organization_id = " + orgId : "");
+        result.put("pendingRevisions", jdbcTemplate.queryForObject(revSql, Long.class));
+        result.put("pendingTransfers", jdbcTemplate.queryForObject(tfrSql, Long.class));
+
+        // ── 4. Active fiscal year ───────────────────────────────────────────────
+        String fySql = "SELECT id, year_code || ' — ' || year_name AS display FROM bgt_fiscal_years WHERE is_current = true"
+                + (orgId != null ? " AND organization_id = " + orgId : "") + " LIMIT 1";
+        List<Map<String, Object>> fyRows = jdbcTemplate.queryForList(fySql);
+        if (!fyRows.isEmpty()) {
+            result.put("activeFiscalYear",   fyRows.get(0).get("display"));
+            result.put("activeFiscalYearId", fyRows.get(0).get("id"));
+        } else {
+            result.put("activeFiscalYear",   "—");
+            result.put("activeFiscalYearId", null);
+        }
+
+        // ── 5. Head-type breakdown (ACTIVE budgets only) ────────────────────────
+        String headTypeSql = """
+        SELECT bh.head_type,
+               COALESCE(SUM(bl.original_amount), 0) AS total_budgeted,
+               COALESCE(SUM(bl.actual_amount),   0) AS total_actual,
+               COALESCE(SUM(bl.committed_amount),0) AS total_committed
+        FROM bgt_budget_lines bl
+        JOIN bgt_budget_heads bh ON bh.id = bl.budget_head_id
+        JOIN bgt_budgets b ON b.id = bl.budget_id
+        WHERE b.status = 'ACTIVE'""" + (orgId != null ? " AND b.organization_id = " + orgId : "") + """
+        GROUP BY bh.head_type
+        ORDER BY total_budgeted DESC
+        """;
+        result.put("headTypeBreakdown", jdbcTemplate.queryForList(headTypeSql));
+
+        // ── 6. Top over-spent lines ─────────────────────────────────────────────
+        String overspendSql = """
+        SELECT b.budget_no, b.budget_name,
+               bh.head_name,
+               bl.original_amount AS original,
+               bl.revised_amount  AS revised,
+               bl.actual_amount   AS actual,
+               (bl.actual_amount - bl.revised_amount) AS over_by,
+               CASE WHEN bl.revised_amount > 0
+                    THEN ROUND((bl.actual_amount / bl.revised_amount) * 100, 1)
+                    ELSE 0 END AS utilization_pct
+        FROM bgt_budget_lines bl
+        JOIN bgt_budgets b ON b.id = bl.budget_id
+        JOIN bgt_budget_heads bh ON bh.id = bl.budget_head_id
+        WHERE b.status = 'ACTIVE'
+          AND bl.actual_amount > bl.revised_amount
+          AND bl.revised_amount > 0""" + (orgId != null ? " AND b.organization_id = " + orgId : "") + """
+        ORDER BY over_by DESC
+        LIMIT 10
+        """;
+        result.put("topOverspentLines", jdbcTemplate.queryForList(overspendSql));
+
+        // ── 7. Top active budgets by utilization ────────────────────────────────
+        String topBgtSql = """
+        SELECT b.id, b.budget_no, b.budget_name, b.status,
+               b.total_budgeted, b.total_revised, b.total_actual,
+               b.total_committed, b.total_available,
+               CASE WHEN b.total_budgeted > 0
+                    THEN ROUND((b.total_actual / b.total_budgeted) * 100, 1)
+                    ELSE 0 END AS utilization_pct,
+               fy.year_code AS fiscal_year
+        FROM bgt_budgets b
+        JOIN bgt_fiscal_years fy ON fy.id = b.fiscal_year_id
+        WHERE b.status IN ('ACTIVE','LOCKED')""" + (orgId != null ? " AND b.organization_id = " + orgId : "") + """
+        ORDER BY utilization_pct DESC
+        LIMIT 10
+        """;
+        result.put("topBudgets", jdbcTemplate.queryForList(topBgtSql));
+
+        // ── 8. 12-month actual spend trend ─────────────────────────────────────
+        String trendSql = """
+        SELECT TO_CHAR(DATE_TRUNC('month', ba.transaction_date), 'Mon-YY') AS month,
+               DATE_TRUNC('month', ba.transaction_date)                    AS month_order,
+               COALESCE(SUM(ba.net_amount), 0)                             AS total_actual
+        FROM bgt_actuals ba
+        JOIN bgt_budgets b ON b.id = ba.budget_id
+        WHERE ba.transaction_date >= (CURRENT_DATE - INTERVAL '12 months')""" + (orgId != null ? " AND b.organization_id = " + orgId : "") + """
+        GROUP BY DATE_TRUNC('month', ba.transaction_date)
+        ORDER BY month_order
+        """;
+        result.put("monthlyActualTrend", jdbcTemplate.queryForList(trendSql));
+
+        // ── 9. Recent active/submitted budgets list ─────────────────────────────
+        String recentSql = """
+        SELECT b.id, b.budget_no, b.budget_name, b.budget_type, b.status,
+               b.total_budgeted, b.total_actual, b.total_available,
+               TO_CHAR(b.period_start,'DD-Mon-YYYY') AS period_start,
+               TO_CHAR(b.period_end,  'DD-Mon-YYYY') AS period_end,
+               fy.year_code AS fiscal_year,
+               CASE WHEN b.total_budgeted > 0
+                    THEN ROUND((b.total_actual / b.total_budgeted) * 100, 1)
+                    ELSE 0 END AS utilization_pct
+        FROM bgt_budgets b
+        JOIN bgt_fiscal_years fy ON fy.id = b.fiscal_year_id
+        WHERE b.status NOT IN ('REJECTED','CLOSED')""" + (orgId != null ? " AND b.organization_id = " + orgId : "") + """
+        ORDER BY b.id DESC
+        LIMIT 15
+        """;
+        result.put("recentBudgets", jdbcTemplate.queryForList(recentSql));
+
+        return result;
+    }
+
+// ── Private helpers (add alongside existing helpers in BudgetServiceImpl) ───
+
+    private Long toLong(Map<String, Object> r, String key) {
+        Object v = r.get(key);
+        if (v == null) return 0L;
+        if (v instanceof Long l) return l;
+        if (v instanceof Number n) return n.longValue();
+        return 0L;
+    }
+
+    private java.math.BigDecimal toBD(Map<String, Object> r, String key) {
+        Object v = r.get(key);
+        if (v == null) return java.math.BigDecimal.ZERO;
+        if (v instanceof java.math.BigDecimal bd) return bd;
+        if (v instanceof Number n) return java.math.BigDecimal.valueOf(n.doubleValue());
+        return java.math.BigDecimal.ZERO;
+    }
+
 }

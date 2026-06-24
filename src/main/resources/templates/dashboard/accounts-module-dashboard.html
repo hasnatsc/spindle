@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
+      th:replace="~{layout/base :: layout(~{::title}, ~{::main-content})}">
+
+<title>Accounts Dashboard</title>
+
+<main-content>
+<!-- ── PAGE HEADER ──────────────────────────────────────────────────────── -->
+<div class="row mb-3">
+  <div class="col-12 d-flex align-items-center justify-content-between">
+    <div>
+      <h1 class="page-header mb-1">
+        <i class="fa fa-bank me-2 text-primary"></i>Accounts Dashboard
+      </h1>
+      <small class="text-muted" id="acc-last-updated">Loading…</small>
+    </div>
+    <div class="d-flex gap-2">
+      <a href="/accounts/journals"    class="btn btn-sm btn-outline-primary"><i class="fa fa-book me-1"></i>Journals</a>
+      <a href="/accounts/vouchers"    class="btn btn-sm btn-outline-secondary"><i class="fa fa-file me-1"></i>Vouchers</a>
+      <a href="/accounts/chart"       class="btn btn-sm btn-outline-secondary"><i class="fa fa-sitemap me-1"></i>CoA</a>
+      <button class="btn btn-sm btn-primary" onclick="accLoadDashboard()">
+        <i class="fa fa-refresh me-1"></i>Refresh
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ── KPI ROW 1 ──────────────────────────────────────────────────────────── -->
+<div class="row g-3 mb-4">
+  <div class="col-xl-2 col-md-4 col-6">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-body p-3">
+        <div class="text-muted small">Total Receivable</div>
+        <div class="fs-6 fw-bold text-success" id="kpi-ar">—</div>
+        <small class="text-danger" id="kpi-ar-overdue">Overdue: —</small>
+      </div>
+    </div>
+  </div>
+  <div class="col-xl-2 col-md-4 col-6">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-body p-3">
+        <div class="text-muted small">Total Payable</div>
+        <div class="fs-6 fw-bold text-danger" id="kpi-ap">—</div>
+        <small class="text-warning" id="kpi-ap-due">Due Soon: —</small>
+      </div>
+    </div>
+  </div>
+  <div class="col-xl-2 col-md-4 col-6">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-body p-3">
+        <div class="text-muted small">Cash &amp; Bank Balance</div>
+        <div class="fs-6 fw-bold text-primary" id="kpi-cash">—</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-xl-2 col-md-4 col-6">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-body p-3">
+        <div class="text-muted small">MTD Revenue</div>
+        <div class="fs-6 fw-bold text-success" id="kpi-revenue">—</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-xl-2 col-md-4 col-6">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-body p-3">
+        <div class="text-muted small">MTD Expense</div>
+        <div class="fs-6 fw-bold text-danger" id="kpi-expense">—</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-xl-2 col-md-4 col-6">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-body p-3">
+        <div class="text-muted small">Unposted Vouchers</div>
+        <div class="fs-4 fw-bold text-warning" id="kpi-unposted">—</div>
+        <small class="text-danger" id="kpi-overdue-v">Overdue: —</small>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── AGING BANDS ─────────────────────────────────────────────────────────── -->
+<div class="row g-3 mb-4">
+  <div class="col-md-6">
+    <div class="card shadow-sm">
+      <div class="card-header bg-transparent fw-semibold text-success">
+        <i class="fa fa-arrow-down me-1"></i> AR Aging (Receivables)
+      </div>
+      <div class="card-body p-0">
+        <div class="row g-0">
+          <div class="col-3 p-3 border-end text-center">
+            <div class="text-muted small">Current</div>
+            <div class="fw-bold text-success" id="ar-current">—</div>
+          </div>
+          <div class="col-3 p-3 border-end text-center">
+            <div class="text-muted small">31–60 d</div>
+            <div class="fw-bold text-warning" id="ar-3160">—</div>
+          </div>
+          <div class="col-3 p-3 border-end text-center">
+            <div class="text-muted small">61–90 d</div>
+            <div class="fw-bold" style="color:orange" id="ar-6190">—</div>
+          </div>
+          <div class="col-3 p-3 text-center">
+            <div class="text-muted small">90+ d</div>
+            <div class="fw-bold text-danger" id="ar-90plus">—</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="card shadow-sm">
+      <div class="card-header bg-transparent fw-semibold text-danger">
+        <i class="fa fa-arrow-up me-1"></i> AP Aging (Payables)
+      </div>
+      <div class="card-body p-0">
+        <div class="row g-0">
+          <div class="col-3 p-3 border-end text-center">
+            <div class="text-muted small">Current</div>
+            <div class="fw-bold text-success" id="ap-current">—</div>
+          </div>
+          <div class="col-3 p-3 border-end text-center">
+            <div class="text-muted small">31–60 d</div>
+            <div class="fw-bold text-warning" id="ap-3160">—</div>
+          </div>
+          <div class="col-3 p-3 border-end text-center">
+            <div class="text-muted small">61–90 d</div>
+            <div class="fw-bold" style="color:orange" id="ap-6190">—</div>
+          </div>
+          <div class="col-3 p-3 text-center">
+            <div class="text-muted small">90+ d</div>
+            <div class="fw-bold text-danger" id="ap-90plus">—</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── CHARTS ─────────────────────────────────────────────────────────────── -->
+<div class="row g-3 mb-4">
+  <div class="col-lg-8">
+    <div class="card shadow-sm h-100">
+      <div class="card-header bg-transparent fw-semibold">
+        <i class="fa fa-line-chart me-1 text-primary"></i> 12-Month P&amp;L Trend
+      </div>
+      <div class="card-body">
+        <canvas id="accPLChart" height="100"></canvas>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-4">
+    <div class="card shadow-sm h-100">
+      <div class="card-header bg-transparent fw-semibold">
+        <i class="fa fa-pie-chart me-1 text-warning"></i> Voucher Types MTD
+      </div>
+      <div class="card-body d-flex align-items-center justify-content-center">
+        <canvas id="accVoucherChart" height="160"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── CASH/BANK + TOP PARTIES + VOUCHERS ─────────────────────────────────── -->
+<div class="row g-3 mb-4">
+  <div class="col-lg-4">
+    <div class="card shadow-sm h-100">
+      <div class="card-header bg-transparent fw-semibold">
+        <i class="fa fa-credit-card me-1 text-primary"></i> Cash &amp; Bank Accounts
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover table-sm mb-0">
+            <thead class="table-light"><tr><th>Account</th><th>Type</th><th class="text-end">Balance</th></tr></thead>
+            <tbody id="acc-cash-bank-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-4">
+    <div class="card shadow-sm h-100">
+      <div class="card-header bg-transparent fw-semibold">
+        <i class="fa fa-users me-1 text-success"></i> Top Receivables
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover table-sm mb-0">
+            <thead class="table-light"><tr><th>Customer</th><th class="text-end">Balance</th></tr></thead>
+            <tbody id="acc-top-ar-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-4">
+    <div class="card shadow-sm h-100">
+      <div class="card-header bg-transparent fw-semibold">
+        <i class="fa fa-building-o me-1 text-danger"></i> Top Payables
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover table-sm mb-0">
+            <thead class="table-light"><tr><th>Supplier</th><th class="text-end">Balance</th></tr></thead>
+            <tbody id="acc-top-ap-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── RECENT VOUCHERS ────────────────────────────────────────────────────── -->
+<div class="row g-3">
+  <div class="col-12">
+    <div class="card shadow-sm">
+      <div class="card-header bg-transparent fw-semibold">
+        <i class="fa fa-clock-o me-1 text-secondary"></i> Recent Vouchers
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover table-sm mb-0">
+            <thead class="table-light">
+              <tr><th>Voucher No</th><th>Type</th><th>Date</th><th>Amount</th><th>Status</th><th>Posted</th><th>Narration</th></tr>
+            </thead>
+            <tbody id="acc-recent-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script th:inline="javascript">
+(function () {
+  'use strict';
+  const fmt  = v => new Intl.NumberFormat('en-BD', {minimumFractionDigits:2}).format(v||0);
+  const fmtN = v => new Intl.NumberFormat('en-BD').format(v||0);
+  let plChart = null, voucherChart = null;
+
+  const vTypeBadge = t => {
+    const m = {JOURNAL_VOUCHER:'bg-secondary',PAYMENT_VOUCHER:'bg-danger',RECEIPT_VOUCHER:'bg-success',
+               PURCHASE_VOUCHER:'bg-warning text-dark',SALES_VOUCHER:'bg-primary',
+               PRODUCTION_VOUCHER:'bg-info',CONTRA_VOUCHER:'bg-dark'};
+    const s = {JOURNAL_VOUCHER:'JV',PAYMENT_VOUCHER:'PV',RECEIPT_VOUCHER:'RV',
+               PURCHASE_VOUCHER:'PUR',SALES_VOUCHER:'SAL',PRODUCTION_VOUCHER:'PRD',CONTRA_VOUCHER:'CV'};
+    return `<span class="badge ${m[t]||'bg-secondary'}">${s[t]||t}</span>`;
+  };
+
+  window.accLoadDashboard = function () {
+    document.getElementById('acc-last-updated').textContent = 'Refreshing…';
+    secureFetch('/accounts/dashboard/summary')
+      .then(r => r.json())
+      .then(d => {
+        const a = d.accounts || {}, ar = d.arAging || {}, ap = d.apAging || {};
+
+        document.getElementById('kpi-ar').textContent        = '৳ ' + fmt(a.totalReceivable);
+        document.getElementById('kpi-ar-overdue').textContent= 'Overdue: ৳ ' + fmt(a.overdueReceivable);
+        document.getElementById('kpi-ap').textContent        = '৳ ' + fmt(a.totalPayable);
+        document.getElementById('kpi-ap-due').textContent    = 'Due Soon: ৳ ' + fmt(a.dueSoonPayable);
+        document.getElementById('kpi-cash').textContent      = '৳ ' + fmt(a.cashBankBalance);
+        document.getElementById('kpi-revenue').textContent   = '৳ ' + fmt(a.mtdRevenuePosted);
+        document.getElementById('kpi-expense').textContent   = '৳ ' + fmt(a.mtdExpensePosted);
+        document.getElementById('kpi-unposted').textContent  = fmtN(a.unpostedVoucherCount);
+        document.getElementById('kpi-overdue-v').textContent = 'Overdue: ' + fmtN(a.overdueVoucherCount);
+
+        document.getElementById('ar-current').textContent = '৳ ' + fmt(ar.current);
+        document.getElementById('ar-3160').textContent    = '৳ ' + fmt(ar.d3160);
+        document.getElementById('ar-6190').textContent    = '৳ ' + fmt(ar.d6190);
+        document.getElementById('ar-90plus').textContent  = '৳ ' + fmt(ar.d90plus);
+        document.getElementById('ap-current').textContent = '৳ ' + fmt(ap.current);
+        document.getElementById('ap-3160').textContent    = '৳ ' + fmt(ap.d3160);
+        document.getElementById('ap-6190').textContent    = '৳ ' + fmt(ap.d6190);
+        document.getElementById('ap-90plus').textContent  = '৳ ' + fmt(ap.d90plus);
+
+        // P&L trend
+        const months = (d.monthlyPL||[]).map(r => r.month);
+        const rev    = (d.monthlyPL||[]).map(r => parseFloat(r.revenue||0));
+        const exp    = (d.monthlyPL||[]).map(r => parseFloat(r.expense||0));
+        const net    = rev.map((r,i) => r - exp[i]);
+        if (plChart) plChart.destroy();
+        plChart = new Chart(document.getElementById('accPLChart'), {
+          type: 'bar',
+          data: { labels: months, datasets: [
+            { label:'Revenue', data:rev, backgroundColor:'rgba(40,167,69,0.7)' },
+            { label:'Expense', data:exp, backgroundColor:'rgba(220,53,69,0.7)' },
+            { type:'line', label:'Net', data:net, borderColor:'#4361ee', backgroundColor:'transparent', tension:0.3 }
+          ]},
+          options: { plugins:{legend:{position:'top'}}, scales:{y:{beginAtZero:true}} }
+        });
+
+        // Voucher type doughnut
+        const vtLabels = (d.voucherTypes||[]).map(r => r.voucher_type);
+        const vtCounts = (d.voucherTypes||[]).map(r => parseInt(r.count||0));
+        const vtPal = ['#4361ee','#2dc653','#dc3545','#ffc107','#0dcaf0','#6c757d','#343a40','#fd7e14'];
+        if (voucherChart) voucherChart.destroy();
+        voucherChart = new Chart(document.getElementById('accVoucherChart'), {
+          type: 'doughnut',
+          data: { labels: vtLabels, datasets:[{ data:vtCounts, backgroundColor:vtPal }] },
+          options: { plugins:{legend:{position:'bottom', labels:{boxWidth:12,font:{size:10}}}}, cutout:'60%' }
+        });
+
+        // Cash/bank table
+        document.getElementById('acc-cash-bank-tbody').innerHTML =
+          (d.cashBankAccounts||[]).map(c => {
+            const cls = parseFloat(c.balance||0) >= 0 ? 'text-success' : 'text-danger';
+            return `<tr><td>${c.account_title}</td>
+              <td><span class="badge ${c.account_type==='BANK'?'bg-primary':'bg-secondary'}">${c.account_type}</span></td>
+              <td class="text-end ${cls} fw-semibold">৳ ${fmt(c.balance)}</td></tr>`;
+          }).join('') || '<tr><td colspan="3" class="text-muted text-center">No accounts</td></tr>';
+
+        document.getElementById('acc-top-ar-tbody').innerHTML =
+          (d.topReceivables||[]).map(p =>
+            `<tr><td>${p.party_name}</td><td class="text-end text-success fw-semibold">৳ ${fmt(p.balance)}</td></tr>`
+          ).join('') || '<tr><td colspan="2" class="text-muted text-center">No data</td></tr>';
+
+        document.getElementById('acc-top-ap-tbody').innerHTML =
+          (d.topPayables||[]).map(p =>
+            `<tr><td>${p.party_name}</td><td class="text-end text-danger fw-semibold">৳ ${fmt(p.balance)}</td></tr>`
+          ).join('') || '<tr><td colspan="2" class="text-muted text-center">No data</td></tr>';
+
+        document.getElementById('acc-recent-tbody').innerHTML =
+          (d.recentVouchers||[]).map(v =>
+            `<tr>
+              <td><code>${v.voucher_no||'—'}</code></td>
+              <td>${vTypeBadge(v.voucher_type)}</td>
+              <td class="text-nowrap">${v.voucher_date}</td>
+              <td class="text-end fw-semibold">৳ ${fmt(v.total_amount)}</td>
+              <td><span class="badge bg-secondary">${v.voucher_status}</span></td>
+              <td>${v.is_posted ? '<span class="badge bg-success">Yes</span>' : '<span class="badge bg-warning text-dark">No</span>'}</td>
+              <td class="text-truncate" style="max-width:200px">${v.narration||''}</td>
+            </tr>`
+          ).join('') || '<tr><td colspan="7" class="text-muted text-center">No vouchers</td></tr>';
+
+        document.getElementById('acc-last-updated').textContent =
+          'Last updated: ' + new Date().toLocaleTimeString();
+      })
+      .catch(e => {
+        console.error('Accounts dashboard error', e);
+        document.getElementById('acc-last-updated').textContent = 'Error loading data';
+      });
+  };
+
+  document.addEventListener('DOMContentLoaded', () => accLoadDashboard());
+})();
+</script>
+</main-content>
+</html>

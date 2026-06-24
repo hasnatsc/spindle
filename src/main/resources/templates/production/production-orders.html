@@ -346,7 +346,7 @@
     var ITEM_URL = '/inventory/items/search';
     var dt, _lineCount = 0, _outCount = 0;
     var _uoms = [], _warehouses = [];
-
+    var fm = document.getElementById('prodForm');
     // ── Boot ──────────────────────────────────────────────────────────────────
     document.addEventListener('DOMContentLoaded', function () {
       dt = $('#prodTable').DataTable({
@@ -922,7 +922,7 @@
         })
       }).then(function(d){
         if (d.success) {
-          hsAfterSaveMessages(d, dt);
+          hsAfterSaveMessages(d.success, d.message, fm, dt);
           _loadKpi();
           bootstrap.Modal.getOrCreateInstance(document.getElementById('prodModal')).hide();
         } else { Swal.fire('Error', d.message, 'error'); }

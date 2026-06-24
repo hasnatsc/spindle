@@ -18,11 +18,15 @@ import java.util.Map;
  * BudgetController — one controller for all budget-module pages.
  *
  * Pages:
+ *   GET /budget/dashboard         → budget/budget-dashboard.html   ← NEW
  *   GET /budget/fiscal-years      → budget/fiscal-years.html
  *   GET /budget/heads             → budget/budget-heads.html
  *   GET /budget/list              → budget/budget-list.html
  *   GET /budget/revisions         → budget/budget-revisions.html
  *   GET /budget/transfers         → budget/budget-transfers.html
+ *
+ * Dashboard API:
+ *   GET /budget/dashboard/summary → dashboardSummary()
  *
  * JS prefixes:
  *   fy* | head* | bgt* | rev* | tfr*
@@ -35,6 +39,12 @@ public class BudgetController {
     private final BudgetService budgetService;
 
     // ── Pages ──────────────────────────────────────────────────────────────────
+
+    @GetMapping("/budget/dashboard")
+    public String dashboardPage(Model m) {
+        m.addAttribute("activePage", "budget-dashboard");
+        return "budget/budget-dashboard";
+    }
 
     @GetMapping("/budget/fiscal-years")
     public String fyPage(Model m) { m.addAttribute("activePage","budget-fiscal-years"); return "budget/fiscal-years"; }
@@ -50,6 +60,18 @@ public class BudgetController {
 
     @GetMapping("/budget/transfers")
     public String transferPage(Model m) { m.addAttribute("activePage","budget-transfers"); return "budget/budget-transfers"; }
+
+    // ── Dashboard API ──────────────────────────────────────────────────────────
+
+    /**
+     * Org-wide dashboard summary — single-pass CTE, called by budget-dashboard.html on load.
+     * Also reloadable on refresh button click.
+     */
+    @GetMapping("/budget/dashboard/summary")
+    @ResponseBody
+    public Map<String, Object> dashboardSummary() {
+        return budgetService.dashboardSummary();
+    }
 
     // ── Fiscal Year ────────────────────────────────────────────────────────────
 

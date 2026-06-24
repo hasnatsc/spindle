@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
+      th:replace="~{layout/base :: layout(~{::title}, ~{::main-content})}">
+
+<title>HRM Dashboard</title>
+
+<main-content>
+<!-- ── PAGE HEADER ──────────────────────────────────────────────────────── -->
+<div class="row mb-3">
+  <div class="col-12 d-flex align-items-center justify-content-between">
+    <div>
+      <h1 class="page-header mb-1">
+        <i class="fa fa-users me-2 text-info"></i>HRM Dashboard
+      </h1>
+      <small class="text-muted" id="hrm-last-updated">Loading…</small>
+    </div>
+    <div class="d-flex gap-2">
+      <a href="/hrm/employees"   class="btn btn-sm btn-outline-info"><i class="fa fa-user me-1"></i>Employees</a>
+      <a href="/hrm/attendance"  class="btn btn-sm btn-outline-secondary"><i class="fa fa-calendar-check-o me-1"></i>Attendance</a>
+      <a href="/hrm/leaves"      class="btn btn-sm btn-outline-secondary"><i class="fa fa-calendar me-1"></i>Leaves</a>
+      <a href="/hrm/payroll"     class="btn btn-sm btn-outline-secondary"><i class="fa fa-money me-1"></i>Payroll</a>
+      <button class="btn btn-sm btn-info text-white" onclick="hrmLoadDashboard()">
+        <i class="fa fa-refresh me-1"></i>Refresh
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ── KPI ROW ────────────────────────────────────────────────────────────── -->
+<div class="row g-3 mb-4">
+  <div class="col-xl-2 col-md-4 col-6">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-body p-3">
+        <div class="text-muted small">Active Employees</div>
+        <div class="fs-3 fw-bold text-primary" id="kpi-active-emp">—</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-xl-2 col-md-4 col-6">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-body p-3">
+        <div class="text-muted small">Present Today</div>
+        <div class="fs-3 fw-bold text-success" id="kpi-present">—</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-xl-2 col-md-4 col-6">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-body p-3">
+        <div class="text-muted small">Absent Today</div>
+        <div class="fs-3 fw-bold text-danger" id="kpi-absent">—</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-xl-2 col-md-4 col-6">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-body p-3">
+        <div class="text-muted small">On Leave Today</div>
+        <div class="fs-3 fw-bold text-warning" id="kpi-on-leave">—</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-xl-2 col-md-4 col-6">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-body p-3">
+        <div class="text-muted small">Pending Leaves</div>
+        <div class="fs-3 fw-bold text-secondary" id="kpi-pending-leave">—</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-xl-2 col-md-4 col-6">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-body p-3">
+        <div class="text-muted small">Joined MTD</div>
+        <div class="fs-3 fw-bold text-info" id="kpi-joined">—</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── PAYROLL BANNER ─────────────────────────────────────────────────────── -->
+<div class="row g-3 mb-4">
+  <div class="col-md-3">
+    <div class="card border-start border-primary border-4 shadow-sm">
+      <div class="card-body py-2 px-3">
+        <div class="text-muted small">Payroll Month</div>
+        <div class="fw-bold text-primary" id="kpi-payroll-month">—</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card border-start border-secondary border-4 shadow-sm">
+      <div class="card-body py-2 px-3">
+        <div class="text-muted small">Payroll Status</div>
+        <div class="fw-bold" id="kpi-payroll-status">—</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card border-start border-success border-4 shadow-sm">
+      <div class="card-body py-2 px-3">
+        <div class="text-muted small">Net Payroll</div>
+        <div class="fw-bold text-success" id="kpi-payroll-net">—</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card border-start border-warning border-4 shadow-sm">
+      <div class="card-body py-2 px-3">
+        <div class="text-muted small">Gross Payroll</div>
+        <div class="fw-bold text-warning" id="kpi-payroll-gross">—</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── CHARTS ─────────────────────────────────────────────────────────────── -->
+<div class="row g-3 mb-4">
+  <div class="col-lg-5">
+    <div class="card shadow-sm h-100">
+      <div class="card-header bg-transparent fw-semibold">
+        <i class="fa fa-bar-chart me-1 text-info"></i> Attendance (Last 7 Days)
+      </div>
+      <div class="card-body">
+        <canvas id="hrmAttChart" height="150"></canvas>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-3">
+    <div class="card shadow-sm h-100">
+      <div class="card-header bg-transparent fw-semibold">
+        <i class="fa fa-pie-chart me-1 text-primary"></i> By Gender
+      </div>
+      <div class="card-body d-flex align-items-center justify-content-center">
+        <canvas id="hrmGenderChart" height="140"></canvas>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-4">
+    <div class="card shadow-sm h-100">
+      <div class="card-header bg-transparent fw-semibold">
+        <i class="fa fa-pie-chart me-1 text-warning"></i> By Employment Type
+      </div>
+      <div class="card-body d-flex align-items-center justify-content-center">
+        <canvas id="hrmEmpTypeChart" height="140"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── DEPT + DESIGNATION + PENDING LEAVES ────────────────────────────────── -->
+<div class="row g-3 mb-4">
+  <div class="col-lg-4">
+    <div class="card shadow-sm h-100">
+      <div class="card-header bg-transparent fw-semibold">
+        <i class="fa fa-building me-1 text-primary"></i> Dept Headcount (Top 10)
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover table-sm mb-0">
+            <thead class="table-light"><tr><th>Department</th><th class="text-end">Count</th></tr></thead>
+            <tbody id="hrm-dept-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-4">
+    <div class="card shadow-sm h-100">
+      <div class="card-header bg-transparent fw-semibold">
+        <i class="fa fa-id-badge me-1 text-secondary"></i> Designation Headcount
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover table-sm mb-0">
+            <thead class="table-light"><tr><th>Designation</th><th class="text-end">Count</th></tr></thead>
+            <tbody id="hrm-desig-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-4">
+    <div class="card shadow-sm h-100">
+      <div class="card-header bg-transparent fw-semibold text-warning">
+        <i class="fa fa-clock-o me-1"></i> Pending Leave Requests
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover table-sm mb-0">
+            <thead class="table-light"><tr><th>Employee</th><th>Type</th><th>From</th><th class="text-end">Days</th></tr></thead>
+            <tbody id="hrm-leave-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── PAYROLL HISTORY + NEW JOINEES ──────────────────────────────────────── -->
+<div class="row g-3">
+  <div class="col-lg-6">
+    <div class="card shadow-sm">
+      <div class="card-header bg-transparent fw-semibold">
+        <i class="fa fa-money me-1 text-success"></i> Recent Payroll Runs
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover table-sm mb-0">
+            <thead class="table-light"><tr><th>Month</th><th>Status</th><th class="text-end">Employees</th><th class="text-end">Net (৳)</th></tr></thead>
+            <tbody id="hrm-payroll-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card shadow-sm">
+      <div class="card-header bg-transparent fw-semibold">
+        <i class="fa fa-user-plus me-1 text-info"></i> New Joinees This Month
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover table-sm mb-0">
+            <thead class="table-light"><tr><th>Employee</th><th>Dept</th><th>Designation</th><th>Joined</th></tr></thead>
+            <tbody id="hrm-joinees-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script th:inline="javascript">
+(function () {
+  'use strict';
+  const fmt  = v => new Intl.NumberFormat('en-BD', {minimumFractionDigits:2}).format(v||0);
+  const fmtN = v => new Intl.NumberFormat('en-BD').format(v||0);
+  let attChart = null, genderChart = null, etChart = null;
+
+  const payrollStatusBadge = s => {
+    const m = {DRAFT:'bg-secondary',PROCESSING:'bg-warning text-dark',COMPLETED:'bg-info',
+               APPROVED:'bg-primary',PAID:'bg-success',CANCELLED:'bg-danger',NONE:'bg-light text-dark'};
+    return `<span class="badge ${m[s]||'bg-secondary'}">${s}</span>`;
+  };
+
+  window.hrmLoadDashboard = function () {
+    document.getElementById('hrm-last-updated').textContent = 'Refreshing…';
+    secureFetch('/hrm/dashboard/full-summary')
+      .then(r => r.json())
+      .then(d => {
+        const h = d.hrm || {};
+
+        document.getElementById('kpi-active-emp').textContent    = fmtN(h.activeEmployees);
+        document.getElementById('kpi-present').textContent       = fmtN(h.presentToday);
+        document.getElementById('kpi-absent').textContent        = fmtN(h.absentToday);
+        document.getElementById('kpi-on-leave').textContent      = fmtN(h.onLeaveToday);
+        document.getElementById('kpi-pending-leave').textContent = fmtN(h.pendingLeaves);
+        document.getElementById('kpi-joined').textContent        = fmtN(h.joinedMTD);
+        document.getElementById('kpi-payroll-month').textContent = h.currentPayrollMonth;
+        document.getElementById('kpi-payroll-status').innerHTML  = payrollStatusBadge(h.currentPayrollStatus||'NONE');
+        document.getElementById('kpi-payroll-net').textContent   = '৳ ' + fmt(h.mtdPayrollNet);
+        document.getElementById('kpi-payroll-gross').textContent = '৳ ' + fmt(h.mtdPayrollGross);
+
+        // Attendance bar chart
+        const attDates   = (d.attendanceSummary||[]).map(r => r.att_date);
+        const attPresent = (d.attendanceSummary||[]).map(r => parseInt(r.present||0));
+        const attAbsent  = (d.attendanceSummary||[]).map(r => parseInt(r.absent||0));
+        const attLeave   = (d.attendanceSummary||[]).map(r => parseInt(r.on_leave||0));
+        if (attChart) attChart.destroy();
+        attChart = new Chart(document.getElementById('hrmAttChart'), {
+          type: 'bar',
+          data: { labels: attDates, datasets: [
+            { label:'Present', data:attPresent, backgroundColor:'rgba(40,167,69,0.8)' },
+            { label:'Absent',  data:attAbsent,  backgroundColor:'rgba(220,53,69,0.7)' },
+            { label:'Leave',   data:attLeave,   backgroundColor:'rgba(255,193,7,0.7)' }
+          ]},
+          options: { plugins:{legend:{position:'top'}}, scales:{x:{stacked:true}, y:{stacked:true,beginAtZero:true}} }
+        });
+
+        // Gender doughnut
+        const gLabels = (d.genderBreakdown||[]).map(r => r.gender);
+        const gCounts = (d.genderBreakdown||[]).map(r => parseInt(r.count||0));
+        if (genderChart) genderChart.destroy();
+        genderChart = new Chart(document.getElementById('hrmGenderChart'), {
+          type: 'doughnut',
+          data: { labels: gLabels, datasets:[{ data:gCounts, backgroundColor:['#4361ee','#f72585','#4cc9f0'] }] },
+          options: { plugins:{legend:{position:'bottom', labels:{boxWidth:12,font:{size:10}}}}, cutout:'55%' }
+        });
+
+        // Employment type doughnut
+        const etLabels = (d.employeeTypeBreakdown||[]).map(r => r.employee_type);
+        const etCounts = (d.employeeTypeBreakdown||[]).map(r => parseInt(r.count||0));
+        const etPal = ['#2dc653','#ffc107','#0dcaf0','#6c757d','#fd7e14','#dc3545'];
+        if (etChart) etChart.destroy();
+        etChart = new Chart(document.getElementById('hrmEmpTypeChart'), {
+          type: 'doughnut',
+          data: { labels: etLabels, datasets:[{ data:etCounts, backgroundColor:etPal }] },
+          options: { plugins:{legend:{position:'bottom', labels:{boxWidth:12,font:{size:10}}}}, cutout:'55%' }
+        });
+
+        // Dept headcount
+        document.getElementById('hrm-dept-tbody').innerHTML =
+          (d.deptHeadcount||[]).map(r =>
+            `<tr><td>${r.dept_name}</td><td class="text-end fw-semibold">${fmtN(r.count)}</td></tr>`
+          ).join('') || '<tr><td colspan="2" class="text-muted text-center">No data</td></tr>';
+
+        // Designation headcount
+        document.getElementById('hrm-desig-tbody').innerHTML =
+          (d.designationHeadcount||[]).map(r =>
+            `<tr><td>${r.designation_name}</td><td class="text-end fw-semibold">${fmtN(r.count)}</td></tr>`
+          ).join('') || '<tr><td colspan="2" class="text-muted text-center">No data</td></tr>';
+
+        // Pending leaves
+        document.getElementById('hrm-leave-tbody').innerHTML =
+          (d.pendingLeaveRequests||[]).map(l =>
+            `<tr>
+              <td><small>${l.employee_name}</small><br><small class="text-muted">${l.employee_code}</small></td>
+              <td><small>${l.leave_type}</small></td>
+              <td class="text-nowrap"><small>${l.start_date}</small></td>
+              <td class="text-end">${l.total_days}</td>
+            </tr>`
+          ).join('') || '<tr><td colspan="4" class="text-center text-success">✓ No pending leaves</td></tr>';
+
+        // Payroll history
+        document.getElementById('hrm-payroll-tbody').innerHTML =
+          (d.recentPayrollRuns||[]).map(p =>
+            `<tr>
+              <td>${p.payroll_month}</td>
+              <td>${payrollStatusBadge(p.status)}</td>
+              <td class="text-end">${fmtN(p.employee_count)}</td>
+              <td class="text-end fw-semibold">৳ ${fmt(p.total_net)}</td>
+            </tr>`
+          ).join('') || '<tr><td colspan="4" class="text-muted text-center">No payroll runs</td></tr>';
+
+        // New joinees
+        document.getElementById('hrm-joinees-tbody').innerHTML =
+          (d.newJoinees||[]).map(e =>
+            `<tr>
+              <td><small>${e.employee_name}</small><br><small class="text-muted">${e.employee_code}</small></td>
+              <td><small>${e.department_name}</small></td>
+              <td><small>${e.designation_name}</small></td>
+              <td class="text-nowrap"><small>${e.joining_date}</small></td>
+            </tr>`
+          ).join('') || '<tr><td colspan="4" class="text-center text-muted">No new joinees this month</td></tr>';
+
+        document.getElementById('hrm-last-updated').textContent =
+          'Last updated: ' + new Date().toLocaleTimeString();
+      })
+      .catch(e => {
+        console.error('HRM dashboard error', e);
+        document.getElementById('hrm-last-updated').textContent = 'Error loading data';
+      });
+  };
+
+  document.addEventListener('DOMContentLoaded', () => hrmLoadDashboard());
+})();
+</script>
+</main-content>
+</html>
