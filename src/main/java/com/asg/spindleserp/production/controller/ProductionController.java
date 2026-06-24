@@ -18,8 +18,12 @@ import java.util.Map;
  * ProductionController — all production module pages and REST endpoints.
  *
  * Pages:
- *   GET /production/boms         → production/production-boms.html
- *   GET /production/orders       → production/production-orders.html
+ *   GET /production/dashboard → production/production-dashboard.html  ← NEW
+ *   GET /production/boms      → production/production-boms.html
+ *   GET /production/orders    → production/production-orders.html
+ *
+ * Dashboard API:
+ *   GET /production/dashboard/summary → dashboardSummary() (single-pass CTE)
  *
  * JS prefixes:  bom* | prod*
  */
@@ -32,24 +36,47 @@ public class ProductionController {
 
     // ── Pages ──────────────────────────────────────────────────────────────────
 
+    /** Full standalone production dashboard */
+    @GetMapping("/production/dashboard")
+    public String dashboardPage(Model m) {
+        m.addAttribute("activePage", "production-dashboard");
+        return "production/production-dashboard";
+    }
+
     @GetMapping("/production/boms")
-    public String bomsPage(Model m) { m.addAttribute("activePage","production-boms"); return "production/production-boms"; }
+    public String bomsPage(Model m) {
+        m.addAttribute("activePage", "production-boms");
+        return "production/production-boms";
+    }
 
     @GetMapping("/production/orders")
-    public String ordersPage(Model m) { m.addAttribute("activePage","production-orders"); return "production/production-orders"; }
+    public String ordersPage(Model m) {
+        m.addAttribute("activePage", "production-orders");
+        return "production/production-orders";
+    }
 
-    // ── Dashboard ──────────────────────────────────────────────────────────────
+    // ── Dashboard API ──────────────────────────────────────────────────────────
 
+    /**
+     * Fully optimised — single-pass CTE with COUNT(*) FILTER.
+     * Called by both:
+     *   - production-dashboard.html on page load
+     *   - production-orders.html KPI strip on load + after each status change
+     */
     @GetMapping("/production/dashboard/summary")
     @ResponseBody
-    public Map<String,Object> summary() { return productionService.dashboardSummary(); }
+    public Map<String,Object> summary() {
+        return productionService.dashboardSummary();
+    }
 
     // ── BOM ────────────────────────────────────────────────────────────────────
 
     @GetMapping("/production/boms/list")
     @ResponseBody
-    public DataTableResponse bomList(@RequestParam(defaultValue="1") int draw,
-            @RequestParam(defaultValue="0") int start, @RequestParam(defaultValue="25") int length,
+    public DataTableResponse bomList(
+            @RequestParam(defaultValue="1")  int draw,
+            @RequestParam(defaultValue="0")  int start,
+            @RequestParam(defaultValue="25") int length,
             @RequestParam(value="search[value]",defaultValue="") String search) {
         return productionService.bomDatatable(draw, start, length, search);
     }
@@ -64,8 +91,12 @@ public class ProductionController {
     @ResponseBody
     public Map<String,Object> bomSave(@RequestBody @Valid BomDTO dto) {
         return ok(() -> {
-            if (dto.getId() != null) { productionService.updateBom(dto.getId(), dto); return "BOM updated."; }
-            else { BomDTO saved = productionService.createBom(dto); return "BOM " + saved.getBomCode() + " created."; }
+            if (dto.getId() != null) {
+                productionService.updateBom(dto.getId(), dto);
+                return "BOM updated.";
+            }
+            BomDTO saved = productionService.createBom(dto);
+            return "BOM " + saved.getBomCode() + " created.";
         });
     }
 
@@ -83,28 +114,30 @@ public class ProductionController {
 
     @GetMapping("/production/boms/search")
     @ResponseBody
-    public Map<String,Object> bomSearch(@RequestParam(defaultValue="") String search, @RequestParam(defaultValue="1") int page) {
+    public Map<String,Object> bomSearch(
+            @RequestParam(defaultValue="") String search,
+            @RequestParam(defaultValue="1") int page) {
         return productionService.searchBoms(search, page);
     }
 
-    /**
-     * Called from production order form when a BOM is selected —
-     * returns pre-filled input lines from BOM, scaled to the requested quantity.
-     */
     @GetMapping("/production/boms/populate")
     @ResponseBody
-    public Map<String,Object> bomPopulate(@RequestParam Long bomId,
-                                           @RequestParam(required=false) Long warehouseId,
-                                           @RequestParam(required=false) BigDecimal quantity) {
-        return ok(() -> Map.of("defaultData", productionService.populateFromBom(bomId, warehouseId, quantity)));
+    public Map<String,Object> bomPopulate(
+            @RequestParam Long bomId,
+            @RequestParam(required=false) Long      warehouseId,
+            @RequestParam(required=false) BigDecimal quantity) {
+        return ok(() -> Map.of("defaultData",
+            productionService.populateFromBom(bomId, warehouseId, quantity)));
     }
 
     // ── Production Work Orders ─────────────────────────────────────────────────
 
     @GetMapping("/production/orders/list")
     @ResponseBody
-    public DataTableResponse prodList(@RequestParam(defaultValue="1") int draw,
-            @RequestParam(defaultValue="0") int start, @RequestParam(defaultValue="25") int length,
+    public DataTableResponse prodList(
+            @RequestParam(defaultValue="1")  int draw,
+            @RequestParam(defaultValue="0")  int start,
+            @RequestParam(defaultValue="25") int length,
             @RequestParam(value="search[value]",defaultValue="") String search,
             @RequestParam(defaultValue="") String status) {
         return productionService.productionDatatable(draw, start, length, search, status);
@@ -120,8 +153,12 @@ public class ProductionController {
     @ResponseBody
     public Map<String,Object> prodSave(@RequestBody @Valid ProductionDTO dto) {
         return ok(() -> {
-            if (dto.getId() != null) { productionService.updateProduction(dto.getId(), dto); return "Production order updated."; }
-            else { ProductionDTO saved = productionService.createProduction(dto); return "Production order " + saved.getProductionNo() + " created."; }
+            if (dto.getId() != null) {
+                productionService.updateProduction(dto.getId(), dto);
+                return "Production order updated.";
+            }
+            ProductionDTO saved = productionService.createProduction(dto);
+            return "Production order " + saved.getProductionNo() + " created.";
         });
     }
 
@@ -133,44 +170,55 @@ public class ProductionController {
 
     @GetMapping("/production/orders/search")
     @ResponseBody
-    public Map<String,Object> prodSearch(@RequestParam(defaultValue="") String search, @RequestParam(defaultValue="1") int page) {
+    public Map<String,Object> prodSearch(
+            @RequestParam(defaultValue="") String search,
+            @RequestParam(defaultValue="1") int page) {
         return productionService.searchProductions(search, page);
     }
 
-    // ── Status transitions ──────────────────────────────────────────────────────
+    // ── Status transitions ─────────────────────────────────────────────────────
 
     @PostMapping("/production/orders/submit/{id}")
-    @ResponseBody public Map<String,Object> prodSubmit(@PathVariable Long id) {
+    @ResponseBody
+    public Map<String,Object> prodSubmit(@PathVariable Long id) {
         return ok(() -> { productionService.submitProduction(id); return "Production order submitted."; });
     }
 
     @PostMapping("/production/orders/approve/{id}")
-    @ResponseBody public Map<String,Object> prodApprove(@PathVariable Long id) {
+    @ResponseBody
+    public Map<String,Object> prodApprove(@PathVariable Long id) {
         return ok(() -> { productionService.approveProduction(id); return "Production order approved."; });
     }
 
     @PostMapping("/production/orders/release/{id}")
-    @ResponseBody public Map<String,Object> prodRelease(@PathVariable Long id) {
+    @ResponseBody
+    public Map<String,Object> prodRelease(@PathVariable Long id) {
         return ok(() -> { productionService.releaseProduction(id); return "Production order released to floor."; });
     }
 
     @PostMapping("/production/orders/start/{id}")
-    @ResponseBody public Map<String,Object> prodStart(@PathVariable Long id) {
+    @ResponseBody
+    public Map<String,Object> prodStart(@PathVariable Long id) {
         return ok(() -> { productionService.startProduction(id); return "Production started."; });
     }
 
     @PostMapping("/production/orders/complete/{id}")
-    @ResponseBody public Map<String,Object> prodComplete(@PathVariable Long id) {
-        return ok(() -> { productionService.completeProduction(id); return "Production completed. Stock updated."; });
+    @ResponseBody
+    public Map<String,Object> prodComplete(@PathVariable Long id) {
+        return ok(() -> { productionService.completeProduction(id); return "Production completed. Stock + GL updated."; });
     }
 
     @PostMapping("/production/orders/reject/{id}")
-    @ResponseBody public Map<String,Object> prodReject(@PathVariable Long id, @RequestParam(required=false) String remarks) {
+    @ResponseBody
+    public Map<String,Object> prodReject(@PathVariable Long id,
+                                          @RequestParam(required=false) String remarks) {
         return ok(() -> { productionService.rejectProduction(id, remarks); return "Production order rejected."; });
     }
 
     @PostMapping("/production/orders/cancel/{id}")
-    @ResponseBody public Map<String,Object> prodCancel(@PathVariable Long id, @RequestParam(required=false) String remarks) {
+    @ResponseBody
+    public Map<String,Object> prodCancel(@PathVariable Long id,
+                                          @RequestParam(required=false) String remarks) {
         return ok(() -> { productionService.cancelProduction(id, remarks); return "Production order cancelled."; });
     }
 
@@ -179,11 +227,16 @@ public class ProductionController {
     private Map<String,Object> ok(Checked a) {
         Map<String,Object> res = new HashMap<>();
         try {
-            Object r = a.run(); res.put("success", true);
-            if (r instanceof String msg) res.put("message", msg);
-            else if (r instanceof Map<?,?> m) res.put("obj", m);
-        } catch (Exception e) { res.put("success", false); res.put("message", e.getMessage()); }
+            Object r = a.run();
+            res.put("success", true);
+            if      (r instanceof String  msg) res.put("message", msg);
+            else if (r instanceof Map<?,?> m)  res.put("obj", m);
+        } catch (Exception e) {
+            res.put("success", false);
+            res.put("message", e.getMessage());
+        }
         return res;
     }
+
     @FunctionalInterface interface Checked { Object run() throws Exception; }
 }

@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<!--
+  production/production-dashboard.html    GET /production/dashboard
+  Full production dashboard — standalone page, own CSS accent (indigo/teal)
+  API: GET /production/dashboard/summary
+  Data keys from ProductionServiceImpl.dashboardSummary():
+    draft, submitted, approved, released, inProgress, completed,
+    rejected, cancelled, completedMtd, inProgPlannedQty,
+    mtdProductionCost, totalCompletedCost, avgLeadDays, activeItems,
+    activeBoms, totalBoms, topItems, monthlyTrend, pendingOrders
+-->
+<html th:replace="~{layout/base :: layout('Production Dashboard', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
+<section>
+
+<style>
+/* ── Dashboard accent overrides ────────────────────────────────────────── */
+.prd-kpi-card {
+  border-radius: 10px;
+  overflow: hidden;
+  transition: transform .15s;
+}
+.prd-kpi-card:hover { transform: translateY(-3px); }
+.prd-kpi-val { font-size: 2rem; font-weight: 700; line-height: 1; }
+.prd-kpi-lbl { font-size: .72rem; text-transform: uppercase;
+                font-weight: 600; letter-spacing: .04em; opacity: .85; }
+.prd-mtd-card { border-left: 4px solid; border-radius: 8px; }
+.flow-step {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 4px; text-align: center; min-width: 72px;
+}
+.flow-step .badge { font-size: .85rem; padding: 6px 12px; border-radius: 20px; }
+.flow-arrow { font-size: 1.1rem; opacity: .5; align-self: center; }
+.trend-bar { background: rgba(13,110,253,.18); border-radius: 4px 4px 0 0;
+             transition: height .4s ease; }
+.trend-bar:hover { background: rgba(13,110,253,.45); }
+</style>
+
+  <ol class="breadcrumb float-xl-end">
+    <li class="breadcrumb-item"><a th:href="@{/dashboard}">Home</a></li>
+    <li class="breadcrumb-item">Production</li>
+    <li class="breadcrumb-item active">Dashboard</li>
+  </ol>
+  <h1 class="page-header">
+    Production Dashboard
+    <small>live manufacturing metrics &amp; GL status</small>
+    <a th:href="@{/production/orders}" class="btn btn-sm btn-outline-primary ms-3">
+      <i class="fa fa-industry me-1"></i> Orders
+    </a>
+    <a th:href="@{/production/boms}" class="btn btn-sm btn-outline-secondary ms-1">
+      <i class="fa fa-list me-1"></i> BOMs
+    </a>
+    <a th:href="@{/accounts/journals}" class="btn btn-sm btn-outline-warning ms-1">
+      <i class="fa fa-book me-1"></i> GL Journals
+    </a>
+  </h1>
+
+  <!-- ══ ROW 1: Status KPIs ══════════════════════════════════════════════ -->
+  <div class="row g-2 mb-3" id="kpiRow">
+    <div class="col-6 col-md-3 col-xl">
+      <div class="prd-kpi-card widget widget-stats bg-secondary h-100">
+        <div class="stats-icon"><i class="fa fa-pen"></i></div>
+        <div class="stats-info">
+          <div class="prd-kpi-lbl">Draft</div>
+          <div class="prd-kpi-val" id="kDraft">—</div>
+        </div>
+        <div class="stats-link">
+          <a th:href="@{/production/orders}">View Orders <i class="fa fa-arrow-alt-circle-right"></i></a>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3 col-xl">
+      <div class="prd-kpi-card widget widget-stats bg-info h-100">
+        <div class="stats-icon"><i class="fa fa-paper-plane"></i></div>
+        <div class="stats-info">
+          <div class="prd-kpi-lbl">Submitted</div>
+          <div class="prd-kpi-val" id="kSubmitted">—</div>
+        </div>
+        <div class="stats-link">
+          <small class="text-white-50">Awaiting approval</small>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3 col-xl">
+      <div class="prd-kpi-card widget widget-stats bg-teal h-100">
+        <div class="stats-icon"><i class="fa fa-check-double"></i></div>
+        <div class="stats-info">
+          <div class="prd-kpi-lbl">Approved</div>
+          <div class="prd-kpi-val" id="kApproved">—</div>
+        </div>
+        <div class="stats-link">
+          <small class="text-white-50">Ready to release</small>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3 col-xl">
+      <div class="prd-kpi-card widget widget-stats bg-primary h-100">
+        <div class="stats-icon"><i class="fa fa-play-circle"></i></div>
+        <div class="stats-info">
+          <div class="prd-kpi-lbl">Released</div>
+          <div class="prd-kpi-val" id="kReleased">—</div>
+        </div>
+        <div class="stats-link">
+          <small class="text-white-50">On factory floor</small>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3 col-xl">
+      <div class="prd-kpi-card widget widget-stats bg-warning h-100">
+        <div class="stats-icon"><i class="fa fa-cog fa-spin" style="animation-duration:3s"></i></div>
+        <div class="stats-info">
+          <div class="prd-kpi-lbl">In Progress</div>
+          <div class="prd-kpi-val" id="kInProgress">—</div>
+        </div>
+        <div class="stats-link">
+          <small id="kInProgQty" class="text-dark">Planned qty: —</small>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3 col-xl">
+      <div class="prd-kpi-card widget widget-stats bg-success h-100">
+        <div class="stats-icon"><i class="fa fa-flag-checkered"></i></div>
+        <div class="stats-info">
+          <div class="prd-kpi-lbl">Completed</div>
+          <div class="prd-kpi-val" id="kCompleted">—</div>
+        </div>
+        <div class="stats-link">
+          <small class="text-white-50">All time</small>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ ROW 2: MTD Summary Cards ════════════════════════════════════════ -->
+  <div class="row g-2 mb-3">
+    <div class="col-6 col-md-3">
+      <div class="card border-0 shadow-sm prd-mtd-card h-100" style="border-color:#198754!important">
+        <div class="card-body py-2 px-3">
+          <div class="text-muted small fw-bold text-uppercase">MTD Completed</div>
+          <div class="fs-2 fw-bold text-success" id="kMtdCompleted">—</div>
+          <div class="text-muted small">production orders this month</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card border-0 shadow-sm prd-mtd-card h-100" style="border-color:#0d6efd!important">
+        <div class="card-body py-2 px-3">
+          <div class="text-muted small fw-bold text-uppercase">MTD Production Cost</div>
+          <div class="fs-3 fw-bold text-primary" id="kMtdCost">—</div>
+          <div class="text-muted small">BDT this month</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card border-0 shadow-sm prd-mtd-card h-100" style="border-color:#fd7e14!important">
+        <div class="card-body py-2 px-3">
+          <div class="text-muted small fw-bold text-uppercase">Avg Lead Time</div>
+          <div class="fs-2 fw-bold text-warning" id="kAvgLead">—</div>
+          <div class="text-muted small">days (completed orders)</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card border-0 shadow-sm prd-mtd-card h-100" style="border-color:#20c997!important">
+        <div class="card-body py-2 px-3">
+          <div class="text-muted small fw-bold text-uppercase">Active BOMs</div>
+          <div class="fs-2 fw-bold text-teal" id="kActiveBoms">—</div>
+          <div class="text-muted small">of <span id="kTotalBoms">—</span> total</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ ROW 3: Lifecycle Flow + Top Items ════════════════════════════════ -->
+  <div class="row g-3 mb-3">
+
+    <!-- Lifecycle flow -->
+    <div class="col-lg-7">
+      <div class="panel panel-inverse mb-0 h-100">
+        <div class="panel-heading">
+          <div class="panel-title"><i class="fa fa-project-diagram me-1"></i> Production Lifecycle</div>
+        </div>
+        <div class="panel-body">
+          <div class="d-flex flex-wrap gap-1 justify-content-center align-items-center py-2" id="lifecycleFlow">
+            <div class="flow-step">
+              <span class="badge bg-secondary fs-6" id="fl-draft">0</span>
+              <small class="text-muted fw-bold">DRAFT</small>
+            </div>
+            <div class="flow-arrow">→</div>
+            <div class="flow-step">
+              <span class="badge bg-info text-dark fs-6" id="fl-submitted">0</span>
+              <small class="text-muted fw-bold">SUBMITTED</small>
+            </div>
+            <div class="flow-arrow">→</div>
+            <div class="flow-step">
+              <span class="badge bg-teal fs-6" id="fl-approved">0</span>
+              <small class="text-muted fw-bold">APPROVED</small>
+            </div>
+            <div class="flow-arrow">→</div>
+            <div class="flow-step">
+              <span class="badge bg-primary fs-6" id="fl-released">0</span>
+              <small class="text-muted fw-bold">RELEASED</small>
+            </div>
+            <div class="flow-arrow">→</div>
+            <div class="flow-step">
+              <span class="badge bg-warning text-dark fs-6" id="fl-inprogress">0</span>
+              <small class="text-muted fw-bold">IN PROGRESS</small>
+            </div>
+            <div class="flow-arrow">→</div>
+            <div class="flow-step">
+              <span class="badge bg-success fs-6" id="fl-completed">0</span>
+              <small class="text-muted fw-bold">COMPLETED</small>
+            </div>
+          </div>
+          <div class="d-flex gap-3 justify-content-center mt-3">
+            <span class="text-muted small">
+              <i class="fa fa-times-circle text-danger me-1"></i>
+              Rejected: <strong id="fl-rejected">0</strong>
+            </span>
+            <span class="text-muted small">
+              <i class="fa fa-ban text-secondary me-1"></i>
+              Cancelled: <strong id="fl-cancelled">0</strong>
+            </span>
+            <span class="text-muted small">
+              <i class="fa fa-book text-warning me-1"></i>
+              Total GL Vouchers: <strong id="fl-gl">—</strong>
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Top items MTD -->
+    <div class="col-lg-5">
+      <div class="panel panel-inverse mb-0 h-100">
+        <div class="panel-heading">
+          <div class="panel-title">
+            <i class="fa fa-medal me-1"></i> Top Items MTD
+            <small class="text-muted ms-1">by produced quantity</small>
+          </div>
+        </div>
+        <div class="panel-body p-0">
+          <table class="table table-sm table-hover mb-0" id="topItemsTable">
+            <thead class="table-light"><tr>
+              <th>#</th><th>Item</th>
+              <th class="text-end">Qty</th>
+              <th class="text-end">Cost (BDT)</th>
+            </tr></thead>
+            <tbody id="topItemsBody">
+              <tr><td colspan="4" class="text-center text-muted py-3">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ ROW 4: 6-Month Trend ════════════════════════════════════════════ -->
+  <div class="row g-3 mb-3">
+    <div class="col-12">
+      <div class="panel panel-inverse mb-0">
+        <div class="panel-heading">
+          <div class="panel-title">
+            <i class="fa fa-chart-bar me-1"></i> 6-Month Production Trend
+          </div>
+          <div class="panel-heading-btn">
+            <div class="btn-group btn-group-sm">
+              <button type="button" class="btn btn-white" onclick="_setTrendMode('cost')" id="btnTrendCost">Cost</button>
+              <button type="button" class="btn btn-white active" onclick="_setTrendMode('qty')" id="btnTrendQty">Quantity</button>
+              <button type="button" class="btn btn-white" onclick="_setTrendMode('count')" id="btnTrendCount">Orders</button>
+            </div>
+          </div>
+        </div>
+        <div class="panel-body">
+          <div id="trendChart" style="height:200px; display:flex; align-items:flex-end; gap:8px; padding:0 8px;">
+            <div class="text-muted text-center w-100 pt-5">Loading…</div>
+          </div>
+          <div id="trendLabels" class="d-flex gap-0 mt-1 px-1" style="font-size:.7rem; color:#888;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ ROW 5: Pending / Bottleneck ════════════════════════════════════ -->
+  <div class="row g-3 mb-3">
+    <div class="col-12">
+      <div class="panel panel-inverse mb-0">
+        <div class="panel-heading">
+          <div class="panel-title">
+            <i class="fa fa-exclamation-triangle me-1 text-warning"></i>
+            Pending &amp; Overdue Orders
+            <small class="text-muted ms-1">active orders needing attention</small>
+          </div>
+          <div class="panel-heading-btn">
+            <a th:href="@{/production/orders}" class="btn btn-sm btn-outline-primary">
+              View All <i class="fa fa-arrow-right ms-1"></i>
+            </a>
+          </div>
+        </div>
+        <div class="panel-body p-0">
+          <table class="table table-sm table-hover mb-0">
+            <thead class="table-light"><tr>
+              <th>Order No</th><th>Item</th><th>Status</th>
+              <th class="text-end">Planned Qty</th>
+              <th>Planned End</th>
+              <th class="text-center">Overdue</th>
+            </tr></thead>
+            <tbody id="pendingBody">
+              <tr><td colspan="6" class="text-center text-muted py-3">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ ROW 6: Cost Summary + GL Status ═════════════════════════════════ -->
+  <div class="row g-3">
+    <div class="col-md-6">
+      <div class="panel panel-inverse mb-0 h-100">
+        <div class="panel-heading">
+          <div class="panel-title"><i class="fa fa-coins me-1"></i> Cost Summary</div>
+        </div>
+        <div class="panel-body">
+          <table class="table table-sm mb-0">
+            <tbody>
+              <tr>
+                <td class="text-muted">Total Completed Production Cost</td>
+                <td class="text-end fw-bold text-primary" id="csTotalCompleted">—</td>
+              </tr>
+              <tr>
+                <td class="text-muted">MTD Production Cost</td>
+                <td class="text-end fw-bold text-success" id="csMtdCost">—</td>
+              </tr>
+              <tr class="table-light">
+                <td class="fw-bold">Active Items in Production</td>
+                <td class="text-end fw-bold" id="csActiveItems">—</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-6">
+      <div class="panel panel-inverse mb-0 h-100">
+        <div class="panel-heading">
+          <div class="panel-title"><i class="fa fa-book me-1 text-warning"></i> GL Integration Status</div>
+        </div>
+        <div class="panel-body">
+          <div class="alert alert-success py-2 mb-2">
+            <i class="fa fa-check-circle me-2"></i>
+            <strong>PRODUCTION_VOUCHER</strong> auto-posted on every completion.
+          </div>
+          <table class="table table-sm mb-0">
+            <tbody>
+              <tr>
+                <td class="text-muted">GL Voucher Type</td>
+                <td><span class="badge bg-warning text-dark">PRODUCTION_VOUCHER</span></td>
+              </tr>
+              <tr>
+                <td class="text-muted">DR Account</td>
+                <td><code>PRODUCTION-WIP</code> (Finished Goods / WIP)</td>
+              </tr>
+              <tr>
+                <td class="text-muted">CR Account</td>
+                <td><code>RAW-MATERIALS</code> (Consumed RM Inventory)</td>
+              </tr>
+              <tr>
+                <td class="text-muted">Trigger</td>
+                <td>On <strong>Complete Production</strong> action</td>
+              </tr>
+              <tr>
+                <td class="text-muted">Voucher Prefix</td>
+                <td><code>PRDV</code></td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="mt-2">
+            <a th:href="@{/accounts/journals}" class="btn btn-sm btn-outline-warning">
+              <i class="fa fa-book me-1"></i> View GL Journals
+            </a>
+            <a th:href="@{/accounts/chart}" class="btn btn-sm btn-outline-secondary ms-1">
+              <i class="fa fa-sitemap me-1"></i> Chart of Accounts
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script th:inline="none">
+  (function () {
+    'use strict';
+
+    var _data  = null;
+    var _tMode = 'qty';    // 'qty' | 'cost' | 'count'
+
+    // ── Load all data on boot ─────────────────────────────────────────────────
+    document.addEventListener('DOMContentLoaded', function () {
+      _refresh();
+    });
+
+    function _refresh() {
+      secureFetch('/production/dashboard/summary').then(function(d){
+        _data = d;
+        _renderKpis(d);
+        _renderLifecycle(d);
+        _renderMtd(d);
+        _renderTopItems(d.topItems || []);
+        _renderTrend(d.monthlyTrend || []);
+        _renderPending(d.pendingOrders || []);
+        _renderCostSummary(d);
+      }).catch(function(e){
+        console.error('Dashboard load error:', e);
+      });
+    }
+
+    // ── KPI Row ───────────────────────────────────────────────────────────────
+    function _renderKpis(d) {
+      _set('kDraft',      d.draft      || 0);
+      _set('kSubmitted',  d.submitted  || 0);
+      _set('kApproved',   d.approved   || 0);
+      _set('kReleased',   d.released   || 0);
+      _set('kInProgress', d.inProgress || 0);
+      _set('kCompleted',  d.completed  || 0);
+      _set('kInProgQty',  'Planned qty: ' + _num(d.inProgPlannedQty || 0, 0));
+    }
+
+    // ── MTD Strip ─────────────────────────────────────────────────────────────
+    function _renderMtd(d) {
+      _set('kMtdCompleted', d.completedMtd || 0);
+      _set('kMtdCost',      _fmtCost(d.mtdProductionCost || 0));
+      _set('kAvgLead',      parseFloat(d.avgLeadDays || 0).toFixed(1));
+      _set('kActiveBoms',   d.activeBoms || 0);
+      _set('kTotalBoms',    d.totalBoms  || 0);
+    }
+
+    // ── Lifecycle Flow ────────────────────────────────────────────────────────
+    function _renderLifecycle(d) {
+      _set('fl-draft',      d.draft      || 0);
+      _set('fl-submitted',  d.submitted  || 0);
+      _set('fl-approved',   d.approved   || 0);
+      _set('fl-released',   d.released   || 0);
+      _set('fl-inprogress', d.inProgress || 0);
+      _set('fl-completed',  d.completed  || 0);
+      _set('fl-rejected',   d.rejected   || 0);
+      _set('fl-cancelled',  d.cancelled  || 0);
+      // GL vouchers = completed orders with accounting posted (≈ completed)
+      _set('fl-gl', d.completed || 0);
+    }
+
+    // ── Top Items ─────────────────────────────────────────────────────────────
+    function _renderTopItems(items) {
+      var body = document.getElementById('topItemsBody');
+      if (!items.length) {
+        body.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-3">No completed orders this month.</td></tr>';
+        return;
+      }
+      body.innerHTML = '';
+      items.forEach(function(it, i){
+        var row = '<tr>'
+          + '<td><span class="badge bg-' + ['warning','secondary','info','light text-dark','light text-dark'][i] + '">' + (i+1) + '</span></td>'
+          + '<td>' + _esc(it.item_name||'—') + '</td>'
+          + '<td class="text-end fw-bold">' + _num(it.produced_qty||0, 2) + '</td>'
+          + '<td class="text-end text-primary">' + _num(it.total_cost||0, 2) + '</td>'
+          + '</tr>';
+        body.insertAdjacentHTML('beforeend', row);
+      });
+    }
+
+    // ── 6-Month Trend Chart ───────────────────────────────────────────────────
+    window._setTrendMode = function(mode) {
+      _tMode = mode;
+      ['btnTrendCost','btnTrendQty','btnTrendCount'].forEach(function(id){
+        document.getElementById(id).classList.remove('active');
+      });
+      var map = { cost: 'btnTrendCost', qty: 'btnTrendQty', count: 'btnTrendCount' };
+      document.getElementById(map[mode]).classList.add('active');
+      if (_data) _renderTrend(_data.monthlyTrend || []);
+    };
+
+    function _renderTrend(trend) {
+      var chart  = document.getElementById('trendChart');
+      var labels = document.getElementById('trendLabels');
+      if (!trend.length) {
+        chart.innerHTML  = '<div class="text-muted text-center w-100 pt-5">No data in the last 6 months.</div>';
+        labels.innerHTML = '';
+        return;
+      }
+
+      // Find max value for scaling
+      var vals = trend.map(function(t){
+        if (_tMode === 'cost')  return parseFloat(t.totalCost  || 0);
+        if (_tMode === 'count') return parseFloat(t.orderCount || 0);
+        return parseFloat(t.totalQty || 0);
+      });
+      var maxVal = Math.max.apply(null, vals) || 1;
+
+      chart.innerHTML  = '';
+      labels.innerHTML = '';
+      var chartH = 200;
+      var colW   = 100 / trend.length;
+
+      trend.forEach(function(t, i){
+        var raw = vals[i];
+        var pct = maxVal > 0 ? (raw / maxVal) * 100 : 0;
+        var h   = Math.max(4, Math.round(pct * (chartH - 24) / 100));
+
+        var col = document.createElement('div');
+        col.style.cssText = 'flex:1; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; gap:2px; position:relative;';
+
+        var lbl = document.createElement('div');
+        lbl.style.cssText = 'font-size:.65rem; color:#888; text-align:center; position:absolute; top:0; width:100%;';
+        lbl.textContent = raw > 0 ? (raw >= 1000000 ? (raw/1000000).toFixed(1)+'M'
+                                   : raw >= 1000    ? (raw/1000).toFixed(1)+'K'
+                                   : _num(raw, 0)) : '';
+
+        var bar = document.createElement('div');
+        bar.className = 'trend-bar w-100';
+        bar.style.height = h + 'px';
+        bar.title = t.month + ': ' + (
+          _tMode === 'cost'  ? 'BDT ' + _num(raw, 2) :
+          _tMode === 'count' ? raw + ' orders' :
+          _num(raw, 2) + ' units');
+
+        col.appendChild(lbl);
+        col.appendChild(bar);
+        chart.appendChild(col);
+
+        var lab = document.createElement('div');
+        lab.style.cssText = 'flex:1; text-align:center; font-size:.65rem; color:#999;';
+        lab.textContent   = t.month || '';
+        labels.appendChild(lab);
+      });
+    }
+
+    // ── Pending / Bottleneck Table ────────────────────────────────────────────
+    function _renderPending(orders) {
+      var body = document.getElementById('pendingBody');
+      if (!orders.length) {
+        body.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-3"><i class="fa fa-check-circle text-success me-1"></i> No overdue or pending orders.</td></tr>';
+        return;
+      }
+      body.innerHTML = '';
+      var statusColors = {
+        SUBMITTED:   'info text-dark',
+        APPROVED:    'teal',
+        RELEASED:    'primary',
+        IN_PROGRESS: 'warning text-dark'
+      };
+      orders.forEach(function(o){
+        var late   = parseInt(o.days_late || 0);
+        var lateCls = late > 7 ? 'text-danger fw-bold' : late > 0 ? 'text-warning fw-bold' : 'text-muted';
+        var lateStr = late > 0
+          ? '<span class="badge bg-danger">' + late + 'd overdue</span>'
+          : '<span class="text-muted">On track</span>';
+        var sc = statusColors[o.status] || 'secondary';
+        body.insertAdjacentHTML('beforeend',
+          '<tr>'
+          + '<td><a th:href="@{/production/orders}" href="/production/orders"'
+          +   ' class="fw-bold text-primary">' + _esc(o.production_no||'—') + '</a></td>'
+          + '<td>' + _esc(o.item_name||'—') + '</td>'
+          + '<td><span class="badge bg-' + sc + '">' + (o.status||'—').replace('_',' ') + '</span></td>'
+          + '<td class="text-end">' + _num(o.planned_quantity||0, 2) + '</td>'
+          + '<td>' + (o.planned_end_date||'—') + '</td>'
+          + '<td class="text-center">' + lateStr + '</td>'
+          + '</tr>');
+      });
+    }
+
+    // ── Cost Summary ──────────────────────────────────────────────────────────
+    function _renderCostSummary(d) {
+      _set('csTotalCompleted', 'BDT ' + _num(d.totalCompletedCost || 0, 2));
+      _set('csMtdCost',        'BDT ' + _num(d.mtdProductionCost  || 0, 2));
+      _set('csActiveItems',    d.activeItems || 0);
+    }
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
+    function _set(id, val) {
+      var el = document.getElementById(id);
+      if (el) el.textContent = val != null ? String(val) : '—';
+    }
+
+    function _num(v, decimals) {
+      return parseFloat(v||0).toLocaleString('en-BD', {
+        minimumFractionDigits: decimals || 0,
+        maximumFractionDigits: decimals || 0
+      });
+    }
+
+    function _fmtCost(v) {
+      var n = parseFloat(v || 0);
+      if (n >= 1e7)  return (n/1e7).toFixed(2) + ' Cr';
+      if (n >= 1e5)  return (n/1e5).toFixed(2) + ' Lac';
+      if (n >= 1000) return (n/1000).toFixed(1) + 'K';
+      return n.toFixed(2);
+    }
+
+    function _esc(s) {
+      return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+  })();
+  </script>
+</section>
+</html>
