@@ -18,10 +18,14 @@ import java.util.Map;
  * ApprovalController — all approval module pages and REST endpoints.
  *
  * Pages:
+ *   GET /approval/dashboard      → approval/approval-dashboard.html   ← NEW
  *   GET /approval/configs        → approval/approval-configs.html
  *   GET /approval/inbox          → approval/approval-inbox.html
  *   GET /approval/requests       → approval/approval-requests.html
  *   GET /approval/delegations    → approval/approval-delegations.html
+ *
+ * Dashboard API:
+ *   GET /approval/dashboard/summary → rich JSON payload
  *
  * JS prefixes:
  *   cfg* | inbox* | req* | del*
@@ -34,6 +38,12 @@ public class ApprovalController {
     private final ApprovalService approvalService;
 
     // ── Pages ──────────────────────────────────────────────────────────────────
+
+    @GetMapping("/approval/dashboard")
+    public String dashboardPage(Model m) {
+        m.addAttribute("activePage", "approval-dashboard");
+        return "approval/approval-dashboard";
+    }
 
     @GetMapping("/approval/configs")
     public String configPage(Model m) { m.addAttribute("activePage","approval-configs"); return "approval/approval-configs"; }
@@ -52,6 +62,13 @@ public class ApprovalController {
     @GetMapping("/approval/dashboard/summary")
     @ResponseBody
     public Map<String, Object> summary() { return approvalService.dashboardSummary(); }
+
+    // ── also keep the old /apr/inbox redirect used by ERP sidebar ─────────────
+    @GetMapping("/apr/inbox")
+    public String aprInboxRedirect() { return "redirect:/approval/inbox"; }
+
+    @GetMapping("/apr/configs")
+    public String aprConfigsRedirect() { return "redirect:/approval/configs"; }
 
     // ── Config ─────────────────────────────────────────────────────────────────
 
@@ -106,7 +123,6 @@ public class ApprovalController {
         return approvalService.inboxDatatable(draw, start, length, search);
     }
 
-    // Shared request show for inbox
     @GetMapping("/approval/inbox/show/{id}")
     @ResponseBody
     public Map<String,Object> inboxShow(@PathVariable Long id) {

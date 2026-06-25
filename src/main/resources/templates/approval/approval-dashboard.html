@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<!--
+  approval/approval-dashboard.html   GET /approval/dashboard
+  Full Approval & Workflow dashboard — Color Admin panel style, orange accent
+  API: GET /approval/dashboard/summary
+  Data keys from ApprovalServiceImpl.dashboardSummary():
+    pendingInbox, totalInApproval, totalApproved, totalRejected,
+    totalReturned, totalOnHold, totalCancelled, urgentPending,
+    totalRequests, approvedMTD, rejectedMTD, avgApprovalHours,
+    overdueCount, slaBreachCount,
+    activeDelegations, expiredDelegations,
+    activeConfigs, totalConfigs,
+    byStatus:        [ {status, count} ]
+    byDocType:       [ {document_type, count, approved, rejected, in_approval} ]
+    byModule:        [ {module, count, in_approval, approved} ]
+    topApprovers:    [ {approver_name, approved_count, avg_hours} ]
+    overdueRequests: [ {id, reference_number, document_type, days_overdue, is_urgent, current_approver} ]
+    urgentItems:     [ {id, reference_number, document_type, document_amount, document_summary, due_date} ]
+    recentInbox:     [ my pending items ]
+    recentActivity:  [ last 15 history entries ]
+    monthlyTrend:    [ {month, submitted, approved, rejected} ]
+-->
+<html th:replace="~{layout/base :: layout('Approval Dashboard', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
+<section>
+
+<style>
+/* ── Approval accent (orange/amber) ─────────────────────────────────── */
+.apr-kpi-card {
+  border-radius: 10px; overflow: hidden; transition: transform .15s;
+}
+.apr-kpi-card:hover { transform: translateY(-3px); }
+.apr-kpi-val { font-size: 2rem; font-weight: 700; line-height: 1; }
+.apr-kpi-lbl { font-size: .72rem; text-transform: uppercase;
+               font-weight: 600; letter-spacing: .04em; opacity: .85; }
+.apr-mtd-card { border-left: 4px solid; border-radius: 8px; }
+
+/* status badges */
+.ab-in-approval { background: rgba(13,110,253,.13); color: #0d6efd; font-weight:700; font-size:.68rem; padding:2px 8px; border-radius:20px; }
+.ab-approved     { background: rgba(25,135,84,.13);  color: #198754; font-weight:700; font-size:.68rem; padding:2px 8px; border-radius:20px; }
+.ab-rejected     { background: rgba(220,53,69,.13);  color: #dc3545; font-weight:700; font-size:.68rem; padding:2px 8px; border-radius:20px; }
+.ab-returned     { background: rgba(255,193,7,.18);  color: #b45309; font-weight:700; font-size:.68rem; padding:2px 8px; border-radius:20px; }
+.ab-hold         { background: rgba(253,126,20,.15); color: #fd7e14; font-weight:700; font-size:.68rem; padding:2px 8px; border-radius:20px; }
+.ab-cancelled    { background: rgba(108,117,125,.12);color: #6c757d; font-weight:700; font-size:.68rem; padding:2px 8px; border-radius:20px; }
+.ab-urgent       { background: rgba(220,53,69,.2);   color: #dc3545; font-weight:800; font-size:.68rem; padding:2px 8px; border-radius:20px; }
+
+/* doc-type / pipeline bars */
+.dt-bar-wrap { background:#e9ecef; border-radius:4px; height:8px; overflow:hidden; position:relative; }
+.dt-bar-approved  { height:100%; border-radius:4px; background:#198754; display:inline-block; }
+.dt-bar-rejected  { height:100%; background:#dc3545; display:inline-block; }
+
+/* overdue days badge */
+.days-overdue-badge { font-size:.68rem; padding:2px 7px; border-radius:20px; font-weight:700; }
+.days-crit { background:rgba(220,53,69,.18); color:#dc3545; }
+.days-warn { background:rgba(255,193,7,.2);  color:#b45309; }
+.days-norm { background:rgba(253,126,20,.15);color:#fd7e14; }
+
+/* trend bars */
+.tr-sub  { border-radius:4px 4px 0 0; background:rgba(13,110,253,.35); transition:height .4s; }
+.tr-appr { border-radius:4px 4px 0 0; background:rgba(25,135,84,.65);  transition:height .4s; }
+.tr-rej  { border-radius:4px 4px 0 0; background:rgba(220,53,69,.65);  transition:height .4s; }
+.tr-sub:hover  { background:rgba(13,110,253,.75); }
+.tr-appr:hover { background:rgba(25,135,84,.95); }
+.tr-rej:hover  { background:rgba(220,53,69,.95); }
+</style>
+
+  <ol class="breadcrumb float-xl-end">
+    <li class="breadcrumb-item"><a th:href="@{/dashboard}">Home</a></li>
+    <li class="breadcrumb-item">Approvals</li>
+    <li class="breadcrumb-item active">Dashboard</li>
+  </ol>
+  <h1 class="page-header">
+    Approval &amp; Workflow Dashboard
+    <small>inbox · requests · delegations · configs</small>
+    <a th:href="@{/approval/inbox}"       class="btn btn-sm btn-outline-warning ms-3">
+      <i class="fa fa-inbox me-1"></i> My Inbox
+    </a>
+    <a th:href="@{/approval/requests}"    class="btn btn-sm btn-outline-secondary ms-1">
+      <i class="fa fa-list me-1"></i> All Requests
+    </a>
+    <a th:href="@{/approval/configs}"     class="btn btn-sm btn-outline-secondary ms-1">
+      <i class="fa fa-cog me-1"></i> Configs
+    </a>
+    <a th:href="@{/approval/delegations}" class="btn btn-sm btn-outline-info ms-1">
+      <i class="fa fa-exchange me-1"></i> Delegations
+    </a>
+    <button class="btn btn-sm btn-warning ms-1" onclick="_refresh()">
+      <i class="fa fa-refresh me-1"></i> Refresh
+    </button>
+  </h1>
+
+  <!-- ══ ROW 1: STATUS KPI WIDGETS ════════════════════════════════════════ -->
+  <div class="row g-2 mb-3">
+
+    <div class="col-6 col-md-3 col-xl">
+      <div class="apr-kpi-card widget widget-stats bg-warning h-100">
+        <div class="stats-icon"><i class="fa fa-inbox"></i></div>
+        <div class="stats-info">
+          <div class="apr-kpi-lbl">My Pending Inbox</div>
+          <div class="apr-kpi-val" id="kPendingInbox">—</div>
+        </div>
+        <div class="stats-link">
+          <a th:href="@{/approval/inbox}">Open Inbox <i class="fa fa-arrow-alt-circle-right"></i></a>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-6 col-md-3 col-xl">
+      <div class="apr-kpi-card widget widget-stats bg-primary h-100">
+        <div class="stats-icon"><i class="fa fa-hourglass-half"></i></div>
+        <div class="stats-info">
+          <div class="apr-kpi-lbl">In Approval (Org)</div>
+          <div class="apr-kpi-val" id="kInApproval">—</div>
+        </div>
+        <div class="stats-link">
+          <a th:href="@{/approval/requests}">View All <i class="fa fa-arrow-alt-circle-right"></i></a>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-6 col-md-3 col-xl">
+      <div class="apr-kpi-card widget widget-stats bg-danger h-100">
+        <div class="stats-icon"><i class="fa fa-exclamation-triangle"></i></div>
+        <div class="stats-info">
+          <div class="apr-kpi-lbl">Overdue</div>
+          <div class="apr-kpi-val" id="kOverdue">—</div>
+        </div>
+        <div class="stats-link">
+          <small class="text-white-50" id="kSlaBreach">SLA Breach: —</small>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-6 col-md-3 col-xl">
+      <div class="apr-kpi-card widget widget-stats bg-orange h-100">
+        <div class="stats-icon"><i class="fa fa-fire"></i></div>
+        <div class="stats-info">
+          <div class="apr-kpi-lbl">Urgent Pending</div>
+          <div class="apr-kpi-val" id="kUrgent">—</div>
+        </div>
+        <div class="stats-link"><small class="text-white-50">Marked as urgent</small></div>
+      </div>
+    </div>
+
+    <div class="col-6 col-md-3 col-xl">
+      <div class="apr-kpi-card widget widget-stats bg-success h-100">
+        <div class="stats-icon"><i class="fa fa-check-circle"></i></div>
+        <div class="stats-info">
+          <div class="apr-kpi-lbl">Total Approved</div>
+          <div class="apr-kpi-val" id="kApproved">—</div>
+        </div>
+        <div class="stats-link"><small class="text-white-50" id="kApprovedMTD">MTD: —</small></div>
+      </div>
+    </div>
+
+    <div class="col-6 col-md-3 col-xl">
+      <div class="apr-kpi-card widget widget-stats bg-danger h-100">
+        <div class="stats-icon"><i class="fa fa-times-circle"></i></div>
+        <div class="stats-info">
+          <div class="apr-kpi-lbl">Total Rejected</div>
+          <div class="apr-kpi-val" id="kRejected">—</div>
+        </div>
+        <div class="stats-link"><small class="text-white-50" id="kRejectedMTD">MTD: —</small></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ══ ROW 2: METRICS STRIP ══════════════════════════════════════════════ -->
+  <div class="row g-2 mb-3">
+    <div class="col-6 col-md-3">
+      <div class="card border-0 shadow-sm apr-mtd-card h-100" style="border-color:#fd7e14!important">
+        <div class="card-body py-2 px-3">
+          <div class="text-muted small fw-bold text-uppercase">Avg Approval Time</div>
+          <div class="fs-3 fw-bold text-warning" id="kAvgHours">—</div>
+          <div class="text-muted small">hours per request</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card border-0 shadow-sm apr-mtd-card h-100" style="border-color:#198754!important">
+        <div class="card-body py-2 px-3">
+          <div class="text-muted small fw-bold text-uppercase">Total Requests</div>
+          <div class="fs-3 fw-bold text-success" id="kTotalRequests">—</div>
+          <div class="text-muted small">all time</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card border-0 shadow-sm apr-mtd-card h-100" style="border-color:#0dcaf0!important">
+        <div class="card-body py-2 px-3">
+          <div class="text-muted small fw-bold text-uppercase">Active Delegations</div>
+          <div class="fs-3 fw-bold text-info" id="kActiveDel">—</div>
+          <div class="text-muted small">Expired: <span id="kExpiredDel">—</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card border-0 shadow-sm apr-mtd-card h-100" style="border-color:#6c757d!important">
+        <div class="card-body py-2 px-3">
+          <div class="text-muted small fw-bold text-uppercase">Active Configs</div>
+          <div class="fs-3 fw-bold text-secondary" id="kActiveConfigs">—</div>
+          <div class="text-muted small">of <span id="kTotalConfigs">—</span> total workflows</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ ROW 3: STATUS BREAKDOWN + DOC TYPE + MODULE ═══════════════════════ -->
+  <div class="row g-3 mb-3">
+
+    <!-- Status breakdown -->
+    <div class="col-lg-3">
+      <div class="panel panel-inverse mb-0 h-100">
+        <div class="panel-heading">
+          <div class="panel-title"><i class="fa fa-pie-chart me-1"></i> By Status</div>
+        </div>
+        <div class="panel-body p-0">
+          <table class="table table-sm table-hover mb-0">
+            <thead class="table-light"><tr><th>Status</th><th class="text-end">Count</th><th>Share</th></tr></thead>
+            <tbody id="byStatusBody">
+              <tr><td colspan="3" class="text-muted text-center py-3">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- By document type -->
+    <div class="col-lg-5">
+      <div class="panel panel-inverse mb-0 h-100">
+        <div class="panel-heading">
+          <div class="panel-title"><i class="fa fa-file-text me-1"></i> By Document Type</div>
+        </div>
+        <div class="panel-body p-0">
+          <table class="table table-sm table-hover mb-0">
+            <thead class="table-light"><tr><th>Type</th><th class="text-end">Total</th><th class="text-end text-success">Approved</th><th class="text-end text-danger">Rejected</th><th>Pipeline</th></tr></thead>
+            <tbody id="byDocTypeBody">
+              <tr><td colspan="5" class="text-muted text-center py-3">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- By module -->
+    <div class="col-lg-4">
+      <div class="panel panel-inverse mb-0 h-100">
+        <div class="panel-heading">
+          <div class="panel-title"><i class="fa fa-th me-1"></i> By Module</div>
+        </div>
+        <div class="panel-body p-0">
+          <table class="table table-sm table-hover mb-0">
+            <thead class="table-light"><tr><th>Module</th><th class="text-end">Total</th><th class="text-end">Pending</th></tr></thead>
+            <tbody id="byModuleBody">
+              <tr><td colspan="3" class="text-muted text-center py-3">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ ROW 4: 12-MONTH TREND ════════════════════════════════════════════ -->
+  <div class="row g-3 mb-3">
+    <div class="col-12">
+      <div class="panel panel-inverse mb-0">
+        <div class="panel-heading">
+          <div class="panel-title">
+            <i class="fa fa-bar-chart me-1"></i> 12-Month Request Trend
+          </div>
+          <div class="panel-heading-btn">
+            <div class="d-flex gap-3 align-items-center me-2" style="font-size:.7rem;color:#6c757d">
+              <span><span style="display:inline-block;width:10px;height:10px;background:rgba(13,110,253,.5);border-radius:2px;margin-right:3px"></span>Submitted</span>
+              <span><span style="display:inline-block;width:10px;height:10px;background:#198754;border-radius:2px;margin-right:3px"></span>Approved</span>
+              <span><span style="display:inline-block;width:10px;height:10px;background:#dc3545;border-radius:2px;margin-right:3px"></span>Rejected</span>
+            </div>
+          </div>
+        </div>
+        <div class="panel-body">
+          <div id="trendChart" style="height:160px; display:flex; align-items:flex-end; gap:5px; padding:0 4px;">
+            <div class="text-muted text-center w-100 pt-5">Loading…</div>
+          </div>
+          <div id="trendLabels" class="d-flex gap-0 mt-1 px-1" style="font-size:.65rem; color:#888;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ ROW 5: OVERDUE + URGENT ══════════════════════════════════════════ -->
+  <div class="row g-3 mb-3">
+
+    <!-- Overdue -->
+    <div class="col-lg-6">
+      <div class="panel panel-inverse mb-0 h-100">
+        <div class="panel-heading">
+          <div class="panel-title">
+            <i class="fa fa-clock-o me-1 text-danger"></i>
+            Overdue Requests
+            <small class="text-muted ms-1">past due date, still in approval</small>
+          </div>
+          <div class="panel-heading-btn">
+            <a th:href="@{/approval/requests}" class="btn btn-sm btn-outline-danger">View All ›</a>
+          </div>
+        </div>
+        <div class="panel-body p-0">
+          <div class="table-responsive">
+            <table class="table table-sm table-hover mb-0">
+              <thead class="table-light">
+                <tr><th>Reference</th><th>Type</th><th>Requester</th><th>Approver</th><th class="text-center">Days</th></tr>
+              </thead>
+              <tbody id="overdueBody">
+                <tr><td colspan="5" class="text-muted text-center py-3">Loading…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Urgent -->
+    <div class="col-lg-6">
+      <div class="panel panel-inverse mb-0 h-100">
+        <div class="panel-heading">
+          <div class="panel-title">
+            <i class="fa fa-fire me-1 text-danger"></i>
+            Urgent Pending
+            <small class="text-muted ms-1">marked as urgent, awaiting action</small>
+          </div>
+          <div class="panel-heading-btn">
+            <a th:href="@{/approval/inbox}" class="btn btn-sm btn-outline-warning">Go to Inbox ›</a>
+          </div>
+        </div>
+        <div class="panel-body p-0">
+          <div class="table-responsive">
+            <table class="table table-sm table-hover mb-0">
+              <thead class="table-light">
+                <tr><th>Reference</th><th>Type</th><th>Requester</th><th class="text-end">Amount</th><th>Due</th></tr>
+              </thead>
+              <tbody id="urgentBody">
+                <tr><td colspan="5" class="text-muted text-center py-3">Loading…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ ROW 6: MY INBOX + TOP APPROVERS ══════════════════════════════════ -->
+  <div class="row g-3 mb-3">
+
+    <!-- My Inbox -->
+    <div class="col-lg-7">
+      <div class="panel panel-inverse mb-0 h-100">
+        <div class="panel-heading">
+          <div class="panel-title">
+            <i class="fa fa-inbox me-1 text-warning"></i> My Pending Actions
+          </div>
+          <div class="panel-heading-btn">
+            <a th:href="@{/approval/inbox}" class="btn btn-sm btn-outline-warning">Full Inbox ›</a>
+          </div>
+        </div>
+        <div class="panel-body p-0">
+          <div class="table-responsive">
+            <table class="table table-sm table-hover mb-0">
+              <thead class="table-light">
+                <tr><th>Reference</th><th>Type</th><th>Requester</th><th class="text-end">Amount</th><th>Due</th><th>Priority</th></tr>
+              </thead>
+              <tbody id="inboxBody">
+                <tr><td colspan="6" class="text-muted text-center py-3">Loading…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Top Approvers -->
+    <div class="col-lg-5">
+      <div class="panel panel-inverse mb-0 h-100">
+        <div class="panel-heading">
+          <div class="panel-title">
+            <i class="fa fa-trophy me-1 text-warning"></i> Top Approvers
+          </div>
+        </div>
+        <div class="panel-body p-0">
+          <table class="table table-sm table-hover mb-0">
+            <thead class="table-light"><tr><th>#</th><th>Approver</th><th class="text-end">Approved</th><th class="text-end">Avg (hrs)</th></tr></thead>
+            <tbody id="topApproversBody">
+              <tr><td colspan="4" class="text-muted text-center py-3">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ ROW 7: RECENT ACTIVITY LOG ════════════════════════════════════════ -->
+  <div class="row g-3">
+    <div class="col-12">
+      <div class="panel panel-inverse mb-0">
+        <div class="panel-heading">
+          <div class="panel-title">
+            <i class="fa fa-history me-1 text-secondary"></i>
+            Recent Approval Activity
+          </div>
+          <div class="panel-heading-btn">
+            <a th:href="@{/approval/requests}" class="btn btn-sm btn-outline-secondary">All Requests ›</a>
+          </div>
+        </div>
+        <div class="panel-body p-0">
+          <div class="table-responsive">
+            <table class="table table-sm table-hover mb-0">
+              <thead class="table-light">
+                <tr><th>Action</th><th>Reference</th><th>Doc Type</th><th>Actor</th><th>Level</th><th>When</th><th>Notes</th></tr>
+              </thead>
+              <tbody id="activityBody">
+                <tr><td colspan="7" class="text-muted text-center py-3">Loading…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script th:inline="none">
+  (function () {
+    'use strict';
+
+    var _data = null;
+
+    document.addEventListener('DOMContentLoaded', function () { _refresh(); });
+
+    function _refresh() {
+      secureFetch('/approval/dashboard/summary').then(function(d){
+        _data = d;
+        _renderKpis(d);
+        _renderStrip(d);
+        _renderByStatus(d.byStatus || []);
+        _renderByDocType(d.byDocType || []);
+        _renderByModule(d.byModule || []);
+        _renderTrend(d.monthlyTrend || []);
+        _renderOverdue(d.overdueRequests || []);
+        _renderUrgent(d.urgentItems || []);
+        _renderInbox(d.recentInbox || []);
+        _renderTopApprovers(d.topApprovers || []);
+        _renderActivity(d.recentActivity || []);
+      }).catch(function(e){ console.error('Approval dashboard error:', e); });
+    }
+
+    window._refresh = _refresh;
+
+    // ── KPI widgets ───────────────────────────────────────────────────────────
+    function _renderKpis(d) {
+      _set('kPendingInbox', d.pendingInbox  || 0);
+      _set('kInApproval',  d.totalInApproval || 0);
+      _set('kOverdue',     d.overdueCount   || 0);
+      _set('kSlaBreach',   'SLA Breach: ' + (d.slaBreachCount || 0));
+      _set('kUrgent',      d.urgentPending  || 0);
+      _set('kApproved',    d.totalApproved  || 0);
+      _set('kApprovedMTD', 'MTD: ' + (d.approvedMTD || 0));
+      _set('kRejected',    d.totalRejected  || 0);
+      _set('kRejectedMTD', 'MTD: ' + (d.rejectedMTD || 0));
+    }
+
+    // ── Metrics strip ─────────────────────────────────────────────────────────
+    function _renderStrip(d) {
+      var avg = parseFloat(d.avgApprovalHours || 0);
+      _set('kAvgHours',     avg.toFixed(1) + ' hrs');
+      _set('kTotalRequests',d.totalRequests   || 0);
+      _set('kActiveDel',    d.activeDelegations  || 0);
+      _set('kExpiredDel',   d.expiredDelegations || 0);
+      _set('kActiveConfigs',d.activeConfigs   || 0);
+      _set('kTotalConfigs', d.totalConfigs    || 0);
+    }
+
+    // ── By status table ───────────────────────────────────────────────────────
+    var STATUS_LABELS = {
+      IN_APPROVAL:'In Approval', SUBMITTED:'Submitted', APPROVED:'Approved',
+      REJECTED:'Rejected', RETURNED:'Returned', HOLD:'On Hold',
+      CANCELLED:'Cancelled', DRAFT:'Draft', COMPLETED:'Completed'
+    };
+    var STATUS_CSS = {
+      IN_APPROVAL:'ab-in-approval', SUBMITTED:'ab-in-approval',
+      APPROVED:'ab-approved', REJECTED:'ab-rejected',
+      RETURNED:'ab-returned', HOLD:'ab-hold', CANCELLED:'ab-cancelled'
+    };
+
+    function _renderByStatus(rows) {
+      var body = document.getElementById('byStatusBody');
+      if (!rows.length) { body.innerHTML = '<tr><td colspan="3" class="text-muted text-center py-3">No data.</td></tr>'; return; }
+      var total = rows.reduce(function(s, r){ return s + parseInt(r.count||0); }, 0) || 1;
+      body.innerHTML = rows.map(function(r){
+        var cnt  = parseInt(r.count || 0);
+        var pct  = Math.round((cnt / total) * 100);
+        var css  = STATUS_CSS[r.status] || 'ab-cancelled';
+        var lbl  = STATUS_LABELS[r.status] || r.status;
+        return '<tr>'
+          + '<td><span class="' + css + '">' + _esc(lbl) + '</span></td>'
+          + '<td class="text-end fw-bold">' + cnt + '</td>'
+          + '<td><div style="background:#e9ecef;border-radius:20px;height:8px;overflow:hidden">'
+          +   '<div style="width:' + pct + '%;height:100%;border-radius:20px;background:#fd7e14"></div>'
+          + '</div><small class="text-muted">' + pct + '%</small></td>'
+          + '</tr>';
+      }).join('');
+    }
+
+    // ── By document type ──────────────────────────────────────────────────────
+    function _renderByDocType(rows) {
+      var body = document.getElementById('byDocTypeBody');
+      if (!rows.length) { body.innerHTML = '<tr><td colspan="5" class="text-muted text-center py-3">No data.</td></tr>'; return; }
+      var maxCount = Math.max.apply(null, rows.map(function(r){ return parseInt(r.count||0); })) || 1;
+      body.innerHTML = rows.map(function(r){
+        var total    = parseInt(r.count     || 0);
+        var approved = parseInt(r.approved  || 0);
+        var rejected = parseInt(r.rejected  || 0);
+        var approvedPct = total > 0 ? Math.round((approved / total) * 100) : 0;
+        var rejectedPct = total > 0 ? Math.round((rejected / total) * 100) : 0;
+        var docShort = (r.document_type || '').replace(/_/g,' ');
+        return '<tr>'
+          + '<td class="small fw-semibold">' + _esc(docShort) + '</td>'
+          + '<td class="text-end fw-bold">' + total + '</td>'
+          + '<td class="text-end text-success">' + approved + '</td>'
+          + '<td class="text-end text-danger">' + rejected + '</td>'
+          + '<td style="min-width:80px"><div class="dt-bar-wrap">'
+          +   '<div class="dt-bar-approved" style="width:' + approvedPct + '%;float:left"></div>'
+          +   '<div class="dt-bar-rejected" style="width:' + rejectedPct + '%;float:left"></div>'
+          + '</div></td>'
+          + '</tr>';
+      }).join('');
+    }
+
+    // ── By module ─────────────────────────────────────────────────────────────
+    function _renderByModule(rows) {
+      var body = document.getElementById('byModuleBody');
+      if (!rows.length) { body.innerHTML = '<tr><td colspan="3" class="text-muted text-center py-3">No data.</td></tr>'; return; }
+      body.innerHTML = rows.map(function(r){
+        return '<tr>'
+          + '<td class="small fw-semibold">' + _esc(r.module || '—') + '</td>'
+          + '<td class="text-end fw-bold">' + (r.count || 0) + '</td>'
+          + '<td class="text-end">'
+          +   (parseInt(r.in_approval||0) > 0
+              ? '<span class="ab-in-approval">' + r.in_approval + '</span>'
+              : '<span class="text-muted small">—</span>')
+          + '</td>'
+          + '</tr>';
+      }).join('');
+    }
+
+    // ── 12-month trend ────────────────────────────────────────────────────────
+    function _renderTrend(trend) {
+      var chart  = document.getElementById('trendChart');
+      var labels = document.getElementById('trendLabels');
+      if (!trend.length) {
+        chart.innerHTML  = '<div class="text-muted text-center w-100 pt-4">No request data in 12 months.</div>';
+        labels.innerHTML = '';
+        return;
+      }
+      var sVals = trend.map(function(t){ return parseInt(t.submitted || 0); });
+      var aVals = trend.map(function(t){ return parseInt(t.approved  || 0); });
+      var rVals = trend.map(function(t){ return parseInt(t.rejected  || 0); });
+      var maxV  = Math.max.apply(null, sVals.concat(aVals,rVals)) || 1;
+      var chartH = 140;
+      chart.innerHTML  = '';
+      labels.innerHTML = '';
+      trend.forEach(function(t, i){
+        var hs = Math.max(2, Math.round((sVals[i]/maxV)*chartH));
+        var ha = Math.max(2, Math.round((aVals[i]/maxV)*chartH));
+        var hr = Math.max(2, Math.round((rVals[i]/maxV)*chartH));
+        var col = document.createElement('div');
+        col.style.cssText = 'flex:1;display:flex;align-items:flex-end;justify-content:center;gap:1px;';
+        ['tr-sub','tr-appr','tr-rej'].forEach(function(cls, ci){
+          var h = [hs,ha,hr][ci];
+          var b = document.createElement('div');
+          b.className = cls; b.style.cssText = 'flex:1;height:' + h + 'px;';
+          b.title = (t.month||'') + ': ' + ['Submitted','Approved','Rejected'][ci] + ' = ' + [sVals[i],aVals[i],rVals[i]][ci];
+          col.appendChild(b);
+        });
+        chart.appendChild(col);
+        var lab = document.createElement('div');
+        lab.style.cssText = 'flex:1;text-align:center;font-size:.62rem;color:#999;';
+        lab.textContent = t.month||'';
+        labels.appendChild(lab);
+      });
+    }
+
+    // ── Overdue table ─────────────────────────────────────────────────────────
+    function _renderOverdue(rows) {
+      var body = document.getElementById('overdueBody');
+      if (!rows.length) {
+        body.innerHTML = '<tr><td colspan="5" class="text-center text-success py-3"><i class="fa fa-check-circle me-1"></i> No overdue requests.</td></tr>';
+        return;
+      }
+      body.innerHTML = rows.map(function(r){
+        var days = parseInt(r.days_overdue || 0);
+        var daysCls = days > 7 ? 'days-crit' : days > 3 ? 'days-warn' : 'days-norm';
+        return '<tr>'
+          + '<td><strong>' + _esc(r.reference_number||'—') + '</strong>'
+          +   (r.is_urgent ? ' <span class="ab-urgent">URGENT</span>' : '') + '</td>'
+          + '<td class="small">' + _esc((r.document_type||'').replace(/_/g,' ')) + '</td>'
+          + '<td class="small">' + _esc(r.requester_name||'—') + '</td>'
+          + '<td class="small">' + _esc(r.current_approver||'—') + '</td>'
+          + '<td class="text-center"><span class="days-overdue-badge ' + daysCls + '">' + days + 'd</span></td>'
+          + '</tr>';
+      }).join('');
+    }
+
+    // ── Urgent table ──────────────────────────────────────────────────────────
+    function _renderUrgent(rows) {
+      var body = document.getElementById('urgentBody');
+      if (!rows.length) {
+        body.innerHTML = '<tr><td colspan="5" class="text-center text-success py-3"><i class="fa fa-check-circle me-1"></i> No urgent items pending.</td></tr>';
+        return;
+      }
+      body.innerHTML = rows.map(function(r){
+        var amt = parseFloat(r.document_amount || 0);
+        var amtStr = amt > 0 ? '৳ ' + (amt >= 1e7 ? (amt/1e7).toFixed(2)+'Cr' : amt >= 1e5 ? (amt/1e5).toFixed(2)+'L' : amt.toLocaleString('en-BD',{maximumFractionDigits:0})) : '—';
+        return '<tr>'
+          + '<td><strong>' + _esc(r.reference_number||'—') + '</strong><br>'
+          +   '<small class="text-muted">L' + (r.current_level_number||1) + '/' + (r.total_levels||1) + '</small></td>'
+          + '<td class="small">' + _esc((r.document_type||'').replace(/_/g,' ')) + '</td>'
+          + '<td class="small">' + _esc(r.requester_name||'—') + '</td>'
+          + '<td class="text-end fw-bold small">' + amtStr + '</td>'
+          + '<td class="text-nowrap small">' + (r.due_date||'—') + '</td>'
+          + '</tr>';
+      }).join('');
+    }
+
+    // ── My inbox ──────────────────────────────────────────────────────────────
+    function _renderInbox(rows) {
+      var body = document.getElementById('inboxBody');
+      if (!rows.length) {
+        body.innerHTML = '<tr><td colspan="6" class="text-center text-success py-3"><i class="fa fa-check-circle me-1"></i> Your inbox is clear.</td></tr>';
+        return;
+      }
+      body.innerHTML = rows.map(function(r){
+        var amt = parseFloat(r.document_amount || 0);
+        var amtStr = amt > 0 ? '৳ ' + (amt >= 1e5 ? (amt/1e5).toFixed(2)+'L' : amt.toLocaleString('en-BD',{maximumFractionDigits:0})) : '—';
+        var priority = r.is_urgent
+          ? '<span class="ab-urgent">URGENT</span>'
+          : '<span style="font-size:.65rem;color:#6c757d">Normal</span>';
+        return '<tr>'
+          + '<td><strong class="text-warning">' + _esc(r.reference_number||'—') + '</strong>'
+          +   '<br><small class="text-muted">L' + (r.current_level_number||1) + '/' + (r.total_levels||1) + '</small></td>'
+          + '<td class="small">' + _esc((r.document_type||'').replace(/_/g,' ')) + '</td>'
+          + '<td class="small">' + _esc(r.requester_name||'—') + '</td>'
+          + '<td class="text-end small fw-bold">' + amtStr + '</td>'
+          + '<td class="text-nowrap small">' + (r.due_date||'—') + '</td>'
+          + '<td>' + priority + '</td>'
+          + '</tr>';
+      }).join('');
+    }
+
+    // ── Top approvers ─────────────────────────────────────────────────────────
+    function _renderTopApprovers(rows) {
+      var body = document.getElementById('topApproversBody');
+      if (!rows.length) { body.innerHTML = '<tr><td colspan="4" class="text-muted text-center py-3">No approval history.</td></tr>'; return; }
+      var badges = ['bg-warning text-dark','bg-secondary','bg-info text-dark'];
+      body.innerHTML = rows.map(function(r, i){
+        var hrs = parseFloat(r.avg_hours || 0).toFixed(1);
+        return '<tr>'
+          + '<td><span class="badge ' + (badges[i] || 'bg-light text-dark') + '">' + (i+1) + '</span></td>'
+          + '<td>' + _esc(r.approver_name || '—') + '</td>'
+          + '<td class="text-end fw-bold text-success">' + (r.approved_count || 0) + '</td>'
+          + '<td class="text-end text-muted small">' + hrs + ' h</td>'
+          + '</tr>';
+      }).join('');
+    }
+
+    // ── Activity log ──────────────────────────────────────────────────────────
+    var ACTION_CSS = {
+      APPROVED:'ab-approved', REJECTED:'ab-rejected', RETURNED:'ab-returned',
+      SUBMITTED:'ab-in-approval', HOLD:'ab-hold', RELEASED:'ab-in-approval',
+      CANCELLED:'ab-cancelled'
+    };
+
+    function _renderActivity(rows) {
+      var body = document.getElementById('activityBody');
+      if (!rows.length) { body.innerHTML = '<tr><td colspan="7" class="text-muted text-center py-3">No recent activity.</td></tr>'; return; }
+      body.innerHTML = rows.map(function(r){
+        var css = ACTION_CSS[r.action] || 'ab-cancelled';
+        var notes = r.comments || r.rejection_reason || '';
+        return '<tr>'
+          + '<td><span class="' + css + '">' + _esc(r.action||'—') + '</span></td>'
+          + '<td class="small fw-bold">' + _esc(r.reference_number||'—') + '</td>'
+          + '<td class="small">' + _esc((r.document_type||'').replace(/_/g,' ')) + '</td>'
+          + '<td class="small">' + _esc(r.actor_name||'—') + '</td>'
+          + '<td class="small text-muted">' + _esc(r.level_name||'—') + '</td>'
+          + '<td class="text-nowrap small">' + (r.action_at||'—') + '</td>'
+          + '<td class="small text-muted" style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + _esc(notes) + '">' + _esc(notes||'') + '</td>'
+          + '</tr>';
+      }).join('');
+    }
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
+    function _set(id, val) {
+      var el = document.getElementById(id);
+      if (el) el.textContent = val != null ? String(val) : '—';
+    }
+    function _esc(s) {
+      return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+  })();
+  </script>
+</section>
+</html>

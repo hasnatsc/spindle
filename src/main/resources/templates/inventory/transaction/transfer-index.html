@@ -58,23 +58,17 @@
                     <input id="trDocNo" type="text" class="form-control hs_span_view bg-light" readonly placeholder="Auto-generated">
                     <label for="trDocNo" class="input-label">Doc No</label>
                   </div>
-                  <div class="col-md-2 view-group">
+                  <div class="col-md-3 view-group">
                     <input id="trDate" type="date" class="form-control hs_span_view" required>
                     <label for="trDate" class="input-label">Date <span class="text-danger">*</span></label>
                   </div>
-                  <div class="col-md-3 view-group">
-                    <select id="trSrcWarehouseId" class="form-select hs_span_view" required>
-                      <option value="">— Source Warehouse —</option>
-                    </select>
-                    <label for="trSrcWarehouseId" class="input-label">From <span class="text-danger">*</span></label>
-                  </div>
-                  <div class="col-md-3 view-group">
+                  <div class="col-md-4 view-group">
                     <select id="trDestWarehouseId" class="form-select hs_span_view" required>
                       <option value="">— Destination Warehouse —</option>
                     </select>
                     <label for="trDestWarehouseId" class="input-label">To <span class="text-danger">*</span></label>
                   </div>
-                  <div class="col-md-2 view-group">
+                  <div class="col-md-3 view-group">
                     <input id="trRefNo" type="text" class="form-control hs_span_view" maxlength="100" placeholder="Ref No">
                     <label for="trRefNo" class="input-label">Reference No</label>
                   </div>
@@ -181,7 +175,7 @@
 
     function _loadWarehouses() {
       secureFetch('/warehouses/active-org').then(function (data) {
-        ['trSrcWarehouseId', 'trDestWarehouseId'].forEach(function (selId) {
+        ['trDestWarehouseId'].forEach(function (selId) {
           var sel = document.getElementById(selId);
           while (sel.options.length > 1) sel.remove(1);
           (data || []).forEach(function (w) {
@@ -337,7 +331,6 @@
         document.getElementById('trId').value              = o.id;
         document.getElementById('trDocNo').value           = o.documentNo || '';
         document.getElementById('trDate').value            = o.documentDate || '';
-        document.getElementById('trSrcWarehouseId').value  = o.sourceWarehouseId || '';
         document.getElementById('trDestWarehouseId').value = o.warehouseId || '';
         document.getElementById('trRefNo').value           = o.referenceNo || '';
         document.getElementById('trVehicle').value         = o.vehicleNumber || '';
@@ -368,6 +361,12 @@
 
     function _onSubmit(e) {
       e.preventDefault();
+      var trForm = document.getElementById('trForm');
+      var validateValid = $(trForm).parsley();
+      // Parsley validation
+      if (!validateValid.validate()) {
+        return;
+      }
       var sb = document.getElementById('trSubmitBtn'), sp = document.getElementById('trSpinner'), bt = document.getElementById('trBtnText');
       hsDisableButton(sb, sp, bt);
       var lines = [];
@@ -385,7 +384,6 @@
       secureFetch(BASE + '/save', { method: 'POST', body: JSON.stringify({
         id               : document.getElementById('trId').value || null,
         documentDate     : document.getElementById('trDate').value,
-        sourceWarehouseId: document.getElementById('trSrcWarehouseId').value,
         warehouseId      : document.getElementById('trDestWarehouseId').value,
         referenceNo      : document.getElementById('trRefNo').value,
         vehicleNumber    : document.getElementById('trVehicle').value,

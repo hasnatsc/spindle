@@ -31,7 +31,6 @@ public class StockTransferDTO {
     private String warehouseName;
 
     /** Source warehouse */
-    @NotNull(message = "Source warehouse is required")
     private Long sourceWarehouseId;
     private String sourceWarehouseName;
 

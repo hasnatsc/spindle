@@ -38,16 +38,15 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class StockMovementServiceImpl implements StockMovementService {
 
-    private final BusinessDocumentRepository     docRepo;
-    private final BusinessDocumentLineRepository lineRepo;
+    private final BusinessDocumentRepository docRepo;
     private final InventoryTransactionRepository txRepo;
     private final InventoryStockBalanceRepository balanceRepo;
-    private final InventoryLotRepository         lotRepo;
-    private final ItemRepository                 itemRepo;
-    private final WarehouseRepository            warehouseRepo;
-    private final OrganizationRepository         orgRepo;
-    private final DocumentSequenceService        seqService;
-    private final JdbcTemplate                   jdbcTemplate;
+    private final InventoryLotRepository lotRepo;
+    private final ItemRepository itemRepo;
+    private final WarehouseRepository warehouseRepo;
+    private final OrganizationRepository orgRepo;
+    private final DocumentSequenceService seqService;
+    private final JdbcTemplate jdbcTemplate;
 
     private static final DateTimeFormatter YY_FMT = DateTimeFormatter.ofPattern("yy-MM");
 
@@ -60,11 +59,11 @@ public class StockMovementServiceImpl implements StockMovementService {
         Long orgId = ContextProvider.getOrganizationId();
         if (orgId == null)
             throw new IllegalArgumentException("Organization context is required to create adjustment.");
-        Organization org  = orgRepo.findById(orgId).orElseThrow(() -> new IllegalArgumentException("Organisation not found."));
-        Warehouse    wh   = resolveWarehouse(dto.getWarehouseId());
+        Organization org = orgRepo.findById(orgId).orElseThrow(() -> new IllegalArgumentException("Organisation not found."));
+        Warehouse wh = resolveWarehouse(ContextProvider.getWarehouseId());
         if (!org.equals(wh.getOrganization()))
             throw new IllegalArgumentException("Selected warehouse does not belong to your organization.");
-        String       docNo = seqService.nextDocumentNumber(orgId, "ADJ", LocalDate.now().format(YY_FMT));
+        String docNo = seqService.nextDocumentNumber(orgId, "ADJ", LocalDate.now().format(YY_FMT));
 
         BusinessDocument doc = BusinessDocument.builder()
                 .organization(org)
@@ -154,11 +153,12 @@ public class StockMovementServiceImpl implements StockMovementService {
     @Override
     public StockTransferDTO createTransfer(StockTransferDTO dto) {
         Long orgId = ContextProvider.getOrganizationId();
+        dto.setSourceWarehouseId(ContextProvider.getWarehouseId());
         if (orgId == null)
             throw new IllegalArgumentException("Organization context is required to create adjustment.");
-        Organization org  = orgRepo.findById(orgId).orElseThrow(() -> new IllegalArgumentException("Organisation not found."));
-        Warehouse    dest = resolveWarehouse(dto.getWarehouseId());
-        Warehouse    src  = resolveWarehouse(dto.getSourceWarehouseId());
+        Organization org = orgRepo.findById(orgId).orElseThrow(() -> new IllegalArgumentException("Organisation not found."));
+        Warehouse dest = resolveWarehouse(dto.getWarehouseId());
+        Warehouse src = resolveWarehouse(dto.getSourceWarehouseId());
         if (dest.getId().equals(src.getId()))
             throw new IllegalArgumentException("Source and destination warehouses must be different.");
         if (!(org.getId().equals(src.getOrganization().getId())))
@@ -171,6 +171,7 @@ public class StockMovementServiceImpl implements StockMovementService {
         BusinessDocument doc = BusinessDocument.builder()
                 .organization(org)
                 .warehouse(dest)                          // destination in header
+                .sourceWarehouse(src)                          // destination in header
                 .documentNo(docNo)
                 .documentDate(dto.getDocumentDate())
                 .documentType(DocumentType.STOCK_TRANSFER)
@@ -191,9 +192,9 @@ public class StockMovementServiceImpl implements StockMovementService {
     public StockTransferDTO updateTransfer(Long id, StockTransferDTO dto) {
         BusinessDocument doc = findDoc(id, DocumentType.STOCK_TRANSFER);
         guardDraft(doc);
-
+        dto.setSourceWarehouseId(ContextProvider.getWarehouseId());
         Warehouse dest = resolveWarehouse(dto.getWarehouseId());
-        Warehouse src  = resolveWarehouse(dto.getSourceWarehouseId());
+        Warehouse src = resolveWarehouse(dto.getSourceWarehouseId());
         if (dest.getId().equals(src.getId()))
             throw new IllegalArgumentException("Source and destination warehouses must be different.");
 
@@ -234,28 +235,20 @@ public class StockMovementServiceImpl implements StockMovementService {
 
         // Source WH is embedded in first line remarks: "SRC_WH:WHCode|..."
         Warehouse dest = doc.getWarehouse();
+        Warehouse src = doc.getSourceWarehouse();
         for (BusinessDocumentLine line : doc.getLines()) {
-            String r = line.getRemarks() != null ? line.getRemarks() : "";
-            String srcCode = r.startsWith("SRC_WH:") ? r.split(":")[1].split("\\|")[0] : null;
-            Warehouse src = srcCode != null
-                    ? warehouseRepo.findAll().stream().filter(w -> w.getWarehouseCode().equals(srcCode)).findFirst().orElse(dest)
-                    : dest;
-
             // Validate available stock
             BigDecimal avail = availableForLine(line, src.getId());
             if (avail.compareTo(line.getQuantity()) < 0)
-                throw new IllegalArgumentException(
-                        "Insufficient stock for item '" + line.getItemCode() + "' in warehouse '" + src.getWarehouseCode()
-                        + "'. Available: " + avail + ", Required: " + line.getQuantity());
-
+                throw new IllegalArgumentException("Insufficient stock for item '" + line.getItemCode() + "' in warehouse '" + src.getWarehouseCode() + "'. Available: " + avail + ", Required: " + line.getQuantity());
             postInventoryTransaction(doc, line, MovementType.TRANSFER_OUT, src);
-            postInventoryTransaction(doc, line, MovementType.TRANSFER_IN,  dest);
+            postInventoryTransaction(doc, line, MovementType.TRANSFER_IN, dest);
         }
 
         doc.setStatus("CONFIRMED");
         doc.setStockPosted(true);
         doc.setUpdatedAt(LocalDateTime.now());
-        return toTransferDTO(docRepo.save(doc), null);
+        return toTransferDTO(docRepo.save(doc), src);
     }
 
     @Override
@@ -341,20 +334,20 @@ public class StockMovementServiceImpl implements StockMovementService {
 
     private void updateAverageCost(InventoryStockBalance balance, BigDecimal inQty, BigDecimal inCost) {
         if (inQty.compareTo(BigDecimal.ZERO) <= 0) return;
-        BigDecimal oldQty   = balance.getQuantity().subtract(inQty);
-        BigDecimal oldCost  = balance.getAverageCost() != null ? balance.getAverageCost() : BigDecimal.ZERO;
+        BigDecimal oldQty = balance.getQuantity().subtract(inQty);
+        BigDecimal oldCost = balance.getAverageCost() != null ? balance.getAverageCost() : BigDecimal.ZERO;
         BigDecimal newTotalValue = oldQty.multiply(oldCost).add(inQty.multiply(inCost));
-        BigDecimal newQty   = balance.getQuantity();
+        BigDecimal newQty = balance.getQuantity();
         if (newQty.compareTo(BigDecimal.ZERO) > 0)
             balance.setAverageCost(newTotalValue.divide(newQty, 4, java.math.RoundingMode.HALF_UP));
     }
 
     private boolean isInbound(MovementType mt) {
         return mt == MovementType.ADJUSTMENT_IN
-            || mt == MovementType.TRANSFER_IN
-            || mt == MovementType.PURCHASE_RECEIPT
-            || mt == MovementType.PRODUCTION_RECEIPT
-            || mt == MovementType.RETURN_FROM_CUSTOMER;
+                || mt == MovementType.TRANSFER_IN
+                || mt == MovementType.PURCHASE_RECEIPT
+                || mt == MovementType.PRODUCTION_RECEIPT
+                || mt == MovementType.RETURN_FROM_CUSTOMER;
     }
 
     private BigDecimal availableForLine(BusinessDocumentLine line, Long warehouseId) {
@@ -401,15 +394,11 @@ public class StockMovementServiceImpl implements StockMovementService {
         }
     }
 
-    private void buildTransferLines(BusinessDocument doc,
-                                    List<StockTransferDTO.LineDTO> lineDTOs,
-                                    Long orgId,
-                                    String sourceWhCode) {
+    private void buildTransferLines(BusinessDocument doc, List<StockTransferDTO.LineDTO> lineDTOs, Long orgId, String sourceWhCode) {
         int lineNo = 1;
         for (StockTransferDTO.LineDTO ld : lineDTOs) {
             Item item = resolveItem(ld.getItemId());
-            InventoryLot lot = ld.getLotId() != null
-                    ? lotRepo.findById(ld.getLotId()).orElse(null) : null;
+            InventoryLot lot = ld.getLotId() != null ? lotRepo.findById(ld.getLotId()).orElse(null) : null;
 
             // Encode source WH in remarks: "SRC_WH:WHCode|user-remarks"
             String remarks = "SRC_WH:" + sourceWhCode + "|" + (ld.getRemarks() != null ? ld.getRemarks() : "");
@@ -437,46 +426,45 @@ public class StockMovementServiceImpl implements StockMovementService {
     private DataTableResponse docDatatable(int draw, int start, int length, String search, String docType, String fnShow, String fnEdit, String fnConfirm, String fnDelete) {
         Long orgId = SecurityHelper.currentOrgId().orElse(null);
         Long warehouseId = ContextProvider.getWarehouseId();
-        String where = "WHERE d.document_type = '" + docType + "' AND d.is_deleted = false AND d.organization_id = " + warehouseId + " "
-                + (orgId != null ? " AND d.organization_id = " + orgId : "")
+        String where = "WHERE d.document_type = '" + docType + "' AND d.is_deleted = false AND d.source_warehouse_id = " + warehouseId + " " + (orgId != null ? " AND d.organization_id = " + orgId : "")
                 + CommonUtils.searchILike(search, Arrays.asList("d.document_no", "d.reference_no", "w.warehouse_name"));
 
         String sql = String.format("""
-            SELECT
-                ROW_NUMBER() OVER (ORDER BY d.id DESC)       AS sl,
-                COUNT(*)     OVER ()                         AS full_count,
-                d.id,
-                d.document_no,
-                d.document_date,
-                COALESCE(w.warehouse_name, '—')             AS warehouse_name,
-                d.status,
-                COALESCE(d.reference_no, '—')               AS reference_no,
-                (SELECT COUNT(*) FROM global_business_document_lines l WHERE l.document_id = d.id) AS line_count,
-                TO_CHAR(d.created_at, 'DD-Mon-YYYY')         AS created_at,
-                d.created_by,
-                CASE d.status
-                    WHEN 'CONFIRMED'  THEN '<span class="badge bg-success">Confirmed</span>'
-                    WHEN 'CANCELLED'  THEN '<span class="badge bg-danger">Cancelled</span>'
-                    ELSE                   '<span class="badge bg-secondary">Draft</span>'
-                END AS status_badge,
-                '<div class="btn-group">'
-                    || '<a href="javascript:;" onclick="%s(' || d.id || ')" class="btn btn-white btn-sm" title="View"><i class="fas fa-eye text-success"></i></a>'
-                    || CASE WHEN d.status = 'DRAFT' THEN
-                         '<a href="javascript:;" onclick="%s(' || d.id || ')" class="btn btn-white btn-sm" title="Edit"><i class="fa-regular fa-pen-to-square text-warning"></i></a>'
-                       ELSE '' END
-                    || CASE WHEN d.status = 'DRAFT' THEN
-                         '<a href="javascript:;" onclick="%s(' || d.id || ')" class="btn btn-white btn-sm" title="Confirm"><i class="fa fa-check-circle text-primary"></i></a>'
-                       ELSE '' END
-                    || CASE WHEN d.status = 'DRAFT' THEN
-                         '<a href="javascript:;" onclick="%s(' || d.id || ')" class="btn btn-white btn-sm" title="Delete"><i class="fa-regular fa-trash-can text-danger"></i></a>'
-                       ELSE '' END
-                    || '</div>'                              AS actions
-            FROM  global_business_documents d
-            LEFT  JOIN org_warehouses w ON w.id = d.warehouse_id
-            %s
-            ORDER BY d.id DESC
-            OFFSET %d LIMIT %d
-            """, fnShow, fnEdit, fnConfirm, fnDelete, where, start, length);
+                SELECT
+                    ROW_NUMBER() OVER (ORDER BY d.id DESC)       AS sl,
+                    COUNT(*)     OVER ()                         AS full_count,
+                    d.id,
+                    d.document_no,
+                    d.document_date,
+                    COALESCE(w.warehouse_name, '—')             AS warehouse_name,
+                    d.status,
+                    COALESCE(d.reference_no, '—')               AS reference_no,
+                    (SELECT COUNT(*) FROM global_business_document_lines l WHERE l.document_id = d.id) AS line_count,
+                    TO_CHAR(d.created_at, 'DD-Mon-YYYY')         AS created_at,
+                    d.created_by,
+                    CASE d.status
+                        WHEN 'CONFIRMED'  THEN '<span class="badge bg-success">Confirmed</span>'
+                        WHEN 'CANCELLED'  THEN '<span class="badge bg-danger">Cancelled</span>'
+                        ELSE                   '<span class="badge bg-secondary">Draft</span>'
+                    END AS status_badge,
+                    '<div class="btn-group">'
+                        || '<a href="javascript:;" onclick="%s(' || d.id || ')" class="btn btn-white btn-sm" title="View"><i class="fas fa-eye text-success"></i></a>'
+                        || CASE WHEN d.status = 'DRAFT' THEN
+                             '<a href="javascript:;" onclick="%s(' || d.id || ')" class="btn btn-white btn-sm" title="Edit"><i class="fa-regular fa-pen-to-square text-warning"></i></a>'
+                           ELSE '' END
+                        || CASE WHEN d.status = 'DRAFT' THEN
+                             '<a href="javascript:;" onclick="%s(' || d.id || ')" class="btn btn-white btn-sm" title="Confirm"><i class="fa fa-check-circle text-primary"></i></a>'
+                           ELSE '' END
+                        || CASE WHEN d.status = 'DRAFT' THEN
+                             '<a href="javascript:;" onclick="%s(' || d.id || ')" class="btn btn-white btn-sm" title="Delete"><i class="fa-regular fa-trash-can text-danger"></i></a>'
+                           ELSE '' END
+                        || '</div>'                              AS actions
+                FROM  global_business_documents d
+                LEFT  JOIN org_warehouses w ON w.id = d.warehouse_id
+                %s
+                ORDER BY d.id DESC
+                OFFSET %d LIMIT %d
+                """, fnShow, fnEdit, fnConfirm, fnDelete, where, start, length);
 
         List<Map<String, Object>> rows = jdbcTemplate.queryForList(sql);
         long total = rows.isEmpty() ? 0L : CommonUtils.toLong(rows.getFirst().get("full_count"));
@@ -491,7 +479,7 @@ public class StockMovementServiceImpl implements StockMovementService {
         List<StockAdjustmentDTO.LineDTO> lines = new ArrayList<>();
         for (BusinessDocumentLine l : doc.getLines()) {
             String raw = l.getRemarks() != null ? l.getRemarks() : "";
-            String mt  = raw.startsWith("ADJUSTMENT") ? raw.split("\\|")[0] : "ADJUSTMENT_IN";
+            String mt = raw.startsWith("ADJUSTMENT") ? raw.split("\\|")[0] : "ADJUSTMENT_IN";
             String rem = raw.contains("|") ? raw.substring(raw.indexOf("|") + 1) : "";
             lines.add(StockAdjustmentDTO.LineDTO.builder()
                     .id(l.getId()).lineNumber(l.getLineNumber())

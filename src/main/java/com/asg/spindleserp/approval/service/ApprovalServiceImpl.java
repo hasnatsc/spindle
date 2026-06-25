@@ -504,16 +504,219 @@ public class ApprovalServiceImpl implements ApprovalService {
 
     @Override @Transactional(readOnly = true)
     public Map<String, Object> dashboardSummary() {
-        Long orgId  = SecurityHelper.currentOrgId().orElse(null);
-        Long userId = ContextProvider.getCurrentUserId();
-        String f = orgId != null ? " AND r.organization_id = " + orgId : "";
+        Long   orgId  = SecurityHelper.currentOrgId().orElse(null);
+        Long   userId = ContextProvider.getCurrentUserId();
+        String f      = orgId != null ? " AND r.organization_id = " + orgId : "";
+        String fNR    = orgId != null ? " AND organization_id = " + orgId : "";
+        String today  = java.time.LocalDate.now().toString();
+        String mtdStart = java.time.LocalDate.now().withDayOfMonth(1).toString();
+
         Map<String, Object> m = new LinkedHashMap<>();
-        m.put("pendingInbox",  jdbcTemplate.queryForObject("SELECT COUNT(*) FROM apr_requests r WHERE r.status IN ('IN_APPROVAL','SUBMITTED') AND r.current_approver_user_id = " + userId + f, Long.class));
-        m.put("totalInApproval", jdbcTemplate.queryForObject("SELECT COUNT(*) FROM apr_requests r WHERE r.status = 'IN_APPROVAL'" + f, Long.class));
-        m.put("totalApproved",   jdbcTemplate.queryForObject("SELECT COUNT(*) FROM apr_requests r WHERE r.status = 'APPROVED'" + f, Long.class));
-        m.put("totalRejected",   jdbcTemplate.queryForObject("SELECT COUNT(*) FROM apr_requests r WHERE r.status = 'REJECTED'" + f, Long.class));
-        m.put("urgentPending",   jdbcTemplate.queryForObject("SELECT COUNT(*) FROM apr_requests r WHERE r.status IN ('IN_APPROVAL','SUBMITTED') AND r.is_urgent = true" + f, Long.class));
+
+        // ── 1. Status counts + MTD + totals — single pass ──────────────────────
+        String kpiSql = """
+        SELECT
+          COUNT(*)                                                AS total_requests,
+          COUNT(*) FILTER (WHERE status IN ('IN_APPROVAL','SUBMITTED')
+                             AND current_approver_user_id = """ + userId + """
+                     )                                           AS pending_inbox,
+          COUNT(*) FILTER (WHERE status = 'IN_APPROVAL')         AS total_in_approval,
+          COUNT(*) FILTER (WHERE status = 'APPROVED')            AS total_approved,
+          COUNT(*) FILTER (WHERE status = 'REJECTED')            AS total_rejected,
+          COUNT(*) FILTER (WHERE status = 'RETURNED')            AS total_returned,
+          COUNT(*) FILTER (WHERE status = 'HOLD')                AS total_on_hold,
+          COUNT(*) FILTER (WHERE status = 'CANCELLED')           AS total_cancelled,
+          COUNT(*) FILTER (WHERE status IN ('IN_APPROVAL','SUBMITTED')
+                             AND is_urgent = true)               AS urgent_pending,
+          COUNT(*) FILTER (WHERE status = 'APPROVED'
+                             AND completed_at >= ?::timestamp)    AS approved_mtd,
+          COUNT(*) FILTER (WHERE status = 'REJECTED'
+                             AND completed_at >= ?::timestamp)    AS rejected_mtd,
+          COUNT(*) FILTER (WHERE status IN ('IN_APPROVAL','SUBMITTED')
+                             AND due_date IS NOT NULL
+                             AND due_date < ?::date)             AS overdue_count,
+          COUNT(*) FILTER (WHERE status IN ('IN_APPROVAL','SUBMITTED')
+                             AND due_date IS NOT NULL
+                             AND due_date < (CURRENT_DATE - INTERVAL '2 days'))
+                                                                  AS sla_breach_count
+        FROM apr_requests r WHERE 1=1""" + f;
+
+        List<Map<String, Object>> kpiRows = jdbcTemplate.queryForList(kpiSql, mtdStart, mtdStart, today);
+        if (!kpiRows.isEmpty()) {
+            Map<String, Object> r = kpiRows.get(0);
+            m.put("totalRequests",   toLong(r, "total_requests"));
+            m.put("pendingInbox",    toLong(r, "pending_inbox"));
+            m.put("totalInApproval", toLong(r, "total_in_approval"));
+            m.put("totalApproved",   toLong(r, "total_approved"));
+            m.put("totalRejected",   toLong(r, "total_rejected"));
+            m.put("totalReturned",   toLong(r, "total_returned"));
+            m.put("totalOnHold",     toLong(r, "total_on_hold"));
+            m.put("totalCancelled",  toLong(r, "total_cancelled"));
+            m.put("urgentPending",   toLong(r, "urgent_pending"));
+            m.put("approvedMTD",     toLong(r, "approved_mtd"));
+            m.put("rejectedMTD",     toLong(r, "rejected_mtd"));
+            m.put("overdueCount",    toLong(r, "overdue_count"));
+            m.put("slaBreachCount",  toLong(r, "sla_breach_count"));
+        }
+
+        // ── 2. Avg approval hours (completed requests) ──────────────────────────
+        String avgSql = """
+        SELECT COALESCE(AVG(EXTRACT(EPOCH FROM (completed_at - created_at))/3600.0), 0) AS avg_hours
+        FROM apr_requests r WHERE status = 'APPROVED' AND completed_at IS NOT NULL
+        """ + f;
+        List<Map<String, Object>> avgRows = jdbcTemplate.queryForList(avgSql);
+        if (!avgRows.isEmpty()) {
+            Object v = avgRows.get(0).get("avg_hours");
+            double avg = (v != null && v instanceof Number n) ? Math.round(n.doubleValue() * 10.0) / 10.0 : 0.0;
+            m.put("avgApprovalHours", avg);
+        }
+
+        // ── 3. Delegations ──────────────────────────────────────────────────────
+        String delSql = """
+        SELECT COUNT(*) FILTER (WHERE status = 'ACTIVE' AND end_date >= ?::date) AS active_del,
+               COUNT(*) FILTER (WHERE status = 'EXPIRED' OR end_date < ?::date)  AS expired_del
+        FROM apr_delegations WHERE 1=1""" + fNR;
+        List<Map<String, Object>> delRows = jdbcTemplate.queryForList(delSql, today, today);
+        if (!delRows.isEmpty()) {
+            m.put("activeDelegations",  toLong(delRows.get(0), "active_del"));
+            m.put("expiredDelegations", toLong(delRows.get(0), "expired_del"));
+        }
+
+        // ── 4. Configs ──────────────────────────────────────────────────────────
+        String cfgSql = "SELECT COUNT(*) AS total, COUNT(*) FILTER (WHERE is_active=true) AS active FROM apr_configs WHERE 1=1" + fNR;
+        List<Map<String, Object>> cfgRows = jdbcTemplate.queryForList(cfgSql);
+        if (!cfgRows.isEmpty()) {
+            m.put("totalConfigs",  toLong(cfgRows.get(0), "total"));
+            m.put("activeConfigs", toLong(cfgRows.get(0), "active"));
+        }
+
+        // ── 5. By status ────────────────────────────────────────────────────────
+        m.put("byStatus", jdbcTemplate.queryForList("""
+        SELECT status, COUNT(*) AS count
+        FROM apr_requests r WHERE 1=1""" + f + """
+        GROUP BY status ORDER BY count DESC"""));
+
+        // ── 6. By document type — with approval/rejection split ─────────────────
+        m.put("byDocType", jdbcTemplate.queryForList("""
+        SELECT document_type,
+               COUNT(*) AS count,
+               COUNT(*) FILTER (WHERE status='APPROVED') AS approved,
+               COUNT(*) FILTER (WHERE status='REJECTED') AS rejected,
+               COUNT(*) FILTER (WHERE status IN ('IN_APPROVAL','SUBMITTED')) AS in_approval
+        FROM apr_requests r WHERE 1=1""" + f + """
+        GROUP BY document_type ORDER BY count DESC LIMIT 12"""));
+
+        // ── 7. By module (from config) ───────────────────────────────────────────
+        m.put("byModule", jdbcTemplate.queryForList("""
+        SELECT COALESCE(c.module,'—') AS module,
+               COUNT(r.id) AS count,
+               COUNT(r.id) FILTER (WHERE r.status IN ('IN_APPROVAL','SUBMITTED')) AS in_approval,
+               COUNT(r.id) FILTER (WHERE r.status='APPROVED') AS approved
+        FROM apr_requests r
+        LEFT JOIN apr_configs c ON c.id = r.approval_config_id
+        WHERE 1=1""" + f + """
+        GROUP BY c.module ORDER BY count DESC LIMIT 10"""));
+
+        // ── 8. Top approvers by throughput ───────────────────────────────────────
+        m.put("topApprovers", jdbcTemplate.queryForList("""
+        SELECT COALESCE(u.full_name, u.username, '—') AS approver_name,
+               COUNT(*) AS approved_count,
+               COALESCE(AVG(EXTRACT(EPOCH FROM (r.completed_at - r.created_at))/3600.0), 0) AS avg_hours
+        FROM apr_histories h
+        JOIN apr_requests r ON r.id = h.approval_request_id
+        JOIN sec_users u ON u.id = h.actor_user_id
+        WHERE h.action = 'APPROVED'
+          AND r.completed_at IS NOT NULL
+        """ + (orgId != null ? " AND r.organization_id = " + orgId : "") + """
+        GROUP BY u.id, u.full_name, u.username
+        ORDER BY approved_count DESC
+        LIMIT 8"""));
+
+        // ── 9. Overdue requests ──────────────────────────────────────────────────
+        m.put("overdueRequests", jdbcTemplate.queryForList("""
+        SELECT r.id, r.reference_number, r.document_type, r.requester_name,
+               TO_CHAR(r.due_date,'DD-Mon-YYYY') AS due_date,
+               (CURRENT_DATE - r.due_date) AS days_overdue,
+               r.is_urgent, r.current_level_number, r.total_levels,
+               COALESCE(r.document_summary,'—') AS document_summary,
+               COALESCE(u.full_name, u.username,'—') AS current_approver
+        FROM apr_requests r
+        LEFT JOIN sec_users u ON u.id = r.current_approver_user_id
+        WHERE r.status IN ('IN_APPROVAL','SUBMITTED')
+          AND r.due_date IS NOT NULL
+          AND r.due_date < ?::date
+        """ + (orgId != null ? " AND r.organization_id = " + orgId : "") + """
+        ORDER BY days_overdue DESC
+        LIMIT 15""", today));
+
+        // ── 10. Urgent in-approval ───────────────────────────────────────────────
+        m.put("urgentItems", jdbcTemplate.queryForList("""
+        SELECT r.id, r.reference_number, r.document_type, r.requester_name,
+               TO_CHAR(r.document_date,'DD-Mon-YYYY') AS document_date,
+               COALESCE(TO_CHAR(r.due_date,'DD-Mon-YYYY'),'—') AS due_date,
+               r.current_level_number, r.total_levels,
+               COALESCE(r.document_amount,0) AS document_amount,
+               COALESCE(r.document_summary,'—') AS document_summary,
+               COALESCE(u.full_name, u.username,'—') AS current_approver
+        FROM apr_requests r
+        LEFT JOIN sec_users u ON u.id = r.current_approver_user_id
+        WHERE r.status IN ('IN_APPROVAL','SUBMITTED')
+          AND r.is_urgent = true
+        """ + (orgId != null ? " AND r.organization_id = " + orgId : "") + """
+        ORDER BY r.id DESC
+        LIMIT 10"""));
+
+        // ── 11. My inbox (current user) ──────────────────────────────────────────
+        m.put("recentInbox", jdbcTemplate.queryForList("""
+        SELECT r.id, r.reference_number, r.document_type, r.requester_name,
+               TO_CHAR(r.document_date,'DD-Mon-YYYY') AS document_date,
+               COALESCE(TO_CHAR(r.due_date,'DD-Mon-YYYY'),'—') AS due_date,
+               COALESCE(r.document_amount,0) AS document_amount,
+               r.is_urgent, r.status,
+               r.current_level_number, r.total_levels,
+               COALESCE(r.document_summary,'—') AS document_summary
+        FROM apr_requests r
+        WHERE r.status IN ('IN_APPROVAL','SUBMITTED')
+          AND r.current_approver_user_id = """ + userId + (orgId != null ? " AND r.organization_id = " + orgId : "") + """
+        ORDER BY r.is_urgent DESC, r.id DESC
+        LIMIT 10"""));
+
+        // ── 12. Recent history across org ────────────────────────────────────────
+        m.put("recentActivity", jdbcTemplate.queryForList("""
+        SELECT h.id, h.action, h.level_name, h.actor_name,
+               r.reference_number, r.document_type,
+               TO_CHAR(h.action_at,'DD-Mon-YYYY HH24:MI') AS action_at,
+               COALESCE(h.comments,'') AS comments,
+               COALESCE(h.rejection_reason,'') AS rejection_reason
+        FROM apr_histories h
+        JOIN apr_requests r ON r.id = h.approval_request_id
+        WHERE 1=1""" + (orgId != null ? " AND r.organization_id = " + orgId : "") + """
+        ORDER BY h.id DESC
+        LIMIT 15"""));
+
+        // ── 13. 12-month trend ───────────────────────────────────────────────────
+        m.put("monthlyTrend", jdbcTemplate.queryForList("""
+        SELECT TO_CHAR(DATE_TRUNC('month', created_at), 'Mon-YY') AS month,
+               DATE_TRUNC('month', created_at)                    AS month_order,
+               COUNT(*) AS submitted,
+               COUNT(*) FILTER (WHERE status = 'APPROVED') AS approved,
+               COUNT(*) FILTER (WHERE status = 'REJECTED') AS rejected
+        FROM apr_requests r WHERE 1=1""" + f + """
+          AND created_at >= (CURRENT_DATE - INTERVAL '12 months')
+        GROUP BY DATE_TRUNC('month', created_at)
+        ORDER BY month_order"""));
+
         return m;
+    }
+
+// ── Helpers — add alongside existing private helpers in ApprovalServiceImpl ──
+
+    private Long toLong(Map<String, Object> r, String key) {
+        Object v = r.get(key);
+        if (v == null) return 0L;
+        if (v instanceof Long l) return l;
+        if (v instanceof Number n) return n.longValue();
+        return 0L;
     }
 
     // =========================================================================

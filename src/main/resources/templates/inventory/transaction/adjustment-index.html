@@ -349,6 +349,12 @@
 
     function _onSubmit(e) {
       e.preventDefault();
+      var adjForm = document.getElementById('adjForm');
+      var validateValid = $(adjForm).parsley();
+      // Parsley validation
+      if (!validateValid.validate()) {
+        return;
+      }
       var sb = document.getElementById('adjSubmitBtn'), sp = document.getElementById('adjSpinner'), bt = document.getElementById('adjBtnText');
       hsDisableButton(sb, sp, bt);
       var lines = [];

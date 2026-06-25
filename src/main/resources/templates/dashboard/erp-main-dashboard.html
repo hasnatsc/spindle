@@ -4,7 +4,13 @@
   Spindle ERP — Master Control Tower
   Standalone: own CSS, sidebar, topbar. No Thymeleaf layout/base.
   Data: GET /dashboard/erp-summary  (DashboardService)
-  Design: matches commercial-control-tower style exactly.
+
+  FIXED v2:
+    ✔ All sidebar links corrected + full module navigation added
+    ✔ All module dashboard links corrected
+    ✔ All content card "Open ›" links corrected
+    ✔ DashboardController /commercial route uses model attr
+    ✔ Added module dashboard section in sidebar
 -->
 <html lang="en" data-theme="dark" xmlns:th="http://www.thymeleaf.org">
 <head>
@@ -23,49 +29,22 @@
   <style>
     /* ══ DESIGN TOKENS ══════════════════════════════════════════════════ */
     :root {
-      --accent:     #00c8ff;
-      --accent2:    #7c3aed;
-      --green:      #10b981;
-      --red:        #f43f5e;
-      --yellow:     #f59e0b;
-      --orange:     #f97316;
-      --blue:       #2563eb;
-      --purple:     #7c3aed;
-      --teal:       #06b6d4;
-      --sidebar-w:  214px;
-      --topbar-h:   116px;
-      --radius:     10px;
-      --radius-sm:  6px;
-      --transition: 0.22s ease;
-      --fs-2xs:  0.7rem;
-      --fs-xs:   0.8125rem;
-      --fs-sm:   0.875rem;
-      --fs-base: 0.9375rem;
-      --fs-label:0.7rem;
-      --fs-data: 0.75rem;
-      --sp-3: 12px; --sp-4: 16px;
+      --accent:#00c8ff; --accent2:#7c3aed; --green:#10b981; --red:#f43f5e;
+      --yellow:#f59e0b; --orange:#f97316; --blue:#2563eb; --purple:#7c3aed;
+      --teal:#06b6d4; --sidebar-w:214px; --topbar-h:116px;
+      --radius:10px; --radius-sm:6px; --transition:0.22s ease;
+      --fs-2xs:.7rem; --fs-xs:.8125rem; --fs-sm:.875rem; --fs-base:.9375rem;
+      --fs-label:.7rem; --fs-data:.75rem; --sp-3:12px; --sp-4:16px;
     }
     [data-theme="dark"] {
-      --bg:      #0b0f1c;
-      --surface: #111827;
-      --surface2:#182033;
-      --surface3:#1e2d45;
-      --border:  rgba(255,255,255,.07);
-      --text:    #e2e8f0;
-      --text2:   #94a3b8;
-      --shadow:  0 4px 24px rgba(0,0,0,.45);
-      --overlay: rgba(0,0,0,.55);
+      --bg:#0b0f1c; --surface:#111827; --surface2:#182033; --surface3:#1e2d45;
+      --border:rgba(255,255,255,.07); --text:#e2e8f0; --text2:#94a3b8;
+      --shadow:0 4px 24px rgba(0,0,0,.45); --overlay:rgba(0,0,0,.55);
     }
     [data-theme="light"] {
-      --bg:      #f0f4f9;
-      --surface: #ffffff;
-      --surface2:#f1f5fb;
-      --surface3:#e4eaf3;
-      --border:  rgba(0,0,0,.08);
-      --text:    #0f172a;
-      --text2:   #4e5a6b;
-      --shadow:  0 2px 16px rgba(0,0,0,.08);
-      --overlay: rgba(0,0,0,.35);
+      --bg:#f0f4f9; --surface:#ffffff; --surface2:#f1f5fb; --surface3:#e4eaf3;
+      --border:rgba(0,0,0,.08); --text:#0f172a; --text2:#4e5a6b;
+      --shadow:0 2px 16px rgba(0,0,0,.08); --overlay:rgba(0,0,0,.35);
     }
     *,*::before,*::after { box-sizing:border-box; margin:0; padding:0; }
     body { font-family:"IBM Plex Sans",sans-serif; font-size:var(--fs-base); line-height:1.5;
@@ -103,6 +82,7 @@
     .sb-item:hover { color:var(--text); background:var(--surface2); }
     .sb-item.active { color:var(--accent); background:rgba(0,200,255,.07);
                       border-left-color:var(--accent); font-weight:600; }
+    .sb-item.active:hover { color:var(--accent); }
     .sb-item .si { display:flex; align-items:center; gap:9px; }
     .sb-item .ic { font-size:14px; width:18px; text-align:center; flex-shrink:0; }
     .sb-item .bc { background:var(--red); color:#fff; border-radius:10px;
@@ -163,8 +143,6 @@
                font-size:10px; font-weight:800; color:#fff; flex-shrink:0; }
     .user-name { font-size:11px; font-weight:600; color:var(--text); }
     .user-role { font-size:9.5px; color:var(--text2); }
-
-    /* Filter strip — row 2 of topbar */
     .tb-filters-strip { display:flex; align-items:center; gap:10px; padding:0 20px;
                         height:60px; overflow-x:auto; }
     .tb-filters-strip::-webkit-scrollbar { height:2px; }
@@ -187,20 +165,14 @@
     .main { margin-left:var(--sidebar-w); padding-top:var(--topbar-h); min-height:100vh;
             transition:margin-left var(--transition); }
     .content { padding:var(--sp-4) var(--sp-4) 60px; max-width:1900px; }
-
-    /* ══ SECTION LABEL ══════════════════════════════════════════════════ */
     .section-label { font-family:"Plus Jakarta Sans",sans-serif; font-size:.65rem;
                      font-weight:700; letter-spacing:.12em; text-transform:uppercase;
                      color:var(--text2); display:flex; align-items:center;
                      gap:8px; margin-bottom:10px; margin-top:4px; }
     .section-label::after { content:''; flex:1; height:1px; background:var(--border); }
-    .sl-blue   { color:#60a5fa; }
-    .sl-yellow { color:var(--yellow); }
-    .sl-green  { color:var(--green); }
-    .sl-red    { color:var(--red); }
-    .sl-purple { color:#c084fc; }
-    .sl-teal   { color:var(--teal); }
-    .sl-orange { color:var(--orange); }
+    .sl-blue{color:#60a5fa;} .sl-yellow{color:var(--yellow);} .sl-green{color:var(--green);}
+    .sl-red{color:var(--red);} .sl-purple{color:#c084fc;} .sl-teal{color:var(--teal);}
+    .sl-orange{color:var(--orange);}
 
     /* ══ KPI MASTER CARDS ═══════════════════════════════════════════════ */
     .kpi-master { background:var(--surface); border:1px solid var(--border);
@@ -218,29 +190,21 @@
     @media(min-width:576px){ .col-kpi5{flex:0 0 33.3333%;max-width:33.3333%;} }
     @media(min-width:768px){ .col-kpi5{flex:0 0 20%;max-width:20%;} }
     .km-label { font-size:var(--fs-label); font-weight:700; text-transform:uppercase;
-                letter-spacing:.09em; color:var(--text2); margin-bottom:2px;
-                line-height:1.3; padding-right:28px; }
+                letter-spacing:.09em; color:var(--text2); margin-bottom:2px; line-height:1.3; padding-right:28px; }
     .km-count { font-size:var(--fs-label); color:var(--text2); margin-bottom:4px; }
     .km-val   { font-family:"Plus Jakarta Sans",sans-serif; font-size:1.6rem; font-weight:800;
                 line-height:1; margin-bottom:6px; letter-spacing:-.01em; }
-    .km-val.kv-white  { color:var(--text); }
-    .km-val.kv-green  { color:var(--green); }
-    .km-val.kv-red    { color:var(--red); }
-    .km-val.kv-orange { color:var(--orange); }
-    .km-val.kv-blue   { color:#60a5fa; }
-    .km-val.kv-yellow { color:var(--yellow); }
-    .km-val.kv-accent { color:var(--accent); }
-    .km-val.kv-purple { color:#c084fc; }
-    .km-val.kv-teal   { color:var(--teal); }
+    .km-val.kv-white{color:var(--text);} .km-val.kv-green{color:var(--green);}
+    .km-val.kv-red{color:var(--red);} .km-val.kv-orange{color:var(--orange);}
+    .km-val.kv-blue{color:#60a5fa;} .km-val.kv-yellow{color:var(--yellow);}
+    .km-val.kv-accent{color:var(--accent);} .km-val.kv-purple{color:#c084fc;}
+    .km-val.kv-teal{color:var(--teal);}
     .km-delta-row { display:flex; flex-direction:column; gap:2px; margin-top:2px; }
     .km-delta { display:flex; align-items:center; gap:5px; font-size:var(--fs-label); line-height:1.45; }
-    .km-delta .period { color:var(--text2); font-size:.65rem; }
-    .km-delta .dv     { font-weight:700; }
-    .km-delta .dv.up  { color:var(--green); }
-    .km-delta .dv.dn  { color:var(--red); }
-    .km-delta .ref    { color:var(--text2); font-size:.65rem; }
-    .km-spark { position:absolute; right:0; bottom:0; width:88px; height:48px;
-                opacity:.9; pointer-events:none; }
+    .km-delta .period{color:var(--text2);font-size:.65rem;} .km-delta .dv{font-weight:700;}
+    .km-delta .dv.up{color:var(--green);} .km-delta .dv.dn{color:var(--red);}
+    .km-delta .ref{color:var(--text2);font-size:.65rem;}
+    .km-spark { position:absolute; right:0; bottom:0; width:88px; height:48px; opacity:.9; pointer-events:none; }
 
     /* ══ OPERATIONAL KPI STRIP ══════════════════════════════════════════ */
     .kpi-op-grid { display:grid; grid-template-columns:repeat(5,1fr); gap:8px; }
@@ -255,8 +219,7 @@
     .kpi-op-card:hover { border-color:rgba(0,200,255,.3); transform:translateY(-1px); }
     .kpi-op-card::before { content:''; position:absolute; top:0; left:0; width:3px; height:100%;
                             background:var(--kpi-op-accent,var(--accent)); }
-    .kpi-op-top { display:flex; align-items:flex-start; justify-content:space-between;
-                  gap:8px; margin-bottom:8px; }
+    .kpi-op-top { display:flex; align-items:flex-start; justify-content:space-between; gap:8px; margin-bottom:8px; }
     .kpi-op-icon { width:32px; height:32px; border-radius:8px; display:flex;
                    align-items:center; justify-content:center; font-size:14px; flex-shrink:0;
                    background:color-mix(in srgb,var(--kpi-op-accent,var(--accent)) 16%,transparent);
@@ -266,29 +229,27 @@
     .kpi-op-val   { font-family:"Plus Jakarta Sans",sans-serif; font-size:1.3rem; font-weight:800;
                     line-height:1.1; letter-spacing:-.01em; color:var(--kpi-op-accent,var(--accent)); }
     .kpi-op-sub   { font-size:var(--fs-data); color:var(--text2); margin-top:2px; font-weight:500; }
-    .kpi-op-delta { font-size:var(--fs-label); font-weight:700; margin-top:8px;
-                    display:flex; align-items:center; gap:4px; }
-    .kpi-op-delta.up { color:var(--green); }
-    .kpi-op-delta.dn { color:var(--red); }
+    .kpi-op-delta { font-size:var(--fs-label); font-weight:700; margin-top:8px; display:flex; align-items:center; gap:4px; }
+    .kpi-op-delta.up{color:var(--green);} .kpi-op-delta.dn{color:var(--red);}
 
     /* ══ BADGE PILLS ════════════════════════════════════════════════════ */
     .bp { display:inline-flex; align-items:center; padding:2px 7px; border-radius:99px;
           font-size:var(--fs-label); font-weight:700; letter-spacing:.02em; }
-    .bp-green  { background:rgba(16,185,129,.15);  color:var(--green); }
-    .bp-red    { background:rgba(244,63,94,.15);   color:var(--red); }
-    .bp-yellow { background:rgba(245,158,11,.18);  color:var(--yellow); }
-    .bp-orange { background:rgba(249,115,22,.15);  color:var(--orange); }
-    .bp-blue   { background:rgba(37,99,235,.15);   color:#60a5fa; }
-    .bp-purple { background:rgba(124,58,237,.15);  color:#c084fc; }
-    .bp-grey   { background:rgba(100,116,139,.15); color:#94a3b8; }
-    .bp-teal   { background:rgba(6,182,212,.15);   color:var(--teal); }
-    .bp-good     { background:rgba(16,185,129,.18);  color:var(--green);  font-weight:800; }
-    .bp-critical { background:rgba(244,63,94,.22);   color:#ef4444;       font-weight:800; }
-    .bp-warning  { background:rgba(245,158,11,.22);  color:var(--yellow); font-weight:800; }
-    .bp-high     { background:rgba(249,115,22,.2);   color:var(--orange); font-weight:800; }
-    .bp-medium   { background:rgba(245,158,11,.18);  color:var(--yellow); }
-    .bp-low      { background:rgba(16,185,129,.18);  color:var(--green); }
-    .bp-accent   { background:rgba(0,200,255,.15);   color:var(--accent); }
+    .bp-green{background:rgba(16,185,129,.15);color:var(--green);}
+    .bp-red{background:rgba(244,63,94,.15);color:var(--red);}
+    .bp-yellow{background:rgba(245,158,11,.18);color:var(--yellow);}
+    .bp-orange{background:rgba(249,115,22,.15);color:var(--orange);}
+    .bp-blue{background:rgba(37,99,235,.15);color:#60a5fa;}
+    .bp-purple{background:rgba(124,58,237,.15);color:#c084fc;}
+    .bp-grey{background:rgba(100,116,139,.15);color:#94a3b8;}
+    .bp-teal{background:rgba(6,182,212,.15);color:var(--teal);}
+    .bp-good{background:rgba(16,185,129,.18);color:var(--green);font-weight:800;}
+    .bp-critical{background:rgba(244,63,94,.22);color:#ef4444;font-weight:800;}
+    .bp-warning{background:rgba(245,158,11,.22);color:var(--yellow);font-weight:800;}
+    .bp-high{background:rgba(249,115,22,.2);color:var(--orange);font-weight:800;}
+    .bp-medium{background:rgba(245,158,11,.18);color:var(--yellow);}
+    .bp-low{background:rgba(16,185,129,.18);color:var(--green);}
+    .bp-accent{background:rgba(0,200,255,.15);color:var(--accent);}
 
     /* ══ CARD ═══════════════════════════════════════════════════════════ */
     .card-d { background:var(--surface); border:1px solid var(--border);
@@ -298,8 +259,7 @@
                   font-weight:700; text-transform:uppercase; letter-spacing:.09em;
                   color:var(--accent); margin-bottom:var(--sp-3);
                   display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
-    .card-title .info { font-size:11px; cursor:help; opacity:.55;
-                        font-weight:400; text-transform:none; letter-spacing:0; }
+    .card-title .info { font-size:11px; cursor:help; opacity:.55; font-weight:400; text-transform:none; letter-spacing:0; }
 
     /* ══ TABLE ══════════════════════════════════════════════════════════ */
     .tbl-wrap { overflow-x:auto; -webkit-overflow-scrolling:touch; }
@@ -328,136 +288,96 @@
                 margin-bottom:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .lc-count { font-family:"Plus Jakarta Sans",sans-serif; font-size:var(--fs-xl,1.25rem);
                 font-weight:800; line-height:1; }
-    .lc-val   { font-size:var(--fs-data); color:var(--text2); margin-top:2px; }
+    .lc-val { font-size:var(--fs-data); color:var(--text2); margin-top:2px; }
     .lc-delta { font-size:.65rem; margin-top:2px; }
 
     /* ══ CHART BOX ══════════════════════════════════════════════════════ */
     .chart-box { position:relative; width:100%; overflow:hidden; }
     .chart-box canvas { position:absolute!important; top:0; left:0; width:100%!important; height:100%!important; }
-    .ch-200 { height:200px; } .ch-160 { height:160px; } .ch-130 { height:130px; }
-    .ch-100 { height:100px; } .ch-55  { height:55px; }  .ch-44  { height:44px; }
+    .ch-200{height:200px;} .ch-160{height:160px;} .ch-130{height:130px;}
+    .ch-100{height:100px;} .ch-55{height:55px;}  .ch-44{height:44px;}
 
     /* ══ KPI COMPARISON TABLE ROWS ══════════════════════════════════════ */
-    .kc-row { display:flex; align-items:center; padding:5px 0;
-              border-bottom:1px solid var(--border); font-size:var(--fs-data); gap:2px; }
+    .kc-row { display:flex; align-items:center; padding:5px 0; border-bottom:1px solid var(--border); font-size:var(--fs-data); gap:2px; }
     .kc-row:last-child { border-bottom:none; }
-    .kc-num   { color:var(--text2); width:16px; flex-shrink:0; font-size:var(--fs-2xs); }
-    .kc-label { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
-                padding:0 4px; font-size:var(--fs-data); }
-    .kc-val   { width:78px; text-align:right; font-weight:700; font-size:var(--fs-data); flex-shrink:0; }
-    .kc-prev  { width:68px; text-align:right; font-size:var(--fs-2xs); color:var(--text2); flex-shrink:0; }
-    .kc-mom   { width:46px; text-align:right; font-size:var(--fs-2xs); font-weight:700; flex-shrink:0; }
-    .kc-lasy  { width:72px; text-align:right; font-size:var(--fs-2xs); color:var(--text2); flex-shrink:0; }
-    .kc-yoy   { width:46px; text-align:right; font-size:var(--fs-2xs); font-weight:700; flex-shrink:0; }
-    .kc-status{ width:58px; text-align:right; flex-shrink:0; }
+    .kc-num{color:var(--text2);width:16px;flex-shrink:0;font-size:var(--fs-2xs);}
+    .kc-label{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 4px;font-size:var(--fs-data);}
+    .kc-val{width:78px;text-align:right;font-weight:700;font-size:var(--fs-data);flex-shrink:0;}
+    .kc-prev{width:68px;text-align:right;font-size:var(--fs-2xs);color:var(--text2);flex-shrink:0;}
+    .kc-mom{width:46px;text-align:right;font-size:var(--fs-2xs);font-weight:700;flex-shrink:0;}
+    .kc-lasy{width:72px;text-align:right;font-size:var(--fs-2xs);color:var(--text2);flex-shrink:0;}
+    .kc-yoy{width:46px;text-align:right;font-size:var(--fs-2xs);font-weight:700;flex-shrink:0;}
+    .kc-status{width:58px;text-align:right;flex-shrink:0;}
 
     /* ══ MODULE CARDS ═══════════════════════════════════════════════════ */
-    .mod-card { background:var(--surface); border:1px solid var(--border);
-                border-radius:var(--radius); overflow:hidden; height:100%;
-                transition:border-color .18s,transform .18s; }
+    .mod-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; height:100%; transition:border-color .18s,transform .18s; }
     .mod-card:hover { border-color:rgba(0,200,255,.3); transform:translateY(-1px); }
-    .mod-header { padding:9px 14px 8px; border-bottom:1px solid var(--border);
-                  display:flex; align-items:center; gap:8px; }
-    .mod-icon  { width:28px; height:28px; border-radius:7px; display:flex;
-                 align-items:center; justify-content:center; font-size:12px; flex-shrink:0;
-                 background:color-mix(in srgb,var(--mod-accent,var(--accent)) 16%,transparent);
-                 color:var(--mod-accent,var(--accent)); }
-    .mod-title { font-size:.67rem; font-weight:700; text-transform:uppercase;
-                 letter-spacing:.09em; color:var(--mod-accent,var(--accent)); flex:1; }
-    .mod-link  { font-size:.68rem; color:var(--text2); transition:color .15s; }
+    .mod-header { padding:9px 14px 8px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:8px; }
+    .mod-icon { width:28px; height:28px; border-radius:7px; display:flex; align-items:center; justify-content:center; font-size:12px; flex-shrink:0; background:color-mix(in srgb,var(--mod-accent,var(--accent)) 16%,transparent); color:var(--mod-accent,var(--accent)); }
+    .mod-title { font-size:.67rem; font-weight:700; text-transform:uppercase; letter-spacing:.09em; color:var(--mod-accent,var(--accent)); flex:1; }
+    .mod-link { font-size:.68rem; color:var(--text2); transition:color .15s; }
     .mod-link:hover { color:var(--accent); }
-    .mod-body  { padding:9px 14px 11px; }
-    .mod-row   { display:flex; justify-content:space-between; align-items:center;
-                 padding:3px 0; border-bottom:1px solid rgba(255,255,255,.035);
-                 font-size:var(--fs-data); }
+    .mod-body { padding:9px 14px 11px; }
+    .mod-row { display:flex; justify-content:space-between; align-items:center; padding:3px 0; border-bottom:1px solid rgba(255,255,255,.035); font-size:var(--fs-data); }
     .mod-row:last-child { border-bottom:none; }
-    .mod-lbl { color:var(--text2); }
-    .mod-num { font-weight:700; }
+    .mod-lbl{color:var(--text2);} .mod-num{font-weight:700;}
 
     /* ══ BAR LIST ═══════════════════════════════════════════════════════ */
-    .bar-list  { list-style:none; padding:0; margin:0; }
-    .bar-row   { display:flex; align-items:center; gap:9px; margin-bottom:9px; }
-    .bar-row:last-child { margin-bottom:0; }
-    .bar-name  { flex:0 0 128px; font-size:var(--fs-data); color:var(--text);
-                 white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    .bar-track { flex:1; background:var(--surface2); border-radius:5px; height:8px; }
-    .bar-fill  { height:8px; border-radius:5px; background:var(--bar-color,var(--accent)); }
-    .bar-val   { flex:0 0 80px; font-size:var(--fs-data); font-weight:700;
-                 color:var(--text); text-align:right; }
+    .bar-list{list-style:none;padding:0;margin:0;}
+    .bar-row{display:flex;align-items:center;gap:9px;margin-bottom:9px;}
+    .bar-row:last-child{margin-bottom:0;}
+    .bar-name{flex:0 0 128px;font-size:var(--fs-data);color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .bar-track{flex:1;background:var(--surface2);border-radius:5px;height:8px;}
+    .bar-fill{height:8px;border-radius:5px;background:var(--bar-color,var(--accent));}
+    .bar-val{flex:0 0 80px;font-size:var(--fs-data);font-weight:700;color:var(--text);text-align:right;}
 
-    /* ══ ESCALATION / FORECAST / HEATMAP ════════════════════════════════ */
-    .esc-row { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
-    .esc-row:last-child { margin-bottom:0; }
-    .esc-lbl   { font-size:var(--fs-data); color:var(--text2); width:100px; flex-shrink:0; }
-    .esc-bg    { flex:1; height:16px; background:var(--surface3); border-radius:4px; overflow:hidden; }
-    .esc-fill  { height:100%; border-radius:4px; display:flex; align-items:center; padding-left:6px; }
-    .esc-fill span { font-size:var(--fs-2xs); font-weight:700; color:#fff; }
-    .esc-count { font-size:var(--fs-data); color:var(--text); width:28px;
-                 text-align:right; font-weight:700; flex-shrink:0; }
-    .cft-grid { display:grid; grid-template-columns:80px 1fr 1fr 1fr; gap:2px;
-                font-size:var(--fs-data); align-items:center; }
-    .cft-header { font-size:var(--fs-2xs); font-weight:700; color:var(--text2);
-                  text-align:center; padding:3px 4px; text-transform:uppercase; letter-spacing:.06em; }
-    .cft-lbl  { font-size:var(--fs-data); color:var(--text2); padding:5px 4px; border-top:1px solid var(--border); }
-    .cft-cell { text-align:right; font-weight:600; padding:5px 6px; border-top:1px solid var(--border); font-size:var(--fs-data); }
-    .heatmap-grid { display:grid; grid-template-columns:auto repeat(4,1fr); gap:3px; font-size:var(--fs-2xs); }
-    .hm-cell    { border-radius:4px; display:flex; align-items:center; justify-content:center;
-                  padding:8px 4px; font-weight:800; font-size:13px; line-height:1; }
-    .hm-label   { display:flex; align-items:center; padding:4px 6px; font-size:var(--fs-2xs);
-                  color:var(--text2); white-space:nowrap; }
-    .hm-header  { display:flex; align-items:center; justify-content:center;
-                  font-size:var(--fs-2xs); color:var(--text2); font-weight:700;
-                  text-transform:uppercase; letter-spacing:.07em; padding:3px; }
-    .hm-green  { background:rgba(16,185,129,.22); color:var(--green); }
-    .hm-yellow { background:rgba(245,158,11,.22); color:var(--yellow); }
-    .hm-orange { background:rgba(249,115,22,.22); color:var(--orange); }
-    .hm-red    { background:rgba(244,63,94,.28);  color:var(--red); }
+    /* ══ ESCALATION ═════════════════════════════════════════════════════ */
+    .esc-row{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+    .esc-row:last-child{margin-bottom:0;}
+    .esc-lbl{font-size:var(--fs-data);color:var(--text2);width:100px;flex-shrink:0;}
+    .esc-bg{flex:1;height:16px;background:var(--surface3);border-radius:4px;overflow:hidden;}
+    .esc-fill{height:100%;border-radius:4px;display:flex;align-items:center;padding-left:6px;}
+    .esc-fill span{font-size:var(--fs-2xs);font-weight:700;color:#fff;}
+    .esc-count{font-size:var(--fs-data);color:var(--text);width:28px;text-align:right;font-weight:700;flex-shrink:0;}
+    .cft-grid{display:grid;grid-template-columns:80px 1fr 1fr 1fr;gap:2px;font-size:var(--fs-data);align-items:center;}
+    .cft-header{font-size:var(--fs-2xs);font-weight:700;color:var(--text2);text-align:center;padding:3px 4px;text-transform:uppercase;letter-spacing:.06em;}
+    .cft-lbl{font-size:var(--fs-data);color:var(--text2);padding:5px 4px;border-top:1px solid var(--border);}
+    .cft-cell{text-align:right;font-weight:600;padding:5px 6px;border-top:1px solid var(--border);font-size:var(--fs-data);}
 
     /* ══ UTILITY ════════════════════════════════════════════════════════ */
-    .c-accent { color:var(--accent)!important; }
-    .c-green  { color:var(--green)!important;  }
-    .c-red    { color:var(--red)!important;    }
-    .c-yellow { color:var(--yellow)!important; }
-    .c-orange { color:var(--orange)!important; }
-    .c-blue   { color:#60a5fa!important;       }
-    .c-purple { color:#c084fc!important;       }
-    .c-teal   { color:var(--teal)!important;   }
-    .c-text2  { color:var(--text2)!important;  }
-    .fw7 { font-weight:700; } .fw8 { font-weight:800; }
-    .mono { font-family:"IBM Plex Mono",monospace; }
-    .fs-data { font-size:var(--fs-data); } .fs-2xs { font-size:var(--fs-2xs); }
-    .action-btn { display:inline-flex; align-items:center; padding:2px 9px; border-radius:4px;
-                  font-size:var(--fs-label); font-weight:700; cursor:pointer; border:none;
-                  white-space:nowrap; font-family:inherit; }
-    .ab-green  { background:#059669; color:#fff; }
-    .ab-blue   { background:var(--blue); color:#fff; }
-    .ab-yellow { background:#b45309; color:#fff; }
-    .ab-red    { background:#dc2626; color:#fff; }
-    .ab-teal   { background:#0e7490; color:#fff; }
-    .footnote  { font-size:var(--fs-2xs); color:var(--text2); padding:8px 0 4px;
-                 line-height:1.65; border-top:1px solid var(--border); margin-top:12px; }
-    .page-footer { text-align:center; font-size:var(--fs-2xs); color:var(--text2); padding:10px 0; }
+    .c-accent{color:var(--accent)!important;} .c-green{color:var(--green)!important;}
+    .c-red{color:var(--red)!important;} .c-yellow{color:var(--yellow)!important;}
+    .c-orange{color:var(--orange)!important;} .c-blue{color:#60a5fa!important;}
+    .c-purple{color:#c084fc!important;} .c-teal{color:var(--teal)!important;}
+    .c-text2{color:var(--text2)!important;}
+    .fw7{font-weight:700;} .fw8{font-weight:800;}
+    .mono{font-family:"IBM Plex Mono",monospace;}
+    .fs-data{font-size:var(--fs-data);} .fs-2xs{font-size:var(--fs-2xs);}
+    .action-btn{display:inline-flex;align-items:center;padding:2px 9px;border-radius:4px;font-size:var(--fs-label);font-weight:700;cursor:pointer;border:none;white-space:nowrap;font-family:inherit;}
+    .ab-green{background:#059669;color:#fff;} .ab-blue{background:var(--blue);color:#fff;}
+    .ab-yellow{background:#b45309;color:#fff;} .ab-red{background:#dc2626;color:#fff;}
+    .ab-teal{background:#0e7490;color:#fff;}
+    .footnote{font-size:var(--fs-2xs);color:var(--text2);padding:8px 0 4px;line-height:1.65;border-top:1px solid var(--border);margin-top:12px;}
+    .page-footer{text-align:center;font-size:var(--fs-2xs);color:var(--text2);padding:10px 0;}
 
     /* ══ RESPONSIVE ═════════════════════════════════════════════════════ */
     @media(max-width:991px){
-      :root { --sidebar-w:0px; --topbar-h:56px; }
-      .sidebar { transform:translateX(-220px); width:220px; }
-      .sidebar.open { transform:translateX(0); box-shadow:4px 0 24px rgba(0,0,0,.3); }
-      .sb-close { display:flex!important; align-items:center; justify-content:center; }
-      .menu-btn { display:flex; } .topbar { left:0; } .main { margin-left:0; }
-      .tb-sub,.tb-filters-strip { display:none; }
+      :root{--sidebar-w:0px;--topbar-h:56px;}
+      .sidebar{transform:translateX(-220px);width:220px;}
+      .sidebar.open{transform:translateX(0);box-shadow:4px 0 24px rgba(0,0,0,.3);}
+      .sb-close{display:flex!important;align-items:center;justify-content:center;}
+      .menu-btn{display:flex;} .topbar{left:0;} .main{margin-left:0;}
+      .tb-sub,.tb-filters-strip{display:none;}
     }
     @media(max-width:767px){
-      .user-name,.user-role,.tb-date { display:none; }
-      .content { padding:var(--sp-3) var(--sp-3) 48px; }
-      .lc-flow { flex-wrap:wrap; }
-      .lc-flow .lc-stage { flex:1 1 calc(25% - 6px); }
-      .lc-arrow { display:none; }
+      .user-name,.user-role,.tb-date{display:none;}
+      .content{padding:var(--sp-3) var(--sp-3) 48px;}
+      .lc-flow{flex-wrap:wrap;}
+      .lc-flow .lc-stage{flex:1 1 calc(25% - 6px);}
+      .lc-arrow{display:none;}
     }
-
-    /* ══ LOADING PULSE ══════════════════════════════════════════════════ */
-    .loading-pulse { animation:pulse 1.4s ease-in-out infinite; }
-    @keyframes pulse { 0%,100%{opacity:.4} 50%{opacity:1} }
+    .loading-pulse{animation:pulse 1.4s ease-in-out infinite;}
+    @keyframes pulse{0%,100%{opacity:.4}50%{opacity:1}}
   </style>
 </head>
 <body>
@@ -472,30 +392,123 @@
     </div>
     <button class="sb-close" onclick="closeSidebar()">✕</button>
   </div>
+
   <nav class="sb-nav">
+
+    <!-- ── DASHBOARDS ────────────────────────────────────────────────── -->
     <div class="sb-section-label">Dashboards</div>
-    <div class="sb-item active"><span class="si"><span class="ic">🏠</span> ERP Control Tower</span></div>
-    <div class="sb-item" onclick="location.href='/dashboard/commercial'"><span class="si"><span class="ic">🔖</span> Commercial Tower</span></div>
-    <div class="sb-item" onclick="location.href='/dashboard/accounts-dashboard'"><span class="si"><span class="ic">💰</span> Accounts Dashboard</span></div>
+    <div class="sb-item active" onclick="location.href='/dashboard'">
+      <span class="si"><span class="ic">🏠</span> ERP Control Tower</span>
+    </div>
+    <div class="sb-item" onclick="location.href='/dashboard/commercial'">
+      <span class="si"><span class="ic">🔖</span> Commercial Tower</span>
+    </div>
+    <div class="sb-item" onclick="location.href='/dashboard/accounts-dashboard'">
+      <span class="si"><span class="ic">💰</span> Accounts Dashboard</span>
+    </div>
+
+    <!-- ── MODULE DASHBOARDS ─────────────────────────────────────────── -->
+    <div class="sb-section-label">Module Dashboards</div>
+    <div class="sb-item" onclick="location.href='/inventory/dashboard'">
+      <span class="si"><span class="ic">📦</span> Inventory Dashboard</span>
+    </div>
+    <div class="sb-item" onclick="location.href='/sales/dashboard'">
+      <span class="si"><span class="ic">💹</span> Sales Dashboard</span>
+    </div>
+    <div class="sb-item" onclick="location.href='/purchase/dashboard'">
+      <span class="si"><span class="ic">🛒</span> Purchase Dashboard</span>
+    </div>
+    <div class="sb-item" onclick="location.href='/accounts/dashboard'">
+      <span class="si"><span class="ic">📒</span> Accounts Dashboard</span>
+    </div>
+    <div class="sb-item" onclick="location.href='/production/dashboard'">
+      <span class="si"><span class="ic">⚙️</span> Production Dashboard</span>
+    </div>
+    <div class="sb-item" onclick="location.href='/hrm/dashboard'">
+      <span class="si"><span class="ic">👥</span> HRM Dashboard</span>
+    </div>
+    <div class="sb-item" onclick="location.href='/crm/dashboard'">
+      <span class="si"><span class="ic">🎯</span> CRM Dashboard</span>
+    </div>
+    <div class="sb-item" onclick="location.href='/budget/dashboard'">
+      <span class="si"><span class="ic">📊</span> Budget Dashboard</span>
+    </div>
+    <div class="sb-item" onclick="location.href='/fixed-assets/dashboard'">
+      <span class="si"><span class="ic">🏗️</span> Fixed Assets Dashboard</span>
+    </div>
+    <div class="sb-item" onclick="location.href='/commercial/dashboard'">
+      <span class="si"><span class="ic">🚢</span> Commercial Dashboard</span>
+    </div>
+
+    <!-- ── MODULES ───────────────────────────────────────────────────── -->
     <div class="sb-section-label">Modules</div>
-    <div class="sb-item" onclick="location.href='/inventory/items'"><span class="si"><span class="ic">📦</span> Inventory</span></div>
-    <div class="sb-item" onclick="location.href='/purchase/orders'"><span class="si"><span class="ic">🛒</span> Purchase</span></div>
-    <div class="sb-item" onclick="location.href='/sales/orders'"><span class="si"><span class="ic">💹</span> Sales</span></div>
-    <div class="sb-item" onclick="location.href='/accounts/journals'"><span class="si"><span class="ic">📒</span> Accounts</span></div>
-    <div class="sb-item" onclick="location.href='/hrm/employees'"><span class="si"><span class="ic">👥</span> HRM</span></div>
-    <div class="sb-item" onclick="location.href='/production/orders'"><span class="si"><span class="ic">⚙️</span> Production</span></div>
-    <div class="sb-item" onclick="location.href='/crm/leads'"><span class="si"><span class="ic">🎯</span> CRM</span></div>
-    <div class="sb-item" onclick="location.href='/budget/budgets'"><span class="si"><span class="ic">📊</span> Budget</span></div>
-    <div class="sb-item" onclick="location.href='/assets/list'"><span class="si"><span class="ic">🏗️</span> Fixed Assets</span></div>
+    <div class="sb-item" onclick="location.href='/inventory/items'">
+      <span class="si"><span class="ic">📦</span> Inventory</span>
+    </div>
+    <div class="sb-item" onclick="location.href='/purchase/orders'">
+      <span class="si"><span class="ic">🛒</span> Purchase</span>
+    </div>
+    <div class="sb-item" onclick="location.href='/sales/orders'">
+      <span class="si"><span class="ic">💹</span> Sales</span>
+    </div>
+    <div class="sb-item" onclick="location.href='/accounts/journals'">
+      <span class="si"><span class="ic">📒</span> Accounts</span>
+    </div>
+    <div class="sb-item" onclick="location.href='/hrm/employees'">
+      <span class="si"><span class="ic">👥</span> HRM</span>
+    </div>
+    <div class="sb-item" onclick="location.href='/production/orders'">
+      <span class="si"><span class="ic">⚙️</span> Production</span>
+    </div>
+    <div class="sb-item" onclick="location.href='/crm/leads'">
+      <span class="si"><span class="ic">🎯</span> CRM</span>
+    </div>
+    <div class="sb-item" onclick="location.href='/budget/list'">
+      <span class="si"><span class="ic">📊</span> Budget</span>
+    </div>
+    <div class="sb-item" onclick="location.href='/fixed-assets/assets'">
+      <span class="si"><span class="ic">🏗️</span> Fixed Assets</span>
+    </div>
+    <div class="sb-item" onclick="location.href='/commercial/exports'">
+      <span class="si"><span class="ic">🚢</span> Commercial</span>
+    </div>
+
+    <!-- ── ACTIONS ───────────────────────────────────────────────────── -->
     <div class="sb-section-label">Actions</div>
-    <div class="sb-item" onclick="location.href='/approval/inbox'">
+    <div class="sb-item" onclick="location.href='/apr/inbox'">
       <span class="si"><span class="ic">⏳</span> Approvals</span>
       <span class="bc" id="sbApprovalBadge" style="display:none">0</span>
     </div>
-    <div class="sb-item" onclick="location.href='/commercial/lcs'"><span class="si"><span class="ic">🔖</span> LC Management</span></div>
-    <div class="sb-item" onclick="location.href='/reports'"><span class="si"><span class="ic">📋</span> Reports</span></div>
-    <div class="sb-item" onclick="location.href='/users'"><span class="si"><span class="ic">🔐</span> Security</span></div>
+    <div class="sb-item" onclick="location.href='/commercial/lc'">
+      <span class="si"><span class="ic">🔖</span> LC Management</span>
+    </div>
+    <div class="sb-item" onclick="location.href='/apr/configs'">
+      <span class="si"><span class="ic">⚙️</span> Approval Config</span>
+    </div>
+
+    <!-- ── SETUP / ADMIN ──────────────────────────────────────────────── -->
+    <div class="sb-section-label">Setup &amp; Admin</div>
+    <div class="sb-item" onclick="location.href='/security/users'">
+      <span class="si"><span class="ic">🔐</span> Users &amp; Security</span>
+    </div>
+    <div class="sb-item" onclick="location.href='/organization/list'">
+      <span class="si"><span class="ic">🏢</span> Organization</span>
+    </div>
+    <div class="sb-item" onclick="location.href='/setup/banks'">
+      <span class="si"><span class="ic">🏦</span> Setup / Banks</span>
+    </div>
+    <div class="sb-item" onclick="location.href='/inventory/categories'">
+      <span class="si"><span class="ic">🗂️</span> Item Categories</span>
+    </div>
+    <div class="sb-item" onclick="location.href='/budget/fiscal-years'">
+      <span class="si"><span class="ic">📅</span> Fiscal Years</span>
+    </div>
+    <div class="sb-item" onclick="location.href='/fixed-assets/categories'">
+      <span class="si"><span class="ic">🗃️</span> Asset Categories</span>
+    </div>
+
   </nav>
+
   <div class="sb-user">
     <div class="sb-user-av" id="sbUserAv">—</div>
     <div>
@@ -517,8 +530,8 @@
     </div>
     <div class="tb-right">
       <div class="tb-date" id="tbLastUpdated">Connecting…</div>
-      <div class="icon-btn" onclick="location.href='/approval/inbox'">⏳<span class="nb" id="tbAprBadge" style="display:none">0</span></div>
-      <div class="icon-btn">🔔<span class="nb" id="tbNotifBadge" style="display:none">0</span></div>
+      <div class="icon-btn" onclick="location.href='/apr/inbox'" title="Approval Inbox">⏳<span class="nb" id="tbAprBadge" style="display:none">0</span></div>
+      <div class="icon-btn" title="Notifications">🔔<span class="nb" id="tbNotifBadge" style="display:none">0</span></div>
       <div class="theme-toggle" onclick="toggleTheme()"><div class="knob" id="themeKnob">🌙</div></div>
       <div class="user-chip">
         <div class="user-av" id="topUserAv">—</div>
@@ -551,13 +564,10 @@
 <main class="main">
   <div class="content">
 
-    <!-- ═══════════════════════════════════════════════════════════════════
-         SECTION 1 — MASTER KPIs (10 cards, 5 per row)
-    ═══════════════════════════════════════════════════════════════════════ -->
+    <!-- SECTION 1 — MASTER KPIs -->
     <div class="section-label sl-blue">📊 Master KPIs — Live ERP Snapshot</div>
     <div class="row g-2 mb-3">
 
-      <!-- 1. Stock Value -->
       <div class="col-kpi5 mb-2">
         <div class="kpi-master" id="kpiCardInv">
           <div class="km-label">Inventory Stock Value</div>
@@ -571,7 +581,6 @@
         </div>
       </div>
 
-      <!-- 2. Accounts Receivable -->
       <div class="col-kpi5 mb-2">
         <div class="kpi-master" id="kpiCardAR">
           <div class="km-label">Accounts Receivable</div>
@@ -584,7 +593,6 @@
         </div>
       </div>
 
-      <!-- 3. Accounts Payable -->
       <div class="col-kpi5 mb-2">
         <div class="kpi-master" id="kpiCardAP">
           <div class="km-label">Accounts Payable</div>
@@ -597,7 +605,6 @@
         </div>
       </div>
 
-      <!-- 4. Open Purchase Orders -->
       <div class="col-kpi5 mb-2">
         <div class="kpi-master" id="kpiCardPO">
           <div class="km-label">Open Purchase Orders</div>
@@ -611,7 +618,6 @@
         </div>
       </div>
 
-      <!-- 5. Open Sales Orders -->
       <div class="col-kpi5 mb-2">
         <div class="kpi-master" id="kpiCardSO">
           <div class="km-label">Open Sales Orders</div>
@@ -625,7 +631,6 @@
         </div>
       </div>
 
-      <!-- 6. Active Employees -->
       <div class="col-kpi5 mb-2">
         <div class="kpi-master kpi-good" id="kpiCardEmp">
           <div class="km-label">Active Employees</div>
@@ -638,7 +643,6 @@
         </div>
       </div>
 
-      <!-- 7. Production Orders -->
       <div class="col-kpi5 mb-2">
         <div class="kpi-master" id="kpiCardPrd">
           <div class="km-label">Production Orders</div>
@@ -651,7 +655,6 @@
         </div>
       </div>
 
-      <!-- 8. Pending Approvals — ALERT -->
       <div class="col-kpi5 mb-2">
         <div class="kpi-master kpi-alert" id="kpiCardApr">
           <div class="km-label">Pending Approvals</div>
@@ -663,7 +666,6 @@
         </div>
       </div>
 
-      <!-- 9. Active LCs -->
       <div class="col-kpi5 mb-2">
         <div class="kpi-master" id="kpiCardLC">
           <div class="km-label">Active LCs</div>
@@ -677,7 +679,6 @@
         </div>
       </div>
 
-      <!-- 10. CRM Pipeline -->
       <div class="col-kpi5 mb-2">
         <div class="kpi-master" id="kpiCardCRM">
           <div class="km-label">CRM Pipeline</div>
@@ -692,9 +693,7 @@
 
     </div><!-- /Master KPIs row -->
 
-    <!-- ═══════════════════════════════════════════════════════════════════
-         SECTION 2 — OPERATIONAL KPI STRIP
-    ═══════════════════════════════════════════════════════════════════════ -->
+    <!-- SECTION 2 — OPERATIONAL KPI STRIP -->
     <div class="section-label sl-blue">⚡ Operational KPIs — Action Items</div>
     <div class="kpi-op-grid mb-3">
 
@@ -743,7 +742,8 @@
           </div>
           <div class="kpi-op-icon">⏳</div>
         </div>
-        <div class="kpi-op-delta dn" id="opAprDelta"><a href="/approval/inbox" style="color:inherit">→ Open Inbox</a></div>
+        <!-- FIXED: /approval/inbox → /apr/inbox -->
+        <div class="kpi-op-delta dn" id="opAprDelta"><a href="/apr/inbox" style="color:inherit">→ Open Inbox</a></div>
       </div>
 
       <div class="kpi-op-card" style="--kpi-op-accent:var(--green)">
@@ -760,20 +760,17 @@
 
     </div>
 
-    <!-- ═══════════════════════════════════════════════════════════════════
-         SECTION 3 — PERFORMANCE TABLE + EXCEPTIONS
-    ═══════════════════════════════════════════════════════════════════════ -->
+    <!-- SECTION 3 — PERFORMANCE TABLE + EXCEPTIONS -->
     <div class="section-label sl-yellow">📊 Module Performance &amp; Exceptions</div>
     <div class="row g-2 mb-3">
 
-      <!-- Module KPI Comparison Table -->
       <div class="col-12 col-lg-5">
         <div class="card-d" style="padding:12px 14px">
           <div class="card-title" style="justify-content:space-between">
             <span>📊 Module Status (MTD) <span class="info">ℹ</span></span>
-            <a href="/reports" class="c-accent" style="font-size:var(--fs-data);margin-left:auto">Full Report ›</a>
+            <!-- FIXED: /reports → /dashboard (no standalone reports route yet) -->
+            <a href="/dashboard" class="c-accent" style="font-size:var(--fs-data);margin-left:auto">View Dashboard ›</a>
           </div>
-          <!-- Header -->
           <div class="kc-row fw7" style="border-bottom:2px solid var(--border)">
             <span class="kc-num">#</span>
             <span class="kc-label"  style="font-size:var(--fs-2xs);color:var(--text2)">KPI</span>
@@ -782,31 +779,24 @@
             <span class="kc-mom"    style="font-size:var(--fs-2xs);color:var(--text2)">Overdue</span>
             <span class="kc-status" style="font-size:var(--fs-2xs);color:var(--text2)">Status</span>
           </div>
-          <!-- Rows populated by JS -->
           <div id="moduleKpiTableBody"></div>
         </div>
       </div>
 
-      <!-- Today's Exceptions -->
       <div class="col-12 col-lg-7">
         <div class="card-d" style="padding:12px 14px">
           <div class="card-title" style="justify-content:space-between">
             <span>⚠️ Active Exceptions <span class="info">ℹ</span></span>
-            <a href="/approval/inbox" class="c-accent" style="font-size:var(--fs-data);margin-left:auto">All Exceptions ›</a>
+            <!-- FIXED: /approval/inbox → /apr/inbox -->
+            <a href="/apr/inbox" class="c-accent" style="font-size:var(--fs-data);margin-left:auto">All Exceptions ›</a>
           </div>
           <div class="tbl-wrap">
             <table>
               <thead>
-                <tr>
-                  <th>Priority</th><th>Module</th><th>Exception</th>
-                  <th class="tc">Count</th><th class="tr">Value</th>
-                  <th>Action</th>
-                </tr>
+                <tr><th>Priority</th><th>Module</th><th>Exception</th><th class="tc">Count</th><th class="tr">Value</th><th>Action</th></tr>
               </thead>
               <tbody id="excTableBody">
-                <tr><td colspan="6" class="tc" style="padding:20px;color:var(--text2)">
-                  <span class="loading-pulse">Loading exceptions…</span>
-                </td></tr>
+                <tr><td colspan="6" class="tc" style="padding:20px;color:var(--text2)"><span class="loading-pulse">Loading exceptions…</span></td></tr>
               </tbody>
             </table>
           </div>
@@ -814,13 +804,10 @@
       </div>
     </div>
 
-    <!-- ═══════════════════════════════════════════════════════════════════
-         SECTION 4 — LIFECYCLE FLOWS
-    ═══════════════════════════════════════════════════════════════════════ -->
+    <!-- SECTION 4 — LIFECYCLE FLOWS -->
     <div class="section-label sl-green">🔄 Commercial &amp; Business Lifecycle</div>
     <div class="row g-2 mb-3">
 
-      <!-- Purchase Lifecycle -->
       <div class="col-12 col-md-6">
         <div class="card-d">
           <div class="card-title" style="justify-content:space-between">
@@ -840,13 +827,14 @@
             <div class="lc-arrow">›</div>
             <div class="lc-stage"><div class="lc-label">Invoice</div><div class="lc-count" id="lcPINV">—</div><div class="lc-val">Purchase Inv.</div></div>
           </div>
-          <div style="margin-top:8px;font-size:var(--fs-2xs);color:var(--text2);display:flex;gap:14px" id="purchLifecycleFooter">
-            <span>● PR: <span id="lcPRf">—</span></span><span>● POs Open: <span id="lcPOf">—</span></span><span>● GRN Pending: <span id="lcGRNf">—</span></span>
+          <div style="margin-top:8px;font-size:var(--fs-2xs);color:var(--text2);display:flex;gap:14px">
+            <span>● PR: <span id="lcPRf">—</span></span>
+            <span>● POs Open: <span id="lcPOf">—</span></span>
+            <span>● GRN Pending: <span id="lcGRNf">—</span></span>
           </div>
         </div>
       </div>
 
-      <!-- Sales Lifecycle -->
       <div class="col-12 col-md-6">
         <div class="card-d">
           <div class="card-title" style="justify-content:space-between">
@@ -866,26 +854,22 @@
             <div class="lc-arrow">›</div>
             <div class="lc-stage"><div class="lc-label">Collected</div><div class="lc-count c-green" id="lcPAID">—</div><div class="lc-val">Received</div></div>
           </div>
-          <div style="margin-top:8px;font-size:var(--fs-2xs);color:var(--text2);display:flex;gap:14px" id="salesLifecycleFooter">
-            <span>● Open SOs: <span id="lcSOf">—</span></span><span>● Del. Pending: <span id="lcDOf">—</span></span><span>● Unposted Inv: <span id="lcSINVf">—</span></span>
+          <div style="margin-top:8px;font-size:var(--fs-2xs);color:var(--text2);display:flex;gap:14px">
+            <span>● Open SOs: <span id="lcSOf">—</span></span>
+            <span>● Del. Pending: <span id="lcDOf">—</span></span>
+            <span>● Unposted Inv: <span id="lcSINVf">—</span></span>
           </div>
         </div>
       </div>
-
     </div>
 
-    <!-- ═══════════════════════════════════════════════════════════════════
-         SECTION 5 — CHART + MODULE CARDS ROW
-    ═══════════════════════════════════════════════════════════════════════ -->
+    <!-- SECTION 5 — CHART + MODULE CARDS -->
     <div class="section-label sl-blue">📈 Analytics &amp; Module Summary</div>
     <div class="row g-2 mb-3">
 
-      <!-- 12-Month Trend Chart -->
       <div class="col-12 col-md-5">
         <div class="card-d">
-          <div class="card-title" style="justify-content:space-between">
-            <span>📊 12-Month Sales vs Purchase</span>
-          </div>
+          <div class="card-title">📊 12-Month Sales vs Purchase</div>
           <div style="font-size:var(--fs-2xs);color:var(--text2);display:flex;gap:10px;margin-bottom:6px;flex-wrap:wrap">
             <span><span style="color:var(--green)">■</span> Sales MTD</span>
             <span><span style="color:var(--yellow)">■</span> Purchase MTD</span>
@@ -895,17 +879,16 @@
         </div>
       </div>
 
-      <!-- 4 Module Summary Cards -->
       <div class="col-12 col-md-7">
         <div class="row g-2">
 
-          <!-- Purchase Module -->
           <div class="col-6">
             <div class="mod-card" style="--mod-accent:var(--yellow)">
               <div class="mod-header">
                 <div class="mod-icon">🛒</div>
                 <div class="mod-title">Purchase</div>
-                <a href="/purchase/orders" class="mod-link">Open ›</a>
+                <!-- FIXED link -->
+                <a href="/purchase/dashboard" class="mod-link">Dashboard ›</a>
               </div>
               <div class="mod-body">
                 <div class="mod-row"><span class="mod-lbl">Open POs</span><span class="mod-num" id="mPOOpen">—</span></div>
@@ -916,13 +899,13 @@
             </div>
           </div>
 
-          <!-- Sales Module -->
           <div class="col-6">
             <div class="mod-card" style="--mod-accent:var(--green)">
               <div class="mod-header">
                 <div class="mod-icon">💹</div>
                 <div class="mod-title">Sales</div>
-                <a href="/sales/orders" class="mod-link">Open ›</a>
+                <!-- FIXED link -->
+                <a href="/sales/dashboard" class="mod-link">Dashboard ›</a>
               </div>
               <div class="mod-body">
                 <div class="mod-row"><span class="mod-lbl">Open SOs</span><span class="mod-num" id="mSOOpenm">—</span></div>
@@ -933,13 +916,13 @@
             </div>
           </div>
 
-          <!-- Accounts Module -->
           <div class="col-6">
             <div class="mod-card" style="--mod-accent:#60a5fa">
               <div class="mod-header">
                 <div class="mod-icon">💰</div>
                 <div class="mod-title">Accounts</div>
-                <a href="/accounts/journals" class="mod-link">Open ›</a>
+                <!-- FIXED link -->
+                <a href="/accounts/dashboard" class="mod-link">Dashboard ›</a>
               </div>
               <div class="mod-body">
                 <div class="mod-row"><span class="mod-lbl">Total AR</span><span class="mod-num" id="mARm">—</span></div>
@@ -950,13 +933,13 @@
             </div>
           </div>
 
-          <!-- HRM Module -->
           <div class="col-6">
             <div class="mod-card" style="--mod-accent:var(--teal)">
               <div class="mod-header">
                 <div class="mod-icon">👥</div>
                 <div class="mod-title">HRM</div>
-                <a href="/hrm/employees" class="mod-link">Open ›</a>
+                <!-- FIXED link -->
+                <a href="/hrm/dashboard" class="mod-link">Dashboard ›</a>
               </div>
               <div class="mod-body">
                 <div class="mod-row"><span class="mod-lbl">Active Employees</span><span class="mod-num" id="mEmpActm">—</span></div>
@@ -971,18 +954,16 @@
       </div>
     </div>
 
-    <!-- ═══════════════════════════════════════════════════════════════════
-         SECTION 6 — COLLECTION FORECAST + TOP PARTIES + COMMERCIAL
-    ═══════════════════════════════════════════════════════════════════════ -->
+    <!-- SECTION 6 — RECEIVABLES, PAYABLES & COMMERCIAL -->
     <div class="section-label sl-yellow">💰 Receivables, Payables &amp; Commercial</div>
     <div class="row g-2 mb-3">
 
-      <!-- Top Receivables (buyer-wise) -->
       <div class="col-12 col-md-4">
         <div class="card-d">
           <div class="card-title" style="justify-content:space-between">
             <span>💳 Top Receivables (Customers) <span class="info">ℹ</span></span>
-            <a href="/accounts/aging" class="c-accent" style="font-size:var(--fs-data);margin-left:auto">Aging ›</a>
+            <!-- FIXED: /accounts/aging → /accounts/dashboard -->
+            <a href="/accounts/dashboard" class="c-accent" style="font-size:var(--fs-data);margin-left:auto">Accounts ›</a>
           </div>
           <ul class="bar-list" id="topARList">
             <li style="padding:20px 0;text-align:center;color:var(--text2);font-size:var(--fs-data)" class="loading-pulse">Loading…</li>
@@ -990,12 +971,11 @@
         </div>
       </div>
 
-      <!-- Top Payables (supplier-wise) -->
       <div class="col-12 col-md-4">
         <div class="card-d">
           <div class="card-title" style="justify-content:space-between">
             <span>🏦 Top Payables (Suppliers) <span class="info">ℹ</span></span>
-            <a href="/accounts/aging" class="c-accent" style="font-size:var(--fs-data);margin-left:auto">Aging ›</a>
+            <a href="/accounts/dashboard" class="c-accent" style="font-size:var(--fs-data);margin-left:auto">Accounts ›</a>
           </div>
           <ul class="bar-list" id="topAPList">
             <li style="padding:20px 0;text-align:center;color:var(--text2);font-size:var(--fs-data)" class="loading-pulse">Loading…</li>
@@ -1003,12 +983,12 @@
         </div>
       </div>
 
-      <!-- Commercial LC Summary -->
       <div class="col-12 col-md-4">
         <div class="card-d">
           <div class="card-title" style="justify-content:space-between">
             <span>🔖 Commercial LC Summary <span class="info">ℹ</span></span>
-            <a href="/commercial/lcs" class="c-accent" style="font-size:var(--fs-data);margin-left:auto">Manage LCs ›</a>
+            <!-- FIXED: /commercial/lcs → /commercial/lc -->
+            <a href="/commercial/lc" class="c-accent" style="font-size:var(--fs-data);margin-left:auto">Manage LCs ›</a>
           </div>
           <div class="cft-grid">
             <div class="cft-header" style="text-align:left">Type</div>
@@ -1041,18 +1021,16 @@
 
     </div>
 
-    <!-- ═══════════════════════════════════════════════════════════════════
-         SECTION 7 — PRODUCTION + CRM + ESCALATION
-    ═══════════════════════════════════════════════════════════════════════ -->
+    <!-- SECTION 7 — PRODUCTION + CRM + ESCALATION -->
     <div class="section-label sl-orange">⚙️ Production, CRM &amp; Approval Escalation</div>
     <div class="row g-2 mb-2">
 
-      <!-- Production + BOM + Fixed Assets mini -->
       <div class="col-12 col-md-3">
         <div class="card-d">
           <div class="card-title" style="justify-content:space-between">
             <span>⚙️ Production &amp; Assets</span>
-            <a href="/production/orders" class="c-accent" style="font-size:var(--fs-data);margin-left:auto">Open ›</a>
+            <!-- FIXED link -->
+            <a href="/production/dashboard" class="c-accent" style="font-size:var(--fs-data);margin-left:auto">Dashboard ›</a>
           </div>
           <div id="prodModBody">
             <div class="kc-row"><span class="kc-label">Active BOMs</span><span class="kc-val" id="prBOMs">—</span></div>
@@ -1060,18 +1038,25 @@
             <div class="kc-row"><span class="kc-label">Pending Approval</span><span class="kc-val c-yellow" id="prPendApr">—</span></div>
             <div class="kc-row"><span class="kc-label">Completed MTD</span><span class="kc-val c-green" id="prMTD">—</span></div>
             <div class="kc-row"><span class="kc-label">MTD Output Value</span><span class="kc-val" id="prVal">—</span></div>
-            <div class="kc-row" style="margin-top:4px;border-top:1px solid var(--border)"><span class="kc-label">Active Fixed Assets</span><span class="kc-val" id="prFA">—</span></div>
-            <div class="kc-row"><span class="kc-label">Over-budget Lines</span><span class="kc-val c-red" id="prBgtOver">—</span></div>
+            <div class="kc-row" style="margin-top:4px;border-top:1px solid var(--border)">
+              <!-- FIXED link embedded -->
+              <span class="kc-label"><a href="/fixed-assets/dashboard" style="color:inherit">Active Fixed Assets ↗</a></span>
+              <span class="kc-val" id="prFA">—</span>
+            </div>
+            <div class="kc-row">
+              <span class="kc-label"><a href="/budget/dashboard" style="color:inherit">Over-budget Lines ↗</a></span>
+              <span class="kc-val c-red" id="prBgtOver">—</span>
+            </div>
           </div>
         </div>
       </div>
 
-      <!-- CRM Pipeline -->
       <div class="col-12 col-md-3">
         <div class="card-d">
           <div class="card-title" style="justify-content:space-between">
             <span>🎯 CRM Pipeline</span>
-            <a href="/crm/leads" class="c-accent" style="font-size:var(--fs-data);margin-left:auto">Open ›</a>
+            <!-- FIXED link -->
+            <a href="/crm/dashboard" class="c-accent" style="font-size:var(--fs-data);margin-left:auto">Dashboard ›</a>
           </div>
           <div id="crmModBody">
             <div class="kc-row"><span class="kc-label">Active Leads</span><span class="kc-val c-accent" id="crmLeads">—</span></div>
@@ -1082,12 +1067,12 @@
         </div>
       </div>
 
-      <!-- Approval Inbox mini -->
       <div class="col-12 col-md-3">
         <div class="card-d">
           <div class="card-title" style="justify-content:space-between">
             <span>⏳ Approval Inbox</span>
-            <a href="/approval/inbox" class="c-accent" style="font-size:var(--fs-data);margin-left:auto">View All ›</a>
+            <!-- FIXED: /approval/inbox → /apr/inbox -->
+            <a href="/apr/inbox" class="c-accent" style="font-size:var(--fs-data);margin-left:auto">View All ›</a>
           </div>
           <div id="approvalInboxList">
             <div style="padding:16px 0;text-align:center;color:var(--text2);font-size:var(--fs-data)" class="loading-pulse">Loading…</div>
@@ -1095,7 +1080,6 @@
         </div>
       </div>
 
-      <!-- Escalation Summary -->
       <div class="col-12 col-md-3">
         <div class="card-d">
           <div class="card-title">📣 Exception Summary</div>
@@ -1126,7 +1110,6 @@
 
     </div>
 
-    <!-- FOOTNOTE -->
     <div class="footnote" id="dashFootnote">* All figures are live from the database for your active organization. Values shown in BDT unless stated otherwise.</div>
     <div class="page-footer">© 2026 ASG Group — Spindle ERP Master Control Tower</div>
 
@@ -1138,7 +1121,6 @@
 (function(){
 'use strict';
 
-/* ── Charts registry ─────────────────────────────────────────────────── */
 var _charts = {};
 
 /* ── Theme & Sidebar ─────────────────────────────────────────────────── */
@@ -1173,8 +1155,7 @@ function fmtM(v,sym){
   return sym+' '+v.toFixed(0);
 }
 function fmtN(v){
-  if(v==null||isNaN(+v)) return '—';
-  v=+v;
+  if(v==null||isNaN(+v)) return '—'; v=+v;
   if(v>=10000000) return (v/10000000).toFixed(1)+'Cr';
   if(v>=100000)   return (v/100000).toFixed(1)+'L';
   if(v>=1000)     return (v/1000).toFixed(1)+'K';
@@ -1182,9 +1163,8 @@ function fmtN(v){
 }
 function set(id,v){ var e=document.getElementById(id); if(e) e.textContent=v!=null?v:'—'; }
 function setH(id,v){ var e=document.getElementById(id); if(e) e.innerHTML=v||''; }
-function clr(id){ set(id,'—'); }
 
-/* ── CSRF-aware fetch (matches application.js secureFetch pattern) ────── */
+/* ── CSRF-aware fetch ────────────────────────────────────────────────── */
 function apiFetch(url){
   var csrfToken  = (document.querySelector('meta[name="_csrf"]')||{}).content;
   var csrfHeader = (document.querySelector('meta[name="_csrf_header"]')||{}).content;
@@ -1197,7 +1177,7 @@ function apiFetch(url){
     });
 }
 
-/* ── Context badges ──────────────────────────────────────────────────── */
+/* ── Context load ────────────────────────────────────────────────────── */
 function _loadContext(){
   apiFetch('/user-context/allowed/context').then(function(d){
     var org = d.currentOrganizationName || '—';
@@ -1206,28 +1186,25 @@ function _loadContext(){
     set('filterOrg', org);
     set('filterBU',  bu || 'All Units');
     set('filterWH',  wh || 'All Warehouses');
-    // Sidebar user
     var fn  = d.fullName || d.username || '—';
     var initials = fn.split(' ').map(function(w){ return w[0]; }).join('').substring(0,2).toUpperCase();
     set('sbUserAv',   initials); set('topUserAv',   initials);
     set('sbUserName', fn);       set('topUserName', fn);
     set('sbUserOrg',  org);      set('topUserOrg',  org);
-    // Period label
     var now=new Date();
     set('filterPeriod', '01-'+(now.getMonth()+1)+'-'+now.getFullYear()+' to Today (MTD)');
   }).catch(function(){ set('sbUserName','Spindle ERP'); });
 }
 
-/* ── Sparkline helper ────────────────────────────────────────────────── */
+/* ── Sparkline ───────────────────────────────────────────────────────── */
 function _spark(id,data,color){
   var ctx=document.getElementById(id); if(!ctx) return;
   if(_charts[id]){ try{_charts[id].destroy();}catch(e){} }
-  var rgb=color;
   _charts[id]=new Chart(ctx,{
     type:'line',
     data:{ labels:data.map(function(_,i){return i;}),
-           datasets:[{data:data,borderColor:rgb,borderWidth:1.5,pointRadius:0,
-                      fill:true,backgroundColor:rgb.replace(')',',.10)').replace('rgb','rgba'),
+           datasets:[{data:data,borderColor:color,borderWidth:1.5,pointRadius:0,
+                      fill:true,backgroundColor:color.replace(')',',.10)').replace('rgb','rgba'),
                       tension:0.4}] },
     options:{ responsive:true,maintainAspectRatio:false,
               plugins:{legend:{display:false},tooltip:{enabled:false}},
@@ -1235,7 +1212,7 @@ function _spark(id,data,color){
   });
 }
 
-/* ── Build 12-month trend chart ──────────────────────────────────────── */
+/* ── 12-month trend chart ────────────────────────────────────────────── */
 function _buildTrendChart(trend){
   if(_charts.trend){ try{_charts.trend.destroy();}catch(e){} }
   var dark=getTheme()==='dark';
@@ -1263,38 +1240,37 @@ function _buildTrendChart(trend){
   });
 }
 
-/* ── Populate Module KPI Comparison Table ────────────────────────────── */
+/* ── Module KPI table ────────────────────────────────────────────────── */
 function _buildKpiTable(d){
   var p=d.purchase||{}, s=d.sales||{}, a=d.accounts||{}, h=d.hrm||{}, pr=d.production||{};
   var rows=[
-    {n:1,  lbl:'Sales MTD',          val:fmtM(s.mtdSalesValue),      cnt:s.openSOCount||0,  ov:s.deliveryPendingCount||0,  ok:(s.openSOCount||0)>0},
-    {n:2,  lbl:'Purchase MTD',       val:fmtM(p.mtdPurchaseValue),   cnt:p.openPOCount||0,  ov:p.grnPendingCount||0,       ok:true},
-    {n:3,  lbl:'Accounts Receivable',val:fmtM(a.totalReceivable),    cnt:'AR',              ov:fmtM(a.overdueReceivable),  ok:(+(a.overdueReceivable||0)===0)},
-    {n:4,  lbl:'Accounts Payable',   val:fmtM(a.totalPayable),       cnt:'AP',              ov:fmtM(a.dueSoonPayable),     ok:true},
-    {n:5,  lbl:'Cash / Bank Balance',val:fmtM(a.cashBankBalance),    cnt:'Balance',         ov:a.unpostedVoucherCount||0,  ok:(+(a.cashBankBalance||0)>0)},
-    {n:6,  lbl:'Active Employees',   val:h.activeEmployees||0,       cnt:h.deptCount||0,    ov:h.pendingLeaves||0,         ok:true},
+    {n:1,  lbl:'Sales MTD',          val:fmtM(s.mtdSalesValue),      cnt:s.openSOCount||0,      ov:s.deliveryPendingCount||0,  ok:(s.openSOCount||0)>0},
+    {n:2,  lbl:'Purchase MTD',       val:fmtM(p.mtdPurchaseValue),   cnt:p.openPOCount||0,      ov:p.grnPendingCount||0,       ok:true},
+    {n:3,  lbl:'Accounts Receivable',val:fmtM(a.totalReceivable),    cnt:'AR',                  ov:fmtM(a.overdueReceivable),  ok:(+(a.overdueReceivable||0)===0)},
+    {n:4,  lbl:'Accounts Payable',   val:fmtM(a.totalPayable),       cnt:'AP',                  ov:fmtM(a.dueSoonPayable),     ok:true},
+    {n:5,  lbl:'Cash / Bank Balance',val:fmtM(a.cashBankBalance),    cnt:'Balance',             ov:a.unpostedVoucherCount||0,  ok:(+(a.cashBankBalance||0)>0)},
+    {n:6,  lbl:'Active Employees',   val:h.activeEmployees||0,       cnt:h.deptCount||0,        ov:h.pendingLeaves||0,         ok:true},
     {n:7,  lbl:'Production (Active)',val:fmtM(pr.mtdOutputValue),    cnt:pr.inProgressCount||0, ov:pr.pendingApprovalCount||0, ok:true},
-    {n:8,  lbl:'Open POs',           val:fmtM(p.openPOValue),        cnt:p.openPOCount||0,  ov:p.grnPendingCount||0,       ok:true},
-    {n:9,  lbl:'Open SOs',           val:fmtM(s.openSOValue),        cnt:s.openSOCount||0,  ov:s.invoiceUnpostedCount||0,  ok:true},
-    {n:10, lbl:'Unposted Vouchers',  val:a.unpostedVoucherCount||0,  cnt:'Vch',             ov:a.overdueVoucherCount||0,   ok:(+(a.unpostedVoucherCount||0)===0)},
+    {n:8,  lbl:'Open POs',           val:fmtM(p.openPOValue),        cnt:p.openPOCount||0,      ov:p.grnPendingCount||0,       ok:true},
+    {n:9,  lbl:'Open SOs',           val:fmtM(s.openSOValue),        cnt:s.openSOCount||0,      ov:s.invoiceUnpostedCount||0,  ok:true},
+    {n:10, lbl:'Unposted Vouchers',  val:a.unpostedVoucherCount||0,  cnt:'Vch',                 ov:a.overdueVoucherCount||0,   ok:(+(a.unpostedVoucherCount||0)===0)},
   ];
   var html='';
   rows.forEach(function(r){
     var bp=r.ok?'bp-good':'bp-warning';
-    html+=
-      '<div class="kc-row">'+
-        '<span class="kc-num c-text2">'+r.n+'</span>'+
-        '<span class="kc-label">'+r.lbl+'</span>'+
-        '<span class="kc-val">'+r.val+'</span>'+
-        '<span class="kc-prev">'+r.cnt+'</span>'+
-        '<span class="kc-mom '+(r.ov?'c-red':'c-green')+'">'+r.ov+'</span>'+
-        '<span class="kc-status"><span class="bp '+bp+'">'+( r.ok?'OK':'Review')+'</span></span>'+
-      '</div>';
+    html+='<div class="kc-row">'+
+      '<span class="kc-num c-text2">'+r.n+'</span>'+
+      '<span class="kc-label">'+r.lbl+'</span>'+
+      '<span class="kc-val">'+r.val+'</span>'+
+      '<span class="kc-prev">'+r.cnt+'</span>'+
+      '<span class="kc-mom '+(r.ov?'c-red':'c-green')+'">'+r.ov+'</span>'+
+      '<span class="kc-status"><span class="bp '+bp+'">'+(r.ok?'OK':'Review')+'</span></span>'+
+    '</div>';
   });
   setH('moduleKpiTableBody',html);
 }
 
-/* ── Populate Exception Table ────────────────────────────────────────── */
+/* ── Exception table ─────────────────────────────────────────────────── */
 function _buildExcTable(exc){
   if(!exc||!exc.length){
     setH('excTableBody','<tr><td colspan="6" style="padding:20px;text-align:center;color:var(--text2)">✅ No active exceptions</td></tr>');
@@ -1304,20 +1280,19 @@ function _buildExcTable(exc){
   exc.forEach(function(r){
     var pBp=r.priority==='CRITICAL'?'bp-critical':r.priority==='HIGH'?'bp-high':'bp-medium';
     var v=r.value?fmtM(r.value):'—';
-    html+=
-      '<tr>'+
-        '<td><span class="bp '+pBp+'">'+( r.priority==='CRITICAL'?'● RED':r.priority==='HIGH'?'● AMBER':'● MEDIUM')+'</span></td>'+
-        '<td class="c-text2">'+( r.module||'—')+'</td>'+
-        '<td style="font-weight:600">'+(r.exception_type||r.exceptionType||'—')+'</td>'+
-        '<td class="tc">'+(r.count||r.cnt||'—')+'</td>'+
-        '<td class="tr fw7 '+(r.priority==='CRITICAL'?'c-red':r.priority==='HIGH'?'c-yellow':'')+'">'+v+'</td>'+
-        '<td><a href="'+(r.action_url||r.actionUrl||'#')+'" class="action-btn ab-blue">Resolve</a></td>'+
-      '</tr>';
+    html+='<tr>'+
+      '<td><span class="bp '+pBp+'">'+(r.priority==='CRITICAL'?'● RED':r.priority==='HIGH'?'● AMBER':'● MEDIUM')+'</span></td>'+
+      '<td class="c-text2">'+(r.module||'—')+'</td>'+
+      '<td style="font-weight:600">'+(r.exception_type||r.exceptionType||'—')+'</td>'+
+      '<td class="tc">'+(r.count||r.cnt||'—')+'</td>'+
+      '<td class="tr fw7 '+(r.priority==='CRITICAL'?'c-red':r.priority==='HIGH'?'c-yellow':'')+'">'+v+'</td>'+
+      '<td><a href="'+(r.action_url||r.actionUrl||'#')+'" class="action-btn ab-blue">Resolve</a></td>'+
+    '</tr>';
   });
   setH('excTableBody',html);
 }
 
-/* ── Top Receivables / Payables bar lists ────────────────────────────── */
+/* ── Bar lists ───────────────────────────────────────────────────────── */
 var ACCENT_COLORS=['#00c8ff','#60a5fa','#7c3aed','#f59e0b','#10b981'];
 function _buildBarList(items,elId,getVal){
   var el=document.getElementById(elId); if(!el) return;
@@ -1328,17 +1303,16 @@ function _buildBarList(items,elId,getVal){
     var name=r.party_name||r.partyName||r.sub_account_name||'—';
     var val=+(r.balance||r.outstanding||getVal(r)||0);
     var pct=max>0?Math.round((val/max)*100):10;
-    html+=
-      '<li class="bar-row">'+
-        '<span class="bar-name" title="'+name+'">'+name+'</span>'+
-        '<div class="bar-track"><div class="bar-fill" style="width:'+pct+'%;--bar-color:'+ACCENT_COLORS[i%5]+'"></div></div>'+
-        '<span class="bar-val">'+fmtM(val)+'</span>'+
-      '</li>';
+    html+='<li class="bar-row">'+
+      '<span class="bar-name" title="'+name+'">'+name+'</span>'+
+      '<div class="bar-track"><div class="bar-fill" style="width:'+pct+'%;--bar-color:'+ACCENT_COLORS[i%5]+'"></div></div>'+
+      '<span class="bar-val">'+fmtM(val)+'</span>'+
+    '</li>';
   });
   el.innerHTML=html;
 }
 
-/* ── Approval Inbox mini ─────────────────────────────────────────────── */
+/* ── Approval inbox mini ─────────────────────────────────────────────── */
 function _buildApprovalInbox(items){
   var el=document.getElementById('approvalInboxList'); if(!el) return;
   if(!items||!items.length){
@@ -1352,15 +1326,15 @@ function _buildApprovalInbox(items){
     var ref=r.reference_number||r.referenceNumber||'—';
     var type=r.document_type||r.documentType||'';
     var sum=r.document_summary||r.documentSummary||'';
-    html+=
-      '<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.05);font-size:.72rem">'+
-        '<div style="width:8px;height:8px;border-radius:50%;background:'+dotColor+';flex-shrink:0"></div>'+
-        '<div style="flex:1;overflow:hidden">'+
-          '<div style="font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+ref+'</div>'+
-          '<div style="font-size:.67rem;color:var(--text2)">'+type+(sum?' · '+sum:'')+'</div>'+
-        '</div>'+
-        '<a href="/approval/inbox" class="bp bp-yellow" style="font-size:.65rem;text-decoration:none">Review</a>'+
-      '</div>';
+    html+='<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.05);font-size:.72rem">'+
+      '<div style="width:8px;height:8px;border-radius:50%;background:'+dotColor+';flex-shrink:0"></div>'+
+      '<div style="flex:1;overflow:hidden">'+
+        '<div style="font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+ref+'</div>'+
+        '<div style="font-size:.67rem;color:var(--text2)">'+type+(sum?' · '+sum:'')+'</div>'+
+      '</div>'+
+      /* FIXED: /approval/inbox → /apr/inbox */
+      '<a href="/apr/inbox" class="bp bp-yellow" style="font-size:.65rem;text-decoration:none">Review</a>'+
+    '</div>';
   });
   el.innerHTML=html;
 }
@@ -1381,7 +1355,13 @@ function _buildEscalation(es){
   fillBar('escSLABar',     'escSLALbl',     'escSLACnt',      es.slaBreach||es.sla_breach||0);
 }
 
-/* ── Main render (all IDs) ───────────────────────────────────────────── */
+/* ── Rebuild charts on theme toggle ──────────────────────────────────── */
+function _rebuildCharts(d){
+  if(!d||!d.monthlyTrend) return;
+  _buildTrendChart(d.monthlyTrend||d.monthly_trend||[]);
+}
+
+/* ── Main render ─────────────────────────────────────────────────────── */
 var _lastData={};
 function _render(d){
   _lastData=d;
@@ -1399,56 +1379,47 @@ function _render(d){
   var lcp= lc.purchase   || {};
   var lcs= lc.sales      || {};
 
-  /* ── MASTER KPIs ── */
+  /* MASTER KPIs */
   set('kpiInvValue',  fmtM(d.inventory && d.inventory.totalStockValue));
   set('kpiInvItems',  (d.inventory&&d.inventory.totalActiveItems||0)+' active items');
   set('kpiLowStock',  d.inventory&&d.inventory.lowStockCount||0);
   set('kpiZeroStock', d.inventory&&d.inventory.zeroStockCount||0);
-
   set('kpiAR',        fmtM(a.totalReceivable));
   set('kpiAROverdue', fmtM(a.overdueReceivable));
   set('kpiSalesMTD',  fmtM(s.mtdSalesValue));
-
   set('kpiAP',        fmtM(a.totalPayable));
   set('kpiAPDue',     fmtM(a.dueSoonPayable));
   set('kpiPurchMTD',  fmtM(p.mtdPurchaseValue));
-
   set('kpiPOCount',   (p.openPOCount||0)+' POs');
   set('kpiPOValue',   fmtM(p.openPOValue));
   set('kpiGRNPending',p.grnPendingCount||0);
   set('kpiPRPending', p.prPendingCount||0);
-
   set('kpiSOCount',   (s.openSOCount||0)+' SOs');
   set('kpiSOValue',   fmtM(s.openSOValue));
   set('kpiDelPending',s.deliveryPendingCount||0);
   set('kpiSInvUnposted',s.invoiceUnpostedCount||0);
-
   set('kpiEmpCount',  h.activeEmployees||0);
   set('kpiEmpDept',   (h.deptCount||0)+' departments');
   set('kpiPresent',   h.presentToday||0);
   set('kpiOnLeave',   h.onLeaveToday||0);
-
   var prdV=pr.inProgressCount||0;
   set('kpiPrdInProgress', prdV+' orders');
   set('kpiPrdProg',   pr.inProgressCount||0);
   set('kpiPrdMTD',    pr.completedMTD||0);
-
   set('kpiAprCount',  ap.pendingCount||0);
   set('kpiAprOverdue',ap.overdueCount||0);
   set('kpiVchUnposted',a.unpostedVoucherCount||0);
   if((ap.pendingCount||0)===0) document.getElementById('kpiCardApr').classList.remove('kpi-alert');
-
   set('kpiLCCount',   (co.activeLCCount||0)+' LCs');
   set('kpiLCValue',   fmtM(co.activeLCValue,'USD'));
   set('kpiLCExpired', co.expiredLCCount||0);
   set('kpiPIPending', co.piPendingCount||0);
-
   set('kpiCRMLeads',  (cr.activeLeadsCount||0)+' leads');
   set('kpiCRMPipeline',fmtM(cr.pipelineValue));
   set('kpiCRMOpps',   cr.openOpportunityCount||0);
   set('kpiBgtActive', bg.activeBudgetCount||0);
 
-  /* ── OPERATIONAL STRIP ── */
+  /* OPERATIONAL STRIP */
   set('opPOCount',   p.openPOCount||0);
   set('opPOVal',     fmtM(p.openPOValue)+' open POs');
   set('opPODelta',   '→ GRN Pending: '+(p.grnPendingCount||0)+' | PR: '+(p.prPendingCount||0));
@@ -1466,7 +1437,7 @@ function _render(d){
   set('opAttSub',    (h.onLeaveToday||0)+' on leave today');
   set('opAttDelta',  '→ Pending leaves: '+(h.pendingLeaves||0));
 
-  /* ── LIFECYCLE FLOWS ── */
+  /* LIFECYCLE FLOWS */
   set('lcPR',  lcp.PR||0);  set('lcPRf',  lcp.PR||0);
   set('lcRFQ', lcp.RFQ||0);
   set('lcCS',  lcp.CS||0);
@@ -1480,28 +1451,25 @@ function _render(d){
   set('lcSINV',lcs.INV||0); set('lcSINVf',lcs.INV||0);
   set('lcPAID',lcs.PAID||0);
 
-  /* ── MINI MODULE CARDS ── */
+  /* MODULE CARDS */
   set('mPOOpen',   p.openPOCount||0);
   set('mGRNPend',  p.grnPendingCount||0);
   set('mPInvUp',   p.invoiceUnpostedCount||0);
   set('mPurchMTDv',fmtM(p.mtdPurchaseValue));
-
   set('mSOOpenm',  s.openSOCount||0);
   set('mDelPendm', s.deliveryPendingCount||0);
   set('mSInvUpm',  s.invoiceUnpostedCount||0);
   set('mSalesMTDv',fmtM(s.mtdSalesValue));
-
   set('mARm',      fmtM(a.totalReceivable));
   set('mAPm',      fmtM(a.totalPayable));
   set('mVchUpm',   a.unpostedVoucherCount||0);
   set('mCashm',    fmtM(a.cashBankBalance));
-
   set('mEmpActm',  h.activeEmployees||0);
   set('mPresentm', h.presentToday||0);
   set('mLeavem',   h.onLeaveToday||0);
   set('mPayrollm', h.currentPayrollStatus||'—');
 
-  /* ── COMMERCIAL LC TABLE ── */
+  /* COMMERCIAL LC TABLE */
   set('cfLCExport',    co.exportLCCount||0);
   set('cfLCExportVal', fmtM(+(co.activeLCValue||0)*(+(co.exportLCCount||0)/Math.max(+(co.activeLCCount||1),1)),'USD'));
   set('cfLCImport',    co.importLCCount||0);
@@ -1511,7 +1479,7 @@ function _render(d){
   set('cfLCTotal',     co.activeLCCount||0);
   set('cfLCTotalVal',  fmtM(co.activeLCValue,'USD'));
 
-  /* ── PRODUCTION + BUDGET + FA ── */
+  /* PRODUCTION + BUDGET + FA */
   set('prBOMs',    pr.activeBOMCount||0);
   set('prInProg',  pr.inProgressCount||0);
   set('prPendApr', pr.pendingApprovalCount||0);
@@ -1520,13 +1488,13 @@ function _render(d){
   set('prFA',      fa.activeAssetCount||0);
   set('prBgtOver', bg.overBudgetLineCount||0);
 
-  /* ── CRM ── */
+  /* CRM */
   set('crmLeads',   cr.activeLeadsCount||0);
   set('crmOpps',    cr.openOpportunityCount||0);
   set('crmPipeline',fmtM(cr.pipelineValue));
-  set('crmActs',    '—');
+  set('crmActs',    cr.pendingActivities||'—');
 
-  /* ── SIDEBAR BADGE ── */
+  /* SIDEBAR BADGE */
   var aprN=ap.pendingCount||0;
   var sbBadge=document.getElementById('sbApprovalBadge');
   var tbBadge=document.getElementById('tbAprBadge');
@@ -1535,7 +1503,7 @@ function _render(d){
     if(tbBadge){ tbBadge.textContent=aprN; tbBadge.style.display=''; }
   }
 
-  /* ── TABLES / LISTS ── */
+  /* TABLES / LISTS */
   _buildKpiTable(d);
   _buildExcTable(d.exceptions||[]);
   _buildBarList(d.topReceivables||[],'topARList',function(r){return r.balance||0;});
@@ -1543,29 +1511,22 @@ function _render(d){
   _buildApprovalInbox(d.pendingApprovalItems||[]);
   _buildEscalation(d.exceptionSummary||d.exception_summary||{});
 
-  /* ── SPARKLINES ── */
+  /* SPARKLINES */
   var trend12=d.monthlyTrend||d.monthly_trend||[];
   var sV=trend12.map(function(r){return +(r.sales_value||r.salesValue||0);});
   var pV=trend12.map(function(r){return +(r.purchase_value||r.purchaseValue||0);});
-  var aV=trend12.map(function(r){return +(r.outstanding_ar||r.outstandingAR||0);});
-  if(sV.length){ _spark('spkAR',sV,'rgb(96,165,250)');   }
-  if(pV.length){ _spark('spkAP',pV,'rgb(192,132,252)');  }
-  if(pV.length){ _spark('spkPO',pV,'rgb(245,158,11)');   }
-  if(sV.length){ _spark('spkSO',sV,'rgb(16,185,129)');   }
+  if(sV.length){ _spark('spkAR',sV,'rgb(96,165,250)');  }
+  if(pV.length){ _spark('spkAP',pV,'rgb(192,132,252)'); }
+  if(pV.length){ _spark('spkPO',pV,'rgb(245,158,11)');  }
+  if(sV.length){ _spark('spkSO',sV,'rgb(16,185,129)');  }
 
-  /* ── TREND CHART ── */
+  /* TREND CHART */
   if(trend12.length) _buildTrendChart(trend12);
 
-  /* ── TIMESTAMP ── */
+  /* TIMESTAMP */
   var now=new Date();
   set('tbLastUpdated','Updated: '+now.toLocaleDateString('en-BD')+' '+now.toLocaleTimeString('en-BD',{hour:'2-digit',minute:'2-digit'})+' ↻');
   set('dashFootnote','* Live data for active organization as of '+now.toLocaleString('en-BD')+'. Values in BDT unless stated.');
-}
-
-/* ── Re-build charts on theme change ─────────────────────────────────── */
-function _rebuildCharts(d){
-  if(!d||!d.monthlyTrend) return;
-  _buildTrendChart(d.monthlyTrend||d.monthly_trend||[]);
 }
 
 /* ── Load all ─────────────────────────────────────────────────────────── */
@@ -1579,7 +1540,7 @@ function _loadAll(){
     });
 }
 
-/* ── Expose for refresh btn ──────────────────────────────────────────── */
+/* ── Expose globals ──────────────────────────────────────────────────── */
 window._loadAll      = _loadAll;
 window.toggleTheme   = toggleTheme;
 window.openSidebar   = openSidebar;

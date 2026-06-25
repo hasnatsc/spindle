@@ -63,6 +63,10 @@ public class BusinessDocument {
     @JoinColumn(name = "warehouse_id")
     private Warehouse warehouse;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "source_warehouse_id")
+    private Warehouse sourceWarehouse;
+
     @Column(nullable = false, unique = true, length = 100)
     private String documentNo;
     @Column(length = 100)

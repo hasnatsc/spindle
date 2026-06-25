@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<!--
+  security/security-dashboard.html   GET /security/dashboard
+  Full Security & IAM dashboard — Color Admin panel style, red/crimson accent
+  API: GET /security/dashboard/summary
+  Data keys from SecurityDashboardService.summary():
+    users: { total, active, disabled, deleted, locked, superAdminCount, noRoleCount, addedMTD, loggedInToday }
+    roles: { total, active, inactive, avgPermissionsPerRole }
+    permissions: { total, active, inactive }
+    menus: { total, active, inactive, moduleCount, groupCount, leafCount }
+    usersByRole:          [ {role_name, user_count} ]
+    rolesByPermCount:     [ {role_name, perm_count} ]
+    menusByModule:        [ {module_name, menu_count} ]
+    recentUsers:          [ {id, username, full_name, email, enabled, roles, created_at} ]
+    recentLoginUsers:     [ {id, username, full_name, last_login_at, enabled} ]
+    disabledUsers:        [ {id, username, full_name, email, status_reason} ]
+    noRoleUsers:          [ {id, username, full_name, email, created_at} ]
+    permissionsByModule:  [ {module, active_count, inactive_count, total_count} ]
+-->
+<html th:replace="~{layout/base :: layout('Security Dashboard', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
+<section>
+
+<style>
+/* ── Security accent (red/crimson) ─────────────────────────────────── */
+.sec-kpi-card {
+  border-radius: 10px; overflow: hidden; transition: transform .15s;
+}
+.sec-kpi-card:hover { transform: translateY(-3px); }
+.sec-kpi-val { font-size: 2rem; font-weight: 700; line-height: 1; }
+.sec-kpi-lbl { font-size: .72rem; text-transform: uppercase;
+               font-weight: 600; letter-spacing: .04em; opacity: .85; }
+.sec-mtd-card { border-left: 4px solid; border-radius: 8px; }
+
+/* status badge colours */
+.sec-badge-active   { background: rgba(40,167,69,.15); color: #198754; font-weight: 700; font-size: .68rem; padding: 2px 7px; border-radius: 20px; }
+.sec-badge-disabled { background: rgba(220,53,69,.13); color: #dc3545; font-weight: 700; font-size: .68rem; padding: 2px 7px; border-radius: 20px; }
+.sec-badge-locked   { background: rgba(255,193,7,.18);  color: #b45309; font-weight: 700; font-size: .68rem; padding: 2px 7px; border-radius: 20px; }
+.sec-badge-norole   { background: rgba(13,202,240,.15); color: #0e7490; font-weight: 700; font-size: .68rem; padding: 2px 7px; border-radius: 20px; }
+
+/* Role / perm bars */
+.role-bar-wrap { background:#e9ecef; border-radius:20px; height:10px; overflow:hidden; }
+.role-bar-fill { height:100%; border-radius:20px; background:#dc3545; transition: width .5s ease; }
+
+/* permission module grid */
+.pm-grid { display:grid; grid-template-columns: auto 1fr auto auto; gap:4px 12px; align-items:center; }
+.pm-grid-h { font-size:.68rem; font-weight:700; color:#6c757d; text-transform:uppercase; letter-spacing:.06em; }
+.pm-bar-wrap { background:#e9ecef; border-radius:4px; height:8px; overflow:hidden; }
+.pm-bar-fill { height:100%; border-radius:4px; background:#0d6efd; }
+</style>
+
+  <ol class="breadcrumb float-xl-end">
+    <li class="breadcrumb-item"><a th:href="@{/dashboard}">Home</a></li>
+    <li class="breadcrumb-item">Security</li>
+    <li class="breadcrumb-item active">Dashboard</li>
+  </ol>
+  <h1 class="page-header">
+    Security &amp; IAM Dashboard
+    <small>users · roles · permissions · menus</small>
+    <a th:href="@{/users}"       class="btn btn-sm btn-outline-danger ms-3">
+      <i class="fa fa-users me-1"></i> Users
+    </a>
+    <a th:href="@{/roles}"       class="btn btn-sm btn-outline-secondary ms-1">
+      <i class="fa fa-shield me-1"></i> Roles
+    </a>
+    <a th:href="@{/permissions}" class="btn btn-sm btn-outline-secondary ms-1">
+      <i class="fa fa-key me-1"></i> Permissions
+    </a>
+    <a th:href="@{/menus}"       class="btn btn-sm btn-outline-secondary ms-1">
+      <i class="fa fa-bars me-1"></i> Menus
+    </a>
+    <a th:href="@{/role-menus}"  class="btn btn-sm btn-outline-primary ms-1">
+      <i class="fa fa-sitemap me-1"></i> Role–Menu
+    </a>
+    <button class="btn btn-sm btn-danger ms-1" onclick="_refresh()">
+      <i class="fa fa-refresh me-1"></i> Refresh
+    </button>
+  </h1>
+
+  <!-- ══ ROW 1: STATUS KPI WIDGETS ════════════════════════════════════════ -->
+  <div class="row g-2 mb-3">
+
+    <div class="col-6 col-md-3 col-xl">
+      <div class="sec-kpi-card widget widget-stats bg-success h-100">
+        <div class="stats-icon"><i class="fa fa-user-check"></i></div>
+        <div class="stats-info">
+          <div class="sec-kpi-lbl">Active Users</div>
+          <div class="sec-kpi-val" id="kActive">—</div>
+        </div>
+        <div class="stats-link">
+          <a th:href="@{/users}">Manage Users <i class="fa fa-arrow-alt-circle-right"></i></a>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-6 col-md-3 col-xl">
+      <div class="sec-kpi-card widget widget-stats bg-danger h-100">
+        <div class="stats-icon"><i class="fa fa-ban"></i></div>
+        <div class="stats-info">
+          <div class="sec-kpi-lbl">Disabled / Locked</div>
+          <div class="sec-kpi-val" id="kDisabled">—</div>
+        </div>
+        <div class="stats-link">
+          <small class="text-white-50" id="kLockedSub">Locked: —</small>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-6 col-md-3 col-xl">
+      <div class="sec-kpi-card widget widget-stats bg-primary h-100">
+        <div class="stats-icon"><i class="fa fa-shield"></i></div>
+        <div class="stats-info">
+          <div class="sec-kpi-lbl">Active Roles</div>
+          <div class="sec-kpi-val" id="kRoles">—</div>
+        </div>
+        <div class="stats-link">
+          <a th:href="@{/roles}">Manage Roles <i class="fa fa-arrow-alt-circle-right"></i></a>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-6 col-md-3 col-xl">
+      <div class="sec-kpi-card widget widget-stats bg-indigo h-100">
+        <div class="stats-icon"><i class="fa fa-key"></i></div>
+        <div class="stats-info">
+          <div class="sec-kpi-lbl">Active Permissions</div>
+          <div class="sec-kpi-val" id="kPerms">—</div>
+        </div>
+        <div class="stats-link">
+          <a th:href="@{/permissions}">View All <i class="fa fa-arrow-alt-circle-right"></i></a>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-6 col-md-3 col-xl">
+      <div class="sec-kpi-card widget widget-stats bg-teal h-100">
+        <div class="stats-icon"><i class="fa fa-bars"></i></div>
+        <div class="stats-info">
+          <div class="sec-kpi-lbl">Active Menus</div>
+          <div class="sec-kpi-val" id="kMenus">—</div>
+        </div>
+        <div class="stats-link">
+          <a th:href="@{/menus}">Manage Menus <i class="fa fa-arrow-alt-circle-right"></i></a>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-6 col-md-3 col-xl">
+      <div class="sec-kpi-card widget widget-stats bg-warning h-100">
+        <div class="stats-icon"><i class="fa fa-exclamation-triangle"></i></div>
+        <div class="stats-info">
+          <div class="sec-kpi-lbl">No-Role Users</div>
+          <div class="sec-kpi-val" id="kNoRole">—</div>
+        </div>
+        <div class="stats-link">
+          <small class="text-dark">Require role assignment</small>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ══ ROW 2: MTD STRIP ══════════════════════════════════════════════════ -->
+  <div class="row g-2 mb-3">
+    <div class="col-6 col-md-3">
+      <div class="card border-0 shadow-sm sec-mtd-card h-100" style="border-color:#dc3545!important">
+        <div class="card-body py-2 px-3">
+          <div class="text-muted small fw-bold text-uppercase">Added This Month</div>
+          <div class="fs-2 fw-bold text-danger" id="kAddedMTD">—</div>
+          <div class="text-muted small">new users created</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card border-0 shadow-sm sec-mtd-card h-100" style="border-color:#198754!important">
+        <div class="card-body py-2 px-3">
+          <div class="text-muted small fw-bold text-uppercase">Logged In Today</div>
+          <div class="fs-2 fw-bold text-success" id="kLoggedInToday">—</div>
+          <div class="text-muted small">active sessions</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card border-0 shadow-sm sec-mtd-card h-100" style="border-color:#7c3aed!important">
+        <div class="card-body py-2 px-3">
+          <div class="text-muted small fw-bold text-uppercase">Super Admins</div>
+          <div class="fs-2 fw-bold text-indigo" id="kSuperAdmin">—</div>
+          <div class="text-muted small">ROLE_SUPER_ADMIN users</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card border-0 shadow-sm sec-mtd-card h-100" style="border-color:#0d6efd!important">
+        <div class="card-body py-2 px-3">
+          <div class="text-muted small fw-bold text-uppercase">Avg Perms / Role</div>
+          <div class="fs-2 fw-bold text-primary" id="kAvgPerms">—</div>
+          <div class="text-muted small">active roles avg</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ ROW 3: ROLES + PERMISSIONS BREAKDOWN ══════════════════════════════ -->
+  <div class="row g-3 mb-3">
+
+    <!-- Users by Role -->
+    <div class="col-lg-4">
+      <div class="panel panel-inverse mb-0 h-100">
+        <div class="panel-heading">
+          <div class="panel-title"><i class="fa fa-users me-1"></i> Users per Role</div>
+          <div class="panel-heading-btn">
+            <a th:href="@{/role-menus}" class="btn btn-sm btn-outline-primary">Role–Menu Access ›</a>
+          </div>
+        </div>
+        <div class="panel-body p-0">
+          <table class="table table-sm table-hover mb-0">
+            <thead class="table-light"><tr><th>Role</th><th class="text-end">Users</th><th>Coverage</th></tr></thead>
+            <tbody id="usersByRoleBody">
+              <tr><td colspan="3" class="text-center text-muted py-3">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Roles by Permission Count -->
+    <div class="col-lg-4">
+      <div class="panel panel-inverse mb-0 h-100">
+        <div class="panel-heading">
+          <div class="panel-title"><i class="fa fa-key me-1"></i> Role Permission Depth</div>
+        </div>
+        <div class="panel-body p-0">
+          <table class="table table-sm table-hover mb-0">
+            <thead class="table-light"><tr><th>Role</th><th class="text-end">Permissions</th><th>Depth</th></tr></thead>
+            <tbody id="rolesByPermBody">
+              <tr><td colspan="3" class="text-center text-muted py-3">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Menu type + module breakdown -->
+    <div class="col-lg-4">
+      <div class="panel panel-inverse mb-0 h-100">
+        <div class="panel-heading">
+          <div class="panel-title"><i class="fa fa-bars me-1"></i> Menu Structure</div>
+          <div class="panel-heading-btn">
+            <a th:href="@{/menus}" class="btn btn-sm btn-outline-teal">Manage ›</a>
+          </div>
+        </div>
+        <div class="panel-body">
+          <!-- Type breakdown pills -->
+          <div class="d-flex gap-2 flex-wrap mb-3">
+            <div class="card border-0 bg-light flex-grow-1 text-center p-2">
+              <div style="font-size:.65rem;color:#6c757d;text-transform:uppercase;font-weight:700">Modules</div>
+              <div class="fw-bold fs-4 text-primary" id="kMenuModules">—</div>
+            </div>
+            <div class="card border-0 bg-light flex-grow-1 text-center p-2">
+              <div style="font-size:.65rem;color:#6c757d;text-transform:uppercase;font-weight:700">Groups</div>
+              <div class="fw-bold fs-4 text-info" id="kMenuGroups">—</div>
+            </div>
+            <div class="card border-0 bg-light flex-grow-1 text-center p-2">
+              <div style="font-size:.65rem;color:#6c757d;text-transform:uppercase;font-weight:700">Leaves</div>
+              <div class="fw-bold fs-4 text-secondary" id="kMenuLeaves">—</div>
+            </div>
+          </div>
+          <!-- Menus by module mini table -->
+          <div class="text-muted small fw-bold text-uppercase mb-1">By Module</div>
+          <table class="table table-sm mb-0">
+            <tbody id="menusByModuleBody">
+              <tr><td colspan="2" class="text-muted text-center">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ ROW 4: PERMISSIONS BY MODULE ══════════════════════════════════════ -->
+  <div class="row g-3 mb-3">
+    <div class="col-12">
+      <div class="panel panel-inverse mb-0">
+        <div class="panel-heading">
+          <div class="panel-title">
+            <i class="fa fa-key me-1 text-indigo"></i>
+            Permissions by Module
+            <small class="text-muted ms-1">active vs inactive</small>
+          </div>
+          <div class="panel-heading-btn">
+            <a th:href="@{/permissions}" class="btn btn-sm btn-outline-secondary">All Permissions ›</a>
+          </div>
+        </div>
+        <div class="panel-body">
+          <div id="permModuleGrid" class="pm-grid">
+            <div class="pm-grid-h">Module</div>
+            <div class="pm-grid-h">Coverage</div>
+            <div class="pm-grid-h text-end">Active</div>
+            <div class="pm-grid-h text-end">Total</div>
+          </div>
+          <div id="permModuleBody">
+            <div class="text-muted text-center py-3">Loading…</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ ROW 5: RECENT USERS + RECENT LOGINS ══════════════════════════════ -->
+  <div class="row g-3 mb-3">
+
+    <!-- Recent Users -->
+    <div class="col-lg-6">
+      <div class="panel panel-inverse mb-0 h-100">
+        <div class="panel-heading">
+          <div class="panel-title"><i class="fa fa-user-plus me-1 text-success"></i> Recently Added Users</div>
+          <div class="panel-heading-btn">
+            <a th:href="@{/users}" class="btn btn-sm btn-outline-success">All Users ›</a>
+          </div>
+        </div>
+        <div class="panel-body p-0">
+          <div class="table-responsive">
+            <table class="table table-sm table-hover mb-0">
+              <thead class="table-light">
+                <tr><th>Username</th><th>Email</th><th>Roles</th><th>Status</th><th>Created</th></tr>
+              </thead>
+              <tbody id="recentUsersBody">
+                <tr><td colspan="5" class="text-muted text-center py-3">Loading…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Recent Logins -->
+    <div class="col-lg-6">
+      <div class="panel panel-inverse mb-0 h-100">
+        <div class="panel-heading">
+          <div class="panel-title"><i class="fa fa-sign-in me-1 text-primary"></i> Recent Logins</div>
+        </div>
+        <div class="panel-body p-0">
+          <div class="table-responsive">
+            <table class="table table-sm table-hover mb-0">
+              <thead class="table-light">
+                <tr><th>Username</th><th>Full Name</th><th>Last Login</th><th>Status</th></tr>
+              </thead>
+              <tbody id="recentLoginsBody">
+                <tr><td colspan="4" class="text-muted text-center py-3">Loading…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ ROW 6: DISABLED/LOCKED USERS + NO-ROLE USERS ════════════════════ -->
+  <div class="row g-3">
+
+    <!-- Disabled / Locked -->
+    <div class="col-lg-6">
+      <div class="panel panel-inverse mb-0 h-100">
+        <div class="panel-heading">
+          <div class="panel-title">
+            <i class="fa fa-ban me-1 text-danger"></i>
+            Disabled &amp; Locked Accounts
+            <small class="text-muted ms-1">require attention</small>
+          </div>
+          <div class="panel-heading-btn">
+            <a th:href="@{/users}" class="btn btn-sm btn-outline-danger">Manage ›</a>
+          </div>
+        </div>
+        <div class="panel-body p-0">
+          <div class="table-responsive">
+            <table class="table table-sm table-hover mb-0">
+              <thead class="table-light">
+                <tr><th>Username</th><th>Full Name</th><th>Email</th><th>Reason</th><th>Updated</th></tr>
+              </thead>
+              <tbody id="disabledUsersBody">
+                <tr><td colspan="5" class="text-muted text-center py-3">Loading…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- No-Role Users -->
+    <div class="col-lg-6">
+      <div class="panel panel-inverse mb-0 h-100">
+        <div class="panel-heading">
+          <div class="panel-title">
+            <i class="fa fa-exclamation-triangle me-1 text-warning"></i>
+            Users Without Roles
+            <small class="text-muted ms-1">cannot access any module</small>
+          </div>
+          <div class="panel-heading-btn">
+            <a th:href="@{/users}" class="btn btn-sm btn-outline-warning">Assign Roles ›</a>
+          </div>
+        </div>
+        <div class="panel-body p-0">
+          <div class="table-responsive">
+            <table class="table table-sm table-hover mb-0">
+              <thead class="table-light">
+                <tr><th>Username</th><th>Full Name</th><th>Email</th><th>Created</th><th>Action</th></tr>
+              </thead>
+              <tbody id="noRoleUsersBody">
+                <tr><td colspan="5" class="text-muted text-center py-3">Loading…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script th:inline="none">
+  (function () {
+    'use strict';
+
+    var _data = null;
+
+    document.addEventListener('DOMContentLoaded', function () { _refresh(); });
+
+    function _refresh() {
+      secureFetch('/security/dashboard/summary').then(function(d){
+        _data = d;
+        _renderKpis(d);
+        _renderMtdStrip(d);
+        _renderUsersByRole(d.usersByRole || []);
+        _renderRolesByPerm(d.rolesByPermCount || []);
+        _renderMenusByModule(d.menusByModule || [], d.menus || {});
+        _renderPermissionsByModule(d.permissionsByModule || []);
+        _renderRecentUsers(d.recentUsers || []);
+        _renderRecentLogins(d.recentLoginUsers || []);
+        _renderDisabledUsers(d.disabledUsers || []);
+        _renderNoRoleUsers(d.noRoleUsers || []);
+      }).catch(function(e){ console.error('Security dashboard error:', e); });
+    }
+
+    window._refresh = _refresh;
+
+    // ── KPI widgets ───────────────────────────────────────────────────────────
+    function _renderKpis(d) {
+      var u = d.users || {}, r = d.roles || {}, p = d.permissions || {}, m = d.menus || {};
+      _set('kActive',    u.active || 0);
+      _set('kDisabled',  (u.disabled || 0) + (u.locked || 0));
+      _set('kLockedSub', 'Locked: ' + (u.locked || 0));
+      _set('kRoles',     r.active || 0);
+      _set('kPerms',     p.active || 0);
+      _set('kMenus',     m.active || 0);
+      _set('kNoRole',    u.noRoleCount || 0);
+      _set('kMenuModules', m.moduleCount || 0);
+      _set('kMenuGroups',  m.groupCount  || 0);
+      _set('kMenuLeaves',  m.leafCount   || 0);
+    }
+
+    // ── MTD strip ─────────────────────────────────────────────────────────────
+    function _renderMtdStrip(d) {
+      var u = d.users || {}, r = d.roles || {};
+      _set('kAddedMTD',       u.addedMTD || 0);
+      _set('kLoggedInToday',  u.loggedInToday || 0);
+      _set('kSuperAdmin',     u.superAdminCount || 0);
+      _set('kAvgPerms',       r.avgPermissionsPerRole || 0);
+    }
+
+    // ── Users by role table ───────────────────────────────────────────────────
+    function _renderUsersByRole(rows) {
+      var body = document.getElementById('usersByRoleBody');
+      if (!rows.length) { body.innerHTML = '<tr><td colspan="3" class="text-muted text-center py-3">No roles.</td></tr>'; return; }
+      var maxCount = Math.max.apply(null, rows.map(function(r){ return parseInt(r.user_count||0); })) || 1;
+      body.innerHTML = rows.map(function(r){
+        var cnt = parseInt(r.user_count || 0);
+        var pct = Math.round((cnt / maxCount) * 100);
+        var displayName = (r.role_name || '').replace('ROLE_','');
+        return '<tr>'
+          + '<td><code class="small">' + _esc(displayName) + '</code></td>'
+          + '<td class="text-end fw-bold">' + cnt + '</td>'
+          + '<td><div class="role-bar-wrap"><div class="role-bar-fill" style="width:' + pct + '%"></div></div></td>'
+          + '</tr>';
+      }).join('');
+    }
+
+    // ── Roles by permission count ─────────────────────────────────────────────
+    function _renderRolesByPerm(rows) {
+      var body = document.getElementById('rolesByPermBody');
+      if (!rows.length) { body.innerHTML = '<tr><td colspan="3" class="text-muted text-center py-3">No roles.</td></tr>'; return; }
+      var maxPerm = Math.max.apply(null, rows.map(function(r){ return parseInt(r.perm_count||0); })) || 1;
+      body.innerHTML = rows.map(function(r){
+        var cnt = parseInt(r.perm_count || 0);
+        var pct = Math.round((cnt / maxPerm) * 100);
+        var displayName = (r.role_name || '').replace('ROLE_','');
+        return '<tr>'
+          + '<td><code class="small">' + _esc(displayName) + '</code></td>'
+          + '<td class="text-end fw-bold">' + cnt + '</td>'
+          + '<td><div class="role-bar-wrap" style="--bar-col:#7c3aed"><div class="role-bar-fill" style="width:' + pct + '%;background:#7c3aed"></div></div></td>'
+          + '</tr>';
+      }).join('');
+    }
+
+    // ── Menus by module mini table ────────────────────────────────────────────
+    function _renderMenusByModule(rows, menus) {
+      var body = document.getElementById('menusByModuleBody');
+      if (!rows.length) { body.innerHTML = '<tr><td colspan="2" class="text-muted text-center py-2">No data.</td></tr>'; return; }
+      var maxCount = Math.max.apply(null, rows.map(function(r){ return parseInt(r.menu_count||0); })) || 1;
+      body.innerHTML = rows.slice(0,8).map(function(r){
+        var cnt = parseInt(r.menu_count || 0);
+        var pct = Math.round((cnt / maxCount) * 100);
+        return '<tr>'
+          + '<td class="small">' + _esc(r.module_name || '—') + '</td>'
+          + '<td class="text-end fw-bold small">' + cnt + '</td>'
+          + '</tr>';
+      }).join('');
+    }
+
+    // ── Permissions by module ─────────────────────────────────────────────────
+    function _renderPermissionsByModule(rows) {
+      var body = document.getElementById('permModuleBody');
+      if (!rows.length) { body.innerHTML = '<div class="text-muted text-center py-3">No permission data.</div>'; return; }
+      var maxTotal = Math.max.apply(null, rows.map(function(r){ return parseInt(r.total_count||0); })) || 1;
+      body.innerHTML = '';
+      rows.forEach(function(r){
+        var total  = parseInt(r.total_count  || 0);
+        var active = parseInt(r.active_count || 0);
+        var pct    = Math.round((active / Math.max(total,1)) * 100);
+        var barW   = Math.round((total / maxTotal) * 100);
+        var row = document.createElement('div');
+        row.className = 'pm-grid';
+        row.style.cssText = 'border-top:1px solid #e9ecef;padding:5px 0;';
+        row.innerHTML =
+          '<div class="small fw-semibold">' + _esc(r.module || '—') + '</div>'
+          + '<div><div class="pm-bar-wrap"><div class="pm-bar-fill" style="width:' + barW + '%"></div></div>'
+          +   '<div style="font-size:.62rem;color:#6c757d">' + pct + '% active</div></div>'
+          + '<div class="text-end small text-success fw-bold">' + active + '</div>'
+          + '<div class="text-end small text-muted">' + total + '</div>';
+        body.appendChild(row);
+      });
+    }
+
+    // ── Recent users table ────────────────────────────────────────────────────
+    function _renderRecentUsers(rows) {
+      var body = document.getElementById('recentUsersBody');
+      if (!rows.length) { body.innerHTML = '<tr><td colspan="5" class="text-muted text-center py-3">No users.</td></tr>'; return; }
+      body.innerHTML = rows.map(function(r){
+        var status = r.enabled
+          ? '<span class="sec-badge-active">Active</span>'
+          : '<span class="sec-badge-disabled">Disabled</span>';
+        var rolesDisplay = r.roles
+          ? r.roles.split(',').map(function(rn){ return '<span class="badge bg-primary me-1" style="font-size:.62rem">' + _esc(rn.trim().replace('ROLE_','')) + '</span>'; }).join('')
+          : '<span class="sec-badge-norole">No Role</span>';
+        return '<tr>'
+          + '<td><strong>' + _esc(r.username || '—') + '</strong>'
+          +   (r.full_name ? '<br><small class="text-muted">' + _esc(r.full_name) + '</small>' : '') + '</td>'
+          + '<td class="small">' + _esc(r.email || '—') + '</td>'
+          + '<td>' + rolesDisplay + '</td>'
+          + '<td>' + status + '</td>'
+          + '<td class="text-nowrap small">' + (r.created_at || '—') + '</td>'
+          + '</tr>';
+      }).join('');
+    }
+
+    // ── Recent logins table ───────────────────────────────────────────────────
+    function _renderRecentLogins(rows) {
+      var body = document.getElementById('recentLoginsBody');
+      if (!rows.length) { body.innerHTML = '<tr><td colspan="4" class="text-muted text-center py-3">No login records.</td></tr>'; return; }
+      body.innerHTML = rows.map(function(r){
+        var status = r.enabled
+          ? '<span class="sec-badge-active">Active</span>'
+          : '<span class="sec-badge-disabled">Disabled</span>';
+        return '<tr>'
+          + '<td><strong>' + _esc(r.username || '—') + '</strong></td>'
+          + '<td class="small">' + _esc(r.full_name || '—') + '</td>'
+          + '<td class="text-nowrap small">' + (r.last_login_at || '—') + '</td>'
+          + '<td>' + status + '</td>'
+          + '</tr>';
+      }).join('');
+    }
+
+    // ── Disabled / locked users table ─────────────────────────────────────────
+    function _renderDisabledUsers(rows) {
+      var body = document.getElementById('disabledUsersBody');
+      if (!rows.length) {
+        body.innerHTML = '<tr><td colspan="5" class="text-center text-success py-3"><i class="fa fa-check-circle me-1"></i> No disabled or locked accounts.</td></tr>';
+        return;
+      }
+      body.innerHTML = rows.map(function(r){
+        var reasonBadge = r.status_reason === 'LOCKED'
+          ? '<span class="sec-badge-locked">LOCKED</span>'
+          : r.status_reason === 'DELETED'
+          ? '<span class="badge bg-dark" style="font-size:.68rem">DELETED</span>'
+          : '<span class="sec-badge-disabled">DISABLED</span>';
+        return '<tr>'
+          + '<td><strong>' + _esc(r.username || '—') + '</strong></td>'
+          + '<td class="small">' + _esc(r.full_name || '—') + '</td>'
+          + '<td class="small">' + _esc(r.email || '—') + '</td>'
+          + '<td>' + reasonBadge + '</td>'
+          + '<td class="text-nowrap small">' + (r.updated_at || '—') + '</td>'
+          + '</tr>';
+      }).join('');
+    }
+
+    // ── No-role users table ───────────────────────────────────────────────────
+    function _renderNoRoleUsers(rows) {
+      var body = document.getElementById('noRoleUsersBody');
+      if (!rows.length) {
+        body.innerHTML = '<tr><td colspan="5" class="text-center text-success py-3"><i class="fa fa-check-circle me-1"></i> All users have at least one role.</td></tr>';
+        return;
+      }
+      body.innerHTML = rows.map(function(r){
+        return '<tr>'
+          + '<td><strong>' + _esc(r.username || '—') + '</strong></td>'
+          + '<td class="small">' + _esc(r.full_name || '—') + '</td>'
+          + '<td class="small">' + _esc(r.email || '—') + '</td>'
+          + '<td class="text-nowrap small">' + (r.created_at || '—') + '</td>'
+          + '<td>'
+          +   '<a href="/users" class="btn btn-xs btn-outline-warning" style="font-size:.65rem;padding:2px 7px">Assign Role</a>'
+          + '</td>'
+          + '</tr>';
+      }).join('');
+    }
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
+    function _set(id, val) {
+      var el = document.getElementById(id);
+      if (el) el.textContent = val != null ? String(val) : '—';
+    }
+    function _esc(s) {
+      return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+  })();
+  </script>
+</section>
+</html>
