@@ -5,6 +5,7 @@ import com.asg.spindleserp.common.util.CommonUtils;
 import com.asg.spindleserp.inventory.dto.ItemUomDTO;
 import com.asg.spindleserp.inventory.entity.ItemUom;
 import com.asg.spindleserp.inventory.repository.ItemUomRepository;
+import com.asg.spindleserp.security.auth.ContextProvider;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -92,7 +93,7 @@ public class ItemUomServiceImpl implements ItemUomService {
 
     @Override @Transactional(readOnly = true)
     public DataTableResponse datatableList(int draw, int start, int length, String search) {
-        String where = "WHERE 1=1 "
+        String where = "WHERE u.organization_id = "+ ContextProvider.getOrganizationId()
                 + CommonUtils.searchILike(search, Arrays.asList("u.code", "u.name", "u.symbol", "u.category"));
 
         String sql = String.format("""

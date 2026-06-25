@@ -306,7 +306,7 @@
 
     document.addEventListener('DOMContentLoaded', function () {
       dt = $('#itemTable').DataTable({
-        processing: true, serverSide: false, responsive: true, pageLength: 25,
+        processing: true, serverSide: true, responsive: true, pageLength: 25,
         ajax: { url: BASE + '/list', type: 'GET' },
         columns: [
           { data: 'sl', orderable: false, width: '40px' },
@@ -336,7 +336,7 @@
         types.forEach(function (t) { sel.innerHTML += '<option value="' + t + '">' + t.replace(/_/g,' ') + '</option>'; });
       });
       // Categories
-      secureFetch('/item-categories/active').then(function (data) {
+      secureFetch('/inventory/categories/active').then(function (data) {
         var sel = document.getElementById('itemCategoryId');
         while (sel.options.length > 1) sel.remove(1);
         (data || []).forEach(function (c) {
@@ -344,7 +344,7 @@
         });
       });
       // Brands
-      secureFetch('/item-brands/active').then(function (data) {
+      secureFetch('/inventory/brands/active').then(function (data) {
         var sel = document.getElementById('itemBrandId');
         while (sel.options.length > 1) sel.remove(1);
         (data || []).forEach(function (b) {
@@ -352,7 +352,7 @@
         });
       });
       // UOMs
-      secureFetch('/item-uoms/active').then(function (data) {
+      secureFetch('/inventory/uoms/active').then(function (data) {
         ['itemPurchaseUnitId', 'itemSalesUnitId', 'itemOperationUnitId'].forEach(function (selId) {
           var sel = document.getElementById(selId);
           while (sel.options.length > 1) sel.remove(1);
@@ -368,7 +368,7 @@
       var sel = document.getElementById('itemModelId');
       sel.innerHTML = '<option value="">— Model (optional) —</option>';
       if (!brandId) return;
-      secureFetch('/item-models/by-brand/' + brandId).then(function (data) {
+      secureFetch('/inventory/models/by-brand/' + brandId).then(function (data) {
         (data || []).forEach(function (m) {
           var opt = document.createElement('option'); opt.value = m.id; opt.textContent = m.name; sel.appendChild(opt);
         });
@@ -437,6 +437,12 @@
 
     function _onSubmit(e) {
       e.preventDefault();
+      var itemForm = document.getElementById('itemForm');
+      var validateValid = $(itemForm).parsley();
+      // Parsley validation
+      if (!validateValid.validate()) {
+        return;
+      }
       var sb = document.getElementById('itemSubmitBtn'), sp = document.getElementById('itemSpinner'), bt = document.getElementById('itemBtnText');
       hsDisableButton(sb, sp, bt);
       secureFetch(BASE + '/save', { method: 'POST', body: JSON.stringify({

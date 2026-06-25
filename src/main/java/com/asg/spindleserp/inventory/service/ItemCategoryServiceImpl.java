@@ -6,6 +6,7 @@ import com.asg.spindleserp.common.util.CommonUtils;
 import com.asg.spindleserp.inventory.dto.ItemCategoryDTO;
 import com.asg.spindleserp.inventory.entity.ItemCategory;
 import com.asg.spindleserp.inventory.repository.ItemCategoryRepository;
+import com.asg.spindleserp.security.auth.ContextProvider;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -111,7 +112,7 @@ public class ItemCategoryServiceImpl implements ItemCategoryService {
 
     @Override @Transactional(readOnly = true)
     public DataTableResponse datatableList(int draw, int start, int length, String search) {
-        String where = "WHERE 1=1 "
+        String where = "WHERE c.organization_id = "+ ContextProvider.getOrganizationId()
                 + CommonUtils.searchILike(search, Arrays.asList(
                         "c.category_code", "c.category_name", "c.item_type", "c.layer_type", "p.category_name"));
 

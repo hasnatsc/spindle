@@ -7,6 +7,7 @@ import com.asg.spindleserp.inventory.entity.ItemBrand;
 import com.asg.spindleserp.inventory.entity.ItemModel;
 import com.asg.spindleserp.inventory.repository.ItemBrandRepository;
 import com.asg.spindleserp.inventory.repository.ItemModelRepository;
+import com.asg.spindleserp.security.auth.ContextProvider;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -104,7 +105,7 @@ public class ItemModelServiceImpl implements ItemModelService {
 
     @Override @Transactional(readOnly = true)
     public DataTableResponse datatableList(int draw, int start, int length, String search) {
-        String where = "WHERE 1=1 "
+        String where = "WHERE m.organization_id = "+ ContextProvider.getOrganizationId()
                 + CommonUtils.searchILike(search, Arrays.asList(
                         "m.model_code", "m.model_name", "b.brand_name", "b.brand_code"));
 

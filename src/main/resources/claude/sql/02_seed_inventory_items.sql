@@ -82,6 +82,150 @@ VALUES
 ON CONFLICT ON CONSTRAINT uq_brand_org_code DO NOTHING;
 
 
+-- =============================================================================
+-- 3. ITEM MODELS  (depends on brands)
+-- =============================================================================
+-- =============================================================================
+-- SKF
+-- =============================================================================
+INSERT INTO inv_item_models
+(model_code, model_name, description, is_active, organization_id, brand_id, created_at, updated_at, created_by, updated_by)
+SELECT v.model_code, v.model_name, v.description, TRUE, 1, b.id, NOW(), NOW(), 'system', 'system'
+FROM inv_item_brands b
+         CROSS JOIN (
+    VALUES
+        ('6203-2RS','6203-2RS','SKF Bearing'),
+        ('6204-2RS','6204-2RS','SKF Bearing'),
+        ('6205-2RS','6205-2RS','SKF Bearing'),
+        ('6206-2RS','6206-2RS','SKF Bearing'),
+        ('6207-2RS','6207-2RS','SKF Bearing'),
+        ('6305-2RS','6305-2RS','SKF Bearing'),
+        ('6306-2RS','6306-2RS','SKF Bearing')
+) v(model_code,model_name,description)
+WHERE b.brand_code='BRD-SKF'
+ON CONFLICT ON CONSTRAINT uq_model_org_brand_code DO NOTHING;
+
+-- =============================================================================
+-- SAMSUNG
+-- =============================================================================
+INSERT INTO inv_item_models
+(model_code, model_name, description, is_active, organization_id, brand_id, created_at, updated_at, created_by, updated_by)
+SELECT v.model_code, v.model_name, v.description, TRUE, 1, b.id, NOW(), NOW(), 'system', 'system'
+FROM inv_item_brands b
+         CROSS JOIN (
+    VALUES
+        ('GS24','Galaxy S24','Samsung Smartphone'),
+        ('GS24P','Galaxy S24 Plus','Samsung Smartphone'),
+        ('GS24U','Galaxy S24 Ultra','Samsung Smartphone'),
+        ('A55','Galaxy A55','Samsung Smartphone'),
+        ('A35','Galaxy A35','Samsung Smartphone'),
+        ('M35','Galaxy M35','Samsung Smartphone')
+) v(model_code,model_name,description)
+WHERE b.brand_code='BRD-SAMSUNG'
+ON CONFLICT ON CONSTRAINT uq_model_org_brand_code DO NOTHING;
+
+-- =============================================================================
+-- LG
+-- =============================================================================
+INSERT INTO inv_item_models
+(model_code, model_name, description, is_active, organization_id, brand_id, created_at, updated_at, created_by, updated_by)
+SELECT v.model_code, v.model_name, v.description, TRUE, 1, b.id, NOW(), NOW(), 'system', 'system'
+FROM inv_item_brands b
+         CROSS JOIN (
+    VALUES
+        ('AC18INV','Dual Inverter 1.5 Ton','Air Conditioner'),
+        ('AC24INV','Dual Inverter 2 Ton','Air Conditioner'),
+        ('WM8KG','Front Load 8KG','Washing Machine'),
+        ('REF300L','300L Refrigerator','Refrigerator')
+) v(model_code,model_name,description)
+WHERE b.brand_code='BRD-LG'
+ON CONFLICT ON CONSTRAINT uq_model_org_brand_code DO NOTHING;
+
+-- =============================================================================
+-- ABB
+-- =============================================================================
+INSERT INTO inv_item_models
+(model_code, model_name, description, is_active, organization_id, brand_id, created_at, updated_at, created_by, updated_by)
+SELECT v.model_code, v.model_name, v.description, TRUE, 1, b.id, NOW(), NOW(), 'system', 'system'
+FROM inv_item_brands b
+         CROSS JOIN (
+    VALUES
+        ('M2BAX90L','3 HP Motor','ABB Motor'),
+        ('M2BAX100L','5 HP Motor','ABB Motor'),
+        ('M2BAX112M','7.5 HP Motor','ABB Motor')
+) v(model_code,model_name,description)
+WHERE b.brand_code='BRD-ABB'
+ON CONFLICT ON CONSTRAINT uq_model_org_brand_code DO NOTHING;
+
+-- =============================================================================
+-- SIEMENS
+-- =============================================================================
+INSERT INTO inv_item_models
+(model_code, model_name, description, is_active, organization_id, brand_id, created_at, updated_at, created_by, updated_by)
+SELECT v.model_code, v.model_name, v.description, TRUE, 1, b.id, NOW(), NOW(), 'system', 'system'
+FROM inv_item_brands b
+         CROSS JOIN (
+    VALUES
+        ('S71200','S7-1200 PLC','PLC'),
+        ('S71500','S7-1500 PLC','PLC'),
+        ('MM420','Micromaster 420','VFD'),
+        ('MM440','Micromaster 440','VFD')
+) v(model_code,model_name,description)
+WHERE b.brand_code='BRD-SIEMENS'
+ON CONFLICT ON CONSTRAINT uq_model_org_brand_code DO NOTHING;
+
+-- =============================================================================
+-- SCHNEIDER
+-- =============================================================================
+INSERT INTO inv_item_models
+(model_code, model_name, description, is_active, organization_id, brand_id, created_at, updated_at, created_by, updated_by)
+SELECT v.model_code, v.model_name, v.description, TRUE, 1, b.id, NOW(), NOW(), 'system', 'system'
+FROM inv_item_brands b
+         CROSS JOIN (
+    VALUES
+        ('ATV320','ATV320','VFD'),
+        ('ATV630','ATV630','VFD'),
+        ('M221','Modicon M221','PLC'),
+        ('M241','Modicon M241','PLC')
+) v(model_code,model_name,description)
+WHERE b.brand_code='BRD-SCHNEIDER'
+ON CONFLICT ON CONSTRAINT uq_model_org_brand_code DO NOTHING;
+
+-- =============================================================================
+-- OMRON
+-- =============================================================================
+INSERT INTO inv_item_models
+(model_code, model_name, description, is_active, organization_id, brand_id, created_at, updated_at, created_by, updated_by)
+SELECT v.model_code, v.model_name, v.description, TRUE, 1, b.id, NOW(), NOW(), 'system', 'system'
+FROM inv_item_brands b
+         CROSS JOIN (
+    VALUES
+        ('CP1E','CP1E PLC','PLC'),
+        ('CP1H','CP1H PLC','PLC'),
+        ('E3Z','E3Z Sensor','Sensor'),
+        ('E2E','E2E Sensor','Sensor')
+) v(model_code,model_name,description)
+WHERE b.brand_code='BRD-OMRON'
+ON CONFLICT ON CONSTRAINT uq_model_org_brand_code DO NOTHING;
+
+-- =============================================================================
+-- DELTA
+-- =============================================================================
+INSERT INTO inv_item_models
+(model_code, model_name, description, is_active, organization_id, brand_id, created_at, updated_at, created_by, updated_by)
+SELECT v.model_code, v.model_name, v.description, TRUE, 1, b.id, NOW(), NOW(), 'system', 'system'
+FROM inv_item_brands b
+         CROSS JOIN (
+    VALUES
+        ('MS300','MS300','VFD'),
+        ('CP2000','CP2000','VFD'),
+        ('DVP14SS','DVP14SS2 PLC','PLC'),
+        ('DVP28SV','DVP28SV PLC','PLC')
+) v(model_code,model_name,description)
+WHERE b.brand_code='BRD-DELTA'
+ON CONFLICT ON CONSTRAINT uq_model_org_brand_code DO NOTHING;
+
+
 
 INSERT INTO inv_item_uom
 (active, category, code, conversion_factor, is_base_unit, name, organization_id, symbol, created_at, updated_at)
@@ -137,6 +281,9 @@ VALUES
 
 -- GENERIC UNIT
 (true,'UNIT','UNIT',1.000000,true,'Unit',1,'unit',NOW(),NOW());
+
+
+
 -- =============================================================================
 -- 2. CATEGORIES  (ROOT -> GROUP -> ITEM)
 -- =============================================================================
@@ -177,7 +324,7 @@ FROM (
          VALUES
              ('CAT-RAW','Raw Materials','Raw material root category','RAW_MATERIAL'),
              ('CAT-FG','Finished Goods','Finished goods root category','FINISHED_GOOD'),
-             ('CAT-SPARE','Spare Parts','Spare parts root category','SPARE_PARTS'),
+             ('CAT-SPARE','Spare Parts','Spare parts root category','SPARE_PART'),
              ('CAT-CONS','Consumables','Consumables root category','CONSUMABLE')
      ) v(code,name,description,item_type)
 ON CONFLICT ON CONSTRAINT uq_icat_org_code DO NOTHING;
@@ -630,262 +777,333 @@ FROM inv_item_categories p
 WHERE p.category_code='CAT-FG-HARD'
 ON CONFLICT ON CONSTRAINT uq_icat_org_code DO NOTHING;
 
--- =============================================================================
--- 3. ITEM MODELS  (depends on brands)
--- =============================================================================
--- =============================================================================
--- SKF
--- =============================================================================
-INSERT INTO inv_item_models
-(model_code, model_name, description, is_active, organization_id, brand_id, created_at, updated_at, created_by, updated_by)
-SELECT v.model_code, v.model_name, v.description, TRUE, 1, b.id, NOW(), NOW(), 'system', 'system'
-FROM inv_item_brands b
-         CROSS JOIN (
-    VALUES
-        ('6203-2RS','6203-2RS','SKF Bearing'),
-        ('6204-2RS','6204-2RS','SKF Bearing'),
-        ('6205-2RS','6205-2RS','SKF Bearing'),
-        ('6206-2RS','6206-2RS','SKF Bearing'),
-        ('6207-2RS','6207-2RS','SKF Bearing'),
-        ('6305-2RS','6305-2RS','SKF Bearing'),
-        ('6306-2RS','6306-2RS','SKF Bearing')
-) v(model_code,model_name,description)
-WHERE b.brand_code='BRD-SKF'
-ON CONFLICT ON CONSTRAINT uq_model_org_brand_code DO NOTHING;
-
--- =============================================================================
--- SAMSUNG
--- =============================================================================
-INSERT INTO inv_item_models
-(model_code, model_name, description, is_active, organization_id, brand_id, created_at, updated_at, created_by, updated_by)
-SELECT v.model_code, v.model_name, v.description, TRUE, 1, b.id, NOW(), NOW(), 'system', 'system'
-FROM inv_item_brands b
-         CROSS JOIN (
-    VALUES
-        ('GS24','Galaxy S24','Samsung Smartphone'),
-        ('GS24P','Galaxy S24 Plus','Samsung Smartphone'),
-        ('GS24U','Galaxy S24 Ultra','Samsung Smartphone'),
-        ('A55','Galaxy A55','Samsung Smartphone'),
-        ('A35','Galaxy A35','Samsung Smartphone'),
-        ('M35','Galaxy M35','Samsung Smartphone')
-) v(model_code,model_name,description)
-WHERE b.brand_code='BRD-SAMSUNG'
-ON CONFLICT ON CONSTRAINT uq_model_org_brand_code DO NOTHING;
-
--- =============================================================================
--- LG
--- =============================================================================
-INSERT INTO inv_item_models
-(model_code, model_name, description, is_active, organization_id, brand_id, created_at, updated_at, created_by, updated_by)
-SELECT v.model_code, v.model_name, v.description, TRUE, 1, b.id, NOW(), NOW(), 'system', 'system'
-FROM inv_item_brands b
-         CROSS JOIN (
-    VALUES
-        ('AC18INV','Dual Inverter 1.5 Ton','Air Conditioner'),
-        ('AC24INV','Dual Inverter 2 Ton','Air Conditioner'),
-        ('WM8KG','Front Load 8KG','Washing Machine'),
-        ('REF300L','300L Refrigerator','Refrigerator')
-) v(model_code,model_name,description)
-WHERE b.brand_code='BRD-LG'
-ON CONFLICT ON CONSTRAINT uq_model_org_brand_code DO NOTHING;
-
--- =============================================================================
--- ABB
--- =============================================================================
-INSERT INTO inv_item_models
-(model_code, model_name, description, is_active, organization_id, brand_id, created_at, updated_at, created_by, updated_by)
-SELECT v.model_code, v.model_name, v.description, TRUE, 1, b.id, NOW(), NOW(), 'system', 'system'
-FROM inv_item_brands b
-         CROSS JOIN (
-    VALUES
-        ('M2BAX90L','3 HP Motor','ABB Motor'),
-        ('M2BAX100L','5 HP Motor','ABB Motor'),
-        ('M2BAX112M','7.5 HP Motor','ABB Motor')
-) v(model_code,model_name,description)
-WHERE b.brand_code='BRD-ABB'
-ON CONFLICT ON CONSTRAINT uq_model_org_brand_code DO NOTHING;
-
--- =============================================================================
--- SIEMENS
--- =============================================================================
-INSERT INTO inv_item_models
-(model_code, model_name, description, is_active, organization_id, brand_id, created_at, updated_at, created_by, updated_by)
-SELECT v.model_code, v.model_name, v.description, TRUE, 1, b.id, NOW(), NOW(), 'system', 'system'
-FROM inv_item_brands b
-         CROSS JOIN (
-    VALUES
-        ('S71200','S7-1200 PLC','PLC'),
-        ('S71500','S7-1500 PLC','PLC'),
-        ('MM420','Micromaster 420','VFD'),
-        ('MM440','Micromaster 440','VFD')
-) v(model_code,model_name,description)
-WHERE b.brand_code='BRD-SIEMENS'
-ON CONFLICT ON CONSTRAINT uq_model_org_brand_code DO NOTHING;
-
--- =============================================================================
--- SCHNEIDER
--- =============================================================================
-INSERT INTO inv_item_models
-(model_code, model_name, description, is_active, organization_id, brand_id, created_at, updated_at, created_by, updated_by)
-SELECT v.model_code, v.model_name, v.description, TRUE, 1, b.id, NOW(), NOW(), 'system', 'system'
-FROM inv_item_brands b
-         CROSS JOIN (
-    VALUES
-        ('ATV320','ATV320','VFD'),
-        ('ATV630','ATV630','VFD'),
-        ('M221','Modicon M221','PLC'),
-        ('M241','Modicon M241','PLC')
-) v(model_code,model_name,description)
-WHERE b.brand_code='BRD-SCHNEIDER'
-ON CONFLICT ON CONSTRAINT uq_model_org_brand_code DO NOTHING;
-
--- =============================================================================
--- OMRON
--- =============================================================================
-INSERT INTO inv_item_models
-(model_code, model_name, description, is_active, organization_id, brand_id, created_at, updated_at, created_by, updated_by)
-SELECT v.model_code, v.model_name, v.description, TRUE, 1, b.id, NOW(), NOW(), 'system', 'system'
-FROM inv_item_brands b
-         CROSS JOIN (
-    VALUES
-        ('CP1E','CP1E PLC','PLC'),
-        ('CP1H','CP1H PLC','PLC'),
-        ('E3Z','E3Z Sensor','Sensor'),
-        ('E2E','E2E Sensor','Sensor')
-) v(model_code,model_name,description)
-WHERE b.brand_code='BRD-OMRON'
-ON CONFLICT ON CONSTRAINT uq_model_org_brand_code DO NOTHING;
-
--- =============================================================================
--- DELTA
--- =============================================================================
-INSERT INTO inv_item_models
-(model_code, model_name, description, is_active, organization_id, brand_id, created_at, updated_at, created_by, updated_by)
-SELECT v.model_code, v.model_name, v.description, TRUE, 1, b.id, NOW(), NOW(), 'system', 'system'
-FROM inv_item_brands b
-         CROSS JOIN (
-    VALUES
-        ('MS300','MS300','VFD'),
-        ('CP2000','CP2000','VFD'),
-        ('DVP14SS','DVP14SS2 PLC','PLC'),
-        ('DVP28SV','DVP28SV PLC','PLC')
-) v(model_code,model_name,description)
-WHERE b.brand_code='BRD-DELTA'
-ON CONFLICT ON CONSTRAINT uq_model_org_brand_code DO NOTHING;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
 
 
 -- =============================================================================
--- 5. ITEMS
+-- ITEM 1 : Samsung Galaxy A35
 -- =============================================================================
-
--- ── Item 1: Raw material (solvent) ───────────────────────────────────────────
 INSERT INTO inv_items
-(item_code, item_name, description, item_type, is_active, is_approved, is_hazardous,
- has_lot_tracking, has_serial, unit_of_measure, purchase_unit_code, sales_unit_code,
- cost_price, standard_cost, unit_price, minimum_stock, maximum_stock, reorder_level,
- organization_id, category_id, brand_id, model_id,
- purchase_unit_id, sales_unit_id, operation_unit_id,
- created_at, updated_at, created_by, updated_by)
+(item_code,item_name,description,item_type,is_active,is_approved,is_hazardous,
+ has_lot_tracking,has_serial,unit_of_measure,purchase_unit_code,sales_unit_code,
+ cost_price,standard_cost,unit_price,minimum_stock,maximum_stock,reorder_level,
+ warranty_months,organization_id,category_id,brand_id,model_id,
+ purchase_unit_id,sales_unit_id,operation_unit_id,
+ created_at,updated_at,created_by,updated_by)
 SELECT
-    'ITM-SOLV-001', 'Industrial Acetone', 'High purity acetone solvent for cleaning', 'RAW_MATERIAL',
-    true, true, true,
-    true, false, 'LTR', 'LTR', 'LTR',
-    120.0000, 120.0000, 150.0000, 50.000, 1000.000, 100.000,
-    1, c.id, b.id, NULL,
-    u.id, u.id, u.id,
-    NOW(), NOW(), 'system', 'system'
-FROM inv_item_categories c, inv_item_brands b, inv_item_uom u
-WHERE c.category_code = 'CAT-RAW-CHEM-SOLV' AND c.organization_id = 1
-  AND b.brand_code = 'BRD-GEN' AND b.organization_id = 1
-  AND u.code = 'LTR' AND u.organization_id = 1
-    ON CONFLICT ON CONSTRAINT uq_item_org_code DO NOTHING;
+    'ITM-A35-001',
+    'Samsung Galaxy A35',
+    'Samsung Smartphone 128GB',
+    'FINISHED_GOOD',
+    TRUE,TRUE,FALSE,
+    FALSE,TRUE,
+    'PCS','PCS','PCS',
+    28000,28000,34000,
+    10,300,20,
+    12,
+    1,c.id,b.id,m.id,
+    u.id,u.id,u.id,
+    NOW(),NOW(),'system','system'
+FROM inv_item_categories c
+         JOIN inv_item_brands b ON b.brand_code='BRD-SAMSUNG'
+         JOIN inv_item_models m ON m.brand_id=b.id AND m.model_code='A35'
+         JOIN inv_item_uom u ON u.code='PCS'
+WHERE c.category_code='CAT-FG-ELEC-MOB'
+  AND c.organization_id=1
+  AND b.organization_id=1
+  AND m.organization_id=1
+  AND u.organization_id=1
+ON CONFLICT ON CONSTRAINT uq_item_org_code DO NOTHING;
 
--- ── Item 2: Finished good (mobile phone) ─────────────────────────────────────
+-- =============================================================================
+-- ITEM 2 : Samsung Galaxy M35
+-- =============================================================================
 INSERT INTO inv_items
-(item_code, item_name, description, item_type, is_active, is_approved, is_hazardous,
- has_lot_tracking, has_serial, unit_of_measure, purchase_unit_code, sales_unit_code,
- cost_price, standard_cost, unit_price, minimum_stock, maximum_stock, reorder_level,
- warranty_months, organization_id, category_id, brand_id, model_id,
- purchase_unit_id, sales_unit_id, operation_unit_id,
- created_at, updated_at, created_by, updated_by)
+(item_code,item_name,description,item_type,is_active,is_approved,is_hazardous,
+ has_lot_tracking,has_serial,unit_of_measure,purchase_unit_code,sales_unit_code,
+ cost_price,standard_cost,unit_price,minimum_stock,maximum_stock,reorder_level,
+ warranty_months,organization_id,category_id,brand_id,model_id,
+ purchase_unit_id,sales_unit_id,operation_unit_id,
+ created_at,updated_at,created_by,updated_by)
 SELECT
-    'ITM-GS24-001', 'Samsung Galaxy S24 256GB', 'Flagship smartphone, 256GB storage', 'FINISHED_GOOD',
-    true, true, false,
-    false, true, 'PCS', 'PCS', 'PCS',
-    65000.0000, 65000.0000, 89999.0000, 5.000, 200.000, 10.000,
-    12, 1, c.id, b.id, m.id,
-    u.id, u.id, u.id,
-    NOW(), NOW(), 'system', 'system'
-FROM inv_item_categories c, inv_item_brands b, inv_item_models m, inv_item_uom u
-WHERE c.category_code = 'CAT-FG-ELEC-MOB' AND c.organization_id = 1
-  AND b.brand_code = 'BRD-SAMSUNG' AND b.organization_id = 1
-  AND m.model_code = 'MDL-GS24' AND m.organization_id = 1
-  AND u.code = 'PCS' AND u.organization_id = 1
-    ON CONFLICT ON CONSTRAINT uq_item_org_code DO NOTHING;
+    'ITM-M35-001',
+    'Samsung Galaxy M35',
+    'Samsung Smartphone 5G',
+    'FINISHED_GOOD',
+    TRUE,TRUE,FALSE,
+    FALSE,TRUE,
+    'PCS','PCS','PCS',
+    30000,30000,36500,
+    10,250,20,
+    12,
+    1,c.id,b.id,m.id,
+    u.id,u.id,u.id,
+    NOW(),NOW(),'system','system'
+FROM inv_item_categories c
+         JOIN inv_item_brands b ON b.brand_code='BRD-SAMSUNG'
+         JOIN inv_item_models m ON m.brand_id=b.id AND m.model_code='M35'
+         JOIN inv_item_uom u ON u.code='PCS'
+WHERE c.category_code='CAT-FG-ELEC-MOB'
+  AND c.organization_id=1
+  AND b.organization_id=1
+  AND m.organization_id=1
+  AND u.organization_id=1
+ON CONFLICT ON CONSTRAINT uq_item_org_code DO NOTHING;
 
--- ── Item 3: Spare part (bearing) ──────────────────────────────────────────────
+-- =============================================================================
+-- ITEM 3 : LG AC 1.5 Ton
+-- =============================================================================
 INSERT INTO inv_items
-(item_code, item_name, description, item_type, is_active, is_approved, is_hazardous,
- has_lot_tracking, has_serial, unit_of_measure, purchase_unit_code, sales_unit_code,
- cost_price, standard_cost, unit_price, minimum_stock, maximum_stock, reorder_level,
- organization_id, category_id, brand_id, model_id,
- purchase_unit_id, sales_unit_id, operation_unit_id,
- created_at, updated_at, created_by, updated_by)
+(item_code,item_name,description,item_type,is_active,is_approved,is_hazardous,
+ has_lot_tracking,has_serial,unit_of_measure,purchase_unit_code,sales_unit_code,
+ cost_price,standard_cost,unit_price,minimum_stock,maximum_stock,reorder_level,
+ warranty_months,organization_id,category_id,brand_id,model_id,
+ purchase_unit_id,sales_unit_id,operation_unit_id,
+ created_at,updated_at,created_by,updated_by)
 SELECT
-    'ITM-BRG-6205', 'SKF Bearing 6205-2RS', 'Deep groove ball bearing, sealed', 'SPARE_PART',
-    true, true, false,
-    false, false, 'PCS', 'PCS', 'PCS',
-    450.0000, 450.0000, 600.0000, 20.000, 500.000, 50.000,
-    1, c.id, b.id, m.id,
-    u.id, u.id, u.id,
-    NOW(), NOW(), 'system', 'system'
-FROM inv_item_categories c, inv_item_brands b, inv_item_models m, inv_item_uom u
-WHERE c.category_code = 'CAT-SPARE-MECH-BRG' AND c.organization_id = 1
-  AND b.brand_code = 'BRD-SKF' AND b.organization_id = 1
-  AND m.model_code = 'MDL-6205' AND m.organization_id = 1
-  AND u.code = 'PCS' AND u.organization_id = 1
-    ON CONFLICT ON CONSTRAINT uq_item_org_code DO NOTHING;
+    'ITM-LG-AC18',
+    'LG Dual Inverter AC 1.5 Ton',
+    'Energy Saving Air Conditioner',
+    'FINISHED_GOOD',
+    TRUE,TRUE,FALSE,
+    FALSE,TRUE,
+    'PCS','PCS','PCS',
+    55000,55000,65000,
+    2,30,5,
+    24,
+    1,c.id,b.id,m.id,
+    u.id,u.id,u.id,
+    NOW(),NOW(),'system','system'
+FROM inv_item_categories c
+         JOIN inv_item_brands b ON b.brand_code='BRD-LG'
+         JOIN inv_item_models m ON m.brand_id=b.id AND m.model_code='AC18INV'
+         JOIN inv_item_uom u ON u.code='PCS'
+WHERE c.category_code='CAT-FG-ELEC-ACC'
+  AND c.organization_id=1
+ON CONFLICT ON CONSTRAINT uq_item_org_code DO NOTHING;
 
--- ── Item 4: Consumable (no brand/model) ───────────────────────────────────────
+-- =============================================================================
+-- ITEM 4 : LG AC 2 Ton
+-- =============================================================================
 INSERT INTO inv_items
-(item_code, item_name, description, item_type, is_active, is_approved, is_hazardous,
- has_lot_tracking, has_serial, unit_of_measure, purchase_unit_code, sales_unit_code,
- cost_price, standard_cost, unit_price, minimum_stock, maximum_stock, reorder_level,
- organization_id, category_id, brand_id, model_id,
- purchase_unit_id, sales_unit_id, operation_unit_id,
- created_at, updated_at, created_by, updated_by)
+(item_code,item_name,description,item_type,is_active,is_approved,is_hazardous,
+ has_lot_tracking,has_serial,unit_of_measure,purchase_unit_code,sales_unit_code,
+ cost_price,standard_cost,unit_price,minimum_stock,maximum_stock,reorder_level,
+ warranty_months,organization_id,category_id,brand_id,model_id,
+ purchase_unit_id,sales_unit_id,operation_unit_id,
+ created_at,updated_at,created_by,updated_by)
 SELECT
-    'ITM-GLOVE-001', 'Cotton Hand Gloves', 'Safety hand gloves, cotton', 'CONSUMABLE',
-    true, true, false,
-    false, false, 'PCS', 'BOX', 'PCS',
-    5.0000, 5.0000, 8.0000, 100.000, 5000.000, 500.000,
-    1, c.id, NULL, NULL,
-    ub.id, up.id, up.id,
-    NOW(), NOW(), 'system', 'system'
-FROM inv_item_categories c, inv_item_uom ub, inv_item_uom up
-WHERE c.category_code = 'CAT-RAW-CHEM-SOLV' AND c.organization_id = 1  -- replace with a CONSUMABLE leaf category in real use
-  AND ub.code = 'BOX' AND ub.organization_id = 1
-  AND up.code = 'PCS' AND up.organization_id = 1
-    ON CONFLICT ON CONSTRAINT uq_item_org_code DO NOTHING;
+    'ITM-LG-AC24',
+    'LG Dual Inverter AC 2 Ton',
+    '2 Ton Air Conditioner',
+    'FINISHED_GOOD',
+    TRUE,TRUE,FALSE,
+    FALSE,TRUE,
+    'PCS','PCS','PCS',
+    68000,68000,79000,
+    2,20,5,
+    24,
+    1,c.id,b.id,m.id,
+    u.id,u.id,u.id,
+    NOW(),NOW(),'system','system'
+FROM inv_item_categories c
+         JOIN inv_item_brands b ON b.brand_code='BRD-LG'
+         JOIN inv_item_models m ON m.brand_id=b.id AND m.model_code='AC24INV'
+         JOIN inv_item_uom u ON u.code='PCS'
+WHERE c.category_code='CAT-FG-ELEC-ACC'
+  AND c.organization_id=1
+ON CONFLICT ON CONSTRAINT uq_item_org_code DO NOTHING;
+
+-- =============================================================================
+-- ITEM 5 : LG Washing Machine
+-- =============================================================================
+INSERT INTO inv_items
+(item_code,item_name,description,item_type,is_active,is_approved,is_hazardous,
+ has_lot_tracking,has_serial,unit_of_measure,purchase_unit_code,sales_unit_code,
+ cost_price,standard_cost,unit_price,minimum_stock,maximum_stock,reorder_level,
+ warranty_months,organization_id,category_id,brand_id,model_id,
+ purchase_unit_id,sales_unit_id,operation_unit_id,
+ created_at,updated_at,created_by,updated_by)
+SELECT
+    'ITM-LG-WM8KG',
+    'LG Front Load Washing Machine 8KG',
+    'Automatic Washing Machine',
+    'FINISHED_GOOD',
+    TRUE,TRUE,FALSE,
+    FALSE,TRUE,
+    'PCS','PCS','PCS',
+    42000,42000,52000,
+    2,20,5,
+    24,
+    1,c.id,b.id,m.id,
+    u.id,u.id,u.id,
+    NOW(),NOW(),'system','system'
+FROM inv_item_categories c
+         JOIN inv_item_brands b ON b.brand_code='BRD-LG'
+         JOIN inv_item_models m ON m.brand_id=b.id AND m.model_code='WM8KG'
+         JOIN inv_item_uom u ON u.code='PCS'
+WHERE c.category_code='CAT-FG-ELEC-ACC'
+  AND c.organization_id=1
+ON CONFLICT ON CONSTRAINT uq_item_org_code DO NOTHING;
+
+-- =============================================================================
+-- ITEM 6 : LG Refrigerator
+-- =============================================================================
+INSERT INTO inv_items
+(item_code,item_name,description,item_type,is_active,is_approved,is_hazardous,
+ has_lot_tracking,has_serial,unit_of_measure,purchase_unit_code,sales_unit_code,
+ cost_price,standard_cost,unit_price,minimum_stock,maximum_stock,reorder_level,
+ warranty_months,organization_id,category_id,brand_id,model_id,
+ purchase_unit_id,sales_unit_id,operation_unit_id,
+ created_at,updated_at,created_by,updated_by)
+SELECT
+    'ITM-LG-REF300',
+    'LG Refrigerator 300L',
+    'Double Door Refrigerator',
+    'FINISHED_GOOD',
+    TRUE,TRUE,FALSE,
+    FALSE,TRUE,
+    'PCS','PCS','PCS',
+    48000,48000,59000,
+    2,20,5,
+    24,
+    1,c.id,b.id,m.id,
+    u.id,u.id,u.id,
+    NOW(),NOW(),'system','system'
+FROM inv_item_categories c
+         JOIN inv_item_brands b ON b.brand_code='BRD-LG'
+         JOIN inv_item_models m ON m.brand_id=b.id AND m.model_code='REF300L'
+         JOIN inv_item_uom u ON u.code='PCS'
+WHERE c.category_code='CAT-FG-ELEC-ACC'
+  AND c.organization_id=1
+ON CONFLICT ON CONSTRAINT uq_item_org_code DO NOTHING;
+
+-- =============================================================================
+-- ITEM 7 : SKF Bearing 6203
+-- =============================================================================
+INSERT INTO inv_items
+(item_code,item_name,description,item_type,is_active,is_approved,is_hazardous,
+ has_lot_tracking,has_serial,unit_of_measure,purchase_unit_code,sales_unit_code,
+ cost_price,standard_cost,unit_price,minimum_stock,maximum_stock,reorder_level,
+ organization_id,category_id,brand_id,model_id,
+ purchase_unit_id,sales_unit_id,operation_unit_id,
+ created_at,updated_at,created_by,updated_by)
+SELECT
+    'ITM-SKF-6203',
+    'SKF Bearing 6203-2RS',
+    'Deep Groove Ball Bearing',
+    'SPARE_PART',
+    TRUE,TRUE,FALSE,
+    FALSE,FALSE,
+    'PCS','PCS','PCS',
+    350,350,450,
+    50,500,100,
+    1,c.id,b.id,m.id,
+    u.id,u.id,u.id,
+    NOW(),NOW(),'system','system'
+FROM inv_item_categories c
+         JOIN inv_item_brands b ON b.brand_code='BRD-SKF'
+         JOIN inv_item_models m ON m.brand_id=b.id AND m.model_code='6203-2RS'
+         JOIN inv_item_uom u ON u.code='PCS'
+WHERE c.category_code='CAT-SPARE-MECH-BRG'
+  AND c.organization_id=1
+ON CONFLICT ON CONSTRAINT uq_item_org_code DO NOTHING;
+
+-- =============================================================================
+-- ITEM 8 : SKF Bearing 6204
+-- =============================================================================
+INSERT INTO inv_items
+(item_code,item_name,description,item_type,is_active,is_approved,is_hazardous,
+ has_lot_tracking,has_serial,unit_of_measure,purchase_unit_code,sales_unit_code,
+ cost_price,standard_cost,unit_price,minimum_stock,maximum_stock,reorder_level,
+ organization_id,category_id,brand_id,model_id,
+ purchase_unit_id,sales_unit_id,operation_unit_id,
+ created_at,updated_at,created_by,updated_by)
+SELECT
+    'ITM-SKF-6204',
+    'SKF Bearing 6204-2RS',
+    'Deep Groove Ball Bearing',
+    'SPARE_PART',
+    TRUE,TRUE,FALSE,
+    FALSE,FALSE,
+    'PCS','PCS','PCS',
+    390,390,500,
+    50,500,100,
+    1,c.id,b.id,m.id,
+    u.id,u.id,u.id,
+    NOW(),NOW(),'system','system'
+FROM inv_item_categories c
+         JOIN inv_item_brands b ON b.brand_code='BRD-SKF'
+         JOIN inv_item_models m ON m.brand_id=b.id AND m.model_code='6204-2RS'
+         JOIN inv_item_uom u ON u.code='PCS'
+WHERE c.category_code='CAT-SPARE-MECH-BRG'
+  AND c.organization_id=1
+ON CONFLICT ON CONSTRAINT uq_item_org_code DO NOTHING;
+
+-- =============================================================================
+-- ITEM 9 : SKF Bearing 6206
+-- =============================================================================
+INSERT INTO inv_items
+(item_code,item_name,description,item_type,is_active,is_approved,is_hazardous,
+ has_lot_tracking,has_serial,unit_of_measure,purchase_unit_code,sales_unit_code,
+ cost_price,standard_cost,unit_price,minimum_stock,maximum_stock,reorder_level,
+ organization_id,category_id,brand_id,model_id,
+ purchase_unit_id,sales_unit_id,operation_unit_id,
+ created_at,updated_at,created_by,updated_by)
+SELECT
+    'ITM-SKF-6206',
+    'SKF Bearing 6206-2RS',
+    'Deep Groove Ball Bearing',
+    'SPARE_PART',
+    TRUE,TRUE,FALSE,
+    FALSE,FALSE,
+    'PCS','PCS','PCS',
+    520,520,680,
+    40,400,80,
+    1,c.id,b.id,m.id,
+    u.id,u.id,u.id,
+    NOW(),NOW(),'system','system'
+FROM inv_item_categories c
+         JOIN inv_item_brands b ON b.brand_code='BRD-SKF'
+         JOIN inv_item_models m ON m.brand_id=b.id AND m.model_code='6206-2RS'
+         JOIN inv_item_uom u ON u.code='PCS'
+WHERE c.category_code='CAT-SPARE-MECH-BRG'
+  AND c.organization_id=1
+ON CONFLICT ON CONSTRAINT uq_item_org_code DO NOTHING;
+
+-- =============================================================================
+-- ITEM 10 : SKF Bearing 6305
+-- =============================================================================
+INSERT INTO inv_items
+(item_code,item_name,description,item_type,is_active,is_approved,is_hazardous,
+ has_lot_tracking,has_serial,unit_of_measure,purchase_unit_code,sales_unit_code,
+ cost_price,standard_cost,unit_price,minimum_stock,maximum_stock,reorder_level,
+ organization_id,category_id,brand_id,model_id,
+ purchase_unit_id,sales_unit_id,operation_unit_id,
+ created_at,updated_at,created_by,updated_by)
+SELECT
+    'ITM-SKF-6305',
+    'SKF Bearing 6305-2RS',
+    'Deep Groove Ball Bearing',
+    'SPARE_PART',
+    TRUE,TRUE,FALSE,
+    FALSE,FALSE,
+    'PCS','PCS','PCS',
+    620,620,780,
+    40,400,80,
+    1,c.id,b.id,m.id,
+    u.id,u.id,u.id,
+    NOW(),NOW(),'system','system'
+FROM inv_item_categories c
+         JOIN inv_item_brands b ON b.brand_code='BRD-SKF'
+         JOIN inv_item_models m ON m.brand_id=b.id AND m.model_code='6305-2RS'
+         JOIN inv_item_uom u ON u.code='PCS'
+WHERE c.category_code='CAT-SPARE-MECH-BRG'
+  AND c.organization_id=1
+ON CONFLICT ON CONSTRAINT uq_item_org_code DO NOTHING;
+
 
 COMMIT;
 

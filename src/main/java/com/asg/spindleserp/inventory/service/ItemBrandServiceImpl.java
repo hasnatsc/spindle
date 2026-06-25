@@ -5,6 +5,7 @@ import com.asg.spindleserp.common.util.CommonUtils;
 import com.asg.spindleserp.inventory.dto.ItemBrandDTO;
 import com.asg.spindleserp.inventory.entity.ItemBrand;
 import com.asg.spindleserp.inventory.repository.ItemBrandRepository;
+import com.asg.spindleserp.security.auth.ContextProvider;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -85,7 +86,7 @@ public class ItemBrandServiceImpl implements ItemBrandService {
 
     @Override @Transactional(readOnly = true)
     public DataTableResponse datatableList(int draw, int start, int length, String search) {
-        String where = "WHERE 1=1 "
+        String where = "WHERE b.organization_id = "+ ContextProvider.getOrganizationId()
                 + CommonUtils.searchILike(search, Arrays.asList("b.brand_code", "b.brand_name"));
 
         String sql = String.format("""
@@ -114,7 +115,7 @@ public class ItemBrandServiceImpl implements ItemBrandService {
             """, where, start, length);
 
         List<Map<String, Object>> rows = jdbcTemplate.queryForList(sql);
-        long total = rows.isEmpty() ? 0L : CommonUtils.toLong(rows.get(0).get("full_count"));
+        long total = rows.isEmpty() ? 0L : CommonUtils.toLong(rows.getFirst().get("full_count"));
         return DataTableResponse.of(draw, total, total, rows);
     }
 
