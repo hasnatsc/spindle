@@ -64,6 +64,26 @@ public class FixedAssetController {
 
     private final FixedAssetService faService;
 
+
+
+// =========================================================
+// FILE 2: FixedAssetController.java  (add dashboard endpoints)
+// =========================================================
+// Add these two mappings after the existing page mappings (before // ── Asset Category):
+
+    @GetMapping("/fixed-assets/dashboard")
+    public String dashboardPage(Model model) {
+        model.addAttribute("activePage", "fa-dashboard");
+        return "fixed-assets/fa-dashboard";
+    }
+
+    @GetMapping("/fixed-assets/dashboard/summary")
+    @ResponseBody
+    public Map<String, Object> dashboardSummary() {
+        return faService.dashboardSummary();
+    }
+
+
     // ── Pages ──────────────────────────────────────────────────────────────────
 
     @GetMapping("/fixed-assets/categories")

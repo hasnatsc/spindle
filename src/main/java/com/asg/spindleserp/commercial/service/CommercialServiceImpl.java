@@ -331,19 +331,257 @@ public class CommercialServiceImpl implements CommercialService {
     // DASHBOARD
     // =========================================================================
 
+// =========================================================================
+// DASHBOARD SUMMARY — replace existing dashboardSummary() in CommercialServiceImpl
+// =========================================================================
+// Uses indexes on: com_commercial_invoice (organization_id, invoice_type, status)
+//                  com_lc_settlement (lc_id, status)
+//                  acc_chart_of_accounts_sub (sub_account_type, organization_id)
+
     @Override @Transactional(readOnly = true)
     public Map<String, Object> dashboardSummary() {
-        Long orgId = SecurityHelper.currentOrgId().orElse(null);
-        String f = orgId != null ? " AND organization_id=" + orgId : "";
-        Map<String,Object> m = new LinkedHashMap<>();
-        m.put("exportDraft",     jdbcTemplate.queryForObject("SELECT COUNT(*) FROM com_commercial_invoice WHERE invoice_type='EXPORT' AND status='DRAFT'" + f, Long.class));
-        m.put("exportFinalized", jdbcTemplate.queryForObject("SELECT COUNT(*) FROM com_commercial_invoice WHERE invoice_type='EXPORT' AND status='FINALIZED'" + f, Long.class));
-        m.put("importDraft",     jdbcTemplate.queryForObject("SELECT COUNT(*) FROM com_commercial_invoice WHERE invoice_type='IMPORT' AND status='DRAFT'" + f, Long.class));
-        m.put("importFinalized", jdbcTemplate.queryForObject("SELECT COUNT(*) FROM com_commercial_invoice WHERE invoice_type='IMPORT' AND status='FINALIZED'" + f, Long.class));
-        m.put("pendingSettlements", jdbcTemplate.queryForObject("SELECT COUNT(*) FROM com_lc_settlement WHERE status='PENDING'", Long.class));
-        m.put("totalSettlements",   jdbcTemplate.queryForObject("SELECT COUNT(*) FROM com_lc_settlement WHERE status='SETTLED'", Long.class));
+        Long   orgId    = SecurityHelper.currentOrgId().orElse(null);
+        String f        = orgId != null ? " AND organization_id = " + orgId : "";
+        String fCI      = orgId != null ? " AND ci.organization_id = " + orgId : "";
+        String fS       = orgId != null ? " AND s.organization_id = " + orgId : "";
+        String today    = LocalDate.now().toString();
+        String mtdStart = LocalDate.now().withDayOfMonth(1).toString();
+        String yearStart= LocalDate.now().withDayOfYear(1).toString();
+
+        Map<String, Object> m = new LinkedHashMap<>();
+
+        // ── 1. Export invoice KPIs ─────────────────────────────────────────────
+        String exportSql = """
+        SELECT
+          COUNT(*) FILTER (WHERE status='DRAFT')     AS draft,
+          COUNT(*) FILTER (WHERE status='FINALIZED') AS finalized,
+          COUNT(*) FILTER (WHERE status='POSTED')    AS posted,
+          COUNT(*) FILTER (WHERE status='CANCELLED') AS cancelled,
+          COALESCE(SUM(total_amount)     FILTER (WHERE status='POSTED'), 0) AS posted_usd,
+          COALESCE(SUM(total_amount_bdt) FILTER (WHERE status='POSTED'), 0) AS posted_bdt,
+          COALESCE(SUM(total_amount)     FILTER (WHERE status='POSTED'
+                AND invoice_date >= ?::date), 0) AS posted_mtd_usd,
+          COUNT(*)                                    AS total
+        FROM com_commercial_invoice
+        WHERE invoice_type='EXPORT'""" + f;
+        List<Map<String, Object>> expRows = jdbcTemplate.queryForList(exportSql, mtdStart);
+        if (!expRows.isEmpty()) {
+            Map<String, Object> r = expRows.get(0);
+            m.put("exportDraft",     toLong(r, "draft"));
+            m.put("exportFinalized", toLong(r, "finalized"));
+            m.put("exportPosted",    toLong(r, "posted"));
+            m.put("exportCancelled", toLong(r, "cancelled"));
+            m.put("exportTotal",     toLong(r, "total"));
+            m.put("exportPostedUSD", toBD(r,   "posted_usd"));
+            m.put("exportPostedBDT", toBD(r,   "posted_bdt"));
+            m.put("exportPostedMTD", toBD(r,   "posted_mtd_usd"));
+        }
+
+        // ── 2. Import invoice KPIs ─────────────────────────────────────────────
+        String importSql = """
+        SELECT
+          COUNT(*) FILTER (WHERE status='DRAFT')     AS draft,
+          COUNT(*) FILTER (WHERE status='FINALIZED') AS finalized,
+          COUNT(*) FILTER (WHERE status='POSTED')    AS posted,
+          COUNT(*) FILTER (WHERE status='CANCELLED') AS cancelled,
+          COALESCE(SUM(total_amount)     FILTER (WHERE status='POSTED'), 0) AS posted_usd,
+          COALESCE(SUM(total_amount_bdt) FILTER (WHERE status='POSTED'), 0) AS posted_bdt,
+          COALESCE(SUM(total_amount)     FILTER (WHERE status='POSTED'
+                AND invoice_date >= ?::date), 0) AS posted_mtd_usd,
+          COUNT(*)                                    AS total
+        FROM com_commercial_invoice
+        WHERE invoice_type='IMPORT'""" + f;
+        List<Map<String, Object>> impRows = jdbcTemplate.queryForList(importSql, mtdStart);
+        if (!impRows.isEmpty()) {
+            Map<String, Object> r = impRows.get(0);
+            m.put("importDraft",     toLong(r, "draft"));
+            m.put("importFinalized", toLong(r, "finalized"));
+            m.put("importPosted",    toLong(r, "posted"));
+            m.put("importCancelled", toLong(r, "cancelled"));
+            m.put("importTotal",     toLong(r, "total"));
+            m.put("importPostedUSD", toBD(r,   "posted_usd"));
+            m.put("importPostedBDT", toBD(r,   "posted_bdt"));
+            m.put("importPostedMTD", toBD(r,   "posted_mtd_usd"));
+        }
+
+        // ── 3. LC sub-account KPIs ────────────────────────────────────────────
+        String lcSql = """
+        SELECT
+          COUNT(*) AS total_lcs,
+          COUNT(*) FILTER (WHERE lc_status NOT IN ('SETTLED','CANCELLED','EXPIRED')
+                               OR lc_status IS NULL) AS active_lcs,
+          COALESCE(SUM(lc_amount), 0) AS total_lc_value,
+          COALESCE(SUM(lc_amount) FILTER (WHERE expiry_date < ?::date
+                AND (lc_status IS NULL OR lc_status NOT IN ('SETTLED','CANCELLED'))), 0)
+                                      AS expired_value,
+          COUNT(*) FILTER (WHERE expiry_date < ?::date
+                AND (lc_status IS NULL OR lc_status NOT IN ('SETTLED','CANCELLED')))
+                                      AS expired_lcs,
+          COUNT(*) FILTER (WHERE expiry_date BETWEEN ?::date AND (?::date + 30))
+                                      AS expiring_30d
+        FROM acc_chart_of_accounts_sub
+        WHERE sub_account_type = 'LC'""" + (orgId!=null?" AND organization_id="+orgId:"");
+        List<Map<String, Object>> lcRows = jdbcTemplate.queryForList(lcSql, today, today, today, today);
+        if (!lcRows.isEmpty()) {
+            Map<String, Object> r = lcRows.get(0);
+            m.put("totalLCs",        toLong(r, "total_lcs"));
+            m.put("activeLCs",       toLong(r, "active_lcs"));
+            m.put("totalLCValue",    toBD(r,   "total_lc_value"));
+            m.put("expiredLCValue",  toBD(r,   "expired_value"));
+            m.put("expiredLCCount",  toLong(r, "expired_lcs"));
+            m.put("lcsExpiring30d",  toLong(r, "expiring_30d"));
+        }
+
+        // ── 4. Settlement KPIs ────────────────────────────────────────────────
+        String stlSql = """
+        SELECT
+          COUNT(*) FILTER (WHERE status='PENDING')  AS pending,
+          COUNT(*) FILTER (WHERE status='PARTIAL')  AS partial,
+          COUNT(*) FILTER (WHERE status='SETTLED')  AS settled,
+          COUNT(*) FILTER (WHERE status='REVERSED') AS reversed,
+          COALESCE(SUM(amount_usd) FILTER (WHERE status='SETTLED'), 0) AS settled_usd,
+          COALESCE(SUM(amount_bdt) FILTER (WHERE status='SETTLED'), 0) AS settled_bdt,
+          COALESCE(SUM(amount_usd) FILTER (WHERE status='SETTLED'
+                AND settlement_date >= ?::date), 0)                    AS settled_mtd_usd
+        FROM com_lc_settlement WHERE 1=1""";  // no org filter — settlement table has lc_id but no org_id col; filter through LC join below
+        List<Map<String, Object>> stlRows = jdbcTemplate.queryForList(stlSql, mtdStart);
+        if (!stlRows.isEmpty()) {
+            Map<String, Object> r = stlRows.get(0);
+            m.put("pendingSettlements",  toLong(r, "pending"));
+            m.put("partialSettlements",  toLong(r, "partial"));
+            m.put("settledSettlements",  toLong(r, "settled"));
+            m.put("reversedSettlements", toLong(r, "reversed"));
+            m.put("settledUSD",          toBD(r,   "settled_usd"));
+            m.put("settledBDT",          toBD(r,   "settled_bdt"));
+            m.put("settledMTDUSD",       toBD(r,   "settled_mtd_usd"));
+        }
+
+        // ── 5. Export by incoterms breakdown ──────────────────────────────────
+        m.put("exportByIncoterms", jdbcTemplate.queryForList(
+                "SELECT COALESCE(incoterms,'—') AS incoterms," +
+                        " COUNT(*) AS count," +
+                        " COALESCE(SUM(total_amount),0) AS total_usd" +
+                        " FROM com_commercial_invoice WHERE invoice_type='EXPORT' AND status='POSTED'" + f +
+                        " GROUP BY incoterms ORDER BY count DESC LIMIT 8"));
+
+        // ── 6. Export by currency ─────────────────────────────────────────────
+        m.put("exportByCurrency", jdbcTemplate.queryForList(
+                "SELECT COALESCE(currency,'—') AS currency," +
+                        " COUNT(*) AS count," +
+                        " COALESCE(SUM(total_amount),0) AS total" +
+                        " FROM com_commercial_invoice WHERE invoice_type='EXPORT' AND status='POSTED'" + f +
+                        " GROUP BY currency ORDER BY total DESC LIMIT 6"));
+
+        // ── 7. Import by currency ─────────────────────────────────────────────
+        m.put("importByCurrency", jdbcTemplate.queryForList(
+                "SELECT COALESCE(currency,'—') AS currency," +
+                        " COUNT(*) AS count," +
+                        " COALESCE(SUM(total_amount),0) AS total" +
+                        " FROM com_commercial_invoice WHERE invoice_type='IMPORT' AND status='POSTED'" + f +
+                        " GROUP BY currency ORDER BY total DESC LIMIT 6"));
+
+        // ── 8. LC settlement type breakdown ───────────────────────────────────
+        m.put("settlementByType", jdbcTemplate.queryForList(
+                "SELECT COALESCE(settlement_type,'—') AS settlement_type," +
+                        " COUNT(*) AS count," +
+                        " COALESCE(SUM(amount_usd),0) AS total_usd" +
+                        " FROM com_lc_settlement GROUP BY settlement_type ORDER BY count DESC"));
+
+        // ── 9. Recent export invoices ─────────────────────────────────────────
+        m.put("recentExports", jdbcTemplate.queryForList("""
+        SELECT ci.id, ci.invoice_no, ci.status,
+               TO_CHAR(ci.invoice_date,'DD-Mon-YYYY') AS invoice_date,
+               COALESCE(ci.currency,'—')              AS currency,
+               COALESCE(ci.total_amount,0)            AS total_amount,
+               COALESCE(ci.total_amount_bdt,0)        AS total_bdt,
+               COALESCE(ci.incoterms,'—')             AS incoterms,
+               COALESCE(pt.sub_account_name,'—')      AS party_name,
+               COALESCE(ci.vessel_name,'—')           AS vessel_name
+        FROM com_commercial_invoice ci
+        LEFT JOIN acc_chart_of_accounts_sub pt ON pt.id = ci.party_id
+        WHERE ci.invoice_type='EXPORT'""" + fCI + """
+        ORDER BY ci.id DESC LIMIT 10"""));
+
+        // ── 10. Recent import invoices ────────────────────────────────────────
+        m.put("recentImports", jdbcTemplate.queryForList("""
+        SELECT ci.id, ci.invoice_no, ci.status,
+               TO_CHAR(ci.invoice_date,'DD-Mon-YYYY') AS invoice_date,
+               COALESCE(ci.currency,'—')              AS currency,
+               COALESCE(ci.total_amount,0)            AS total_amount,
+               COALESCE(ci.total_amount_bdt,0)        AS total_bdt,
+               COALESCE(lc.sub_account_name,'—')      AS lc_name,
+               COALESCE(pt.sub_account_name,'—')      AS party_name
+        FROM com_commercial_invoice ci
+        LEFT JOIN acc_chart_of_accounts_sub lc ON lc.id = ci.lc_id
+        LEFT JOIN acc_chart_of_accounts_sub pt ON pt.id = ci.party_id
+        WHERE ci.invoice_type='IMPORT'""" + fCI + """
+        ORDER BY ci.id DESC LIMIT 10"""));
+
+        // ── 11. Active LCs with status ────────────────────────────────────────
+        m.put("activeLCList", jdbcTemplate.queryForList("""
+        SELECT id, sub_account_code AS lc_no, sub_account_name AS lc_name,
+               COALESCE(lc_amount,0) AS lc_amount, COALESCE(currency,'—') AS currency,
+               COALESCE(lc_type,'—') AS lc_type, COALESCE(lc_status,'ACTIVE') AS lc_status,
+               TO_CHAR(issue_date,'DD-Mon-YYYY')  AS issue_date,
+               TO_CHAR(expiry_date,'DD-Mon-YYYY') AS expiry_date,
+               CASE WHEN expiry_date < ?::date THEN 'EXPIRED'
+                    WHEN expiry_date < (?::date + 30) THEN 'EXPIRING_SOON'
+                    ELSE 'ACTIVE' END AS alert
+        FROM acc_chart_of_accounts_sub
+        WHERE sub_account_type='LC'
+          AND (lc_status IS NULL OR lc_status NOT IN ('SETTLED','CANCELLED'))""" +
+                (orgId!=null?" AND organization_id="+orgId:"") + """
+        ORDER BY expiry_date ASC NULLS LAST
+        LIMIT 15""", today, today));
+
+        // ── 12. 12-month export value trend ──────────────────────────────────
+        m.put("monthlyExportTrend", jdbcTemplate.queryForList("""
+        SELECT TO_CHAR(DATE_TRUNC('month', invoice_date), 'Mon-YY') AS month,
+               DATE_TRUNC('month', invoice_date)                    AS month_order,
+               COUNT(*) AS invoice_count,
+               COALESCE(SUM(total_amount),    0) AS total_usd,
+               COALESCE(SUM(total_amount_bdt),0) AS total_bdt
+        FROM com_commercial_invoice
+        WHERE invoice_type='EXPORT' AND status='POSTED'
+          AND invoice_date >= (CURRENT_DATE - INTERVAL '12 months')""" + f + """
+        GROUP BY DATE_TRUNC('month', invoice_date)
+        ORDER BY month_order"""));
+
+        // ── 13. 12-month import value trend ──────────────────────────────────
+        m.put("monthlyImportTrend", jdbcTemplate.queryForList("""
+        SELECT TO_CHAR(DATE_TRUNC('month', invoice_date), 'Mon-YY') AS month,
+               DATE_TRUNC('month', invoice_date)                    AS month_order,
+               COUNT(*) AS invoice_count,
+               COALESCE(SUM(total_amount),    0) AS total_usd,
+               COALESCE(SUM(total_amount_bdt),0) AS total_bdt
+        FROM com_commercial_invoice
+        WHERE invoice_type='IMPORT' AND status='POSTED'
+          AND invoice_date >= (CURRENT_DATE - INTERVAL '12 months')""" + f + """
+        GROUP BY DATE_TRUNC('month', invoice_date)
+        ORDER BY month_order"""));
+
         return m;
     }
+
+// ── Private helpers ──────────────────────────────────────────────────────────
+// (Add alongside existing private helpers in CommercialServiceImpl)
+
+    private Long toLong(Map<String, Object> r, String key) {
+        Object v = r.get(key);
+        if (v == null) return 0L;
+        if (v instanceof Long l) return l;
+        if (v instanceof Number n) return n.longValue();
+        return 0L;
+    }
+
+    private java.math.BigDecimal toBD(Map<String, Object> r, String key) {
+        Object v = r.get(key);
+        if (v == null) return java.math.BigDecimal.ZERO;
+        if (v instanceof java.math.BigDecimal bd) return bd;
+        if (v instanceof Number n) return java.math.BigDecimal.valueOf(n.doubleValue());
+        return java.math.BigDecimal.ZERO;
+    }
+
 
     // =========================================================================
     // PRIVATE HELPERS

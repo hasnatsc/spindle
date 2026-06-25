@@ -899,6 +899,225 @@ public class FixedAssetServiceImpl implements FixedAssetService {
         return e;
     }
 
+    // =========================================================================
+// DASHBOARD SUMMARY — add this method to FixedAssetServiceImpl
+// =========================================================================
+// Uses indexes: idx_fa_org, idx_fa_status, idx_fa_cat, idx_fa_dept,
+//               idx_fdr_org, idx_fdr_status, idx_fad_org, idx_fad_asset
+
+    @Override
+    @Transactional(readOnly = true)
+    public Map<String, Object> dashboardSummary() {
+        Long   orgId   = SecurityHelper.currentOrgId().orElse(null);
+        String f       = orgId != null ? " AND organization_id = " + orgId : "";
+        String fA      = orgId != null ? " AND a.organization_id = " + orgId : "";
+        String today   = LocalDate.now().toString();
+        String mtdStart= LocalDate.now().withDayOfMonth(1).toString();
+        String yearStart= LocalDate.now().withDayOfYear(1).toString();
+        String exp30   = LocalDate.now().plusDays(30).toString();
+        String exp90   = LocalDate.now().plusDays(90).toString();
+
+        Map<String, Object> m = new LinkedHashMap<>();
+
+        // ── 1. Asset status counts + financial totals — single pass ────────────
+        String kpiSql = """
+        SELECT
+          COUNT(*) FILTER (WHERE status = 'ACTIVE')            AS active_assets,
+          COUNT(*) FILTER (WHERE status = 'DISPOSED')          AS disposed_assets,
+          COUNT(*) FILTER (WHERE status = 'SOLD')              AS sold_assets,
+          COUNT(*) FILTER (WHERE status = 'WRITTEN_OFF')       AS written_off_assets,
+          COUNT(*) FILTER (WHERE status = 'TRANSFERRED')       AS transferred_assets,
+          COUNT(*) FILTER (WHERE status = 'UNDER_MAINTENANCE') AS maintenance_assets,
+          COUNT(*)                                              AS total_assets,
+          COALESCE(SUM(purchase_cost + COALESCE(installation_cost,0)), 0)
+                                                                AS total_purchase_cost,
+          COALESCE(SUM(current_book_value)  FILTER (WHERE status='ACTIVE'), 0)
+                                                                AS total_book_value,
+          COALESCE(SUM(accumulated_depreciation), 0)           AS total_accum_dep,
+          COUNT(*) FILTER (WHERE status='ACTIVE'
+                AND acquired_in_month)                         AS acquired_mtd,
+          COUNT(*) FILTER (WHERE status='ACTIVE'
+                AND insurance_expiry_date IS NOT NULL
+                AND insurance_expiry_date BETWEEN ?::date AND ?::date) AS insurance_expiring,
+          COUNT(*) FILTER (WHERE status='ACTIVE'
+                AND warranty_expiry_date IS NOT NULL
+                AND warranty_expiry_date BETWEEN ?::date AND ?::date)  AS warranty_expiring
+        FROM (
+          SELECT *, (acquisition_date >= ?::date) AS acquired_in_month
+          FROM fa_assets WHERE 1=1""" + f + """
+        ) t
+        """;
+        List<Map<String, Object>> kpiRows = jdbcTemplate.queryForList(kpiSql,
+                today, exp90, today, exp90, mtdStart);
+        if (!kpiRows.isEmpty()) {
+            Map<String, Object> r = kpiRows.get(0);
+            m.put("activeAssets",         toLong(r, "active_assets"));
+            m.put("disposedAssets",       toLong(r, "disposed_assets"));
+            m.put("soldAssets",           toLong(r, "sold_assets"));
+            m.put("writtenOffAssets",     toLong(r, "written_off_assets"));
+            m.put("transferredAssets",    toLong(r, "transferred_assets"));
+            m.put("underMaintenanceAssets",toLong(r,"maintenance_assets"));
+            m.put("totalAssets",          toLong(r, "total_assets"));
+            m.put("totalPurchaseCost",    toBD(r,   "total_purchase_cost"));
+            m.put("totalBookValue",       toBD(r,   "total_book_value"));
+            m.put("totalAccumDepreciation",toBD(r,  "total_accum_dep"));
+            m.put("assetsAcquiredMTD",    toLong(r, "acquired_mtd"));
+            m.put("insuranceExpiringCount",toLong(r,"insurance_expiring"));
+            m.put("warrantyExpiringCount", toLong(r,"warranty_expiring"));
+        }
+
+        // ── 2. Depreciation posted MTD (from posted dep runs) ──────────────────
+        String depMtdSql = """
+        SELECT COALESCE(SUM(total_depreciation), 0) AS dep_mtd
+        FROM fa_depreciation_runs
+        WHERE status = 'POSTED'
+          AND period_end >= ?::date""" + f;
+        List<Map<String, Object>> depMtd = jdbcTemplate.queryForList(depMtdSql, mtdStart);
+        m.put("depreciationPostedMTD", depMtd.isEmpty() ? java.math.BigDecimal.ZERO : toBD(depMtd.get(0), "dep_mtd"));
+
+        // ── 3. Disposals this year + gain/loss ─────────────────────────────────
+        String dispSql = """
+        SELECT COUNT(*) AS disposal_count,
+               COALESCE(SUM(gain_loss), 0) AS total_gain_loss
+        FROM fa_asset_disposals
+        WHERE disposal_date >= ?::date""" + (orgId != null ? " AND organization_id = " + orgId : "");
+        List<Map<String, Object>> dispRows = jdbcTemplate.queryForList(dispSql, yearStart);
+        if (!dispRows.isEmpty()) {
+            m.put("disposalsThisYear", toLong(dispRows.get(0), "disposal_count"));
+            m.put("gainLossThisYear",  toBD(dispRows.get(0), "total_gain_loss"));
+        }
+
+        // ── 4. Last depreciation run ────────────────────────────────────────────
+        String lastRunSql = """
+        SELECT status, total_assets, total_depreciation,
+               TO_CHAR(period_end,'DD-Mon-YYYY') AS period_end
+        FROM fa_depreciation_runs WHERE 1=1""" + f + """
+         ORDER BY id DESC LIMIT 1""";
+        List<Map<String, Object>> lastRunRows = jdbcTemplate.queryForList(lastRunSql);
+        if (!lastRunRows.isEmpty()) {
+            Map<String, Object> r = lastRunRows.get(0);
+            m.put("lastRunDate",   r.get("period_end"));
+            m.put("lastRunStatus", r.get("status"));
+            m.put("lastRunTotal",  toBD(r, "total_depreciation"));
+        } else {
+            m.put("lastRunDate",   "—");
+            m.put("lastRunStatus", "NONE");
+            m.put("lastRunTotal",  java.math.BigDecimal.ZERO);
+        }
+
+        // ── 5. Assets by category ───────────────────────────────────────────────
+        m.put("assetsByCategory", jdbcTemplate.queryForList("""
+        SELECT c.code || ' — ' || c.name AS category_name,
+               COUNT(a.id)                        AS asset_count,
+               COALESCE(SUM(a.purchase_cost + COALESCE(a.installation_cost,0)),0) AS purchase_cost,
+               COALESCE(SUM(a.current_book_value) FILTER (WHERE a.status='ACTIVE'),0) AS book_value,
+               COALESCE(SUM(a.accumulated_depreciation),0) AS accum_dep
+        FROM fa_assets a
+        JOIN fa_asset_categories c ON c.id = a.asset_category_id
+        WHERE 1=1""" + fA + """
+        GROUP BY c.id, c.code, c.name
+        ORDER BY purchase_cost DESC"""));
+
+        // ── 6. Assets by status ─────────────────────────────────────────────────
+        m.put("assetsByStatus", jdbcTemplate.queryForList(
+                "SELECT status, COUNT(*) AS count FROM fa_assets WHERE 1=1" + f +
+                        " GROUP BY status ORDER BY count DESC"));
+
+        // ── 7. Assets by depreciation method ───────────────────────────────────
+        m.put("depByMethod", jdbcTemplate.queryForList(
+                "SELECT depreciation_method, COUNT(*) AS count," +
+                        " COALESCE(SUM(accumulated_depreciation),0) AS accum_dep" +
+                        " FROM fa_assets WHERE status='ACTIVE'" + f +
+                        " GROUP BY depreciation_method ORDER BY count DESC"));
+
+        // ── 8. Recent assets (last 10 acquired) ────────────────────────────────
+        m.put("recentAssets", jdbcTemplate.queryForList("""
+        SELECT a.id, a.asset_code, a.asset_name,
+               c.code || ' — ' || c.name AS category_name,
+               TO_CHAR(a.acquisition_date,'DD-Mon-YYYY') AS acquisition_date,
+               COALESCE(a.purchase_cost,0) AS purchase_cost,
+               COALESCE(a.current_book_value,0) AS book_value,
+               a.status, a.location
+        FROM fa_assets a
+        JOIN fa_asset_categories c ON c.id = a.asset_category_id
+        WHERE 1=1""" + fA + """
+        ORDER BY a.acquisition_date DESC, a.id DESC
+        LIMIT 10"""));
+
+        // ── 9. Recent disposals ─────────────────────────────────────────────────
+        m.put("recentDisposals", jdbcTemplate.queryForList("""
+        SELECT d.id, a.asset_code, a.asset_name,
+               d.disposal_type,
+               TO_CHAR(d.disposal_date,'DD-Mon-YYYY') AS disposal_date,
+               COALESCE(d.disposal_value,0)      AS disposal_value,
+               COALESCE(d.book_value_at_disposal,0) AS book_value,
+               COALESCE(d.gain_loss,0)           AS gain_loss,
+               COALESCE(d.buyer_name,'—')        AS buyer_name
+        FROM fa_asset_disposals d
+        JOIN fa_assets a ON a.id = d.asset_id
+        WHERE 1=1""" + (orgId!=null?" AND d.organization_id="+orgId:"") + """
+        ORDER BY d.disposal_date DESC, d.id DESC
+        LIMIT 10"""));
+
+        // ── 10. Recent depreciation runs ────────────────────────────────────────
+        m.put("recentRuns", jdbcTemplate.queryForList("""
+        SELECT id, run_type, status,
+               TO_CHAR(period_start,'DD-Mon-YYYY') AS period_start,
+               TO_CHAR(period_end,  'DD-Mon-YYYY') AS period_end,
+               total_assets,
+               COALESCE(total_depreciation,0) AS total_depreciation,
+               COALESCE(posted_by,'—') AS posted_by
+        FROM fa_depreciation_runs WHERE 1=1""" + f + """
+        ORDER BY id DESC LIMIT 6"""));
+
+        // ── 11. 12-month depreciation trend ─────────────────────────────────────
+        m.put("monthlyDepTrend", jdbcTemplate.queryForList("""
+        SELECT TO_CHAR(DATE_TRUNC('month', period_end), 'Mon-YY') AS month,
+               DATE_TRUNC('month', period_end)                    AS month_order,
+               COALESCE(SUM(total_depreciation),0)                AS total_depreciation
+        FROM fa_depreciation_runs
+        WHERE status = 'POSTED'
+          AND period_end >= (CURRENT_DATE - INTERVAL '12 months')""" + f + """
+        GROUP BY DATE_TRUNC('month', period_end)
+        ORDER BY month_order"""));
+
+        // ── 12. Assets with insurance expiring within 90 days ───────────────────
+        m.put("assetsExpiringInsurance", jdbcTemplate.queryForList("""
+        SELECT a.asset_code, a.asset_name,
+               TO_CHAR(a.insurance_expiry_date,'DD-Mon-YYYY') AS insurance_expiry_date,
+               TO_CHAR(a.warranty_expiry_date, 'DD-Mon-YYYY') AS warranty_expiry_date,
+               a.insurance_policy_no,
+               (a.insurance_expiry_date - CURRENT_DATE) AS days_to_expiry
+        FROM fa_assets a
+        WHERE a.status = 'ACTIVE'
+          AND a.insurance_expiry_date IS NOT NULL
+          AND a.insurance_expiry_date BETWEEN ?::date AND ?::date""" + fA + """
+        ORDER BY a.insurance_expiry_date
+        LIMIT 10""", today, exp90));
+
+        return m;
+    }
+
+// ── Private helpers ─────────────────────────────────────────────────────────
+// (Add alongside existing helpers in FixedAssetServiceImpl)
+
+    private Long toLong(Map<String, Object> r, String key) {
+        Object v = r.get(key);
+        if (v == null) return 0L;
+        if (v instanceof Long l) return l;
+        if (v instanceof Number n) return n.longValue();
+        return 0L;
+    }
+
+    private java.math.BigDecimal toBD(Map<String, Object> r, String key) {
+        Object v = r.get(key);
+        if (v == null) return java.math.BigDecimal.ZERO;
+        if (v instanceof java.math.BigDecimal bd) return bd;
+        if (v instanceof Number n) return java.math.BigDecimal.valueOf(n.doubleValue());
+        return java.math.BigDecimal.ZERO;
+    }
+
+
     private DepreciationRun findRun(Long id) {
         return runRepo.findById(id).orElseThrow(() -> new IllegalArgumentException("Depreciation run #" + id + " not found."));
     }

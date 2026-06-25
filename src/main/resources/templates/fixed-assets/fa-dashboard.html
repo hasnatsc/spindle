@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<!--
+  fixed-assets/fa-dashboard.html    GET /fixed-assets/dashboard
+  Full Fixed Asset dashboard — Color Admin panel style, orange/brown accent
+  API: GET /fixed-assets/dashboard/summary
+  Data keys from FixedAssetServiceImpl.dashboardSummary():
+    activeAssets, disposedAssets, soldAssets, writtenOffAssets,
+    transferredAssets, underMaintenanceAssets, totalAssets,
+    totalPurchaseCost, totalBookValue, totalAccumDepreciation,
+    depreciationPostedMTD, disposalsThisYear, gainLossThisYear,
+    assetsAcquiredMTD, lastRunDate, lastRunStatus, lastRunTotal,
+    insuranceExpiringCount, warrantyExpiringCount,
+    assetsByCategory:   [ {category_name, asset_count, purchase_cost, book_value, accum_dep} ]
+    assetsByStatus:     [ {status, count} ]
+    depByMethod:        [ {depreciation_method, count, accum_dep} ]
+    recentAssets:       [ last 10 ]
+    recentDisposals:    [ last 10 ]
+    recentRuns:         [ last 6 dep runs ]
+    monthlyDepTrend:    [ {month, total_depreciation} ]
+    assetsExpiringInsurance: [ next 10 by insurance expiry ]
+-->
+<html th:replace="~{layout/base :: layout('Fixed Asset Dashboard', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
+<section>
+
+<style>
+.fa-kpi-card {
+  border-radius: 10px; overflow: hidden; transition: transform .15s;
+}
+.fa-kpi-card:hover { transform: translateY(-3px); }
+.fa-kpi-val { font-size: 2rem; font-weight: 700; line-height: 1; }
+.fa-kpi-lbl { font-size: .72rem; text-transform: uppercase;
+               font-weight: 600; letter-spacing: .04em; opacity: .85; }
+.fa-mtd-card { border-left: 4px solid; border-radius: 8px; }
+
+/* depreciation trend bar */
+.dep-bar { border-radius: 4px 4px 0 0; background: rgba(253,126,20,.45);
+           transition: height .4s ease; }
+.dep-bar:hover { background: rgba(253,126,20,.85); }
+
+/* utilisation bar in category table */
+.fa-util-wrap { background:#e9ecef; border-radius:20px; height:8px; overflow:hidden; }
+.fa-util-fill { height:100%; border-radius:20px; background:#fd7e14; }
+
+/* gain/loss colour */
+.text-gain { color: #198754; }
+.text-loss { color: #dc3545; }
+</style>
+
+  <ol class="breadcrumb float-xl-end">
+    <li class="breadcrumb-item"><a th:href="@{/dashboard}">Home</a></li>
+    <li class="breadcrumb-item">Fixed Assets</li>
+    <li class="breadcrumb-item active">Dashboard</li>
+  </ol>
+  <h1 class="page-header">
+    Fixed Asset Dashboard
+    <small>asset register · depreciation · disposals</small>
+    <a th:href="@{/fixed-assets/assets}"      class="btn btn-sm btn-outline-warning ms-3">
+      <i class="fa fa-building me-1"></i> Assets
+    </a>
+    <a th:href="@{/fixed-assets/depreciation}" class="btn btn-sm btn-outline-secondary ms-1">
+      <i class="fa fa-calculator me-1"></i> Depreciation
+    </a>
+    <a th:href="@{/fixed-assets/disposals}"    class="btn btn-sm btn-outline-danger ms-1">
+      <i class="fa fa-archive me-1"></i> Disposals
+    </a>
+    <a th:href="@{/accounts/journals}"         class="btn btn-sm btn-outline-primary ms-1">
+      <i class="fa fa-book me-1"></i> GL
+    </a>
+    <button class="btn btn-sm btn-warning ms-1" onclick="_refresh()">
+      <i class="fa fa-refresh me-1"></i> Refresh
+    </button>
+  </h1>
+
+  <!-- ══ ROW 1: Status KPI Widgets ════════════════════════════════════════ -->
+  <div class="row g-2 mb-3">
+    <div class="col-6 col-md-3 col-xl">
+      <div class="fa-kpi-card widget widget-stats bg-success h-100">
+        <div class="stats-icon"><i class="fa fa-check-circle"></i></div>
+        <div class="stats-info">
+          <div class="fa-kpi-lbl">Active</div>
+          <div class="fa-kpi-val" id="kActive">—</div>
+        </div>
+        <div class="stats-link">
+          <a th:href="@{/fixed-assets/assets}">View Assets <i class="fa fa-arrow-alt-circle-right"></i></a>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3 col-xl">
+      <div class="fa-kpi-card widget widget-stats bg-warning h-100">
+        <div class="stats-icon"><i class="fa fa-wrench"></i></div>
+        <div class="stats-info">
+          <div class="fa-kpi-lbl">Under Maintenance</div>
+          <div class="fa-kpi-val" id="kMaintenance">—</div>
+        </div>
+        <div class="stats-link"><small class="text-dark">Temporarily offline</small></div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3 col-xl">
+      <div class="fa-kpi-card widget widget-stats bg-info h-100">
+        <div class="stats-icon"><i class="fa fa-exchange"></i></div>
+        <div class="stats-info">
+          <div class="fa-kpi-lbl">Transferred</div>
+          <div class="fa-kpi-val" id="kTransferred">—</div>
+        </div>
+        <div class="stats-link"><small class="text-white-50">Changed location/dept</small></div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3 col-xl">
+      <div class="fa-kpi-card widget widget-stats bg-danger h-100">
+        <div class="stats-icon"><i class="fa fa-times-circle"></i></div>
+        <div class="stats-info">
+          <div class="fa-kpi-lbl">Disposed / Sold</div>
+          <div class="fa-kpi-val" id="kDisposed">—</div>
+        </div>
+        <div class="stats-link"><small class="text-white-50" id="kSoldWO">Sold: — / Written-off: —</small></div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3 col-xl">
+      <div class="fa-kpi-card widget widget-stats bg-indigo h-100">
+        <div class="stats-icon"><i class="fa fa-calculator"></i></div>
+        <div class="stats-info">
+          <div class="fa-kpi-lbl">Total Accum Dep</div>
+          <div class="fa-kpi-val fs-5" id="kAccumDep">—</div>
+        </div>
+        <div class="stats-link"><small class="text-white-50">All-time posted</small></div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3 col-xl">
+      <div class="fa-kpi-card widget widget-stats bg-teal h-100">
+        <div class="stats-icon"><i class="fa fa-book"></i></div>
+        <div class="stats-info">
+          <div class="fa-kpi-lbl">Net Book Value</div>
+          <div class="fa-kpi-val fs-5" id="kBookValue">—</div>
+        </div>
+        <div class="stats-link"><small class="text-white-50">Active assets</small></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ ROW 2: Financial Summary Strip ═══════════════════════════════════ -->
+  <div class="row g-2 mb-3">
+    <div class="col-6 col-md-3">
+      <div class="card border-0 shadow-sm fa-mtd-card h-100" style="border-color:#fd7e14!important">
+        <div class="card-body py-2 px-3">
+          <div class="text-muted small fw-bold text-uppercase">Total Purchase Cost</div>
+          <div class="fs-5 fw-bold text-orange" id="kPurchaseCost">—</div>
+          <div class="text-muted small">all assets (incl. installation)</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card border-0 shadow-sm fa-mtd-card h-100" style="border-color:#198754!important">
+        <div class="card-body py-2 px-3">
+          <div class="text-muted small fw-bold text-uppercase">Dep Posted MTD</div>
+          <div class="fs-5 fw-bold text-success" id="kDepMTD">—</div>
+          <div class="text-muted small">this month's posted runs</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card border-0 shadow-sm fa-mtd-card h-100" style="border-color:#4361ee!important">
+        <div class="card-body py-2 px-3">
+          <div class="text-muted small fw-bold text-uppercase">Acquired MTD</div>
+          <div class="fs-2 fw-bold text-primary" id="kAcquiredMTD">—</div>
+          <div class="text-muted small">new assets this month</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card border-0 shadow-sm fa-mtd-card h-100" style="border-color:#dc3545!important">
+        <div class="card-body py-2 px-3">
+          <div class="text-muted small fw-bold text-uppercase">Gain / Loss (YTD)</div>
+          <div class="fs-5 fw-bold" id="kGainLoss">—</div>
+          <div class="text-muted small">from <span id="kDisposalsYTD">—</span> disposals this year</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ ROW 3: Category Breakdown + Status + Last Run ═══════════════════ -->
+  <div class="row g-3 mb-3">
+
+    <!-- Category breakdown -->
+    <div class="col-lg-6">
+      <div class="panel panel-inverse mb-0 h-100">
+        <div class="panel-heading">
+          <div class="panel-title"><i class="fa fa-th me-1"></i> Assets by Category</div>
+        </div>
+        <div class="panel-body p-0">
+          <div class="table-responsive">
+            <table class="table table-sm table-hover mb-0">
+              <thead class="table-light">
+                <tr><th>Category</th><th class="text-end">Count</th><th class="text-end">Book Value</th><th>Dep %</th></tr>
+              </thead>
+              <tbody id="catBody">
+                <tr><td colspan="4" class="text-center text-muted py-3">Loading…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Status pie + alerts + last run -->
+    <div class="col-lg-6">
+      <div class="row g-3 h-100">
+
+        <!-- Status breakdown -->
+        <div class="col-12">
+          <div class="panel panel-inverse mb-0">
+            <div class="panel-heading">
+              <div class="panel-title"><i class="fa fa-pie-chart me-1"></i> Status &amp; Alerts</div>
+            </div>
+            <div class="panel-body">
+              <div class="row g-3">
+                <div class="col-6">
+                  <table class="table table-sm mb-0" id="statusTable">
+                    <tbody id="statusBody">
+                      <tr><td colspan="2" class="text-muted text-center">Loading…</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+                <div class="col-6">
+                  <div class="alert alert-warning py-2 mb-2">
+                    <i class="fa fa-shield me-1"></i>
+                    Insurance expiring (&lt;90d): <strong id="kInsExpiring">—</strong>
+                  </div>
+                  <div class="alert alert-info py-2 mb-2">
+                    <i class="fa fa-certificate me-1"></i>
+                    Warranty expiring (&lt;90d): <strong id="kWarExpiring">—</strong>
+                  </div>
+                  <div class="alert alert-success py-2 mb-0">
+                    <i class="fa fa-calculator me-1"></i>
+                    Last Run: <strong id="kLastRunDate">—</strong><br>
+                    <small>Status: <span id="kLastRunStatus">—</span>
+                    · Total: <span id="kLastRunTotal">—</span></small>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Dep by method -->
+        <div class="col-12">
+          <div class="panel panel-inverse mb-0">
+            <div class="panel-heading">
+              <div class="panel-title"><i class="fa fa-cog me-1"></i> By Depreciation Method</div>
+            </div>
+            <div class="panel-body p-0">
+              <table class="table table-sm table-hover mb-0">
+                <thead class="table-light"><tr><th>Method</th><th class="text-end">Assets</th><th class="text-end">Accum Dep</th></tr></thead>
+                <tbody id="depMethodBody">
+                  <tr><td colspan="3" class="text-muted text-center py-2">Loading…</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ ROW 4: 12-Month Depreciation Trend ══════════════════════════════ -->
+  <div class="row g-3 mb-3">
+    <div class="col-12">
+      <div class="panel panel-inverse mb-0">
+        <div class="panel-heading">
+          <div class="panel-title">
+            <i class="fa fa-bar-chart me-1"></i> 12-Month Depreciation Trend
+          </div>
+          <div class="panel-heading-btn">
+            <small class="text-muted me-2">posted depreciation runs only</small>
+          </div>
+        </div>
+        <div class="panel-body">
+          <div id="depTrendChart" style="height:180px; display:flex; align-items:flex-end; gap:8px; padding:0 8px;">
+            <div class="text-muted text-center w-100 pt-5">Loading…</div>
+          </div>
+          <div id="depTrendLabels" class="d-flex gap-0 mt-1 px-1" style="font-size:.7rem; color:#888;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ ROW 5: Recent Assets + Depreciation Runs ═════════════════════════ -->
+  <div class="row g-3 mb-3">
+
+    <div class="col-lg-6">
+      <div class="panel panel-inverse mb-0 h-100">
+        <div class="panel-heading">
+          <div class="panel-title"><i class="fa fa-plus-circle me-1 text-success"></i> Recently Acquired</div>
+          <div class="panel-heading-btn">
+            <a th:href="@{/fixed-assets/assets}" class="btn btn-sm btn-outline-success">All <i class="fa fa-arrow-right ms-1"></i></a>
+          </div>
+        </div>
+        <div class="panel-body p-0">
+          <div class="table-responsive">
+            <table class="table table-sm table-hover mb-0">
+              <thead class="table-light">
+                <tr><th>Code</th><th>Name</th><th>Category</th><th class="text-end">Cost</th><th>Date</th></tr>
+              </thead>
+              <tbody id="recentAssetsBody">
+                <tr><td colspan="5" class="text-center text-muted py-3">Loading…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-6">
+      <div class="panel panel-inverse mb-0 h-100">
+        <div class="panel-heading">
+          <div class="panel-title"><i class="fa fa-calculator me-1 text-warning"></i> Recent Depreciation Runs</div>
+          <div class="panel-heading-btn">
+            <a th:href="@{/fixed-assets/depreciation}" class="btn btn-sm btn-outline-warning">All <i class="fa fa-arrow-right ms-1"></i></a>
+          </div>
+        </div>
+        <div class="panel-body p-0">
+          <div class="table-responsive">
+            <table class="table table-sm table-hover mb-0">
+              <thead class="table-light">
+                <tr><th>Period</th><th>Type</th><th class="text-end">Assets</th><th class="text-end">Total Dep</th><th>Status</th></tr>
+              </thead>
+              <tbody id="recentRunsBody">
+                <tr><td colspan="5" class="text-center text-muted py-3">Loading…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ ROW 6: Disposals + Insurance Expiry ══════════════════════════════ -->
+  <div class="row g-3">
+
+    <div class="col-lg-6">
+      <div class="panel panel-inverse mb-0 h-100">
+        <div class="panel-heading">
+          <div class="panel-title"><i class="fa fa-archive me-1 text-danger"></i> Recent Disposals</div>
+          <div class="panel-heading-btn">
+            <a th:href="@{/fixed-assets/disposals}" class="btn btn-sm btn-outline-danger">All <i class="fa fa-arrow-right ms-1"></i></a>
+          </div>
+        </div>
+        <div class="panel-body p-0">
+          <div class="table-responsive">
+            <table class="table table-sm table-hover mb-0">
+              <thead class="table-light">
+                <tr><th>Asset</th><th>Type</th><th class="text-end">Book Value</th><th class="text-end">Proceeds</th><th class="text-end">Gain/Loss</th></tr>
+              </thead>
+              <tbody id="recentDisposalsBody">
+                <tr><td colspan="5" class="text-center text-muted py-3">Loading…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-6">
+      <div class="panel panel-inverse mb-0 h-100">
+        <div class="panel-heading">
+          <div class="panel-title">
+            <i class="fa fa-shield me-1 text-warning"></i>
+            Insurance Expiring (Next 90 Days)
+          </div>
+        </div>
+        <div class="panel-body p-0">
+          <div class="table-responsive">
+            <table class="table table-sm table-hover mb-0">
+              <thead class="table-light">
+                <tr><th>Asset</th><th>Policy</th><th>Expiry Date</th><th class="text-center">Days</th></tr>
+              </thead>
+              <tbody id="insuranceBody">
+                <tr><td colspan="4" class="text-center text-muted py-3">Loading…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script th:inline="none">
+  (function () {
+    'use strict';
+
+    var _data = null;
+
+    document.addEventListener('DOMContentLoaded', function () { _refresh(); });
+
+    function _refresh() {
+      secureFetch('/fixed-assets/dashboard/summary').then(function(d){
+        _data = d;
+        _renderKpis(d);
+        _renderStrip(d);
+        _renderCategoryTable(d.assetsByCategory || []);
+        _renderStatusTable(d.assetsByStatus || []);
+        _renderDepMethodTable(d.depByMethod || []);
+        _renderDepTrend(d.monthlyDepTrend || []);
+        _renderRecentAssets(d.recentAssets || []);
+        _renderRecentRuns(d.recentRuns || []);
+        _renderDisposals(d.recentDisposals || []);
+        _renderInsurance(d.assetsExpiringInsurance || []);
+      }).catch(function(e){ console.error('FA dashboard error:', e); });
+    }
+
+    window._refresh = _refresh;
+
+    // ── KPI widgets ───────────────────────────────────────────────────────────
+    function _renderKpis(d) {
+      _set('kActive',       d.activeAssets || 0);
+      _set('kMaintenance',  d.underMaintenanceAssets || 0);
+      _set('kTransferred',  d.transferredAssets || 0);
+      _set('kDisposed',     (d.disposedAssets||0) + (d.soldAssets||0) + (d.writtenOffAssets||0));
+      _set('kSoldWO',       'Sold: ' + (d.soldAssets||0) + ' / Written-off: ' + (d.writtenOffAssets||0));
+      _set('kAccumDep',     _fmtCost(d.totalAccumDepreciation || 0));
+      _set('kBookValue',    _fmtCost(d.totalBookValue || 0));
+      _set('kInsExpiring',  d.insuranceExpiringCount || 0);
+      _set('kWarExpiring',  d.warrantyExpiringCount  || 0);
+      _set('kLastRunDate',  d.lastRunDate   || '—');
+      _set('kLastRunStatus',d.lastRunStatus || '—');
+      _set('kLastRunTotal', _fmtCost(d.lastRunTotal || 0));
+    }
+
+    // ── Financial strip ───────────────────────────────────────────────────────
+    function _renderStrip(d) {
+      _set('kPurchaseCost',  _fmtCost(d.totalPurchaseCost || 0));
+      _set('kDepMTD',        _fmtCost(d.depreciationPostedMTD || 0));
+      _set('kAcquiredMTD',   d.assetsAcquiredMTD || 0);
+      _set('kDisposalsYTD',  d.disposalsThisYear || 0);
+      var gl = parseFloat(d.gainLossThisYear || 0);
+      var glEl = document.getElementById('kGainLoss');
+      if (glEl) {
+        glEl.textContent = (gl >= 0 ? '+' : '') + _fmtCost(Math.abs(gl));
+        glEl.className = 'fs-5 fw-bold ' + (gl >= 0 ? 'text-gain' : 'text-loss');
+      }
+    }
+
+    // ── Category table ────────────────────────────────────────────────────────
+    function _renderCategoryTable(rows) {
+      var body = document.getElementById('catBody');
+      if (!rows.length) { body.innerHTML = '<tr><td colspan="4" class="text-muted text-center py-3">No categories.</td></tr>'; return; }
+      var maxCost = Math.max.apply(null, rows.map(function(r){ return parseFloat(r.purchase_cost||0); })) || 1;
+      body.innerHTML = rows.map(function(r){
+        var cost = parseFloat(r.purchase_cost||0);
+        var bv   = parseFloat(r.book_value||0);
+        var dep  = cost > 0 ? Math.round((parseFloat(r.accum_dep||0)/cost)*100) : 0;
+        var pct  = Math.round((cost/maxCost)*100);
+        return '<tr>'
+          + '<td>' + _esc(r.category_name||'—') + '<br>'
+          +   '<div class="fa-util-wrap mt-1"><div class="fa-util-fill" style="width:'+pct+'%"></div></div>'
+          + '</td>'
+          + '<td class="text-end fw-bold">' + (r.asset_count||0) + '</td>'
+          + '<td class="text-end">' + _fmtCost(bv) + '</td>'
+          + '<td class="text-end text-muted">' + dep + '%</td>'
+          + '</tr>';
+      }).join('');
+    }
+
+    // ── Status breakdown ──────────────────────────────────────────────────────
+    var STATUS_COLORS = {
+      ACTIVE:'bg-success', UNDER_MAINTENANCE:'bg-warning text-dark', TRANSFERRED:'bg-info text-dark',
+      DISPOSED:'bg-secondary', SOLD:'bg-primary', WRITTEN_OFF:'bg-dark'
+    };
+    function _renderStatusTable(rows) {
+      var body = document.getElementById('statusBody');
+      if (!rows.length) { body.innerHTML = '<tr><td colspan="2" class="text-muted text-center">No data.</td></tr>'; return; }
+      body.innerHTML = rows.map(function(r){
+        var cls = STATUS_COLORS[r.status] || 'bg-secondary';
+        return '<tr><td><span class="badge '+cls+'">'+(r.status||'—')+'</span></td>'
+          + '<td class="text-end fw-bold">'+(r.count||0)+'</td></tr>';
+      }).join('');
+    }
+
+    // ── Dep method table ──────────────────────────────────────────────────────
+    function _renderDepMethodTable(rows) {
+      var body = document.getElementById('depMethodBody');
+      if (!rows.length) { body.innerHTML = '<tr><td colspan="3" class="text-muted text-center py-2">No data.</td></tr>'; return; }
+      body.innerHTML = rows.map(function(r){
+        return '<tr><td>'+_esc(r.depreciation_method||'—')+'</td>'
+          + '<td class="text-end">'+(r.count||0)+'</td>'
+          + '<td class="text-end">'+_fmtCost(r.accum_dep||0)+'</td></tr>';
+      }).join('');
+    }
+
+    // ── Depreciation trend ────────────────────────────────────────────────────
+    function _renderDepTrend(trend) {
+      var chart  = document.getElementById('depTrendChart');
+      var labels = document.getElementById('depTrendLabels');
+      if (!trend.length) {
+        chart.innerHTML  = '<div class="text-muted text-center w-100 pt-4">No posted depreciation runs in the last 12 months.</div>';
+        labels.innerHTML = '';
+        return;
+      }
+      var vals   = trend.map(function(t){ return parseFloat(t.total_depreciation||0); });
+      var maxVal = Math.max.apply(null, vals) || 1;
+      var chartH = 160;
+      chart.innerHTML  = '';
+      labels.innerHTML = '';
+      trend.forEach(function(t, i){
+        var raw = vals[i];
+        var h   = Math.max(4, Math.round((raw/maxVal) * chartH));
+        var col = document.createElement('div');
+        col.style.cssText = 'flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:2px;position:relative;';
+        var lbl = document.createElement('div');
+        lbl.style.cssText = 'font-size:.65rem;color:#888;position:absolute;top:0;width:100%;text-align:center;';
+        lbl.textContent = raw > 0 ? (raw >= 1e5 ? (raw/1e5).toFixed(1)+'Lac' : raw >= 1000 ? (raw/1000).toFixed(0)+'K' : _num(raw,0)) : '';
+        var bar = document.createElement('div');
+        bar.className = 'dep-bar w-100'; bar.style.height = h + 'px';
+        bar.title = (t.month||'') + ': BDT ' + _num(raw, 2);
+        col.appendChild(lbl); col.appendChild(bar); chart.appendChild(col);
+        var lab = document.createElement('div');
+        lab.style.cssText = 'flex:1;text-align:center;font-size:.65rem;color:#999;';
+        lab.textContent = t.month||'';
+        labels.appendChild(lab);
+      });
+    }
+
+    // ── Recent assets ─────────────────────────────────────────────────────────
+    function _renderRecentAssets(rows) {
+      var body = document.getElementById('recentAssetsBody');
+      if (!rows.length) { body.innerHTML = '<tr><td colspan="5" class="text-muted text-center py-3">No recent assets.</td></tr>'; return; }
+      body.innerHTML = rows.map(function(r){
+        return '<tr>'
+          + '<td><strong class="text-primary">' + _esc(r.asset_code||'—') + '</strong></td>'
+          + '<td>' + _esc(r.asset_name||'—') + '</td>'
+          + '<td><small class="text-muted">' + _esc(r.category_name||'—') + '</small></td>'
+          + '<td class="text-end">' + _fmtCost(r.purchase_cost||0) + '</td>'
+          + '<td class="text-nowrap"><small>' + (r.acquisition_date||'—') + '</small></td>'
+          + '</tr>';
+      }).join('');
+    }
+
+    // ── Recent dep runs ───────────────────────────────────────────────────────
+    var RUN_STATUS_CLR = { DRAFT:'bg-secondary', COMPLETED:'bg-info text-dark', POSTED:'bg-success', REVERSED:'bg-warning text-dark' };
+    function _renderRecentRuns(rows) {
+      var body = document.getElementById('recentRunsBody');
+      if (!rows.length) { body.innerHTML = '<tr><td colspan="5" class="text-muted text-center py-3">No runs yet.</td></tr>'; return; }
+      body.innerHTML = rows.map(function(r){
+        var sc = RUN_STATUS_CLR[r.status] || 'bg-secondary';
+        return '<tr>'
+          + '<td class="text-nowrap"><small>' + (r.period_start||'—') + ' — ' + (r.period_end||'—') + '</small></td>'
+          + '<td><small>' + (r.run_type||'—') + '</small></td>'
+          + '<td class="text-end">' + (r.total_assets||0) + '</td>'
+          + '<td class="text-end fw-bold">' + _fmtCost(r.total_depreciation||0) + '</td>'
+          + '<td><span class="badge ' + sc + '">' + (r.status||'—') + '</span></td>'
+          + '</tr>';
+      }).join('');
+    }
+
+    // ── Disposals ─────────────────────────────────────────────────────────────
+    function _renderDisposals(rows) {
+      var body = document.getElementById('recentDisposalsBody');
+      if (!rows.length) { body.innerHTML = '<tr><td colspan="5" class="text-muted text-center py-3"><i class="fa fa-check-circle text-success me-1"></i> No disposals this year.</td></tr>'; return; }
+      body.innerHTML = rows.map(function(r){
+        var gl = parseFloat(r.gain_loss||0);
+        var glCls = gl >= 0 ? 'text-gain fw-bold' : 'text-loss fw-bold';
+        return '<tr>'
+          + '<td><strong>' + _esc(r.asset_code||'—') + '</strong><br><small class="text-muted">' + _esc(r.asset_name||'') + '</small></td>'
+          + '<td><small>' + _esc(r.disposal_type||'—') + '</small></td>'
+          + '<td class="text-end">' + _fmtCost(r.book_value||0) + '</td>'
+          + '<td class="text-end">' + _fmtCost(r.disposal_value||0) + '</td>'
+          + '<td class="text-end ' + glCls + '">' + (gl >= 0 ? '+' : '') + _fmtCost(Math.abs(gl)) + '</td>'
+          + '</tr>';
+      }).join('');
+    }
+
+    // ── Insurance expiry ──────────────────────────────────────────────────────
+    function _renderInsurance(rows) {
+      var body = document.getElementById('insuranceBody');
+      if (!rows.length) { body.innerHTML = '<tr><td colspan="4" class="text-center text-success py-3"><i class="fa fa-check-circle me-1"></i> No insurance expiring soon.</td></tr>'; return; }
+      body.innerHTML = rows.map(function(r){
+        var days = parseInt(r.days_to_expiry||0);
+        var daysCls = days <= 7 ? 'badge bg-danger' : days <= 30 ? 'badge bg-warning text-dark' : 'badge bg-info text-dark';
+        return '<tr>'
+          + '<td><strong>' + _esc(r.asset_code||'—') + '</strong><br><small>' + _esc(r.asset_name||'') + '</small></td>'
+          + '<td><small>' + _esc(r.insurance_policy_no||'—') + '</small></td>'
+          + '<td class="text-nowrap">' + (r.insurance_expiry_date||'—') + '</td>'
+          + '<td class="text-center"><span class="' + daysCls + '">' + days + 'd</span></td>'
+          + '</tr>';
+      }).join('');
+    }
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
+    function _set(id, val) { var el = document.getElementById(id); if (el) el.textContent = val != null ? String(val) : '—'; }
+    function _num(v, d) { return parseFloat(v||0).toLocaleString('en-BD',{minimumFractionDigits:d||0,maximumFractionDigits:d||0}); }
+    function _fmtCost(v) {
+      var n = parseFloat(v||0);
+      if (n >= 1e7) return '৳ '+(n/1e7).toFixed(2)+' Cr';
+      if (n >= 1e5) return '৳ '+(n/1e5).toFixed(2)+' Lac';
+      if (n >= 1000) return '৳ '+(n/1000).toFixed(1)+'K';
+      return '৳ '+n.toFixed(2);
+    }
+    function _esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+  })();
+  </script>
+</section>
+</html>

@@ -21,6 +21,8 @@ public interface FixedAssetService {
 
     // ── Asset Category ────────────────────────────────────────────────────
 
+    Map<String, Object> dashboardSummary();
+
     AssetCategoryDTO createCategory(AssetCategoryDTO dto);
     AssetCategoryDTO updateCategory(Long id, AssetCategoryDTO dto);
     AssetCategoryDTO findCategoryById(Long id);
