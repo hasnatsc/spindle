@@ -719,6 +719,10 @@ public class SalesServiceImpl implements SalesService {
         e.setTermsAndConditions(dto.getTermsAndConditions());
         e.setRemarks(dto.getRemarks());
 
+        if(Objects.equals(dto.getDocumentType(), DocumentType.DELIVERY_ORDER.name())){
+            dto.setWarehouseId(ContextProvider.getWarehouseId());
+        }
+
         if (e.getOrganization() == null) e.setOrganization(orgRepo.getReferenceById(orgId));
         if (dto.getPartyId()     != null) e.setParty(subRepo.getReferenceById(dto.getPartyId()));
         if (dto.getWarehouseId() != null) e.setWarehouse(whRepo.getReferenceById(dto.getWarehouseId()));

@@ -147,12 +147,12 @@ public class CommercialServiceImpl implements CommercialService {
                    END AS status_badge,
                    '<div class="btn-group">'
                    || '<a href="javascript:;" onclick="ciShow('     || ci.id || ')" class="btn btn-white btn-sm" title="View"><i class="fas fa-eye text-success"></i></a>'
-                   || CASE WHEN ci.status = ''DRAFT'' THEN
+                   || CASE WHEN ci.status = 'DRAFT' THEN
                        '<a href="javascript:;" onclick="ciEdit('     || ci.id || ')" class="btn btn-white btn-sm" title="Edit"><i class="fa-regular fa-pen-to-square text-warning"></i></a>'
                        || '<a href="javascript:;" onclick="ciFinalize('|| ci.id || ')" class="btn btn-white btn-sm" title="Finalize"><i class="fas fa-check text-teal"></i></a>'
                        || '<a href="javascript:;" onclick="ciDelete(' || ci.id || ')" class="btn btn-white btn-sm" title="Delete"><i class="fa-regular fa-trash-can text-danger"></i></a>'
                       END
-                   || CASE WHEN ci.status = ''FINALIZED'' THEN
+                   || CASE WHEN ci.status = 'FINALIZED' THEN
                        '<a href="javascript:;" onclick="ciPost('     || ci.id || ')" class="btn btn-white btn-sm" title="Post"><i class="fas fa-paper-plane text-primary"></i></a>'
                        || '<a href="javascript:;" onclick="ciCancel('|| ci.id || ')" class="btn btn-white btn-sm" title="Cancel"><i class="fas fa-ban text-danger"></i></a>'
                       END
@@ -294,12 +294,12 @@ public class CommercialServiceImpl implements CommercialService {
                    END AS status_badge,
                    '<div class="btn-group">'
                    || '<a href="javascript:;" onclick="stlShow('   || s.id || ')" class="btn btn-white btn-sm"><i class="fas fa-eye text-success"></i></a>'
-                   || CASE WHEN s.status IN (''PENDING'',''PARTIAL'') THEN
+                   || CASE WHEN s.status IN ('PENDING','PARTIAL') THEN
                        '<a href="javascript:;" onclick="stlEdit('   || s.id || ')" class="btn btn-white btn-sm"><i class="fa-regular fa-pen-to-square text-warning"></i></a>'
                        || '<a href="javascript:;" onclick="stlSettle('|| s.id || ')" class="btn btn-white btn-sm" title="Mark Settled"><i class="fas fa-check-double text-success"></i></a>'
                        || '<a href="javascript:;" onclick="stlDelete('|| s.id || ')" class="btn btn-white btn-sm"><i class="fa-regular fa-trash-can text-danger"></i></a>'
                       END
-                   || CASE WHEN s.status = ''SETTLED'' THEN
+                   || CASE WHEN s.status = 'SETTLED' THEN
                        '<a href="javascript:;" onclick="stlReverse('|| s.id || ')" class="btn btn-white btn-sm" title="Reverse"><i class="fas fa-undo text-danger"></i></a>'
                       END
                    || '</div>' AS actions
@@ -443,10 +443,11 @@ public class CommercialServiceImpl implements CommercialService {
           COALESCE(SUM(amount_bdt) FILTER (WHERE status='SETTLED'), 0) AS settled_bdt,
           COALESCE(SUM(amount_usd) FILTER (WHERE status='SETTLED'
                 AND settlement_date >= ?::date), 0)                    AS settled_mtd_usd
-        FROM com_lc_settlement WHERE 1=1""";  // no org filter — settlement table has lc_id but no org_id col; filter through LC join below
+        FROM com_lc_settlement WHERE organization_id=""";
+        stlSql+=ContextProvider.getOrganizationId();
         List<Map<String, Object>> stlRows = jdbcTemplate.queryForList(stlSql, mtdStart);
         if (!stlRows.isEmpty()) {
-            Map<String, Object> r = stlRows.get(0);
+            Map<String, Object> r = stlRows.getFirst();
             m.put("pendingSettlements",  toLong(r, "pending"));
             m.put("partialSettlements",  toLong(r, "partial"));
             m.put("settledSettlements",  toLong(r, "settled"));
@@ -500,7 +501,7 @@ public class CommercialServiceImpl implements CommercialService {
         FROM com_commercial_invoice ci
         LEFT JOIN acc_chart_of_accounts_sub pt ON pt.id = ci.party_id
         WHERE ci.invoice_type='EXPORT'""" + fCI + """
-        ORDER BY ci.id DESC LIMIT 10"""));
+         ORDER BY ci.id DESC LIMIT 10 """));
 
         // ── 10. Recent import invoices ────────────────────────────────────────
         m.put("recentImports", jdbcTemplate.queryForList("""

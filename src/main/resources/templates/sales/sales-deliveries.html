@@ -87,24 +87,20 @@
                     <label class="input-label">From SO</label>
                   </div>
 
-                  <div class="col-md-6 view-group">
+                  <div class="col-md-4 view-group">
                     <select id="dlCustomerId" class="form-select hs_span_view"></select>
                     <label class="input-label">Customer <span class="text-danger">*</span></label>
                   </div>
-                  <div class="col-md-6 view-group">
-                    <select id="dlWarehouseId" class="form-select hs_span_view" required></select>
-                    <label class="input-label">Dispatch From Warehouse <span class="text-danger">*</span></label>
-                  </div>
 
-                  <div class="col-md-4 view-group">
+                  <div class="col-md-2 view-group">
                     <input id="dlVehicle" type="text" class="form-control hs_span_view" maxlength="100">
                     <label class="input-label">Vehicle No</label>
                   </div>
-                  <div class="col-md-4 view-group">
+                  <div class="col-md-3 view-group">
                     <input id="dlDriver" type="text" class="form-control hs_span_view" maxlength="100">
                     <label class="input-label">Driver Name</label>
                   </div>
-                  <div class="col-md-4 view-group">
+                  <div class="col-md-3 view-group">
                     <input id="dlChallanNo" type="text" class="form-control hs_span_view" maxlength="100">
                     <label class="input-label">Challan No</label>
                   </div>
@@ -216,7 +212,6 @@
       document.getElementById('dlDate').value = new Date().toISOString().substring(0,10);
       document.getElementById('dlForm').addEventListener('submit', _onSubmit);
       _initCustomerS2(null, null);
-      _loadWarehouses();
       _initSOPickerS2();
 
       // Auto-open from SO cascade
@@ -242,14 +237,6 @@
       if (preId) $el.append(new Option(preText||'', preId, true, true)).trigger('change');
     }
 
-    function _loadWarehouses() {
-      secureFetch('/warehouses/active').then(function(data){
-        var sel=document.getElementById('dlWarehouseId');
-        sel.innerHTML='<option value="">— Select Warehouse —</option>';
-        (data||[]).forEach(function(w){ var o=document.createElement('option'); o.value=w.id; o.textContent=w.name+' ('+(w.code||'')+')'; sel.appendChild(o); });
-      });
-    }
-
     function _initItemS2(el, preId, preText) {
       var $el=$(el);
       if ($el.hasClass('select2-hidden-accessible')) $el.select2('destroy');
@@ -273,9 +260,8 @@
     }
 
     function _checkAvailable(tr, itemId) {
-      var whId = document.getElementById('dlWarehouseId').value;
-      if (!itemId || !whId) return;
-      secureFetch('/inventory/stocks/balance/available?itemId=' + itemId + '&warehouseId=' + whId)
+      if (!itemId) return;
+      secureFetch('/inventory/stocks/balance/available-def-warehouse?itemId=' + itemId)
         .then(function(qty){
           var el = tr.querySelector('[data-field="available"]');
           if (el) { var n=parseFloat(qty)||0; el.textContent=n.toFixed(3); el.className='fw-bold '+(n>0?'text-success':'text-danger'); }
@@ -321,7 +307,7 @@
       document.getElementById('dlDate').value     = data.documentDate||new Date().toISOString().substring(0,10);
       document.getElementById('dlRef').value      = data.referenceNo||'';
       _initCustomerS2(data.partyId, data.partyDisplay);
-      if (data.warehouseId) document.getElementById('dlWarehouseId').value = data.warehouseId;
+      // if (data.warehouseId) document.getElementById('dlWarehouseId').value = data.warehouseId;
       // if (data.incoterms) document.getElementById('dlIncoterms').value = data.incoterms;
       (data.lines||[]).forEach(function(l){ dlAddLine(l); });
       dlRecalcTotal();
@@ -398,7 +384,7 @@
         document.getElementById('dlDeliveryAddr').value= o.deliveryAddress||'';
         document.getElementById('dlRemarks').value   = o.remarks||'';
         _initCustomerS2(o.partyId, o.partyDisplay);
-        if (o.warehouseId) document.getElementById('dlWarehouseId').value = o.warehouseId;
+        // if (o.warehouseId) document.getElementById('dlWarehouseId').value = o.warehouseId;
         (o.lines||[]).forEach(function(l){ dlAddLine(l); });
         dlRecalcTotal();
         document.getElementById('dlModalTitle').innerHTML='<i class="fa fa-pencil me-1 text-warning"></i> Edit Delivery Note';
@@ -459,7 +445,7 @@
         documentDate   : document.getElementById('dlDate').value,
         referenceNo    : document.getElementById('dlRef').value||null,
         partyId        : $('#dlCustomerId').val()||null,
-        warehouseId    : document.getElementById('dlWarehouseId').value||null,
+        // warehouseId    : document.getElementById('dlWarehouseId').value||null,
         vehicleNumber  : document.getElementById('dlVehicle').value||null,
         driverName     : document.getElementById('dlDriver').value||null,
         challanNo      : document.getElementById('dlChallanNo').value||null,

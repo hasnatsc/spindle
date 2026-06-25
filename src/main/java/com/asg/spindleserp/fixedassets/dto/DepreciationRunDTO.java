@@ -27,7 +27,7 @@ public class DepreciationRunDTO {
     /** DRAFT | PROCESSING | COMPLETED | POSTED | REVERSED */
     @Builder.Default private String status = "DRAFT";
 
-    @Builder.Default private int        totalAssets      = 0;
+    @Builder.Default private Integer        totalAssets      = 0;
     @Builder.Default private BigDecimal totalDepreciation = BigDecimal.ZERO;
 
     private String postedBy;

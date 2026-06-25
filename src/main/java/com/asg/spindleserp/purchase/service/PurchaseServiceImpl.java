@@ -730,6 +730,10 @@ public class PurchaseServiceImpl implements PurchaseService {
         e.setTermsAndConditions(dto.getTermsAndConditions());
         e.setRemarks(dto.getRemarks());
 
+        if(dto.getDocumentType().equals(DocumentType.GOODS_RECEIPT_NOTE.name())) {
+            dto.setWarehouseId(ContextProvider.getWarehouseId());
+        }
+
         if (e.getOrganization() == null)
             e.setOrganization(orgRepo.getReferenceById(orgId));
         if (dto.getPartyId() != null)

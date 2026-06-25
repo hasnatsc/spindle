@@ -69,7 +69,7 @@
               <input type="hidden" id="ciId">
               <input type="hidden" id="ciInvoiceType" value="EXPORT">
 
-              <ul class="nav nav-tabs mb-3">
+              <ul class="nav nav-tabs mb-3 bg-gray-600">
                 <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#tabCiHeader">Header</a></li>
                 <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tabCiItems">Items</a></li>
                 <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tabCiShipping">Shipping</a></li>
@@ -457,7 +457,7 @@
 
     function _onSubmit(e) {
       e.preventDefault();
-      var sb=document.getElementById('ciSubmitBtn'),sp=document.getElementById('ciSpinner'),bt=document.getElementById('ciBtnText');
+      var sb=document.getElementById('ciSubmitBtn'),sp=document.getElementById('ciSpinner'),bt=document.getElementById('ciBtnText'), fm = document.getElementById('ciForm');
       hsDisableButton(sb,sp,bt);
       var items=[], terms=[];
       document.querySelectorAll('#ciItemBody tr').forEach(function(tr,idx){
@@ -491,7 +491,7 @@
         remarks      : document.getElementById('ciRemarks').value||null,
         items, terms
       })}).then(function(d){
-        if (d.success) { hsAfterSaveMessages(d,dt); _loadKpi(); bootstrap.Modal.getOrCreateInstance(document.getElementById('ciModal')).hide(); }
+        if (d.success) { hsAfterSaveMessages(d.success, d.message, fm, dt); _loadKpi(); bootstrap.Modal.getOrCreateInstance(document.getElementById('ciModal')).hide(); }
         else Swal.fire('Error',d.message,'error');
       }).catch(function(err){ Swal.fire('Error',err.message||'Request failed.','error'); })
         .finally(function(){ hsEnableButton(sb,sp,bt); });

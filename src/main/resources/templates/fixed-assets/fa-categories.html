@@ -280,7 +280,7 @@
 
     function _onSubmit(e) {
       e.preventDefault();
-      var sb=document.getElementById('catSubmitBtn'),sp=document.getElementById('catSpinner'),bt=document.getElementById('catBtnText');
+      var sb=document.getElementById('catSubmitBtn'),sp=document.getElementById('catSpinner'),bt=document.getElementById('catBtnText'), fm = document.getElementById('catForm');
       hsDisableButton(sb,sp,bt);
       secureFetch(BASE + '/save', { method:'POST', body: JSON.stringify({
         id                  : document.getElementById('catId').value||null,
@@ -298,7 +298,7 @@
         glDepExpAccountId   : $('#catGlDepExp').val()||null,
         glDisposalAccountId : $('#catGlDisposal').val()||null
       })}).then(function(d){
-        if (d.success) { hsAfterSaveMessages(d,dt); bootstrap.Modal.getOrCreateInstance(document.getElementById('catModal')).hide(); }
+        if (d.success) { hsAfterSaveMessages(d.success, d.message, fm, dt); bootstrap.Modal.getOrCreateInstance(document.getElementById('catModal')).hide(); }
         else { Swal.fire('Error',d.message,'error'); }
       }).catch(function(err){ Swal.fire('Error',err.message||'Request failed.','error'); })
         .finally(function(){ hsEnableButton(sb,sp,bt); });

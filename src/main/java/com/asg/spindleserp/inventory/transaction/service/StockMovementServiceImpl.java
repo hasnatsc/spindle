@@ -27,10 +27,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 @Slf4j
 @Service
@@ -426,8 +423,7 @@ public class StockMovementServiceImpl implements StockMovementService {
     private DataTableResponse docDatatable(int draw, int start, int length, String search, String docType, String fnShow, String fnEdit, String fnConfirm, String fnDelete) {
         Long orgId = SecurityHelper.currentOrgId().orElse(null);
         Long warehouseId = ContextProvider.getWarehouseId();
-        String where = "WHERE d.document_type = '" + docType + "' AND d.is_deleted = false AND d.source_warehouse_id = " + warehouseId + " " + (orgId != null ? " AND d.organization_id = " + orgId : "")
-                + CommonUtils.searchILike(search, Arrays.asList("d.document_no", "d.reference_no", "w.warehouse_name"));
+        String where = "WHERE d.document_type = '" + docType + "' AND d.is_deleted = false AND "+(Objects.equals(docType, DocumentType.STOCK_TRANSFER.name()) ? " d.source_warehouse_id = " : " d.warehouse_id = ")  + warehouseId + "  AND d.organization_id = " + orgId + CommonUtils.searchILike(search, Arrays.asList("d.document_no", "d.reference_no", "w.warehouse_name"));
 
         String sql = String.format("""
                 SELECT

@@ -3,6 +3,7 @@ package com.asg.spindleserp.inventory.transaction.controller;
 import com.asg.spindleserp.common.dto.DataTableResponse;
 import com.asg.spindleserp.inventory.transaction.dto.StockBalanceDTO;
 import com.asg.spindleserp.inventory.transaction.service.StockLedgerService;
+import com.asg.spindleserp.security.auth.ContextProvider;
 import com.asg.spindleserp.security.auth.SecurityHelper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -100,5 +101,14 @@ public class StockLedgerController {
             @RequestParam Long warehouseId,
             @RequestParam(required = false) Long lotId) {
         return ledgerService.availableQty(itemId, warehouseId, lotId);
+    }
+
+    /** Available qty for a specific item × warehouse × lot — used by form validation */
+    @GetMapping("/balance/available-def-warehouse")
+    @ResponseBody
+    public java.math.BigDecimal availableQtyDefWarehouse(
+            @RequestParam Long itemId,
+            @RequestParam(required = false) Long lotId) {
+        return ledgerService.availableQty(itemId, ContextProvider.getWarehouseId(), lotId);
     }
 }
