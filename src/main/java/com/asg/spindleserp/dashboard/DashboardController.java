@@ -35,7 +35,6 @@ import java.util.Map;
  *     /purchase/dashboard        → PurchaseController
  */
 @Controller
-@RequestMapping("/dashboard")
 @RequiredArgsConstructor
 public class DashboardController {
 
@@ -43,8 +42,13 @@ public class DashboardController {
 
     // ── MAIN ERP DASHBOARD ────────────────────────────────────────────────────
 
-    /** Main landing page — full ERP summary for all permitted modules */
     @GetMapping
+    public String home(Model m) {
+        return "redirect:/dashboard";
+    }
+
+    /** Main landing page — full ERP summary for all permitted modules */
+    @GetMapping("/dashboard")
     public String dashboard() {
         return "dashboard/erp-main-dashboard";
     }
@@ -53,7 +57,7 @@ public class DashboardController {
      * AJAX endpoint consumed by erp-main-dashboard.html
      * Single optimised PostgreSQL query returns all module KPIs in one round-trip.
      */
-    @GetMapping("/erp-summary")
+    @GetMapping("/dashboard/erp-summary")
     @ResponseBody
     public Map<String, Object> erpSummary() {
         return dashboardService.erpSummary();
@@ -61,33 +65,33 @@ public class DashboardController {
 
     // ── SPECIALIST DASHBOARDS ─────────────────────────────────────────────────
 
-    @GetMapping("/commercial")
+    @GetMapping("/dashboard/commercial")
     public String commercialDashboard(Model m) {
         m.addAttribute("activePage", "commercial-dashboard");
         return "dashboard/commercial-dashboard";
     }
 
-    @GetMapping("/accounts-dashboard")
+    @GetMapping("/dashboard/accounts-dashboard")
     public String financialDashboard() {
         return "dashboard/accounts-dashboard";
     }
 
-    @GetMapping("/accounts-dashboard-spinning")
+    @GetMapping("/dashboard/accounts-dashboard-spinning")
     public String financialDashboardSpinning() {
         return "dashboard/accounts-dashboard-spinning";
     }
 
-    @GetMapping("/accounts-dashboard-fabrics")
+    @GetMapping("/dashboard/accounts-dashboard-fabrics")
     public String financialDashboardFabrics() {
         return "dashboard/accounts-dashboard-fabrics";
     }
 
-    @GetMapping("/asfl-erp-dashborad")
+    @GetMapping("/dashboard/asfl-erp-dashborad")
     public String financialErpDashboard() {
         return "dashboard/asfl-erp-control-tower-dashborad";
     }
 
-    @GetMapping("/fabric-precosting-dashboard")
+    @GetMapping("/dashboard/fabric-precosting-dashboard")
     public String fabricPreCostingDashboard() {
         return "dashboard/fabric-precosting-dashboard";
     }

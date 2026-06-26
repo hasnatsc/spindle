@@ -788,14 +788,24 @@ public class DashboardService {
 
               UNION ALL
               -- Low / Zero stock
-              SELECT 'MEDIUM', 'INVENTORY', 'Low / Zero Stock Items',
-                     COUNT(DISTINCT i.id), NULL, '/inventory/items'
-              FROM inv_items i
-              LEFT JOIN global_inventory_stock_balances sb ON sb.item_id = i.id
-              WHERE i.organization_id = ? AND i.is_active = true
-                AND i.reorder_level   > 0
-              GROUP BY 1,2,3,6
-              HAVING COALESCE(SUM(sb.quantity),0) <= i.reorder_level
+                SELECT
+                    'MEDIUM'                  AS severity,
+                    'INVENTORY'               AS module,
+                    'Low / Zero Stock Items'  AS title,
+                    COUNT(*)                  AS total,
+                    NULL                      AS description,
+                    '/inventory/items'        AS url
+                FROM (
+                    SELECT i.id
+                    FROM inv_items i
+                    LEFT JOIN global_inventory_stock_balances sb
+                           ON sb.item_id = i.id
+                    WHERE i.organization_id = ?
+                      AND i.is_active = TRUE
+                      AND i.reorder_level > 0
+                    GROUP BY i.id, i.reorder_level
+                    HAVING COALESCE(SUM(sb.quantity), 0) <= i.reorder_level
+                ) t
 
               UNION ALL
               -- Delivery overdue
