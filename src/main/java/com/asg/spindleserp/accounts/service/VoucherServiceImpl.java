@@ -316,7 +316,7 @@ public class VoucherServiceImpl implements VoucherService {
 
         Long orgId = SecurityHelper.currentOrgId().orElse(null);
         String fn = jsFnPrefix(voucherType);
-        String where = "AND j.organization_id = " + orgId
+        String where = "WHERE j.organization_id = " + orgId
                 + (voucherType != null && !voucherType.isBlank() ? " AND j.voucher_type = '" + voucherType + "'" : "")
                 + CommonUtils.searchILike(search, Arrays.asList("j.voucher_no", "j.reference_no", "j.narration", "s.sub_account_code", "s.sub_account_name")
         );

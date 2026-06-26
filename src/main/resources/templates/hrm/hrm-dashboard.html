@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<!--
+  hrm/hrm-dashboard.html   GET /hrm/dashboard
+  HRM Dashboard — KPIs, Attendance Trend, Payroll Trend, Leave Distribution,
+  Department Headcount, Salary Range, Recent Joiners, Pending Leaves
+-->
+<html th:replace="~{layout/base :: layout('HRM Dashboard', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
+<section>
+    <ol class="breadcrumb float-xl-end">
+        <li class="breadcrumb-item"><a th:href="@{/dashboard}">Home</a></li>
+        <li class="breadcrumb-item">HRM</li>
+        <li class="breadcrumb-item active">Dashboard</li>
+    </ol>
+    <h1 class="page-header">HRM Dashboard <small>human resource overview</small></h1>
+
+    <!-- Navigation Tabs -->
+    <div class="d-flex gap-2 mb-3 flex-wrap">
+        <a th:href="@{/hrm/dashboard}"    class="btn btn-sm btn-primary"><i class="fa fa-tachometer-alt me-1"></i> Dashboard</a>
+        <a th:href="@{/hrm/designations}" class="btn btn-sm btn-outline-primary"><i class="fa fa-id-badge me-1"></i> Designations</a>
+        <a th:href="@{/hrm/employees}"    class="btn btn-sm btn-outline-primary"><i class="fa fa-users me-1"></i> Employees</a>
+        <a th:href="@{/hrm/attendance}"   class="btn btn-sm btn-outline-primary"><i class="fa fa-calendar-check me-1"></i> Attendance</a>
+        <a th:href="@{/hrm/leaves}"       class="btn btn-sm btn-outline-primary"><i class="fa fa-calendar-minus me-1"></i> Leaves</a>
+        <a th:href="@{/hrm/payroll}"      class="btn btn-sm btn-outline-primary"><i class="fa fa-money-bill-wave me-1"></i> Payroll</a>
+        <a th:href="@{/hrm/payroll-mapping}" class="btn btn-sm btn-outline-warning"><i class="fa fa-cog me-1"></i> GL Mapping</a>
+        <a href="javascript:;" onclick="refreshDashboard()" class="btn btn-sm btn-outline-secondary ms-auto">
+            <i class="fa fa-sync me-1" id="refreshIcon"></i> Refresh
+        </a>
+    </div>
+
+    <!-- ── ROW 1: KPI Cards ─────────────────────────────────────────────────── -->
+    <div class="row g-3 mb-3">
+        <div class="col-6 col-md-3 col-xl-2">
+            <div class="widget widget-stats bg-green">
+                <div class="stats-icon"><i class="fa fa-users"></i></div>
+                <div class="stats-info">
+                    <h4>ACTIVE EMP</h4>
+                    <p id="kpi_active">—</p>
+                </div>
+                <div class="stats-link">
+                    <a th:href="@{/hrm/employees}">View Employees <i class="fa fa-arrow-alt-circle-right"></i></a>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3 col-xl-2">
+            <div class="widget widget-stats bg-blue">
+                <div class="stats-icon"><i class="fa fa-user-check"></i></div>
+                <div class="stats-info">
+                    <h4>PRESENT TODAY</h4>
+                    <p id="kpi_present">—</p>
+                </div>
+                <div class="stats-link">
+                    <a th:href="@{/hrm/attendance}">View Attendance <i class="fa fa-arrow-alt-circle-right"></i></a>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3 col-xl-2">
+            <div class="widget widget-stats bg-danger">
+                <div class="stats-icon"><i class="fa fa-user-times"></i></div>
+                <div class="stats-info">
+                    <h4>ABSENT TODAY</h4>
+                    <p id="kpi_absent">—</p>
+                </div>
+                <div class="stats-link">
+                    <a th:href="@{/hrm/attendance}">View Attendance <i class="fa fa-arrow-alt-circle-right"></i></a>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3 col-xl-2">
+            <div class="widget widget-stats bg-orange">
+                <div class="stats-icon"><i class="fa fa-calendar-minus"></i></div>
+                <div class="stats-info">
+                    <h4>PENDING LEAVES</h4>
+                    <p id="kpi_pendingLeaves">—</p>
+                </div>
+                <div class="stats-link">
+                    <a th:href="@{/hrm/leaves}">View Leaves <i class="fa fa-arrow-alt-circle-right"></i></a>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3 col-xl-2">
+            <div class="widget widget-stats bg-purple">
+                <div class="stats-icon"><i class="fa fa-building"></i></div>
+                <div class="stats-info">
+                    <h4>DEPARTMENTS</h4>
+                    <p id="kpi_depts">—</p>
+                </div>
+                <div class="stats-link"><a href="javascript:;">Active count</a></div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3 col-xl-2">
+            <div class="widget widget-stats bg-teal">
+                <div class="stats-icon"><i class="fa fa-money-bill-wave"></i></div>
+                <div class="stats-info">
+                    <h4>PAYROLL NET</h4>
+                    <p id="kpi_payrollNet">—</p>
+                </div>
+                <div class="stats-link">
+                    <a th:href="@{/hrm/payroll}">View Payroll <i class="fa fa-arrow-alt-circle-right"></i></a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── ROW 2: Payroll Banner ─────────────────────────────────────────────── -->
+    <div id="payrollBanner" class="alert d-flex align-items-center gap-3 mb-3 py-2" style="display:none!important">
+        <i class="fa fa-info-circle fa-lg"></i>
+        <span id="payrollBannerText"></span>
+        <a th:href="@{/hrm/payroll}" class="btn btn-sm btn-white ms-auto">Go to Payroll</a>
+    </div>
+
+    <!-- ── ROW 3: Attendance Trend + Attendance Donut ────────────────────────── -->
+    <div class="row g-3 mb-3">
+        <div class="col-md-8">
+            <div class="panel panel-inverse mb-0">
+                <div class="panel-heading">
+                    <div class="panel-title"><i class="fa fa-chart-bar me-1"></i> Attendance Trend — Last 7 Days</div>
+                </div>
+                <div class="panel-body">
+                    <div style="position:relative;height:240px">
+                        <canvas id="attendanceTrendChart" role="img" aria-label="Daily attendance trend for last 7 days showing present, absent, late and on leave counts"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="panel panel-inverse mb-0">
+                <div class="panel-heading">
+                    <div class="panel-title"><i class="fa fa-circle-half-stroke me-1"></i> Today's Attendance</div>
+                </div>
+                <div class="panel-body">
+                    <div style="position:relative;height:190px">
+                        <canvas id="todayDonutChart" role="img" aria-label="Doughnut chart of today's attendance status breakdown"></canvas>
+                    </div>
+                    <div id="todayLegend" class="d-flex flex-wrap gap-2 justify-content-center mt-2" style="font-size:12px"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── ROW 4: Payroll Trend + Leave Distribution ─────────────────────────── -->
+    <div class="row g-3 mb-3">
+        <div class="col-md-7">
+            <div class="panel panel-inverse mb-0">
+                <div class="panel-heading">
+                    <div class="panel-title"><i class="fa fa-chart-line me-1"></i> Payroll Trend — Last 6 Months</div>
+                </div>
+                <div class="panel-body">
+                    <div class="d-flex flex-wrap gap-3 mb-2" style="font-size:12px">
+                        <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:#378ADD;display:inline-block"></span>Gross</span>
+                        <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:#1D9E75;display:inline-block"></span>Net</span>
+                        <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:#E24B4A;display:inline-block"></span>Deductions</span>
+                    </div>
+                    <div style="position:relative;height:220px">
+                        <canvas id="payrollTrendChart" role="img" aria-label="Monthly payroll trend showing gross, net and deductions over last 6 months"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-5">
+            <div class="panel panel-inverse mb-0">
+                <div class="panel-heading">
+                    <div class="panel-title"><i class="fa fa-chart-pie me-1"></i> Leave Types (This Year)</div>
+                </div>
+                <div class="panel-body">
+                    <div style="position:relative;height:220px">
+                        <canvas id="leaveDistChart" role="img" aria-label="Leave type distribution for current year"></canvas>
+                    </div>
+                    <div id="leaveLegend" class="d-flex flex-wrap gap-2 justify-content-center mt-2" style="font-size:12px"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── ROW 5: Department + Salary Distribution ───────────────────────────── -->
+    <div class="row g-3 mb-3">
+        <div class="col-md-6">
+            <div class="panel panel-inverse mb-0">
+                <div class="panel-heading">
+                    <div class="panel-title"><i class="fa fa-sitemap me-1"></i> Department Headcount</div>
+                </div>
+                <div class="panel-body">
+                    <div id="deptChartWrap" style="position:relative">
+                        <canvas id="deptChart" role="img" aria-label="Horizontal bar chart showing active employee count per department"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="panel panel-inverse mb-0">
+                <div class="panel-heading">
+                    <div class="panel-title"><i class="fa fa-chart-bar me-1"></i> Salary Range Distribution</div>
+                </div>
+                <div class="panel-body">
+                    <div style="position:relative;height:240px">
+                        <canvas id="salaryRangeChart" role="img" aria-label="Bar chart showing employee count by gross salary range"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── ROW 6: Recent Joiners + Pending Leaves ────────────────────────────── -->
+    <div class="row g-3 mb-3">
+        <div class="col-md-6">
+            <div class="panel panel-inverse mb-0">
+                <div class="panel-heading">
+                    <div class="panel-title"><i class="fa fa-user-plus me-1"></i> Recent Joiners (Last 30 Days)</div>
+                </div>
+                <div class="panel-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover mb-0">
+                            <thead class="table-light">
+                            <tr><th>Code</th><th>Name</th><th>Department</th><th>Designation</th><th>Joined</th></tr>
+                            </thead>
+                            <tbody id="recentJoinersBody">
+                            <tr><td colspan="5" class="text-center py-3 text-muted">Loading...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="panel panel-inverse mb-0">
+                <div class="panel-heading">
+                    <div class="panel-title">
+                        <i class="fa fa-clock me-1 text-warning"></i> Pending Leave Requests
+                        <span id="pendingLeaveCount" class="badge bg-warning text-dark ms-1">0</span>
+                    </div>
+                </div>
+                <div class="panel-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover mb-0">
+                            <thead class="table-light">
+                            <tr><th>Employee</th><th>Type</th><th>From</th><th>To</th><th class="text-center">Days</th><th>Action</th></tr>
+                            </thead>
+                            <tbody id="pendingLeavesBody">
+                            <tr><td colspan="6" class="text-center py-3 text-muted">Loading...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── ROW 7: Employee Type + Gender ─────────────────────────────────────── -->
+    <div class="row g-3 mb-3">
+        <div class="col-md-6">
+            <div class="panel panel-inverse mb-0">
+                <div class="panel-heading">
+                    <div class="panel-title"><i class="fa fa-id-card me-1"></i> Employee Type Breakdown</div>
+                </div>
+                <div class="panel-body">
+                    <div style="position:relative;height:220px">
+                        <canvas id="empTypeChart" role="img" aria-label="Pie chart of employee type breakdown"></canvas>
+                    </div>
+                    <div id="empTypeLegend" class="d-flex flex-wrap gap-2 justify-content-center mt-2" style="font-size:12px"></div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="panel panel-inverse mb-0">
+                <div class="panel-heading">
+                    <div class="panel-title"><i class="fa fa-venus-mars me-1"></i> Gender Distribution</div>
+                </div>
+                <div class="panel-body">
+                    <div style="position:relative;height:220px">
+                        <canvas id="genderChart" role="img" aria-label="Doughnut chart of gender distribution among active employees"></canvas>
+                    </div>
+                    <div id="genderLegend" class="d-flex flex-wrap gap-2 justify-content-center mt-2" style="font-size:12px"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+    <script th:inline="none">
+        (function () {
+            'use strict';
+            const BASE = '/hrm/dashboard';
+            const LEAVE_BASE = '/hrm/leaves';
+
+            // Chart color palettes
+            const COLORS = {
+                blue   : '#378ADD', green : '#1D9E75', red   : '#E24B4A',
+                amber  : '#EF9F27', purple: '#7F77DD', teal  : '#5DCAA5',
+                coral  : '#D85A30', gray  : '#888780', pink  : '#D4537E'
+            };
+            const PALETTE = Object.values(COLORS);
+
+            let charts = {};
+
+            document.addEventListener('DOMContentLoaded', function () {
+                loadDashboard();
+            });
+
+            window.refreshDashboard = function () {
+                var icon = document.getElementById('refreshIcon');
+                icon.classList.add('fa-spin');
+                loadDashboard().finally(function () { icon.classList.remove('fa-spin'); });
+            };
+
+            function loadDashboard() {
+                return Promise.all([
+                    loadKpi(),
+                    loadAttendanceTrend(),
+                    loadPayrollTrend(),
+                    loadLeaveDistribution(),
+                    loadDepartmentHeadcount(),
+                    loadSalaryDistribution(),
+                    loadEmployeeTypes(),
+                    loadGenderDistribution(),
+                    loadRecentJoiners(),
+                    loadPendingLeaves()
+                ]);
+            }
+
+            // ── KPI ───────────────────────────────────────────────────────────────────
+
+            function loadKpi() {
+                return secureFetch(BASE + '/kpi').then(function (d) {
+                    setText('kpi_active',        d.totalActive);
+                    setText('kpi_present',       d.presentToday);
+                    setText('kpi_absent',        d.absentToday);
+                    setText('kpi_pendingLeaves', d.pendingLeaves);
+                    setText('kpi_depts',         d.totalDepartments);
+                    setText('kpi_payrollNet',    fmtCur(d.payrollNet));
+
+                    // Payroll banner
+                    var banner = document.getElementById('payrollBanner');
+                    var bannerText = document.getElementById('payrollBannerText');
+                    if (d.payrollStatus === 'NOT_CALCULATED') {
+                        banner.className = 'alert alert-warning d-flex align-items-center gap-3 mb-3 py-2';
+                        bannerText.textContent = 'Payroll for current month has not been calculated yet.';
+                        banner.style.removeProperty('display');
+                    } else if (d.payrollStatus === 'COMPLETED') {
+                        banner.className = 'alert alert-info d-flex align-items-center gap-3 mb-3 py-2';
+                        bannerText.textContent = 'Payroll calculated for ' + d.payrollEmpCount + ' employees — awaiting approval. Gross: ' + fmtCur(d.payrollGross) + ' | Net: ' + fmtCur(d.payrollNet);
+                        banner.style.removeProperty('display');
+                    } else if (d.payrollStatus === 'APPROVED') {
+                        banner.className = 'alert alert-success d-flex align-items-center gap-3 mb-3 py-2';
+                        bannerText.textContent = 'Payroll approved — ready for payment. Net: ' + fmtCur(d.payrollNet);
+                        banner.style.removeProperty('display');
+                    } else {
+                        banner.style.display = 'none';
+                    }
+                });
+            }
+
+            // ── Attendance Trend ──────────────────────────────────────────────────────
+
+            function loadAttendanceTrend() {
+                return secureFetch(BASE + '/attendance-trend').then(function (data) {
+                    var labels   = data.map(function (r) { return r.att_day; });
+                    var present  = data.map(function (r) { return parseInt(r.present) || 0; });
+                    var absent   = data.map(function (r) { return parseInt(r.absent) || 0; });
+                    var late     = data.map(function (r) { return parseInt(r.late) || 0; });
+                    var onLeave  = data.map(function (r) { return parseInt(r.on_leave) || 0; });
+
+                    destroyChart('attendanceTrend');
+                    charts.attendanceTrend = new Chart(document.getElementById('attendanceTrendChart'), {
+                        type: 'bar',
+                        data: {
+                            labels: labels,
+                            datasets: [
+                                { label: 'Present',  data: present, backgroundColor: COLORS.green,  borderRadius: 3, stack: 'a' },
+                                { label: 'Late',     data: late,    backgroundColor: COLORS.amber,  borderRadius: 3, stack: 'a' },
+                                { label: 'On Leave', data: onLeave, backgroundColor: COLORS.blue,   borderRadius: 3, stack: 'a' },
+                                { label: 'Absent',   data: absent,  backgroundColor: COLORS.red,    borderRadius: 3, stack: 'a' }
+                            ]
+                        },
+                        options: {
+                            responsive: true, maintainAspectRatio: false,
+                            plugins: { legend: { display: false } },
+                            scales: {
+                                x: { stacked: true, ticks: { font: { size: 11 }, color: '#888' }, grid: { display: false } },
+                                y: { stacked: true, ticks: { font: { size: 11 }, color: '#888', maxTicksLimit: 5 }, grid: { color: 'rgba(128,128,128,0.12)' } }
+                            }
+                        }
+                    });
+
+                    // Today donut
+                    var todayPresent = present[present.length - 1] || 0;
+                    var todayAbsent  = absent[absent.length - 1]   || 0;
+                    var todayLate    = late[late.length - 1]        || 0;
+                    var todayLeave   = onLeave[onLeave.length - 1]  || 0;
+
+                    destroyChart('todayDonut');
+                    charts.todayDonut = new Chart(document.getElementById('todayDonutChart'), {
+                        type: 'doughnut',
+                        data: {
+                            labels: ['Present', 'Absent', 'Late', 'On Leave'],
+                            datasets: [{ data: [todayPresent, todayAbsent, todayLate, todayLeave],
+                                backgroundColor: [COLORS.green, COLORS.red, COLORS.amber, COLORS.blue],
+                                borderWidth: 0, hoverOffset: 6 }]
+                        },
+                        options: {
+                            responsive: true, maintainAspectRatio: false, cutout: '65%',
+                            plugins: { legend: { display: false } }
+                        }
+                    });
+
+                    var legendEl = document.getElementById('todayLegend');
+                    legendEl.innerHTML = '';
+                    [['Present', COLORS.green, todayPresent], ['Absent', COLORS.red, todayAbsent],
+                        ['Late', COLORS.amber, todayLate], ['Leave', COLORS.blue, todayLeave]].forEach(function (item) {
+                        legendEl.insertAdjacentHTML('beforeend',
+                            '<span style="display:flex;align-items:center;gap:3px">' +
+                            '<span style="width:10px;height:10px;border-radius:2px;background:' + item[1] + ';flex-shrink:0"></span>' +
+                            item[0] + ' <strong>' + item[2] + '</strong></span>');
+                    });
+                });
+            }
+
+            // ── Payroll Trend ─────────────────────────────────────────────────────────
+
+            function loadPayrollTrend() {
+                return secureFetch(BASE + '/payroll-trend').then(function (data) {
+                    var labels  = data.map(function (r) { return r.payroll_month; });
+                    var gross   = data.map(function (r) { return parseFloat(r.total_gross) || 0; });
+                    var net     = data.map(function (r) { return parseFloat(r.total_net) || 0; });
+                    var deduc   = data.map(function (r) { return parseFloat(r.total_deductions) || 0; });
+
+                    destroyChart('payrollTrend');
+                    charts.payrollTrend = new Chart(document.getElementById('payrollTrendChart'), {
+                        type: 'line',
+                        data: {
+                            labels: labels,
+                            datasets: [
+                                { label: 'Gross', data: gross, borderColor: COLORS.blue, backgroundColor: 'rgba(55,138,221,0.1)',
+                                    pointBackgroundColor: COLORS.blue, pointRadius: 4, tension: 0.35, fill: true },
+                                { label: 'Net',   data: net,   borderColor: COLORS.green, backgroundColor: 'rgba(29,158,117,0.08)',
+                                    pointBackgroundColor: COLORS.green, pointRadius: 4, tension: 0.35, fill: false },
+                                { label: 'Deductions', data: deduc, borderColor: COLORS.red, backgroundColor: 'transparent',
+                                    pointBackgroundColor: COLORS.red, pointRadius: 4, tension: 0.35, borderDash: [5,3], fill: false }
+                            ]
+                        },
+                        options: {
+                            responsive: true, maintainAspectRatio: false,
+                            plugins: { legend: { display: false } },
+                            scales: {
+                                x: { ticks: { font: { size: 11 }, color: '#888', autoSkip: false, maxRotation: 0 }, grid: { display: false } },
+                                y: { ticks: { font: { size: 11 }, color: '#888', maxTicksLimit: 5,
+                                        callback: function (v) { return v >= 1000 ? (v/1000).toFixed(0) + 'K' : v; }
+                                    }, grid: { color: 'rgba(128,128,128,0.12)' } }
+                            }
+                        }
+                    });
+                });
+            }
+
+            // ── Leave Distribution ────────────────────────────────────────────────────
+
+            function loadLeaveDistribution() {
+                return secureFetch(BASE + '/leave-distribution').then(function (data) {
+                    var labels = data.map(function (r) { return r.leave_type; });
+                    var vals   = data.map(function (r) { return parseFloat(r.total_days) || 0; });
+                    var bgColors = labels.map(function (_, i) { return PALETTE[i % PALETTE.length]; });
+
+                    destroyChart('leaveDist');
+                    charts.leaveDist = new Chart(document.getElementById('leaveDistChart'), {
+                        type: 'doughnut',
+                        data: {
+                            labels: labels,
+                            datasets: [{ data: vals, backgroundColor: bgColors, borderWidth: 0, hoverOffset: 6 }]
+                        },
+                        options: {
+                            responsive: true, maintainAspectRatio: false, cutout: '55%',
+                            plugins: { legend: { display: false },
+                                tooltip: { callbacks: { label: function (ctx) { return ' ' + ctx.label + ': ' + ctx.parsed + ' days'; } } }
+                            }
+                        }
+                    });
+
+                    var legendEl = document.getElementById('leaveLegend');
+                    legendEl.innerHTML = '';
+                    labels.forEach(function (lbl, i) {
+                        legendEl.insertAdjacentHTML('beforeend',
+                            '<span style="display:flex;align-items:center;gap:3px">' +
+                            '<span style="width:10px;height:10px;border-radius:2px;background:' + bgColors[i] + ';flex-shrink:0"></span>' +
+                            lbl + ' (' + vals[i] + 'd)</span>');
+                    });
+                });
+            }
+
+            // ── Department Headcount ──────────────────────────────────────────────────
+
+            function loadDepartmentHeadcount() {
+                return secureFetch(BASE + '/department-headcount').then(function (data) {
+                    var labels = data.map(function (r) { return r.department_name; });
+                    var vals   = data.map(function (r) { return parseInt(r.cnt) || 0; });
+                    var h = Math.max(200, labels.length * 38 + 40);
+                    var wrap = document.getElementById('deptChartWrap');
+                    wrap.style.position = 'relative'; wrap.style.height = h + 'px';
+
+                    destroyChart('deptChart');
+                    charts.deptChart = new Chart(document.getElementById('deptChart'), {
+                        type: 'bar',
+                        data: {
+                            labels: labels,
+                            datasets: [{ label: 'Employees', data: vals,
+                                backgroundColor: labels.map(function (_, i) { return PALETTE[i % PALETTE.length]; }),
+                                borderRadius: 3 }]
+                        },
+                        options: {
+                            indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+                            plugins: { legend: { display: false } },
+                            scales: {
+                                x: { ticks: { font: { size: 11 }, color: '#888', maxTicksLimit: 5 }, grid: { color: 'rgba(128,128,128,0.12)' } },
+                                y: { ticks: { font: { size: 11 }, color: '#888' }, grid: { display: false } }
+                            }
+                        }
+                    });
+                });
+            }
+
+            // ── Salary Distribution ───────────────────────────────────────────────────
+
+            function loadSalaryDistribution() {
+                return secureFetch(BASE + '/salary-distribution').then(function (data) {
+                    var labels = data.map(function (r) { return r.salary_range; });
+                    var vals   = data.map(function (r) { return parseInt(r.cnt) || 0; });
+
+                    destroyChart('salaryRange');
+                    charts.salaryRange = new Chart(document.getElementById('salaryRangeChart'), {
+                        type: 'bar',
+                        data: {
+                            labels: labels,
+                            datasets: [{ label: 'Employees', data: vals,
+                                backgroundColor: [COLORS.teal, COLORS.blue, COLORS.purple, COLORS.coral, COLORS.amber],
+                                borderRadius: 4 }]
+                        },
+                        options: {
+                            responsive: true, maintainAspectRatio: false,
+                            plugins: { legend: { display: false } },
+                            scales: {
+                                x: { ticks: { font: { size: 11 }, color: '#888', autoSkip: false, maxRotation: 0 }, grid: { display: false } },
+                                y: { ticks: { font: { size: 11 }, color: '#888', maxTicksLimit: 5 }, grid: { color: 'rgba(128,128,128,0.12)' } }
+                            }
+                        }
+                    });
+                });
+            }
+
+            // ── Employee Type ─────────────────────────────────────────────────────────
+
+            function loadEmployeeTypes() {
+                return secureFetch(BASE + '/employee-types').then(function (data) {
+                    var labels = data.map(function (r) { return r.employee_type; });
+                    var vals   = data.map(function (r) { return parseInt(r.cnt) || 0; });
+                    var bgColors = labels.map(function (_, i) { return PALETTE[i % PALETTE.length]; });
+
+                    destroyChart('empType');
+                    charts.empType = new Chart(document.getElementById('empTypeChart'), {
+                        type: 'pie',
+                        data: {
+                            labels: labels,
+                            datasets: [{ data: vals, backgroundColor: bgColors, borderWidth: 0, hoverOffset: 6 }]
+                        },
+                        options: {
+                            responsive: true, maintainAspectRatio: false,
+                            plugins: { legend: { display: false },
+                                tooltip: { callbacks: { label: function (ctx) {
+                                            var total = ctx.dataset.data.reduce(function (a, b) { return a + b; }, 0);
+                                            return ' ' + ctx.label + ': ' + ctx.parsed + ' (' + Math.round(ctx.parsed / total * 100) + '%)';
+                                        }}}
+                            }
+                        }
+                    });
+
+                    var legendEl = document.getElementById('empTypeLegend');
+                    legendEl.innerHTML = '';
+                    labels.forEach(function (lbl, i) {
+                        legendEl.insertAdjacentHTML('beforeend',
+                            '<span style="display:flex;align-items:center;gap:3px">' +
+                            '<span style="width:10px;height:10px;border-radius:2px;background:' + bgColors[i] + ';flex-shrink:0"></span>' +
+                            lbl + ' (' + vals[i] + ')</span>');
+                    });
+                });
+            }
+
+            // ── Gender Distribution ───────────────────────────────────────────────────
+
+            function loadGenderDistribution() {
+                return secureFetch(BASE + '/gender-distribution').then(function (data) {
+                    var gMap = {};
+                    data.forEach(function (r) { gMap[r.gender] = parseInt(r.cnt) || 0; });
+                    var labels = ['MALE', 'FEMALE', 'OTHER'];
+                    var vals   = labels.map(function (l) { return gMap[l] || 0; });
+                    var bgColors = [COLORS.blue, COLORS.pink, COLORS.teal];
+
+                    destroyChart('gender');
+                    charts.gender = new Chart(document.getElementById('genderChart'), {
+                        type: 'doughnut',
+                        data: {
+                            labels: labels,
+                            datasets: [{ data: vals, backgroundColor: bgColors, borderWidth: 0, hoverOffset: 6 }]
+                        },
+                        options: {
+                            responsive: true, maintainAspectRatio: false, cutout: '60%',
+                            plugins: { legend: { display: false },
+                                tooltip: { callbacks: { label: function (ctx) {
+                                            var total = ctx.dataset.data.reduce(function (a, b) { return a + b; }, 0);
+                                            return ' ' + ctx.label + ': ' + ctx.parsed + ' (' + Math.round(ctx.parsed / total * 100) + '%)';
+                                        }}}
+                            }
+                        }
+                    });
+
+                    var legendEl = document.getElementById('genderLegend');
+                    legendEl.innerHTML = '';
+                    labels.forEach(function (lbl, i) {
+                        legendEl.insertAdjacentHTML('beforeend',
+                            '<span style="display:flex;align-items:center;gap:3px">' +
+                            '<span style="width:10px;height:10px;border-radius:2px;background:' + bgColors[i] + ';flex-shrink:0"></span>' +
+                            lbl + ' (' + vals[i] + ')</span>');
+                    });
+                });
+            }
+
+            // ── Recent Joiners ────────────────────────────────────────────────────────
+
+            function loadRecentJoiners() {
+                return secureFetch(BASE + '/recent-joiners').then(function (data) {
+                    var tbody = document.getElementById('recentJoinersBody');
+                    if (!data.length) {
+                        tbody.innerHTML = '<tr><td colspan="5" class="text-center py-3 text-muted">No new joiners in last 30 days</td></tr>';
+                        return;
+                    }
+                    tbody.innerHTML = '';
+                    data.forEach(function (r) {
+                        tbody.insertAdjacentHTML('beforeend',
+                            '<tr>' +
+                            '<td><strong>' + r.employee_code + '</strong></td>' +
+                            '<td>' + r.emp_name + '</td>' +
+                            '<td>' + (r.dept_name || '—') + '</td>' +
+                            '<td><small class="text-muted">' + (r.designation_name || '—') + '</small></td>' +
+                            '<td><span class="badge bg-success">' + r.joining_date + '</span></td>' +
+                            '</tr>');
+                    });
+                });
+            }
+
+            // ── Pending Leaves ────────────────────────────────────────────────────────
+
+            function loadPendingLeaves() {
+                return secureFetch(BASE + '/pending-leaves').then(function (data) {
+                    var count = data.length;
+                    document.getElementById('pendingLeaveCount').textContent = count;
+                    var tbody = document.getElementById('pendingLeavesBody');
+                    if (!count) {
+                        tbody.innerHTML = '<tr><td colspan="6" class="text-center py-3 text-muted">No pending leave requests</td></tr>';
+                        return;
+                    }
+                    tbody.innerHTML = '';
+                    data.forEach(function (r) {
+                        tbody.insertAdjacentHTML('beforeend',
+                            '<tr>' +
+                            '<td><small>' + r.emp_name + '</small><br><small class="text-muted">' + r.employee_code + '</small></td>' +
+                            '<td><span class="badge bg-primary">' + r.leave_type + '</span></td>' +
+                            '<td><small>' + r.start_date + '</small></td>' +
+                            '<td><small>' + r.end_date + '</small></td>' +
+                            '<td class="text-center"><strong>' + r.total_days + 'd</strong></td>' +
+                            '<td>' +
+                            '<button class="btn btn-xs btn-success me-1" onclick="quickApprove(' + r.id + ')"><i class="fa fa-check"></i></button>' +
+                            '<button class="btn btn-xs btn-danger" onclick="quickReject(' + r.id + ')"><i class="fa fa-times"></i></button>' +
+                            '</td>' +
+                            '</tr>');
+                    });
+                });
+            }
+
+            // ── Quick Leave Actions ───────────────────────────────────────────────────
+
+            window.quickApprove = function (id) {
+                Swal.fire({ title: 'Approve Leave?', text: 'Attendance will be marked as LEAVE.',
+                    icon: 'question', showCancelButton: true, confirmButtonText: 'Approve', confirmButtonColor: '#198754' })
+                    .then(function (r) {
+                        if (!r.isConfirmed) return;
+                        secureFetch(LEAVE_BASE + '/approve/' + id, { method: 'POST' }).then(function (d) {
+                            if (d.success) { Swal.fire({ icon: 'success', title: 'Approved!', text: d.message, timer: 1500, showConfirmButton: false }); loadKpi(); loadPendingLeaves(); }
+                            else Swal.fire('Error', d.message, 'error');
+                        });
+                    });
+            };
+
+            window.quickReject = function (id) {
+                Swal.fire({ title: 'Reject Leave?', input: 'text', inputPlaceholder: 'Reason…',
+                    icon: 'warning', showCancelButton: true, confirmButtonText: 'Reject', confirmButtonColor: '#dc3545',
+                    preConfirm: function (v) { if (!v) Swal.showValidationMessage('Reason required'); return v; }
+                }).then(function (r) {
+                    if (!r.isConfirmed) return;
+                    secureFetch(LEAVE_BASE + '/reject/' + id + '?reason=' + encodeURIComponent(r.value), { method: 'POST' })
+                        .then(function (d) {
+                            if (d.success) { Swal.fire({ icon: 'info', title: 'Rejected', text: d.message, timer: 1400, showConfirmButton: false }); loadKpi(); loadPendingLeaves(); }
+                            else Swal.fire('Error', d.message, 'error');
+                        });
+                });
+            };
+
+            // ── Helpers ───────────────────────────────────────────────────────────────
+
+            function destroyChart(key) {
+                if (charts[key]) { charts[key].destroy(); delete charts[key]; }
+            }
+
+            function setText(id, val) {
+                var el = document.getElementById(id);
+                if (el) el.textContent = val != null ? val : '—';
+            }
+
+            function fmtCur(val) {
+                if (val == null || val === 0) return '০.০০';
+                var n = parseFloat(val);
+                if (n >= 1000000) return (n / 1000000).toFixed(2) + 'M';
+                if (n >= 1000)    return (n / 1000).toFixed(1) + 'K';
+                return n.toFixed(2);
+            }
+        })();
+    </script>
+</section>
+</html>

@@ -104,7 +104,7 @@ public class ModuleDashboardController {
 
     // ── HRM ───────────────────────────────────────────────────────────────────
 
-    @GetMapping("/hrm/dashboard")
+    @GetMapping("/hrm/dashboards")
     public String hrmDashboardPage(Model model) {
         model.addAttribute("activePage", "hrm-dashboard");
         return "dashboard/hrm-dashboard";

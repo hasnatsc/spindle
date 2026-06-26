@@ -38,6 +38,13 @@ public class HrmController {
 
     // ── Pages ──────────────────────────────────────────────────────────────────
 
+
+    @GetMapping("/hrm")
+    public String hrmHome(Model m) {
+        return "redirect:/hrm/dashboard";
+    }
+
+
     @GetMapping("/hrm/designations")
     public String designationsPage(Model m) {
         m.addAttribute("activePage", "hrm-designations");
