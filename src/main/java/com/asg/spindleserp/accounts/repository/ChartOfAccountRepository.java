@@ -1,7 +1,10 @@
 package com.asg.spindleserp.accounts.repository;
 
 import com.asg.spindleserp.accounts.entity.ChartOfAccount;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -55,4 +58,20 @@ public interface ChartOfAccountRepository extends JpaRepository<ChartOfAccount, 
     Optional<ChartOfAccount> findFirstByOrganizationIdAndAccountTypeAndIsActiveTrue(
             Long organizationId,
             ChartOfAccount.AccountType accountType);
+
+    @Query("""
+    SELECT a
+    FROM ChartOfAccount a
+    WHERE a.organization.id = :orgId
+      AND (
+            LOWER(a.accountCode) LIKE LOWER(CONCAT('%', :search, '%'))
+         OR LOWER(a.accountName) LIKE LOWER(CONCAT('%', :search, '%'))
+      )
+    ORDER BY a.accountCode
+""")
+    List<ChartOfAccount> searchForSelect(
+            @Param("orgId") Long orgId,
+            @Param("search") String search,
+            Pageable pageable
+    );
 }

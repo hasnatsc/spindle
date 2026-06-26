@@ -206,7 +206,7 @@ public class SecurityConfig {
             // ── Session management ─────────────────────────────────────────────
             .sessionManagement(session -> session
                 .sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED)
-                .sessionFixation(fix -> fix.newSession())
+                .sessionFixation(fix -> fix.migrateSession())
                 .invalidSessionUrl("/login?expired")
                 .maximumSessions(1)
                     .maxSessionsPreventsLogin(false)

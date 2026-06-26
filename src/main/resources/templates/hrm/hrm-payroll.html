@@ -20,6 +20,7 @@
     <a th:href="@{/hrm/attendance}"   class="btn btn-sm btn-outline-primary"><i class="fa fa-calendar-check me-1"></i> Attendance</a>
     <a th:href="@{/hrm/leaves}"       class="btn btn-sm btn-outline-primary"><i class="fa fa-calendar-minus me-1"></i> Leaves</a>
     <a th:href="@{/hrm/payroll}"      class="btn btn-sm btn-primary"><i class="fa fa-money-bill-wave me-1"></i> Payroll</a>
+    <a th:href="@{/hrm/payroll-mapping}" class="btn btn-sm btn-outline-warning"><i class="fa fa-cog me-1"></i> GL Mapping</a>
   </div>
 
   <!-- CALCULATE PANEL -->
@@ -101,6 +102,7 @@
           <th class="text-end text-danger">Total Deductions</th>
           <th class="text-end text-success">Total Net</th>
           <th>Approved By</th>
+          <th class="text-center">Journal</th>
           <th class="text-center">Status</th>
           <th class="text-center" width="14%">Actions</th>
         </tr></thead>
@@ -146,6 +148,14 @@
           {data:'total_deductions',className:'text-end text-danger',render:function(d){ return parseFloat(d||0).toFixed(2); }},
           {data:'total_net',className:'text-end text-success fw-bold',render:function(d){ return parseFloat(d||0).toFixed(2); }},
           {data:'approved_by',defaultContent:'—'},
+          {data: null, orderable: false, className: 'text-center',
+            render: function(row) {
+              if (row.journal_entry_id) {
+                return '<a href="/accounts/journal-entries/show/' + row.journal_entry_id + '" ' + 'class="badge bg-success text-decoration-none" target="_blank" title="View Journal Entry">' + '<i class="fa fa-book me-1"></i>' + (row.voucher_no || 'View') + '</a>';
+              }
+              return '<span class="badge bg-light text-muted">—</span>';
+            }
+          },
           {data:'status_badge',orderable:false,className:'text-center'},
           {data:'actions',orderable:false,className:'text-center'}
         ],
@@ -228,6 +238,7 @@
           +_vf('Total Deductions',parseFloat(o.totalDeductions||0).toFixed(2))
           +_vf('Total Net',parseFloat(o.totalNet||0).toFixed(2))
           +_vf('Approved By',o.approvedBy||'—')
+          + (o.journalEntryId ? _vf('Journal Entry','<a href="/accounts/journal-entries/show/' + o.journalEntryId + '" ' +'class="badge bg-success text-decoration-none" target="_blank">' + '<i class="fa fa-book me-1"></i>' + (o.voucherNo || 'View Journal') + '</a>') : '')
           +'</div>'
           +'<div class="table-responsive mt-3"><table class="table table-sm table-bordered"><thead class="table-light"><tr>'
           +'<th>#</th><th>Code</th><th>Employee</th><th class="text-end">Gross</th>'

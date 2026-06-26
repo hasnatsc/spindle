@@ -10,5 +10,6 @@ public enum VoucherType {
     EXPENSE_VOUCHER,
     DEBIT_NOTE,
     CREDIT_NOTE,
+    PAYROLL_VOUCHER,
     PRODUCTION_VOUCHER   // ★ NEW – for production cost journal entries
 }

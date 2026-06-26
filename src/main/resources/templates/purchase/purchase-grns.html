@@ -237,7 +237,6 @@
       document.getElementById('grnDate').value = new Date().toISOString().substring(0,10);
       document.getElementById('grnForm').addEventListener('submit', _onSubmit);
       _initSupplierS2(null, null);
-      _loadWarehouses();
       _initPoPickerSupplierS2();
 
       // Check sessionStorage for cascade from PO page
@@ -269,18 +268,6 @@
         templateSelection: function(r){ return r.text||r.id; }
       });
       if (preId) $el.append(new Option(preText||'', preId, true, true)).trigger('change');
-    }
-
-    function _loadWarehouses() {
-      secureFetch('/warehouses/active').then(function(data) {
-        var sel = document.getElementById('grnWarehouseId');
-        sel.innerHTML = '<option value="">— Select Warehouse —</option>';
-        (data||[]).forEach(function(w){
-          var o = document.createElement('option');
-          o.value = w.id; o.textContent = w.name + ' (' + (w.code||'') + ')';
-          sel.appendChild(o);
-        });
-      });
     }
 
     function _initItemS2(el, preId, preText) {
@@ -363,7 +350,6 @@
       document.getElementById('grnDate').value       = data.documentDate     || new Date().toISOString().substring(0,10);
       document.getElementById('grnRef').value        = data.referenceNo      || '';
       _initSupplierS2(data.partyId, data.partyDisplay);
-      if (data.warehouseId) document.getElementById('grnWarehouseId').value = data.warehouseId;
       (data.lines||[]).forEach(function(l){ grnAddLine(l); });
       grnRecalcTotal();
       document.getElementById('grnModalTitle').innerHTML = '<i class="fa fa-clipboard-check me-1 text-info"></i> New GRN from PO ' + (data.parentDocumentNo||'');
@@ -480,7 +466,6 @@
         document.getElementById('grnContainerNo').value= o.containerNumber || '';
         document.getElementById('grnRemarks').value   = o.remarks          || '';
         _initSupplierS2(o.partyId, o.partyDisplay);
-        if (o.warehouseId) document.getElementById('grnWarehouseId').value = o.warehouseId;
         (o.lines||[]).forEach(function(l){ grnAddLine(l); });
         grnRecalcTotal();
         document.getElementById('grnModalTitle').innerHTML = '<i class="fa fa-pencil me-1 text-warning"></i> Edit GRN';
@@ -539,7 +524,6 @@
         documentDate    : document.getElementById('grnDate').value,
         referenceNo     : document.getElementById('grnRef').value || null,
         partyId         : $('#grnSupplierId').val() || null,
-        warehouseId     : document.getElementById('grnWarehouseId').value || null,
         vesselName      : document.getElementById('grnVesselName').value || null,
         blNumber        : document.getElementById('grnBlNo').value || null,
         containerNumber : document.getElementById('grnContainerNo').value || null,

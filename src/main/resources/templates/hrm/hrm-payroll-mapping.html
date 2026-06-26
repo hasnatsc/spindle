@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<!--
+  hrm/hrm-payroll-mapping.html   GET /hrm/payroll-mapping
+  Payroll → GL account mapping setup page.
+  Accounts loaded via Select2 AJAX from /hrm/payroll-mapping/accounts/search
+-->
+<html th:replace="~{layout/base :: layout('Payroll GL Mapping', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
+<section>
+    <ol class="breadcrumb float-xl-end">
+        <li class="breadcrumb-item"><a th:href="@{/dashboard}">Home</a></li>
+        <li class="breadcrumb-item">HRM</li>
+        <li class="breadcrumb-item"><a th:href="@{/hrm/payroll}">Payroll</a></li>
+        <li class="breadcrumb-item active">GL Mapping</li>
+    </ol>
+    <h1 class="page-header">Payroll GL Mapping <small>configure accounts for payroll journal entries</small></h1>
+
+    <div class="d-flex gap-2 mb-3 flex-wrap">
+        <a th:href="@{/hrm/payroll}" class="btn btn-sm btn-outline-primary">
+            <i class="fa fa-money-bill-wave me-1"></i> Back to Payroll
+        </a>
+    </div>
+
+    <!-- Journal Flow Info -->
+    <div class="alert alert-info mb-3">
+        <i class="fa fa-info-circle me-1"></i>
+        <strong>How it works:</strong> When a payroll run is <strong>Approved</strong>, the system automatically generates
+        a <code>PAYROLL_VOUCHER</code> journal entry debiting salary expense accounts and crediting payable liability accounts.
+    </div>
+
+    <div class="row">
+        <div class="col-md-12">
+            <form id="mappingForm">
+                <!-- EXPENSE ACCOUNTS (DEBIT) -->
+                <div class="panel panel-inverse">
+                    <div class="panel-heading">
+                        <div class="panel-title">
+                            <i class="fa fa-arrow-up text-success me-1"></i> Expense Accounts (Debit Side)
+                        </div>
+                    </div>
+                    <div class="panel-body">
+                        <div class="hs-box">
+                            <div class="row">
+                                <div class="col-12 mb-3">
+                                    <div class="alert alert-success py-2">
+                                        <small><i class="fa fa-check me-1"></i> These accounts are <strong>DEBITED</strong> when payroll is posted (Salary Expense, Allowances).</small>
+                                    </div>
+                                </div>
+
+                                <!-- Basic Salary -->
+                                <div class="col-md-6 mb-10px select-group">
+                                    <label class="view-label">
+                                        Basic Salary Expense Account <span class="text-danger">*</span>
+                                        <span class="badge bg-danger ms-1">DR</span>
+                                    </label>
+                                    <select id="basicSalaryAccountId" class="form-control acct-select" required
+                                            data-placeholder="Search expense account...">
+                                        <option value="">Search account...</option>
+                                    </select>
+                                    <small class="text-muted">e.g. 5101 — Basic Salary Expense</small>
+                                </div>
+
+                                <!-- House Rent -->
+                                <div class="col-md-6 mb-10px select-group">
+                                    <label class="view-label">
+                                        House Rent Allowance Account
+                                        <span class="badge bg-danger ms-1">DR</span>
+                                    </label>
+                                    <select id="houseRentAccountId" class="form-control acct-select"
+                                            data-placeholder="Search expense account...">
+                                        <option value="">Search account...</option>
+                                    </select>
+                                    <small class="text-muted">e.g. 5102 — House Rent Allowance</small>
+                                </div>
+
+                                <!-- Medical -->
+                                <div class="col-md-6 mb-10px select-group">
+                                    <label class="view-label">
+                                        Medical Allowance Account
+                                        <span class="badge bg-danger ms-1">DR</span>
+                                    </label>
+                                    <select id="medicalAccountId" class="form-control acct-select"
+                                            data-placeholder="Search expense account...">
+                                        <option value="">Search account...</option>
+                                    </select>
+                                    <small class="text-muted">e.g. 5103 — Medical Allowance</small>
+                                </div>
+
+                                <!-- Transport -->
+                                <div class="col-md-6 mb-10px select-group">
+                                    <label class="view-label">
+                                        Transport Allowance Account
+                                        <span class="badge bg-danger ms-1">DR</span>
+                                    </label>
+                                    <select id="transportAccountId" class="form-control acct-select"
+                                            data-placeholder="Search expense account...">
+                                        <option value="">Search account...</option>
+                                    </select>
+                                    <small class="text-muted">e.g. 5104 — Transport Allowance</small>
+                                </div>
+
+                                <!-- Overtime -->
+                                <div class="col-md-6 mb-10px select-group">
+                                    <label class="view-label">
+                                        Overtime Expense Account
+                                        <span class="badge bg-danger ms-1">DR</span>
+                                    </label>
+                                    <select id="overtimeAccountId" class="form-control acct-select"
+                                            data-placeholder="Search expense account...">
+                                        <option value="">Search account...</option>
+                                    </select>
+                                    <small class="text-muted">e.g. 5105 — Overtime Expense</small>
+                                </div>
+
+                                <!-- Other Allowances -->
+                                <div class="col-md-6 mb-10px select-group">
+                                    <label class="view-label">
+                                        Other Allowances Account
+                                        <span class="badge bg-danger ms-1">DR</span>
+                                    </label>
+                                    <select id="otherAllowancesAccountId" class="form-control acct-select"
+                                            data-placeholder="Search expense account...">
+                                        <option value="">Search account...</option>
+                                    </select>
+                                    <small class="text-muted">e.g. 5106 — Other Allowances</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- PAYABLE ACCOUNTS (CREDIT) -->
+                <div class="panel panel-inverse">
+                    <div class="panel-heading">
+                        <div class="panel-title">
+                            <i class="fa fa-arrow-down text-primary me-1"></i> Payable Accounts (Credit Side)
+                        </div>
+                    </div>
+                    <div class="panel-body">
+                        <div class="hs-box">
+                            <div class="row">
+                                <div class="col-12 mb-3">
+                                    <div class="alert alert-primary py-2">
+                                        <small><i class="fa fa-check me-1"></i> These accounts are <strong>CREDITED</strong> when payroll is posted (Salary Payable, Tax Payable, etc.).</small>
+                                    </div>
+                                </div>
+
+                                <!-- Salary Payable -->
+                                <div class="col-md-6 mb-10px select-group">
+                                    <label class="view-label">
+                                        Salary Payable Account <span class="text-danger">*</span>
+                                        <span class="badge bg-success ms-1">CR</span>
+                                    </label>
+                                    <select id="salaryPayableAccountId" class="form-control acct-select" required
+                                            data-placeholder="Search liability account...">
+                                        <option value="">Search account...</option>
+                                    </select>
+                                    <small class="text-muted">e.g. 2201 — Salary Payable (Net take-home)</small>
+                                </div>
+
+                                <!-- Income Tax Payable -->
+                                <div class="col-md-6 mb-10px select-group">
+                                    <label class="view-label">
+                                        Income Tax Payable Account <span class="text-danger">*</span>
+                                        <span class="badge bg-success ms-1">CR</span>
+                                    </label>
+                                    <select id="incomeTaxPayableAccountId" class="form-control acct-select" required
+                                            data-placeholder="Search liability account...">
+                                        <option value="">Search account...</option>
+                                    </select>
+                                    <small class="text-muted">e.g. 2202 — Income Tax Payable</small>
+                                </div>
+
+                                <!-- Provident Fund Payable -->
+                                <div class="col-md-6 mb-10px select-group">
+                                    <label class="view-label">
+                                        Provident Fund Payable Account <span class="text-danger">*</span>
+                                        <span class="badge bg-success ms-1">CR</span>
+                                    </label>
+                                    <select id="providentFundPayableAccountId" class="form-control acct-select" required
+                                            data-placeholder="Search liability account...">
+                                        <option value="">Search account...</option>
+                                    </select>
+                                    <small class="text-muted">e.g. 2203 — Provident Fund Payable</small>
+                                </div>
+
+                                <!-- Other Deductions Payable -->
+                                <div class="col-md-6 mb-10px select-group">
+                                    <label class="view-label">
+                                        Other Deductions Payable Account
+                                        <span class="badge bg-success ms-1">CR</span>
+                                    </label>
+                                    <select id="otherDeductionsPayableAccountId" class="form-control acct-select"
+                                            data-placeholder="Search liability account...">
+                                        <option value="">Search account...</option>
+                                    </select>
+                                    <small class="text-muted">e.g. 2204 — Other Deductions Payable (Loans, etc.)</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Journal Entry Preview -->
+                <div class="panel panel-inverse">
+                    <div class="panel-heading">
+                        <div class="panel-title">
+                            <i class="fa fa-book me-1"></i> Journal Entry Preview (Sample)
+                        </div>
+                    </div>
+                    <div class="panel-body">
+                        <div class="hs-box">
+                            <div class="table-responsive">
+                                <table class="table table-sm table-bordered">
+                                    <thead class="table-light">
+                                    <tr>
+                                        <th width="5%">#</th>
+                                        <th width="30%">Account</th>
+                                        <th width="35%">Narration</th>
+                                        <th width="15%" class="text-end text-danger">Debit (DR)</th>
+                                        <th width="15%" class="text-end text-success">Credit (CR)</th>
+                                    </tr>
+                                    </thead>
+                                    <tbody>
+                                    <tr class="table-light">
+                                        <td>1</td><td><span id="prv_basic" class="text-muted fst-italic">Basic Salary Account</span></td>
+                                        <td>Basic Salary Expense — 2025-06</td>
+                                        <td class="text-end text-danger fw-bold">50,000.00</td><td class="text-end">—</td>
+                                    </tr>
+                                    <tr class="table-light">
+                                        <td>2</td><td><span id="prv_houseRent" class="text-muted fst-italic">House Rent Account</span></td>
+                                        <td>House Rent Allowance — 2025-06</td>
+                                        <td class="text-end text-danger fw-bold">10,000.00</td><td class="text-end">—</td>
+                                    </tr>
+                                    <tr class="table-light">
+                                        <td>3</td><td><span id="prv_medical" class="text-muted fst-italic">Medical Account</span></td>
+                                        <td>Medical Allowance — 2025-06</td>
+                                        <td class="text-end text-danger fw-bold">3,000.00</td><td class="text-end">—</td>
+                                    </tr>
+                                    <tr class="table-light">
+                                        <td>4</td><td><span id="prv_transport" class="text-muted fst-italic">Transport Account</span></td>
+                                        <td>Transport Allowance — 2025-06</td>
+                                        <td class="text-end text-danger fw-bold">2,000.00</td><td class="text-end">—</td>
+                                    </tr>
+                                    <tr>
+                                        <td>5</td><td><span id="prv_salaryPayable" class="text-muted fst-italic">Salary Payable Account</span></td>
+                                        <td>Salary Payable — 2025-06</td>
+                                        <td class="text-end">—</td><td class="text-end text-success fw-bold">60,000.00</td>
+                                    </tr>
+                                    <tr>
+                                        <td>6</td><td><span id="prv_incomeTax" class="text-muted fst-italic">Income Tax Payable Account</span></td>
+                                        <td>Income Tax Payable — 2025-06</td>
+                                        <td class="text-end">—</td><td class="text-end text-success fw-bold">3,000.00</td>
+                                    </tr>
+                                    <tr>
+                                        <td>7</td><td><span id="prv_pf" class="text-muted fst-italic">Provident Fund Payable Account</span></td>
+                                        <td>Provident Fund Payable — 2025-06</td>
+                                        <td class="text-end">—</td><td class="text-end text-success fw-bold">2,000.00</td>
+                                    </tr>
+                                    <tr class="fw-bold table-info">
+                                        <td colspan="3" class="text-end">Total</td>
+                                        <td class="text-end text-danger">65,000.00</td>
+                                        <td class="text-end text-success">65,000.00</td>
+                                    </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="d-flex gap-2 justify-content-end mb-4">
+                    <button type="button" class="btn btn-secondary" onclick="loadMapping()">
+                        <i class="fa fa-sync me-1"></i> Reload
+                    </button>
+                    <button type="submit" class="btn btn-success" id="saveBtn">
+                        <span class="spinner-border spinner-border-sm me-1 d-none" id="saveSpinner"></span>
+                        <i class="fa fa-save me-1"></i> Save GL Mapping
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script th:inline="none">
+        (function () {
+            'use strict';
+            const BASE = '/hrm/payroll-mapping';
+            const ACCT_URL = BASE + '/accounts/search';
+
+            // Preview label map: selectId → preview span id
+            const PREVIEW_MAP = {
+                'basicSalaryAccountId':          'prv_basic',
+                'houseRentAccountId':            'prv_houseRent',
+                'medicalAccountId':              'prv_medical',
+                'transportAccountId':            'prv_transport',
+                'salaryPayableAccountId':        'prv_salaryPayable',
+                'incomeTaxPayableAccountId':     'prv_incomeTax',
+                'providentFundPayableAccountId': 'prv_pf'
+            };
+
+            document.addEventListener('DOMContentLoaded', function () {
+                initSelect2();
+                loadMapping();
+
+                document.getElementById('mappingForm').addEventListener('submit', function (e) {
+                    e.preventDefault();
+                    saveMapping();
+                });
+            });
+
+            function initSelect2() {
+                document.querySelectorAll('.acct-select').forEach(function (el) {
+                    $(el).select2({
+                        width: '100%',
+                        ajax: {
+                            url: ACCT_URL,
+                            dataType: 'json',
+                            delay: 250,
+                            data: function (params) {
+                                return {search: params.term || '', page: params.page || 1};
+                            },
+                            processResults: function (data, params) {
+                                params.page = params.page || 1;
+                                return {
+                                    results: data.items,
+                                    pagination: {more: data.hasMore}
+                                };
+                            },
+                            cache: true
+                        },
+                        placeholder: el.dataset.placeholder || 'Search account...',
+                        allowClear: true,
+                        minimumInputLength: 0
+                    }).on('select2:select', function (e) {
+                        var pvSpan = PREVIEW_MAP[el.id];
+                        if (pvSpan) {
+                            document.getElementById(pvSpan).textContent = e.params.data.text;
+                            document.getElementById(pvSpan).classList.remove('text-muted', 'fst-italic');
+                            document.getElementById(pvSpan).classList.add('fw-bold', 'text-dark');
+                        }
+                    }).on('select2:clear', function () {
+                        var pvSpan = PREVIEW_MAP[el.id];
+                        if (pvSpan) {
+                            var span = document.getElementById(pvSpan);
+                            span.textContent = el.id.replace('Id', '').replace(/([A-Z])/g, ' $1');
+                            span.classList.add('text-muted', 'fst-italic');
+                            span.classList.remove('fw-bold', 'text-dark');
+                        }
+                    });
+                });
+            }
+
+            function loadMapping() {
+                secureFetch(BASE + '/show')
+                    .then(function (res) {
+                        if (!res.success) { console.warn('No mapping found:', res.message); return; }
+                        var d = res.obj.defaultData;
+                        Object.keys(PREVIEW_MAP).concat([
+                            'overtimeAccountId', 'otherAllowancesAccountId', 'otherDeductionsPayableAccountId'
+                        ]).forEach(function (key) {
+                            var idKey   = key;
+                            var textKey = key.replace('Id', 'Text');
+                            if (d[idKey] != null) {
+                                var option = new Option(d[textKey], d[idKey], true, true);
+                                $('#' + idKey).append(option).trigger('change');
+                                var pvSpan = PREVIEW_MAP[idKey];
+                                if (pvSpan && d[textKey]) {
+                                    var span = document.getElementById(pvSpan);
+                                    span.textContent = d[textKey];
+                                    span.classList.remove('text-muted', 'fst-italic');
+                                    span.classList.add('fw-bold', 'text-dark');
+                                }
+                            }
+                        });
+                    })
+                    .catch(function (err) { console.error('Load mapping error:', err); });
+            }
+
+            function saveMapping() {
+                var btn = document.getElementById('saveBtn');
+                var sp  = document.getElementById('saveSpinner');
+                sp.classList.remove('d-none'); btn.disabled = true;
+
+                var payload = {};
+                document.querySelectorAll('.acct-select').forEach(function (el) {
+                    payload[el.id] = el.value || null;
+                });
+
+                secureFetch(BASE + '/save', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(payload)
+                }).then(function (res) {
+                    if (res.success) {
+                        Swal.fire({icon: 'success', title: 'Saved!', text: res.message,
+                            timer: 2000, showConfirmButton: false});
+                    } else {
+                        Swal.fire({icon: 'error', title: 'Error', text: res.message});
+                    }
+                }).catch(function (err) {
+                    Swal.fire({icon: 'error', title: 'Error', text: err.message || 'Save failed.'});
+                }).finally(function () {
+                    sp.classList.add('d-none'); btn.disabled = false;
+                });
+            }
+        })();
+    </script>
+</section>
+</html>

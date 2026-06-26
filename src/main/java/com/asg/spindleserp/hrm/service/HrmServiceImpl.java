@@ -1,5 +1,6 @@
 package com.asg.spindleserp.hrm.service;
 
+import com.asg.spindleserp.accounts.entity.JournalEntryMaster;
 import com.asg.spindleserp.common.dto.DataTableResponse;
 import com.asg.spindleserp.common.util.CommonUtils;
 import com.asg.spindleserp.hrm.dto.*;
@@ -40,6 +41,8 @@ public class HrmServiceImpl implements HrmService {
     private final DepartmentRepository       deptRepo;
     private final OrganizationRepository     orgRepo;
     private final UserRepository             userRepo;
+    private final PayrollJournalService payrollJournalService;
+    private final PayrollAccountMappingRepository payrollMappingRepo;
     private final JdbcTemplate               jdbcTemplate;
 
     // =========================================================================
@@ -598,27 +601,68 @@ public class HrmServiceImpl implements HrmService {
     @Override @Transactional(readOnly = true)
     public PayrollRunDTO findPayrollRunById(Long id) { return toDTO(findRun(id)); }
 
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Replace the existing approvePayrollRun method:
+// ─────────────────────────────────────────────────────────────────────────────
+
     @Override
     public PayrollRunDTO approvePayrollRun(Long id) {
         PayrollRun run = findRun(id);
         if (run.getStatus() != PayrollRun.PayrollStatus.COMPLETED)
             throw new IllegalStateException("Only COMPLETED payroll runs can be approved.");
+
+        // 1. Flip payroll status
         run.setStatus(PayrollRun.PayrollStatus.APPROVED);
         run.setApprovedBy(ContextProvider.getCurrentUsername());
         run.setApprovedAt(LocalDateTime.now());
         audit(run, false);
-        return toDTO(runRepo.save(run));
+        PayrollRun saved = runRepo.save(run);
+
+        // 2. Auto-generate GL journal entry
+        try {
+            JournalEntryMaster journal = payrollJournalService.generatePayrollJournal(saved);
+            saved.setJournalEntry(journal);
+            saved = runRepo.save(saved);
+            log.info("Payroll run #{} approved. Journal entry {} created.", id, journal.getVoucherNo());
+        } catch (Exception ex) {
+            log.error("Payroll approved but journal entry failed for run #{}: {}", id, ex.getMessage());
+            // Rethrow so the transaction rolls back — payroll stays COMPLETED, not APPROVED
+            throw new IllegalStateException("Payroll approved but GL posting failed: " + ex.getMessage(), ex);
+        }
+
+        return toDTO(saved);
     }
+
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Replace the existing markPayrollPaid method:
+// ─────────────────────────────────────────────────────────────────────────────
 
     @Override
     public PayrollRunDTO markPayrollPaid(Long id) {
         PayrollRun run = findRun(id);
         if (run.getStatus() != PayrollRun.PayrollStatus.APPROVED)
             throw new IllegalStateException("Only APPROVED payroll runs can be marked as PAID.");
+
         run.setStatus(PayrollRun.PayrollStatus.PAID);
-        run.getLines().forEach(l -> { l.setPaymentStatus(PayrollRunLine.PaymentStatus.PAID); lineRepo.save(l); });
+
+        // Mark all lines as PAID
+        run.getLines().forEach(l -> {
+            l.setPaymentStatus(PayrollRunLine.PaymentStatus.PAID);
+            lineRepo.save(l);
+        });
+
         audit(run, false);
-        return toDTO(runRepo.save(run));
+        PayrollRun saved = runRepo.save(run);
+
+        // Generate PAYMENT_VOUCHER: Dr Salary Payable → Cr Bank/Cash
+        // (Optional: trigger payment journal if bank account is configured)
+        // payrollJournalService.generatePaymentJournal(saved);
+
+        log.info("Payroll run #{} marked as PAID.", id);
+        return toDTO(saved);
     }
 
     @Override
@@ -645,6 +689,8 @@ public class HrmServiceImpl implements HrmService {
                    r.total_gross, r.total_deductions, r.total_net,
                    COALESCE(r.approved_by,'—') AS approved_by,
                    TO_CHAR(r.created_at,'DD-Mon-YYYY') AS created_at,
+                   r.journal_entry_id,
+                  jem.voucher_no,
                    CASE r.status
                        WHEN 'DRAFT'       THEN '<span class="badge bg-secondary">Draft</span>'
                        WHEN 'PROCESSING'  THEN '<span class="badge bg-info text-dark">Processing</span>'
@@ -666,6 +712,7 @@ public class HrmServiceImpl implements HrmService {
                       ELSE '' END
                    || '</div>' AS actions
             FROM hrm_payroll_runs r
+                LEFT JOIN acc_journal_entry_master jem ON jem.id = r.journal_entry_id
             %s ORDER BY r.payroll_month DESC OFFSET %d LIMIT %d
             """, where, start, length);
         List<Map<String,Object>> rows = jdbcTemplate.queryForList(sql);
