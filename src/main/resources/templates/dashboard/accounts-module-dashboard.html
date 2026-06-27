@@ -2,7 +2,6 @@
 <html xmlns:th="http://www.thymeleaf.org"
       xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
       th:replace="~{layout/base :: layout(~{::title}, ~{::main-content})}">
-
 <title>Accounts Dashboard</title>
 
 <main-content>
@@ -232,7 +231,7 @@
     </div>
   </div>
 </div>
-
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 <script th:inline="javascript">
 (function () {
   'use strict';
@@ -252,7 +251,6 @@
   window.accLoadDashboard = function () {
     document.getElementById('acc-last-updated').textContent = 'Refreshing…';
     secureFetch('/accounts/dashboard/summary')
-      .then(r => r.json())
       .then(d => {
         const a = d.accounts || {}, ar = d.arAging || {}, ap = d.apAging || {};
 

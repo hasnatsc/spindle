@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<!--
+  accounts/trial-balance.html    GET /accounts/trial-balance
+  Data: GET /accounts/trial-balance/data?asOfDate=&showZeroBalance=
+  Returns: { accounts:[{account_code,account_name,account_type,level,total_debit,total_credit}],
+             summary:{totalDebit,totalCredit,accountCount} }
+-->
+<html th:replace="~{layout/base :: layout('Trial Balance', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
+<section>
+  <ol class="breadcrumb float-xl-end">
+    <li class="breadcrumb-item"><a th:href="@{/dashboard}">Home</a></li>
+    <li class="breadcrumb-item"><a th:href="@{/accounts/dashboard}">Accounts</a></li>
+    <li class="breadcrumb-item active">Trial Balance</li>
+  </ol>
+  <h1 class="page-header">Trial Balance <small>all accounts debit &amp; credit totals as of date</small></h1>
+
+  <div class="d-flex gap-2 mb-3 flex-wrap">
+    <a th:href="@{/accounts/dashboard}"     class="btn btn-sm btn-outline-primary"><i class="fas fa-tachometer-alt me-1"></i> Dashboard</a>
+    <a th:href="@{/accounts/ledger}"        class="btn btn-sm btn-outline-secondary"><i class="fas fa-list-ul me-1"></i> Ledger</a>
+    <a th:href="@{/accounts/trial-balance}" class="btn btn-sm btn-primary"><i class="fas fa-scale-balanced me-1"></i> Trial Balance</a>
+    <a th:href="@{/accounts/profit-loss}"   class="btn btn-sm btn-outline-secondary"><i class="fas fa-chart-line me-1"></i> P&amp;L</a>
+    <a th:href="@{/accounts/balance-sheet}" class="btn btn-sm btn-outline-secondary"><i class="fas fa-file-invoice me-1"></i> Balance Sheet</a>
+  </div>
+
+  <!-- FILTER -->
+  <div class="panel panel-inverse">
+    <div class="panel-heading"><div class="panel-title"><i class="fas fa-filter me-1"></i> Parameters</div></div>
+    <div class="panel-body">
+      <div class="row g-2 align-items-end">
+        <div class="col-6 col-md-3 view-group">
+          <input type="date" id="tbAsOf" class="form-control hs_span_view">
+          <label class="input-label">As of Date <span class="text-danger">*</span></label>
+        </div>
+        <div class="col-6 col-md-3 d-flex align-items-center gap-2 pt-3">
+          <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" id="tbShowZero">
+            <label class="form-check-label" for="tbShowZero">Include Zero Balances</label>
+          </div>
+        </div>
+        <div class="col-12 col-md-6 d-flex gap-2">
+          <button class="btn btn-success" onclick="tbLoad()"><i class="fas fa-sync-alt me-1"></i> Generate</button>
+          <button class="btn btn-outline-secondary" onclick="window.print()"><i class="fas fa-print me-1"></i> Print</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- BALANCE BANNER -->
+  <div class="row g-2 mb-3" id="tbBanner" style="display:none!important">
+    <div class="col-6 col-md-3"><div class="widget widget-stats bg-green" style="padding:12px"><div class="stats-info"><h4>TOTAL DEBIT</h4><p id="tbTotDr">0.00</p></div></div></div>
+    <div class="col-6 col-md-3"><div class="widget widget-stats bg-red"   style="padding:12px"><div class="stats-info"><h4>TOTAL CREDIT</h4><p id="tbTotCr">0.00</p></div></div></div>
+    <div class="col-6 col-md-3"><div class="widget widget-stats bg-blue"  style="padding:12px"><div class="stats-info"><h4>ACCOUNTS</h4><p id="tbAcctCnt">0</p></div></div></div>
+    <div class="col-6 col-md-3"><div id="tbBalWidget" class="widget widget-stats bg-green" style="padding:12px"><div class="stats-icon"><i id="tbBalIcon" class="fas fa-check-circle"></i></div><div class="stats-info"><h4>STATUS</h4><p id="tbBalLabel">Balanced</p></div></div></div>
+  </div>
+
+  <!-- TABLE -->
+  <div class="panel panel-inverse" id="tbPanel" style="display:none">
+    <div class="panel-heading">
+      <div class="panel-title" id="tbTitle"><i class="fas fa-scale-balanced me-1"></i> Trial Balance</div>
+      <div class="panel-heading-btn">
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-default" data-toggle="panel-expand"><i class="fa fa-expand"></i></a>
+      </div>
+    </div>
+    <div class="panel-body p-0">
+      <div class="table-responsive">
+        <table class="table table-sm table-bordered mb-0" style="font-size:13px">
+          <thead class="table-dark">
+            <tr><th width="12%">Code</th><th>Account Name</th><th width="10%">Type</th><th class="text-center" width="6%">Lvl</th><th class="text-end" width="12%">Debit (৳)</th><th class="text-end" width="12%">Credit (৳)</th></tr>
+          </thead>
+          <tbody id="tbBody"><tr><td colspan="6" class="text-center text-muted py-4">Set date and click Generate.</td></tr></tbody>
+          <tfoot>
+            <tr class="fw-bold table-warning">
+              <td colspan="4" class="text-end">Grand Total:</td>
+              <td id="tbFtDr" class="text-end">—</td>
+              <td id="tbFtCr" class="text-end">—</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script th:inline="none">
+  (function () {
+    'use strict';
+    var TYPE_CLS = {ASSET:'bg-blue',LIABILITY:'bg-orange',EQUITY:'bg-purple',REVENUE:'bg-green',EXPENSE:'bg-red'};
+    document.addEventListener('DOMContentLoaded', function () {
+      document.getElementById('tbAsOf').value = new Date().toISOString().split('T')[0];
+    });
+    window.tbLoad = function () {
+      var asOf = document.getElementById('tbAsOf').value;
+      var zero = document.getElementById('tbShowZero').checked;
+      if (!asOf) { Swal.fire('Required','Please select a date.','warning'); return; }
+      document.getElementById('tbBody').innerHTML =
+        '<tr><td colspan="6" class="text-center py-3"><span class="spinner-border spinner-border-sm me-2"></span>Generating…</td></tr>';
+      document.getElementById('tbPanel').style.display  = '';
+      document.getElementById('tbBanner').style.display = '';
+      secureFetch('/accounts/trial-balance/data?asOfDate='+asOf+'&showZeroBalance='+zero).then(function(data){
+        if (data.error) { Swal.fire('Error',data.error,'error'); return; }
+        var rows = data.accounts || [], meta = data.summary || {};
+        var totDr = parseFloat(meta.totalDebit  || 0);
+        var totCr = parseFloat(meta.totalCredit || 0);
+        var diff  = Math.abs(totDr - totCr), balanced = diff < 0.01;
+        document.getElementById('tbTotDr').textContent    = _fmtN(totDr);
+        document.getElementById('tbTotCr').textContent    = _fmtN(totCr);
+        document.getElementById('tbAcctCnt').textContent  = (meta.accountCount || rows.length) + ' accounts';
+        document.getElementById('tbBalLabel').textContent = balanced ? 'Balanced ✓' : 'Out by ৳'+_fmtN(diff);
+        document.getElementById('tbBalWidget').className  = 'widget widget-stats '+(balanced?'bg-green':'bg-danger')+' pe-3';
+        document.getElementById('tbBalIcon').className    = 'fas '+(balanced?'fa-check-circle':'fa-exclamation-circle');
+        document.getElementById('tbFtDr').textContent     = _fmtN(totDr);
+        document.getElementById('tbFtCr').textContent     = _fmtN(totCr);
+        document.getElementById('tbTitle').innerHTML      = '<i class="fas fa-scale-balanced me-1"></i> Trial Balance as of <strong>'+asOf+'</strong>';
+        if (!rows.length) { document.getElementById('tbBody').innerHTML='<tr><td colspan="6" class="text-center text-muted py-4">No posted entries found.</td></tr>'; return; }
+        var html = '', cur = '';
+        rows.forEach(function(r) {
+          var at = (r.account_type||'').toUpperCase();
+          if (at !== cur) {
+            cur = at;
+            html += '<tr class="table-secondary fw-bold"><td colspan="6" class="py-1 ps-2"><span class="badge '+(TYPE_CLS[at]||'bg-secondary')+' me-2">'+at+'</span></td></tr>';
+          }
+          var dr = parseFloat(r.total_debit ||0);
+          var cr = parseFloat(r.total_credit||0);
+          var lv = parseInt(r.level||1);
+          html += '<tr>'
+            + '<td><code class="text-success small">'+(r.account_code||'')+'</code></td>'
+            + '<td style="padding-left:'+((lv-1)*18+8)+'px">'+(lv>1?'<i class="fas fa-corner-down-right text-muted me-1 small"></i>':'')+(r.account_name||'')+'</td>'
+            + '<td><span class="badge '+(TYPE_CLS[at]||'bg-secondary')+' bg-opacity-25 text-dark small">'+at+'</span></td>'
+            + '<td class="text-center text-muted">'+lv+'</td>'
+            + '<td class="text-end '+(dr>0?'fw-semibold text-success':'text-muted')+'">'+(dr>0?_fmtN(dr):'—')+'</td>'
+            + '<td class="text-end '+(cr>0?'fw-semibold text-danger': 'text-muted')+'">'+(cr>0?_fmtN(cr):'—')+'</td>'
+            + '</tr>';
+        });
+        document.getElementById('tbBody').innerHTML = html;
+      }).catch(function(e){ Swal.fire('Error',e.message||'Request failed.','error'); });
+    };
+    function _fmtN(n){ return parseFloat(n||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+  })();
+  </script>
+</section>
+</html>

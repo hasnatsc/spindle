@@ -189,10 +189,10 @@ public class SalesDashboardService {
     private void _loadArAging(Map<String, Object> result, Long orgId, String today) {
         String sql = """
             SELECT
-              COALESCE(SUM(CASE WHEN due_date >= ?::date                           THEN COALESCE(due_amount,0) ELSE 0 END), 0) AS current_amt,
-              COALESCE(SUM(CASE WHEN due_date BETWEEN (?::date - 60) AND (?::date - 31) THEN COALESCE(due_amount,0) ELSE 0 END), 0) AS d3160,
-              COALESCE(SUM(CASE WHEN due_date BETWEEN (?::date - 90) AND (?::date - 61) THEN COALESCE(due_amount,0) ELSE 0 END), 0) AS d6190,
-              COALESCE(SUM(CASE WHEN due_date < (?::date - 90)                     THEN COALESCE(due_amount,0) ELSE 0 END), 0) AS d90plus
+              COALESCE(SUM(CASE WHEN validity_date >= ?::date                           THEN COALESCE(due_amount,0) ELSE 0 END), 0) AS current_amt,
+              COALESCE(SUM(CASE WHEN validity_date BETWEEN (?::date - 60) AND (?::date - 31) THEN COALESCE(due_amount,0) ELSE 0 END), 0) AS d3160,
+              COALESCE(SUM(CASE WHEN validity_date BETWEEN (?::date - 90) AND (?::date - 61) THEN COALESCE(due_amount,0) ELSE 0 END), 0) AS d6190,
+              COALESCE(SUM(CASE WHEN validity_date < (?::date - 90)                     THEN COALESCE(due_amount,0) ELSE 0 END), 0) AS d90plus
             FROM global_business_documents
             WHERE organization_id = ?
               AND document_type   = 'SALES_INVOICE'

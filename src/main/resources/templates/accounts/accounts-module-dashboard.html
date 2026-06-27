@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<!--
+  dashboard/accounts-module-dashboard.html    GET /accounts/dashboard
+  Data source: GET /accounts/dashboard/summary  → AccountsDashboardService.summary()
+
+  Exact JSON keys used (confirmed from AccountsDashboardService.java):
+  accounts.{totalReceivable, overdueReceivable, totalPayable, dueSoonPayable,
+            cashBankBalance, unpostedVoucherCount, overdueVoucherCount,
+            mtdRevenue (map key: mtd_revenue), mtdExpense (map key: mtd_expense),
+            openJournalCount (map key: open_journal_count),
+            reversedMTD (map key: reversed_mtd),
+            totalCOA (map key: total_coa), totalSub (map key: total_sub)}
+  arAging.{current, d3160, d6190, d90plus}
+  apAging.{current, d3160, d6190, d90plus}
+  cashBankAccounts.[{account_title, account_type, balance}]
+  topReceivables.[{party_name, balance}]
+  topPayables.[{party_name, balance}]
+  recentVouchers.[{voucher_no, voucher_type, voucher_date, total_amount, voucher_status, narration}]
+  monthlyPL.[{month, revenue, expense}]
+  voucherTypes.[{voucher_type, count, total_amount}]
+-->
+<html th:replace="~{layout/base :: layout('Accounts Dashboard', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
+<section>
+
+  <ol class="breadcrumb float-xl-end">
+    <li class="breadcrumb-item"><a th:href="@{/dashboard}">Home</a></li>
+    <li class="breadcrumb-item">Accounts</li>
+    <li class="breadcrumb-item active">Dashboard</li>
+  </ol>
+  <h1 class="page-header">Accounts Dashboard <small>GL · AP · AR · Cash &amp; Bank · P&amp;L</small></h1>
+
+  <!-- MODULE NAV -->
+  <div class="d-flex gap-2 mb-3 flex-wrap">
+    <a th:href="@{/accounts/dashboard}"        class="btn btn-sm btn-primary"><i class="fas fa-tachometer-alt me-1"></i> Dashboard</a>
+    <a th:href="@{/accounts/journals}"         class="btn btn-sm btn-outline-primary"><i class="fas fa-book me-1"></i> Journal</a>
+    <a th:href="@{/accounts/payment-vouchers}" class="btn btn-sm btn-outline-primary"><i class="fas fa-money-bill-transfer me-1"></i> Payment</a>
+    <a th:href="@{/accounts/receipt-vouchers}" class="btn btn-sm btn-outline-primary"><i class="fas fa-money-bill-wave me-1"></i> Receipt</a>
+    <a th:href="@{/accounts/contra-vouchers}"  class="btn btn-sm btn-outline-primary"><i class="fas fa-arrow-right-arrow-left me-1"></i> Contra</a>
+    <a th:href="@{/accounts/aging}"            class="btn btn-sm btn-outline-warning"><i class="fas fa-hourglass-half me-1"></i> Aging</a>
+    <span class="border-start mx-1"></span>
+    <a th:href="@{/accounts/ledger}"           class="btn btn-sm btn-outline-secondary"><i class="fas fa-list-ul me-1"></i> Ledger</a>
+    <a th:href="@{/accounts/trial-balance}"    class="btn btn-sm btn-outline-secondary"><i class="fas fa-scale-balanced me-1"></i> Trial Balance</a>
+    <a th:href="@{/accounts/profit-loss}"      class="btn btn-sm btn-outline-secondary"><i class="fas fa-chart-line me-1"></i> P&amp;L</a>
+    <a th:href="@{/accounts/balance-sheet}"    class="btn btn-sm btn-outline-secondary"><i class="fas fa-file-invoice me-1"></i> Balance Sheet</a>
+  </div>
+
+  <!-- ROW 1: 6 KPI WIDGETS -->
+  <div class="row g-3 mb-3">
+    <div class="col-6 col-xl-2">
+      <div class="widget widget-stats bg-blue">
+        <div class="stats-icon"><i class="fas fa-hand-holding-dollar"></i></div>
+        <div class="stats-info"><h4>RECEIVABLE</h4><p id="kpiAR">৳ —</p></div>
+        <div class="stats-link"><a th:href="@{/accounts/aging}">AP/AR Aging <i class="fa fa-arrow-alt-circle-right"></i></a></div>
+      </div>
+    </div>
+    <div class="col-6 col-xl-2">
+      <div class="widget widget-stats bg-red">
+        <div class="stats-icon"><i class="fas fa-triangle-exclamation"></i></div>
+        <div class="stats-info"><h4>OVERDUE AR</h4><p id="kpiOverdueAR">৳ —</p></div>
+        <div class="stats-link"><a th:href="@{/accounts/aging}">View Aging <i class="fa fa-arrow-alt-circle-right"></i></a></div>
+      </div>
+    </div>
+    <div class="col-6 col-xl-2">
+      <div class="widget widget-stats bg-orange">
+        <div class="stats-icon"><i class="fas fa-file-invoice-dollar"></i></div>
+        <div class="stats-info"><h4>PAYABLE</h4><p id="kpiAP">৳ —</p></div>
+        <div class="stats-link"><a th:href="@{/accounts/aging}">AP Aging <i class="fa fa-arrow-alt-circle-right"></i></a></div>
+      </div>
+    </div>
+    <div class="col-6 col-xl-2">
+      <div class="widget widget-stats bg-green">
+        <div class="stats-icon"><i class="fas fa-building-columns"></i></div>
+        <div class="stats-info"><h4>CASH &amp; BANK</h4><p id="kpiCashBank">৳ —</p></div>
+        <div class="stats-link"><a th:href="@{/accounts/sub-accounts}">Sub-Accounts <i class="fa fa-arrow-alt-circle-right"></i></a></div>
+      </div>
+    </div>
+    <div class="col-6 col-xl-2">
+      <div class="widget widget-stats bg-purple">
+        <div class="stats-icon"><i class="fas fa-arrow-trend-up"></i></div>
+        <div class="stats-info"><h4>MTD REVENUE</h4><p id="kpiRevenue">৳ —</p></div>
+        <div class="stats-link"><a th:href="@{/accounts/profit-loss}">P&amp;L Report <i class="fa fa-arrow-alt-circle-right"></i></a></div>
+      </div>
+    </div>
+    <div class="col-6 col-xl-2">
+      <div class="widget widget-stats bg-grey">
+        <div class="stats-icon"><i class="fas fa-clock-rotate-left"></i></div>
+        <div class="stats-info"><h4>UNPOSTED JVs</h4><p id="kpiUnposted">—</p></div>
+        <div class="stats-link"><a th:href="@{/accounts/journals}">Open Journals <i class="fa fa-arrow-alt-circle-right"></i></a></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ROW 2: 12-Month P&L Chart + Voucher Type Donut -->
+  <div class="row g-3 mb-3">
+    <div class="col-12 col-xl-8">
+      <div class="panel panel-inverse h-100">
+        <div class="panel-heading">
+          <div class="panel-title"><i class="fas fa-chart-area me-1"></i> 12-Month Revenue vs Expense Trend</div>
+          <div class="panel-heading-btn">
+            <a href="javascript:;" class="btn btn-sm btn-icon btn-default" data-toggle="panel-expand"><i class="fa fa-expand"></i></a>
+            <a href="javascript:;" class="btn btn-sm btn-icon btn-success" data-toggle="panel-reload"><i class="fa fa-redo"></i></a>
+          </div>
+        </div>
+        <div class="panel-body">
+          <canvas id="plChart" height="110"></canvas>
+        </div>
+      </div>
+    </div>
+    <div class="col-12 col-xl-4">
+      <div class="panel panel-inverse h-100">
+        <div class="panel-heading">
+          <div class="panel-title"><i class="fas fa-chart-pie me-1"></i> Voucher Types (MTD)</div>
+        </div>
+        <div class="panel-body d-flex flex-column align-items-center justify-content-center">
+          <canvas id="vtChart" width="200" height="200"></canvas>
+          <div id="vtLegend" class="mt-2 w-100 small"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ROW 3: AR Aging + AP Aging -->
+  <div class="row g-3 mb-3">
+    <div class="col-12 col-md-6">
+      <div class="panel panel-inverse">
+        <div class="panel-heading">
+          <div class="panel-title"><i class="fas fa-user-tie me-1 text-primary"></i> AR Aging (Receivables)</div>
+          <div class="panel-heading-btn">
+            <a th:href="@{/accounts/aging}" class="btn btn-xs btn-primary"><i class="fas fa-expand-alt me-1"></i> Full Report</a>
+          </div>
+        </div>
+        <div class="panel-body p-0">
+          <table class="table table-sm table-bordered mb-0">
+            <thead class="table-light"><tr><th>Bucket</th><th class="text-end">Amount (৳)</th><th class="text-end">%</th></tr></thead>
+            <tbody id="arAgingBody"><tr><td colspan="3" class="text-center py-3"><span class="spinner-border spinner-border-sm me-1"></span></td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <div class="col-12 col-md-6">
+      <div class="panel panel-inverse">
+        <div class="panel-heading">
+          <div class="panel-title"><i class="fas fa-truck me-1 text-warning"></i> AP Aging (Payables)</div>
+          <div class="panel-heading-btn">
+            <a th:href="@{/accounts/aging}" class="btn btn-xs btn-warning"><i class="fas fa-expand-alt me-1"></i> Full Report</a>
+          </div>
+        </div>
+        <div class="panel-body p-0">
+          <table class="table table-sm table-bordered mb-0">
+            <thead class="table-light"><tr><th>Bucket</th><th class="text-end">Amount (৳)</th><th class="text-end">%</th></tr></thead>
+            <tbody id="apAgingBody"><tr><td colspan="3" class="text-center py-3"><span class="spinner-border spinner-border-sm me-1"></span></td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ROW 4: Top AR + Top AP -->
+  <div class="row g-3 mb-3">
+    <div class="col-12 col-md-6">
+      <div class="panel panel-inverse">
+        <div class="panel-heading">
+          <div class="panel-title"><i class="fas fa-ranking-star me-1 text-primary"></i> Top Receivables (Customer)</div>
+        </div>
+        <div class="panel-body p-0">
+          <table class="table table-sm table-bordered mb-0">
+            <thead class="table-light"><tr><th>Customer</th><th class="text-end">Balance (৳)</th></tr></thead>
+            <tbody id="topARBody"><tr><td colspan="2" class="text-center text-muted py-2">Loading…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <div class="col-12 col-md-6">
+      <div class="panel panel-inverse">
+        <div class="panel-heading">
+          <div class="panel-title"><i class="fas fa-ranking-star me-1 text-warning"></i> Top Payables (Supplier)</div>
+        </div>
+        <div class="panel-body p-0">
+          <table class="table table-sm table-bordered mb-0">
+            <thead class="table-light"><tr><th>Supplier</th><th class="text-end">Balance (৳)</th></tr></thead>
+            <tbody id="topAPBody"><tr><td colspan="2" class="text-center text-muted py-2">Loading…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ROW 5: Cash/Bank + Recent Vouchers -->
+  <div class="row g-3 mb-3">
+    <div class="col-12 col-md-4">
+      <div class="panel panel-inverse">
+        <div class="panel-heading">
+          <div class="panel-title"><i class="fas fa-wallet me-1 text-success"></i> Cash &amp; Bank Accounts</div>
+        </div>
+        <div class="panel-body p-0">
+          <table class="table table-sm table-bordered mb-0">
+            <thead class="table-light"><tr><th>Account</th><th>Type</th><th class="text-end">Balance (৳)</th></tr></thead>
+            <tbody id="cashBankBody"><tr><td colspan="3" class="text-center text-muted py-2">Loading…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <div class="col-12 col-md-8">
+      <div class="panel panel-inverse">
+        <div class="panel-heading">
+          <div class="panel-title"><i class="fas fa-receipt me-1"></i> Recent Vouchers</div>
+          <div class="panel-heading-btn">
+            <a th:href="@{/accounts/journals}" class="btn btn-xs btn-success"><i class="fa fa-list me-1"></i> All</a>
+          </div>
+        </div>
+        <div class="panel-body p-0">
+          <div class="table-responsive">
+            <table class="table table-sm table-bordered mb-0 text-nowrap">
+              <thead class="table-light"><tr>
+                <th>Voucher No</th><th>Type</th><th>Date</th>
+                <th class="text-end">Amount (৳)</th><th>Status</th><th>Narration</th>
+              </tr></thead>
+              <tbody id="recentVoucherBody"><tr><td colspan="6" class="text-center text-muted py-2">Loading…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ROW 6: 4 secondary KPI widgets -->
+  <div class="row g-3 mb-1">
+    <div class="col-6 col-md-3">
+      <div class="widget widget-stats bg-teal">
+        <div class="stats-icon"><i class="fas fa-sitemap"></i></div>
+        <div class="stats-info"><h4>COA ACCOUNTS</h4><p id="kpiTotalCOA">—</p></div>
+        <div class="stats-link"><a th:href="@{/accounts/chart}">Manage COA <i class="fa fa-arrow-alt-circle-right"></i></a></div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="widget widget-stats bg-lime">
+        <div class="stats-icon"><i class="fas fa-diagram-project"></i></div>
+        <div class="stats-info"><h4>SUB-ACCOUNTS</h4><p id="kpiTotalSub">—</p></div>
+        <div class="stats-link"><a th:href="@{/accounts/sub-accounts}">Manage Sub <i class="fa fa-arrow-alt-circle-right"></i></a></div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="widget widget-stats bg-purple">
+        <div class="stats-icon"><i class="fas fa-arrow-trend-down"></i></div>
+        <div class="stats-info"><h4>MTD EXPENSE</h4><p id="kpiExpense">৳ —</p></div>
+        <div class="stats-link"><a th:href="@{/accounts/profit-loss}">P&amp;L <i class="fa fa-arrow-alt-circle-right"></i></a></div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="widget widget-stats bg-dark">
+        <div class="stats-icon"><i class="fas fa-rotate-left"></i></div>
+        <div class="stats-info"><h4>REVERSED MTD</h4><p id="kpiReversed">—</p></div>
+        <div class="stats-link"><a th:href="@{/accounts/journals}">Journals <i class="fa fa-arrow-alt-circle-right"></i></a></div>
+      </div>
+    </div>
+  </div>
+
+  <script th:inline="none">
+  (function () {
+    'use strict';
+    var _plChart, _vtChart;
+    var CHART_COLORS = ['#1f6bff','#28a745','#ffc107','#dc3545','#6f42c1','#fd7e14','#20c997','#e83e8c'];
+
+    // ── Formatters ─────────────────────────────────────────────────────────
+    function _fmt(n) {
+      var v = parseFloat(n || 0);
+      if (v >= 10000000) return '৳ ' + (v / 10000000).toFixed(2) + ' Cr';
+      if (v >= 100000)   return '৳ ' + (v / 100000).toFixed(2) + ' L';
+      if (v >= 1000)     return '৳ ' + (v / 1000).toFixed(1) + 'K';
+      return '৳ ' + v.toFixed(2);
+    }
+    function _fmtN(n)  { return parseFloat(n || 0).toLocaleString('en-IN', {minimumFractionDigits:2,maximumFractionDigits:2}); }
+    function _badge(s) {
+      var m = {POSTED:'bg-success',DRAFT:'bg-warning text-dark',REVERSED:'bg-secondary',CANCELLED:'bg-danger'};
+      return '<span class="badge ' + (m[s] || 'bg-light text-dark') + '">' + (s||'—') + '</span>';
+    }
+    function _agingRows(ag, bodyId) {
+      // Keys from AccountsDashboardService: current, d3160, d6190, d90plus  (note: NO d030 bucket)
+      var buckets = [
+        {label:'Current',    key:'current',  cls:'bg-primary'},
+        {label:'31-60 Days', key:'d3160',    cls:'bg-warning text-dark'},
+        {label:'61-90 Days', key:'d6190',    cls:'bg-orange'},
+        {label:'90+ Days',   key:'d90plus',  cls:'bg-danger'}
+      ];
+      var total = buckets.reduce(function(a,b){ return a + parseFloat(ag[b.key]||0); }, 0);
+      var html = buckets.map(function(b) {
+        var v = parseFloat(ag[b.key] || 0);
+        var pct = total > 0 ? (v / total * 100).toFixed(1) : '0.0';
+        return '<tr><td><span class="badge ' + b.cls + '">' + b.label + '</span></td>'
+             + '<td class="text-end">' + _fmtN(v) + '</td>'
+             + '<td class="text-end">' + pct + '%</td></tr>';
+      }).join('');
+      html += '<tr class="fw-bold table-light"><td>Total</td><td class="text-end">' + _fmtN(total) + '</td><td class="text-end">100%</td></tr>';
+      document.getElementById(bodyId).innerHTML = html;
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+      _initCharts();
+      _load();
+    });
+
+    function _load() {
+      secureFetch('/accounts/dashboard/summary').then(function (data) {
+        if (!data || data.error) { console.error('Dashboard err:', data && data.error); return; }
+        var a = data.accounts || {};
+        // KPI row 1
+        document.getElementById('kpiAR').textContent       = _fmt(a.totalReceivable);
+        document.getElementById('kpiOverdueAR').textContent= _fmt(a.overdueReceivable);
+        document.getElementById('kpiAP').textContent       = _fmt(Math.abs(parseFloat(a.totalPayable || 0)));
+        document.getElementById('kpiCashBank').textContent = _fmt(a.cashBankBalance);
+        document.getElementById('kpiRevenue').textContent  = _fmt(a.mtdRevenue   || a.mtd_revenue);
+        document.getElementById('kpiUnposted').textContent = (a.unpostedVoucherCount || a.unposted_voucher_count || 0) + ' vouchers';
+        // KPI row 2
+        document.getElementById('kpiExpense').textContent  = _fmt(a.mtdExpense   || a.mtd_expense);
+        document.getElementById('kpiReversed').textContent = (a.reversedMTD || a.reversed_mtd || 0) + ' entries';
+        document.getElementById('kpiTotalCOA').textContent = (a.totalCOA    || a.total_coa    || 0) + ' accounts';
+        document.getElementById('kpiTotalSub').textContent = (a.totalSub    || a.total_sub    || 0) + ' accounts';
+        // Aging panels
+        _agingRows(data.arAging || {}, 'arAgingBody');
+        _agingRows(data.apAging || {}, 'apAgingBody');
+        // Tables
+        _fillTopAR(data.topReceivables || []);
+        _fillTopAP(data.topPayables    || []);
+        _fillCashBank(data.cashBankAccounts || []);
+        _fillRecentVouchers(data.recentVouchers || []);
+        // Charts
+        _fillPlChart(data.monthlyPL    || []);
+        _fillVtChart(data.voucherTypes || []);
+      }).catch(function(e){ console.error('Dashboard fetch:', e); });
+    }
+
+    function _fillTopAR(list) {
+      if (!list.length) { document.getElementById('topARBody').innerHTML = '<tr><td colspan="2" class="text-center text-muted">No data</td></tr>'; return; }
+      var max = Math.max.apply(null, list.map(function(r){ return parseFloat(r.balance||0); }));
+      document.getElementById('topARBody').innerHTML = list.map(function(r) {
+        var pct = max > 0 ? Math.round(parseFloat(r.balance||0)/max*100) : 0;
+        return '<tr><td>' + (r.party_name||'—')
+          + '<div class="progress mt-1" style="height:3px"><div class="progress-bar bg-primary" style="width:'+pct+'%"></div></div></td>'
+          + '<td class="text-end fw-bold text-primary">'+_fmtN(r.balance)+'</td></tr>';
+      }).join('');
+    }
+    function _fillTopAP(list) {
+      if (!list.length) { document.getElementById('topAPBody').innerHTML = '<tr><td colspan="2" class="text-center text-muted">No data</td></tr>'; return; }
+      var max = Math.max.apply(null, list.map(function(r){ return parseFloat(r.balance||0); }));
+      document.getElementById('topAPBody').innerHTML = list.map(function(r) {
+        var pct = max > 0 ? Math.round(parseFloat(r.balance||0)/max*100) : 0;
+        return '<tr><td>' + (r.party_name||'—')
+          + '<div class="progress mt-1" style="height:3px"><div class="progress-bar bg-warning" style="width:'+pct+'%"></div></div></td>'
+          + '<td class="text-end fw-bold text-warning">'+_fmtN(r.balance)+'</td></tr>';
+      }).join('');
+    }
+    function _fillCashBank(list) {
+      if (!list.length) { document.getElementById('cashBankBody').innerHTML = '<tr><td colspan="3" class="text-center text-muted">No accounts</td></tr>'; return; }
+      document.getElementById('cashBankBody').innerHTML = list.map(function(r) {
+        var t   = (r.account_type||'').toUpperCase();
+        var ico = t==='BANK' ? '<i class="fas fa-building-columns text-primary me-1"></i>' : '<i class="fas fa-money-bill-wave text-success me-1"></i>';
+        var bal = parseFloat(r.balance||0);
+        return '<tr><td>' + ico + (r.account_title||'—') + '</td>'
+          + '<td><span class="badge ' + (t==='BANK'?'bg-primary':'bg-success') + ' bg-opacity-25 text-dark">' + t + '</span></td>'
+          + '<td class="text-end fw-bold ' + (bal>=0?'text-success':'text-danger') + '">' + _fmtN(bal) + '</td></tr>';
+      }).join('');
+    }
+    function _fillRecentVouchers(list) {
+      if (!list.length) { document.getElementById('recentVoucherBody').innerHTML = '<tr><td colspan="6" class="text-center text-muted">No vouchers</td></tr>'; return; }
+      document.getElementById('recentVoucherBody').innerHTML = list.map(function(r) {
+        var narr = (r.narration||''); if(narr.length>40) narr=narr.substring(0,40)+'…';
+        return '<tr>'
+          + '<td><strong class="text-primary">' + (r.voucher_no||'—') + '</strong></td>'
+          + '<td><span class="badge bg-secondary bg-opacity-25 text-dark small">' + (r.voucher_type||'').replace(/_/g,' ') + '</span></td>'
+          + '<td class="text-muted">' + (r.voucher_date||'—') + '</td>'
+          + '<td class="text-end">' + _fmtN(r.total_amount) + '</td>'
+          + '<td>' + _badge(r.voucher_status) + '</td>'
+          + '<td class="text-muted small">' + narr + '</td></tr>';
+      }).join('');
+    }
+
+    // ── Charts ─────────────────────────────────────────────────────────────
+    function _initCharts() {
+      _plChart = new Chart(document.getElementById('plChart').getContext('2d'), {
+        type: 'bar',
+        data: { labels:[], datasets:[
+          {label:'Revenue', data:[], backgroundColor:'rgba(40,167,69,0.65)', borderColor:'#28a745', borderWidth:1},
+          {label:'Expense', data:[], backgroundColor:'rgba(220,53,69,0.4)',  borderColor:'#dc3545', borderWidth:1},
+          {label:'Net P/L', data:[], type:'line', borderColor:'#1f6bff', backgroundColor:'transparent', pointRadius:3, borderWidth:2, tension:0.35, yAxisID:'y'}
+        ]},
+        options: {
+          responsive:true, interaction:{mode:'index', intersect:false},
+          plugins:{legend:{position:'bottom'}},
+          scales:{y:{ticks:{callback:function(v){ return '৳'+Math.abs(v/1000).toFixed(0)+'K'; }}}}
+        }
+      });
+      _vtChart = new Chart(document.getElementById('vtChart').getContext('2d'), {
+        type:'doughnut',
+        data:{labels:[], datasets:[{data:[], backgroundColor:CHART_COLORS, hoverOffset:6}]},
+        options:{responsive:false, plugins:{legend:{display:false}}, cutout:'62%'}
+      });
+    }
+    function _fillPlChart(list) {
+      if (!list.length) return;
+      _plChart.data.labels               = list.map(function(r){ return r.month; });
+      _plChart.data.datasets[0].data     = list.map(function(r){ return parseFloat(r.revenue||0); });
+      _plChart.data.datasets[1].data     = list.map(function(r){ return parseFloat(r.expense||0); });
+      _plChart.data.datasets[2].data     = list.map(function(r){ return parseFloat(r.revenue||0)-parseFloat(r.expense||0); });
+      _plChart.update();
+    }
+    function _fillVtChart(list) {
+      if (!list.length) return;
+      _vtChart.data.labels                    = list.map(function(r){ return (r.voucher_type||'').replace(/_/g,' '); });
+      _vtChart.data.datasets[0].data          = list.map(function(r){ return parseInt(r.count||0); });
+      _vtChart.data.datasets[0].backgroundColor = list.map(function(_,i){ return CHART_COLORS[i%CHART_COLORS.length]; });
+      _vtChart.update();
+      document.getElementById('vtLegend').innerHTML = list.map(function(r,i){
+        return '<div class="d-flex justify-content-between align-items-center mb-1">'
+          + '<span><i class="fas fa-circle me-1" style="color:'+CHART_COLORS[i%CHART_COLORS.length]+'"></i>'
+          + (r.voucher_type||'').replace(/_/g,' ') + '</span>'
+          + '<strong>' + (r.count||0) + '</strong></div>';
+      }).join('');
+    }
+  })();
+  </script>
+</section>
+</html>

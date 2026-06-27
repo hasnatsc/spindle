@@ -155,37 +155,111 @@ INSERT INTO sec_permissions (name, description, url_pattern, http_method, module
 ('sal.receipt.create',        'Create receipt voucher',      '/sales/receipts/save',         'POST',   'SALES_CUSTOMER_OPERATIONS', 'SALES', true, NOW(), NOW())
 ON CONFLICT (name) DO NOTHING;
 
--- ── Accounts ──────────────────────────────────────────────────────────────────
-INSERT INTO sec_permissions (name, description, url_pattern, http_method, module, category, active, created_at, updated_at) VALUES
-('acc.coa.view',              'View chart of accounts',      '/accounts/chart/**',           'GET',    'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
-('acc.coa.create',            'Create COA entry',            '/accounts/chart/save',         'POST',   'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
-('acc.coa.edit',              'Edit COA entry',              '/accounts/chart/save',         'POST',   'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
-('acc.coa.delete',            'Delete COA entry',            '/accounts/chart/delete/**',    'DELETE', 'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
-('acc.coa.toggle',            'Toggle COA entry status',     '/accounts/chart/toggle/**',    'POST',   'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
-('acc.subacc.view',           'View sub-accounts',           '/accounts/sub-accounts/**',    'GET',    'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
-('acc.subacc.create',         'Create sub-account',          '/accounts/sub-accounts/save',  'POST',   'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
-('acc.subacc.edit',           'Edit sub-account',            '/accounts/sub-accounts/save',  'POST',   'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
-('acc.bank_acc.view',         'View bank accounts',          '/accounts/bank-accounts/**',   'GET',    'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
-('acc.bank_acc.create',       'Create bank account',         '/accounts/bank-accounts/save', 'POST',   'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
-('acc.mapping.view',          'View account mappings',       '/accounts/mapping/**',         'GET',    'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
-('acc.mapping.create',        'Create account mapping',      '/accounts/mapping/save',       'POST',   'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
-('acc.period.view',           'View accounting periods',     '/accounts/periods/**',         'GET',    'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
-('acc.period.create',         'Create accounting period',    '/accounts/periods/save',       'POST',   'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
-('acc.period.close',          'Close accounting period',     '/accounts/periods/close/**',   'POST',   'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
-('acc.journal.view',          'View journal vouchers',       '/accounts/journals/**',        'GET',    'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
-('acc.journal.create',        'Create journal voucher',      '/accounts/journals/save',      'POST',   'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
-('acc.journal.post',          'Post journal voucher',        '/accounts/journals/post/**',   'POST',   'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
-('acc.journal.delete',        'Delete journal voucher',      '/accounts/journals/delete/**', 'DELETE', 'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
-('acc.payment.view',          'View payment vouchers',       '/accounts/payment-vouchers/**','GET',    'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
-('acc.payment.create',        'Create payment voucher',      '/accounts/payment-vouchers/save','POST', 'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
-('acc.receipt.view',          'View receipt vouchers',       '/accounts/receipt-vouchers/**','GET',    'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
-('acc.receipt.create',        'Create receipt voucher',      '/accounts/receipt-vouchers/save','POST', 'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
-('acc.contra.view',           'View contra vouchers',        '/accounts/contra-vouchers/**', 'GET',    'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
-('acc.contra.create',         'Create contra voucher',       '/accounts/contra-vouchers/save','POST',  'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
-('acc.ledger.view',           'View general ledger',         '/accounts/ledger/**',          'GET',    'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
-('acc.trial_bal.view',        'View trial balance',          '/accounts/trial-balance/**',   'GET',    'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
-('acc.profit_loss.view',      'View profit & loss',          '/accounts/profit-loss/**',     'GET',    'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
-('acc.balance_sheet.view',    'View balance sheet',          '/accounts/balance-sheet/**',   'GET',    'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW())
+-- =============================================================================
+-- V99__accounts_permissions_seed.sql
+-- Accounts / GL module permissions for sec_permissions
+-- Module: FINANCE_ACCOUNTS  Category: ACCOUNTS
+-- All rows use ON CONFLICT (name) DO NOTHING for idempotency.
+-- =============================================================================
+
+INSERT INTO sec_permissions (name, description, url_pattern, http_method, category, module, active, created_at, updated_at) VALUES
+
+-- ── DASHBOARD ─────────────────────────────────────────────────────────────────
+('acc.dashboard.view',          'View accounts module dashboard',        '/accounts/dashboard',            'GET',    'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
+('acc.dashboard.summary',       'Accounts dashboard summary JSON',       '/accounts/dashboard/summary',    'GET',    'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
+
+-- ── CHART OF ACCOUNTS (COA) ───────────────────────────────────────────────────
+('acc.coa.view',                'View chart of accounts',                '/accounts/chart-of-accounts',    'GET',    'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
+('acc.coa.list',                'List COA (DataTable)',                  '/accounts/chart-of-accounts/list','GET',   'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
+('acc.coa.show',                'Show COA detail',                       '/accounts/chart-of-accounts/show/**','GET','FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
+('acc.coa.create',              'Create chart of account',               '/accounts/chart-of-accounts/save','POST',  'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
+('acc.coa.edit',                'Edit chart of account',                 '/accounts/chart-of-accounts/save','POST',  'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
+('acc.coa.toggle',              'Activate/deactivate COA',               '/accounts/chart-of-accounts/toggle/**','POST','FINANCE_ACCOUNTS','ACCOUNTS',true, NOW(), NOW()),
+('acc.coa.delete',              'Delete chart of account',               '/accounts/chart-of-accounts/delete/**','DELETE','FINANCE_ACCOUNTS','ACCOUNTS',true,NOW(), NOW()),
+('acc.coa.search',              'Search COA (Select2)',                  '/accounts/chart-of-accounts/search','GET', 'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
+('acc.coa.tree',                'COA tree view',                         '/accounts/chart-of-accounts/tree','GET',   'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
+
+-- ── SUB-ACCOUNTS ──────────────────────────────────────────────────────────────
+('acc.sub.view',                'View sub-accounts',                     '/accounts/sub-accounts',         'GET',    'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
+('acc.sub.list',                'List sub-accounts (DataTable)',          '/accounts/sub-accounts/list',    'GET',    'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
+('acc.sub.show',                'Show sub-account detail',               '/accounts/sub-accounts/show/**', 'GET',    'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
+('acc.sub.create',              'Create sub-account',                    '/accounts/sub-accounts/save',    'POST',   'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
+('acc.sub.edit',                'Edit sub-account',                      '/accounts/sub-accounts/save',    'POST',   'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
+('acc.sub.toggle',              'Activate/deactivate sub-account',       '/accounts/sub-accounts/toggle/**','POST',  'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
+('acc.sub.delete',              'Delete sub-account',                    '/accounts/sub-accounts/delete/**','DELETE', 'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
+('acc.sub.search',              'Search sub-accounts (Select2)',         '/accounts/sub-accounts/search',  'GET',    'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
+('acc.sub.types',               'Sub-account type list',                 '/accounts/sub-accounts/types',   'GET',    'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
+
+-- ── JOURNAL VOUCHER ───────────────────────────────────────────────────────────
+('acc.jv.view',                 'View journal voucher page',             '/accounts/journals',             'GET',    'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
+('acc.jv.list',                 'List journal vouchers (DataTable)',      '/accounts/vouchers/list',        'GET',    'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
+('acc.jv.show',                 'Show journal voucher detail',           '/accounts/vouchers/show/**',     'GET',    'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
+('acc.jv.create',               'Create / save journal voucher',         '/accounts/vouchers/save',        'POST',   'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
+('acc.jv.post',                 'Post journal voucher',                  '/accounts/vouchers/post/**',     'POST',   'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
+('acc.jv.reverse',              'Reverse journal voucher',               '/accounts/vouchers/reverse/**',  'POST',   'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
+('acc.jv.delete',               'Delete draft journal voucher',          '/accounts/vouchers/delete/**',   'DELETE', 'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
+
+-- ── PAYMENT VOUCHER ───────────────────────────────────────────────────────────
+('acc.pv.view',                 'View payment voucher page',             '/accounts/payment-vouchers',     'GET',    'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
+
+-- ── RECEIPT VOUCHER ───────────────────────────────────────────────────────────
+('acc.rv.view',                 'View receipt voucher page',             '/accounts/receipt-vouchers',     'GET',    'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
+
+-- ── CONTRA VOUCHER ────────────────────────────────────────────────────────────
+('acc.cv.view',                 'View contra voucher page',              '/accounts/contra-vouchers',      'GET',    'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
+
+-- ── ALLOCATIONS / SETTLEMENT ──────────────────────────────────────────────────
+('acc.alloc.open_for_party',    'Get open vouchers for party (allocation picker)', '/accounts/vouchers/open-for-party','GET','FINANCE_ACCOUNTS','ACCOUNTS',true, NOW(), NOW()),
+
+-- ── AGING REPORT ──────────────────────────────────────────────────────────────
+('acc.aging.view',              'View AP/AR aging report page',          '/accounts/aging',                'GET',    'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
+('acc.aging.summary',           'Aging summary (DataTable)',             '/accounts/aging/summary',        'GET',    'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
+('acc.aging.detail',            'Aging detail for a party',             '/accounts/aging/detail',         'GET',    'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
+
+-- ── ACCOUNTING PERIODS ────────────────────────────────────────────────────────
+('acc.period.view',             'View accounting periods',               '/accounts/periods',              'GET',    'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
+('acc.period.list',             'List periods (DataTable)',              '/accounts/periods/list',         'GET',    'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
+('acc.period.show',             'Show period detail',                    '/accounts/periods/show/**',      'GET',    'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
+('acc.period.create',           'Create accounting period',              '/accounts/periods/save',         'POST',   'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
+('acc.period.edit',             'Edit accounting period',                '/accounts/periods/save',         'POST',   'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
+('acc.period.toggle',           'Open/close accounting period',         '/accounts/periods/toggle/**',    'POST',   'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
+('acc.period.delete',           'Delete accounting period',              '/accounts/periods/delete/**',    'DELETE', 'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
+
+-- ── OPENING BALANCES ──────────────────────────────────────────────────────────
+('acc.ob.view',                 'View opening balances',                 '/accounts/opening-balances',     'GET',    'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
+('acc.ob.list',                 'List opening balances (DataTable)',     '/accounts/opening-balances/list','GET',    'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
+('acc.ob.show',                 'Show opening balance detail',           '/accounts/opening-balances/show/**','GET', 'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
+('acc.ob.create',               'Create opening balance',                '/accounts/opening-balances/save','POST',  'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
+('acc.ob.edit',                 'Edit opening balance',                  '/accounts/opening-balances/save','POST',  'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
+('acc.ob.post',                 'Post opening balance to GL',            '/accounts/opening-balances/post/**','POST','FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
+('acc.ob.delete',               'Delete opening balance',                '/accounts/opening-balances/delete/**','DELETE','FINANCE_ACCOUNTS','ACCOUNTS',true,NOW(), NOW()),
+
+-- ── ACCOUNTS MAPPING ──────────────────────────────────────────────────────────
+('acc.mapping.view',            'View accounts mapping',                 '/accounts/mapping',              'GET',    'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
+('acc.mapping.list',            'List mappings (DataTable)',             '/accounts/mapping/list',         'GET',    'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
+('acc.mapping.show',            'Show mapping detail',                   '/accounts/mapping/show/**',      'GET',    'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
+('acc.mapping.create',          'Create accounts mapping',               '/accounts/mapping/save',         'POST',   'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
+('acc.mapping.edit',            'Edit accounts mapping',                 '/accounts/mapping/save',         'POST',   'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
+('acc.mapping.toggle',          'Activate/deactivate mapping',           '/accounts/mapping/toggle/**',    'POST',   'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
+('acc.mapping.delete',          'Delete accounts mapping',               '/accounts/mapping/delete/**',    'DELETE', 'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
+
+-- ── ACCOUNTS POLICY ───────────────────────────────────────────────────────────
+('acc.policy.view',             'View accounts policies',                '/accounts/policy',               'GET',    'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
+('acc.policy.list',             'List policies (DataTable)',             '/accounts/policy/list',          'GET',    'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
+('acc.policy.show',             'Show policy detail',                    '/accounts/policy/show/**',       'GET',    'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
+('acc.policy.create',           'Create accounts policy',                '/accounts/policy/save',          'POST',   'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
+('acc.policy.edit',             'Edit accounts policy',                  '/accounts/policy/save',          'POST',   'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
+('acc.policy.toggle',           'Activate/deactivate policy',            '/accounts/policy/toggle/**',     'POST',   'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
+('acc.policy.delete',           'Delete accounts policy',                '/accounts/policy/delete/**',     'DELETE', 'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
+('acc.policy.voucher_types',    'Voucher type reference list',           '/accounts/policy/voucher-types', 'GET',    'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
+('acc.policy.module_types',     'Module type reference list',            '/accounts/policy/module-types',  'GET',    'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
+
+-- ── GL REPORTS ────────────────────────────────────────────────────────────────
+('acc.ledger.view',             'View general ledger',                   '/accounts/ledger/**',            'GET',    'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
+('acc.trial_bal.view',          'View trial balance',                    '/accounts/trial-balance/**',     'GET',    'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
+('acc.profit_loss.view',        'View profit & loss',                    '/accounts/profit-loss/**',       'GET',    'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
+('acc.balance_sheet.view',      'View balance sheet',                    '/accounts/balance-sheet/**',     'GET',    'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW())
+
 ON CONFLICT (name) DO NOTHING;
 
 -- ── HRM ───────────────────────────────────────────────────────────────────────

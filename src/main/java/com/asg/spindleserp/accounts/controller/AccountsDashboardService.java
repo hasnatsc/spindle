@@ -1,4 +1,4 @@
-package com.asg.spindleserp.dashboard;
+package com.asg.spindleserp.accounts.controller;
 
 import com.asg.spindleserp.security.auth.SecurityHelper;
 import lombok.RequiredArgsConstructor;
@@ -189,11 +189,10 @@ public class AccountsDashboardService {
             WHERE organization_id = ? AND document_type = 'SALES_INVOICE'
               AND COALESCE(due_amount,0) > 0 AND is_deleted = false
             """;
-        List<Map<String, Object>> rows = jdbc.queryForList(sql,
-                today, today, today, today, today, today, today, orgId);
+        List<Map<String, Object>> rows = jdbc.queryForList(sql, today, today, today, today, today, today, orgId);
         Map<String, Object> m = new LinkedHashMap<>();
         if (!rows.isEmpty()) {
-            Map<String, Object> r = rows.get(0);
+            Map<String, Object> r = rows.getFirst();
             m.put("current", toBD(r, "current_amt"));
             m.put("d3160",   toBD(r, "d3160"));
             m.put("d6190",   toBD(r, "d6190"));
@@ -216,8 +215,7 @@ public class AccountsDashboardService {
             WHERE organization_id = ? AND document_type = 'PURCHASE_INVOICE'
               AND COALESCE(due_amount,0) > 0 AND is_deleted = false
             """;
-        List<Map<String, Object>> rows = jdbc.queryForList(sql,
-                today, today, today, today, today, today, today, orgId);
+        List<Map<String, Object>> rows = jdbc.queryForList(sql, today, today, today, today, today, today, orgId);
         Map<String, Object> m = new LinkedHashMap<>();
         if (!rows.isEmpty()) {
             Map<String, Object> r = rows.get(0);

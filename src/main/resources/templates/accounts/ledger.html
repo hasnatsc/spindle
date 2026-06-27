@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<!--
+  accounts/ledger.html    GET /accounts/ledger
+  Data: GET /accounts/ledger/data?accountId=&startDate=&endDate=
+  Returns: { accountName, lines:[{voucher_date,voucher_no,voucher_type,debit,credit,narration,reference_no,running_balance}],
+             summary:{openingBalance,totalDebit,totalCredit,closingBalance} }
+-->
+<html th:replace="~{layout/base :: layout('General Ledger', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
+<section>
+  <ol class="breadcrumb float-xl-end">
+    <li class="breadcrumb-item"><a th:href="@{/dashboard}">Home</a></li>
+    <li class="breadcrumb-item"><a th:href="@{/accounts/dashboard}">Accounts</a></li>
+    <li class="breadcrumb-item active">General Ledger</li>
+  </ol>
+  <h1 class="page-header">General Ledger <small>account-level posting history with running balance</small></h1>
+
+  <div class="d-flex gap-2 mb-3 flex-wrap">
+    <a th:href="@{/accounts/dashboard}"     class="btn btn-sm btn-outline-primary"><i class="fas fa-tachometer-alt me-1"></i> Dashboard</a>
+    <a th:href="@{/accounts/ledger}"        class="btn btn-sm btn-primary"><i class="fas fa-list-ul me-1"></i> Ledger</a>
+    <a th:href="@{/accounts/trial-balance}" class="btn btn-sm btn-outline-secondary"><i class="fas fa-scale-balanced me-1"></i> Trial Balance</a>
+    <a th:href="@{/accounts/profit-loss}"   class="btn btn-sm btn-outline-secondary"><i class="fas fa-chart-line me-1"></i> P&amp;L</a>
+    <a th:href="@{/accounts/balance-sheet}" class="btn btn-sm btn-outline-secondary"><i class="fas fa-file-invoice me-1"></i> Balance Sheet</a>
+  </div>
+
+  <!-- FILTER -->
+  <div class="panel panel-inverse">
+    <div class="panel-heading">
+      <div class="panel-title"><i class="fas fa-filter me-1"></i> Ledger Filter</div>
+      <div class="panel-heading-btn">
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-default" data-toggle="panel-collapse"><i class="fa fa-minus"></i></a>
+      </div>
+    </div>
+    <div class="panel-body">
+      <div class="row g-2 align-items-end">
+        <div class="col-12 col-md-4 view-group">
+          <select id="glAccountId" class="form-select hs_span_view" style="width:100%"><option value="">— Select Account —</option></select>
+          <label class="input-label">Account <span class="text-danger">*</span></label>
+        </div>
+        <div class="col-6 col-md-2 view-group">
+          <input type="date" id="glStartDate" class="form-control hs_span_view">
+          <label class="input-label">From Date</label>
+        </div>
+        <div class="col-6 col-md-2 view-group">
+          <input type="date" id="glEndDate" class="form-control hs_span_view">
+          <label class="input-label">To Date</label>
+        </div>
+        <div class="col-12 col-md-4 d-flex gap-2">
+          <button class="btn btn-success" onclick="glLoad()"><i class="fas fa-search me-1"></i> Load Ledger</button>
+          <button class="btn btn-white"   onclick="glReset()"><i class="fas fa-xmark me-1"></i> Reset</button>
+          <button class="btn btn-outline-secondary" onclick="window.print()"><i class="fas fa-print me-1"></i> Print</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- KPI BANNER -->
+  <div class="row g-2 mb-3" id="glKpiBanner" style="display:none!important">
+    <div class="col-6 col-md-3">
+      <div class="widget widget-stats bg-blue" style="padding:12px">
+        <div class="stats-info"><h4>OPENING BALANCE</h4><p id="glOpBal">0.00</p></div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="widget widget-stats bg-green" style="padding:12px">
+        <div class="stats-info"><h4>TOTAL DEBIT</h4><p id="glTotalDr">0.00</p></div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="widget widget-stats bg-red" style="padding:12px">
+        <div class="stats-info"><h4>TOTAL CREDIT</h4><p id="glTotalCr">0.00</p></div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="widget widget-stats bg-purple" style="padding:12px">
+        <div class="stats-info"><h4>CLOSING BALANCE</h4><p id="glClBal">0.00</p></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TABLE -->
+  <div class="panel panel-inverse" id="glResultPanel" style="display:none">
+    <div class="panel-heading">
+      <div class="panel-title" id="glPanelTitle"><i class="fas fa-list-ul me-1"></i> Ledger Entries</div>
+      <div class="panel-heading-btn">
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-default" data-toggle="panel-expand"><i class="fa fa-expand"></i></a>
+      </div>
+    </div>
+    <div class="panel-body p-0">
+      <div class="table-responsive">
+        <table class="table table-sm table-bordered table-striped mb-0" style="font-size:13px">
+          <thead class="table-dark">
+            <tr>
+              <th width="1%">#</th>
+              <th width="12%">Date</th>
+              <th width="14%">Voucher No</th>
+              <th width="10%">Type</th>
+              <th>Narration</th>
+              <th width="10%">Reference</th>
+              <th class="text-end" width="10%">Debit (৳)</th>
+              <th class="text-end" width="10%">Credit (৳)</th>
+              <th class="text-end" width="12%">Balance (৳)</th>
+            </tr>
+          </thead>
+          <tbody id="glBody">
+            <tr><td colspan="9" class="text-center text-muted py-4">Select an account and click Load Ledger.</td></tr>
+          </tbody>
+          <tfoot>
+            <tr class="fw-bold table-warning">
+              <td colspan="6" class="text-end">Totals:</td>
+              <td id="glFtDr"  class="text-end">—</td>
+              <td id="glFtCr"  class="text-end">—</td>
+              <td id="glFtBal" class="text-end">—</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script th:inline="none">
+  (function () {
+    'use strict';
+    document.addEventListener('DOMContentLoaded', function () {
+      var now = new Date(), y = now.getFullYear(), m = now.getMonth()+1;
+      document.getElementById('glStartDate').value = y+'-'+String(m).padStart(2,'0')+'-01';
+      document.getElementById('glEndDate').value   = new Date(y,m,0).toISOString().split('T')[0];
+      $('#glAccountId').select2({
+        placeholder:'— Search Account (code or name) —', allowClear:true, width:'100%',
+        ajax:{
+          url:'/accounts/chart/search', dataType:'json', delay:250,
+          data:function(p){ return {search:p.term||'',page:p.page||1}; },
+          processResults:function(d){ return {results:(d.items||[]).map(function(i){ return {id:i.id,text:i.code+' — '+i.name}; }),pagination:{more:d.hasMore}}; }
+        }
+      });
+    });
+
+    window.glLoad = function () {
+      var id = document.getElementById('glAccountId').value;
+      var s  = document.getElementById('glStartDate').value;
+      var e  = document.getElementById('glEndDate').value;
+      if (!id) { Swal.fire('Required','Please select an account.','warning'); return; }
+      document.getElementById('glBody').innerHTML =
+        '<tr><td colspan="9" class="text-center py-3"><span class="spinner-border spinner-border-sm me-2"></span>Loading…</td></tr>';
+      document.getElementById('glResultPanel').style.display = '';
+      document.getElementById('glKpiBanner').style.display   = '';
+      var qs = '?accountId='+id+(s?'&startDate='+s:'')+(e?'&endDate='+e:'');
+      secureFetch('/accounts/ledger/data'+qs).then(function(data){
+        if (data.error) { Swal.fire('Error',data.error,'error'); return; }
+        var lines = data.lines || [], meta = data.summary || {};
+        document.getElementById('glPanelTitle').innerHTML = '<i class="fas fa-list-ul me-1"></i> Ledger: <strong>'+(data.accountName||'')+'</strong>';
+        document.getElementById('glOpBal').textContent  = _fmtBal(meta.openingBalance||0);
+        document.getElementById('glTotalDr').textContent= _fmtN(meta.totalDebit||0);
+        document.getElementById('glTotalCr').textContent= _fmtN(meta.totalCredit||0);
+        document.getElementById('glClBal').textContent  = _fmtBal(meta.closingBalance||0);
+        document.getElementById('glFtDr').textContent   = _fmtN(meta.totalDebit||0);
+        document.getElementById('glFtCr').textContent   = _fmtN(meta.totalCredit||0);
+        document.getElementById('glFtBal').textContent  = _fmtBal(meta.closingBalance||0);
+        if (!lines.length) {
+          document.getElementById('glBody').innerHTML =
+            '<tr><td colspan="9" class="text-center text-muted py-4">No transactions for this period.</td></tr>'; return;
+        }
+        var html = '', ob = parseFloat(meta.openingBalance||0), sl = 1;
+        html += '<tr class="table-info fw-bold">'
+          + '<td>'+(sl++)+'</td><td>'+(s||'')+'</td>'
+          + '<td colspan="3" class="fst-italic text-muted">Opening Balance</td>'
+          + '<td>—</td><td class="text-end">—</td><td class="text-end">—</td>'
+          + '<td class="text-end">' + _fmtBal(ob) + '</td></tr>';
+        lines.forEach(function(r) {
+          var dr  = parseFloat(r.debit  || 0);
+          var cr  = parseFloat(r.credit || 0);
+          var run = parseFloat(r.running_balance || 0);
+          var narr= (r.narration||''); if(narr.length>55) narr=narr.substring(0,55)+'…';
+          html += '<tr>'
+            + '<td>'+(sl++)+'</td>'
+            + '<td>'+( r.voucher_date||'—')+'</td>'
+            + '<td><strong class="text-primary">'+(r.voucher_no||'—')+'</strong></td>'
+            + '<td><span class="badge bg-secondary bg-opacity-25 text-dark small">'+(r.voucher_type||'').replace(/_/g,' ')+'</span></td>'
+            + '<td class="text-muted small">'+narr+'</td>'
+            + '<td class="small">'+(r.reference_no||'—')+'</td>'
+            + '<td class="text-end '+(dr>0?'text-success fw-semibold':'text-muted')+'">'+(dr>0?_fmtN(dr):'—')+'</td>'
+            + '<td class="text-end '+(cr>0?'text-danger fw-semibold': 'text-muted')+'">'+(cr>0?_fmtN(cr):'—')+'</td>'
+            + '<td class="text-end fw-bold '+(run>=0?'text-success':'text-danger')+'">'+_fmtBal(run)+'</td>'
+            + '</tr>';
+        });
+        document.getElementById('glBody').innerHTML = html;
+      }).catch(function(e){ Swal.fire('Error',e.message||'Request failed.','error'); });
+    };
+
+    window.glReset = function () {
+      $('#glAccountId').val(null).trigger('change');
+      document.getElementById('glResultPanel').style.display = 'none';
+      document.getElementById('glKpiBanner').style.display   = 'none';
+    };
+    function _fmtN(n) { return parseFloat(n||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+    function _fmtBal(n) { var v=parseFloat(n||0); return v<0?'('+_fmtN(Math.abs(v))+')':_fmtN(v); }
+  })();
+  </script>
+</section>
+</html>

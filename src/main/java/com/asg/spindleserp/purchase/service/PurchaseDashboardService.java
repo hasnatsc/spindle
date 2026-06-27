@@ -100,9 +100,7 @@ public class PurchaseDashboardService {
     // 1. MASTER PURCHASE KPIs  — single conditional-aggregation pass
     // ─────────────────────────────────────────────────────────────────────────
 
-    private void _loadPurchaseKpis(Map<String, Object> result, Long orgId,
-                                    String today, String mtdStart,
-                                    String prev7, String prev5) {
+    private void _loadPurchaseKpis(Map<String, Object> result, Long orgId, String today, String mtdStart, String prev7, String prev5) {
         String sql = """
             SELECT
               /* ── PURCHASE REQUISITIONS ─────────────────────────── */
@@ -288,7 +286,7 @@ public class PurchaseDashboardService {
         int avgLead = 0;
         try {
             List<Map<String, Object>> lr = jdbc.queryForList(leadSql, orgId);
-            if (!lr.isEmpty()) avgLead = toLong(lr.get(0), "avg_lead_days").intValue();
+            if (!lr.isEmpty()) avgLead = toLong(lr.getFirst(), "avg_lead_days").intValue();
         } catch (Exception ignored) {}
 
         // Active supplier count + suppliers with open PO + suppliers with overdue AP
@@ -340,13 +338,13 @@ public class PurchaseDashboardService {
         long vchOverdue = 0;
         try {
             List<Map<String, Object>> vr = jdbc.queryForList(vchSql, orgId, today);
-            if (!vr.isEmpty()) vchOverdue = toLong(vr.get(0), "overdue_count");
+            if (!vr.isEmpty()) vchOverdue = toLong(vr.getFirst(), "overdue_count");
         } catch (Exception ignored) {}
 
         // Assemble purchase map
         Map<String, Object> p = new LinkedHashMap<>();
         if (!rows.isEmpty()) {
-            Map<String, Object> r = rows.get(0);
+            Map<String, Object> r = rows.getFirst();
             p.put("prPendingCount",       toLong(r, "pr_pending_count"));
             p.put("prPendingValue",       toBD(r, "pr_pending_value"));
             p.put("prOverdue5d",          toLong(r, "pr_overdue_5d"));
@@ -383,13 +381,13 @@ public class PurchaseDashboardService {
         p.put("avgLeadDays",           avgLead);
         p.put("voucherOverdueCount",   vchOverdue);
         if (!suppRows.isEmpty()) {
-            p.put("activeSupplierCount",   toLong(suppRows.get(0), "active_supplier_count"));
-            p.put("suppliersWithOpenPO",   toLong(suppRows.get(0), "suppliers_with_open_po"));
-            p.put("suppliersWithOverdueAP",toLong(suppRows.get(0), "suppliers_with_overdue_ap"));
+            p.put("activeSupplierCount",   toLong(suppRows.getFirst(), "active_supplier_count"));
+            p.put("suppliersWithOpenPO",   toLong(suppRows.getFirst(), "suppliers_with_open_po"));
+            p.put("suppliersWithOverdueAP",toLong(suppRows.getFirst(), "suppliers_with_overdue_ap"));
         }
         if (!rcvdRows.isEmpty()) {
-            p.put("totalQtyReceivedMTD",  toLong(rcvdRows.get(0), "total_qty_mtd"));
-            p.put("uniqueItemsReceivedMTD",toLong(rcvdRows.get(0), "unique_items_mtd"));
+            p.put("totalQtyReceivedMTD",  toLong(rcvdRows.getFirst(), "total_qty_mtd"));
+            p.put("uniqueItemsReceivedMTD",toLong(rcvdRows.getFirst(), "unique_items_mtd"));
         }
 
         result.put("purchase", p);
@@ -424,7 +422,7 @@ public class PurchaseDashboardService {
         List<Map<String, Object>> rows = jdbc.queryForList(sql, orgId);
         Map<String, Object> ag = new LinkedHashMap<>();
         if (!rows.isEmpty()) {
-            Map<String, Object> r = rows.get(0);
+            Map<String, Object> r = rows.getFirst();
             ag.put("current", toBD(r, "current_bal"));
             ag.put("d3160",   toBD(r, "d31_60"));
             ag.put("d6190",   toBD(r, "d61_90"));
