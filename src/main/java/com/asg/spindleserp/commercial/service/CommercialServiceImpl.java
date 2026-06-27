@@ -341,9 +341,9 @@ public class CommercialServiceImpl implements CommercialService {
     @Override @Transactional(readOnly = true)
     public Map<String, Object> dashboardSummary() {
         Long   orgId    = SecurityHelper.currentOrgId().orElse(null);
-        String f        = orgId != null ? " AND organization_id = " + orgId : "";
-        String fCI      = orgId != null ? " AND ci.organization_id = " + orgId : "";
-        String fS       = orgId != null ? " AND s.organization_id = " + orgId : "";
+        String f        = orgId != null ? " AND organization_id = " + orgId + " ": "";
+        String fCI      = orgId != null ? " AND ci.organization_id = " + orgId + " " : "";
+        String fS       = orgId != null ? " AND s.organization_id = " + orgId + " " : "";
         String today    = LocalDate.now().toString();
         String mtdStart = LocalDate.now().withDayOfMonth(1).toString();
         String yearStart= LocalDate.now().withDayOfYear(1).toString();
@@ -393,7 +393,7 @@ public class CommercialServiceImpl implements CommercialService {
         WHERE invoice_type='IMPORT'""" + f;
         List<Map<String, Object>> impRows = jdbcTemplate.queryForList(importSql, mtdStart);
         if (!impRows.isEmpty()) {
-            Map<String, Object> r = impRows.get(0);
+            Map<String, Object> r = impRows.getFirst();
             m.put("importDraft",     toLong(r, "draft"));
             m.put("importFinalized", toLong(r, "finalized"));
             m.put("importPosted",    toLong(r, "posted"));
@@ -531,7 +531,7 @@ public class CommercialServiceImpl implements CommercialService {
         FROM acc_chart_of_accounts_sub
         WHERE sub_account_type='LC'
           AND (lc_status IS NULL OR lc_status NOT IN ('SETTLED','CANCELLED'))""" +
-                (orgId!=null?" AND organization_id="+orgId:"") + """
+                (orgId != null?" AND organization_id="+orgId +" ":"") + """
         ORDER BY expiry_date ASC NULLS LAST
         LIMIT 15""", today, today));
 

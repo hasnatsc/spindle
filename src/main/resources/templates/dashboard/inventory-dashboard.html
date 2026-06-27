@@ -276,7 +276,6 @@
   window.invLoadDashboard = function () {
     document.getElementById('inv-last-updated').textContent = 'Refreshing…';
     secureFetch('/inventory/dashboard/summary')
-      .then(r => r.json())
       .then(d => {
         const inv = d.inventory || {};
 

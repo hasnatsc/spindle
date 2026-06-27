@@ -55,6 +55,12 @@ public class CommercialController {
         return "commercial/commercial-lc";
     }
 
+    @GetMapping("/commercial/dashboard")
+    public String dashboard(Model m) {
+        m.addAttribute("activePage","commercial-lc");
+        return "commercial/commercial-dashboard";
+    }
+
     // ── Dashboard ──────────────────────────────────────────────────────────────
 
     @GetMapping("/commercial/dashboard/summary")

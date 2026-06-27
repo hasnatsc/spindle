@@ -17,6 +17,9 @@ public class LcSettlement {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(name = "organization_id")
+    private Long organizationId;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "lc_id")
     private ChartOfAccountSub lc;
