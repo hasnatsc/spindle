@@ -246,7 +246,7 @@
 
     function _onSubmit(e) {
       e.preventDefault();
-      var sb=document.getElementById('revSubmitBtn'),sp=document.getElementById('revSpinner'),bt=document.getElementById('revBtnText');
+      var sb=document.getElementById('revSubmitBtn'),sp=document.getElementById('revSpinner'),bt=document.getElementById('revBtnText'), fm = document.getElementById('revForm');
       hsDisableButton(sb,sp,bt);
       var lines=[];
       document.querySelectorAll('#revLineBody tr').forEach(function(tr,idx){
@@ -267,7 +267,7 @@
         justification: document.getElementById('revJustification').value||null,
         lines
       })}).then(function(d){
-        if (d.success) { hsAfterSaveMessages(d,dt); bootstrap.Modal.getOrCreateInstance(document.getElementById('revModal')).hide(); }
+        if (d.success) { hsAfterSaveMessages(d.success, d.message, fm, dt); bootstrap.Modal.getOrCreateInstance(document.getElementById('revModal')).hide();}
         else Swal.fire('Error',d.message,'error');
       }).catch(function(err){ Swal.fire('Error',err.message||'Request failed.','error'); })
         .finally(function(){ hsEnableButton(sb,sp,bt); });

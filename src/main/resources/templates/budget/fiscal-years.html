@@ -201,7 +201,7 @@
 
     function _onSubmit(e) {
       e.preventDefault();
-      var sb=document.getElementById('fySubmitBtn'),sp=document.getElementById('fySpinner'),bt=document.getElementById('fyBtnText');
+      var sb=document.getElementById('fySubmitBtn'),sp=document.getElementById('fySpinner'),bt=document.getElementById('fyBtnText'), fm = document.getElementById('fyForm');
       hsDisableButton(sb,sp,bt);
       secureFetch(BASE+'/save',{method:'POST',body:JSON.stringify({
         id        : document.getElementById('fyId').value||null,
@@ -212,7 +212,7 @@
         notes     : document.getElementById('fyNotes').value||null,
         isCurrent : document.getElementById('fyIsCurrent').checked
       })}).then(function(d){
-        if (d.success) { hsAfterSaveMessages(d,dt); bootstrap.Modal.getOrCreateInstance(document.getElementById('fyModal')).hide(); }
+        if (d.success) { hsAfterSaveMessages(d.success, d.message, fm, dt); bootstrap.Modal.getOrCreateInstance(document.getElementById('fyModal')).hide(); }
         else Swal.fire('Error',d.message,'error');
       }).catch(function(err){ Swal.fire('Error',err.message||'Request failed.','error'); })
         .finally(function(){ hsEnableButton(sb,sp,bt); });

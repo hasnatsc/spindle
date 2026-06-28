@@ -5,6 +5,7 @@ import com.asg.spindleserp.security.dto.UserDTO;
 import com.asg.spindleserp.security.entity.User;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -48,4 +49,6 @@ public interface UserService {
     UserDTO toDTO(User user);
 
     User toEntity(UserDTO dto);
+
+    Map<String, Object> searchUsers(String search, int page);
 }

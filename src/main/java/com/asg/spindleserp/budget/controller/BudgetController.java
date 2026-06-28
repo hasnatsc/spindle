@@ -114,8 +114,11 @@ public class BudgetController {
 
     @GetMapping("/budget/fiscal-years/search")
     @ResponseBody
-    public Map<String,Object> fySearch(@RequestParam(defaultValue="") String search, @RequestParam(defaultValue="1") int page) {
-        return budgetService.searchFiscalYears(search, page).stream().findFirst().map(m -> (Map<String,Object>)(Object)m).orElse(Map.of("items", List.of(), "hasMore", false));
+    public Map<String,Object> fySearch(
+            @RequestParam(defaultValue="") String search,
+            @RequestParam(defaultValue="1") int page) {
+
+        return budgetService.searchFiscalYears(search, page);
     }
 
     // ── Budget Head ────────────────────────────────────────────────────────────

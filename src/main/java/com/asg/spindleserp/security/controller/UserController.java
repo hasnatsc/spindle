@@ -313,6 +313,12 @@ public class UserController {
         }).collect(Collectors.toList());
     }
 
+    @GetMapping("/search")
+    @ResponseBody
+    public Map<String, Object> searchUsers(@RequestParam(defaultValue = "", required = false) String search, @RequestParam(defaultValue = "1") int page) {
+        return userService.searchUsers(search, page);
+    }
+
     // ─────────────────────────────────────────────────────────────────────────
     // PRIVATE
     // ─────────────────────────────────────────────────────────────────────────

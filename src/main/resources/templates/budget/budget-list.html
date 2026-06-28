@@ -429,7 +429,7 @@
 
     function _onSubmit(e) {
       e.preventDefault();
-      var sb=document.getElementById('bgtSubmitBtn'),sp=document.getElementById('bgtSpinner'),bt=document.getElementById('bgtBtnText');
+      var sb=document.getElementById('bgtSubmitBtn'),sp=document.getElementById('bgtSpinner'),bt=document.getElementById('bgtBtnText'), fm = document.getElementById('bgtForm');
       hsDisableButton(sb,sp,bt);
       var lines=[];
       document.querySelectorAll('#bgtLineBody tr').forEach(function(tr,idx){
@@ -459,7 +459,7 @@
         isTemplate         : document.getElementById('bgtTemplate').checked,
         lines
       })}).then(function(d){
-        if (d.success) { hsAfterSaveMessages(d,dt); bootstrap.Modal.getOrCreateInstance(document.getElementById('bgtModal')).hide(); }
+        if (d.success) { hsAfterSaveMessages(d.success, d.message, fm, dt); bootstrap.Modal.getOrCreateInstance(document.getElementById('bgtModal')).hide(); }
         else Swal.fire('Error',d.message,'error');
       }).catch(function(err){ Swal.fire('Error',err.message||'Request failed.','error'); })
         .finally(function(){ hsEnableButton(sb,sp,bt); });

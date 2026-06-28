@@ -31,7 +31,7 @@ public interface BudgetService {
     /** Activate / lock / close the fiscal year */
     FiscalYearDTO updateFiscalYearStatus(Long id, String newStatus);
     DataTableResponse fiscalYearDatatable(int draw, int start, int length, String search);
-    List<Map<String, Object>> searchFiscalYears(String q, int page);
+    Map<String,Object> searchFiscalYears(String q, int page);
     FiscalYearDTO toDTO(FiscalYear entity);
 
     // ── Budget Head ───────────────────────────────────────────────────────────

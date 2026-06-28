@@ -158,16 +158,44 @@ public class BudgetServiceImpl implements BudgetService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<Map<String, Object>> searchFiscalYears(String q, int page) {
+    public Map<String, Object> searchFiscalYears(String q, int page) {
+
         Long orgId = SecurityHelper.currentOrgId().orElse(null);
-        int sz = 30, off = (page - 1) * sz;
-        String sql = "SELECT id, year_code, year_name FROM bgt_fiscal_years WHERE status != 'CLOSED'"
+
+        int size = 30;
+        int offset = (page - 1) * size;
+
+        String sql = """
+        SELECT id, year_code, year_name
+        FROM bgt_fiscal_years
+        WHERE status <> 'CLOSED'
+        """
                 + (orgId != null ? " AND organization_id = " + orgId : "")
-                + (q != null && !q.isBlank() ? " AND (year_code ILIKE '%" + q.replace("'", "''") + "%' OR year_name ILIKE '%" + q.replace("'", "''") + "%')" : "")
-                + " ORDER BY start_date DESC LIMIT " + (sz + 1) + " OFFSET " + off;
+                + (q != null && !q.isBlank()
+                ? " AND (year_code ILIKE '%" + q.replace("'", "''")
+                  + "%' OR year_name ILIKE '%" + q.replace("'", "''") + "%')"
+                : "")
+                + " ORDER BY start_date DESC LIMIT " + (size + 1) + " OFFSET " + offset;
+
         List<Map<String, Object>> rows = jdbcTemplate.queryForList(sql);
-        boolean more = rows.size() > sz;
-        return Map.of("items", rows.stream().limit(sz).map(r -> Map.of("id", r.get("id"), "text", r.get("year_code") + " — " + r.get("year_name"))).toList(), "hasMore", more).entrySet().stream().map(e -> Map.of(e.getKey(), e.getValue())).collect(Collectors.toList());
+
+        boolean hasMore = rows.size() > size;
+
+        List<Map<String, Object>> items = rows.stream()
+                .limit(size)
+                .map(r -> {
+                    Map<String, Object> item = new LinkedHashMap<>();
+                    item.put("id", r.get("id"));
+                    item.put("text", r.get("year_code") + " — " + r.get("year_name"));
+                    return item;
+                })
+                .toList();
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("items", items);
+        result.put("hasMore", hasMore);
+
+        return result;
     }
 
     @Override

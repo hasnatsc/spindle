@@ -153,7 +153,7 @@ public class CrmServiceImpl implements CrmService {
                     || '<a href="javascript:;" onclick="leadDelete(' || l.id || ')" class="btn btn-white btn-sm" title="Delete"><i class="fa-regular fa-trash-can text-danger"></i></a>'
                     || '</div>'                                       AS actions
             FROM crm_leads l
-            LEFT JOIN users u ON u.id = l.assigned_to_id
+            LEFT JOIN sec_users u ON u.id = l.assigned_to_id
             %s
             ORDER BY l.id DESC
             OFFSET %d LIMIT %d
@@ -315,14 +315,14 @@ public class CrmServiceImpl implements CrmService {
                     || '</div>'                                                  AS actions
             FROM crm_opportunities o
             LEFT JOIN acc_chart_of_accounts_sub s ON s.id = o.customer_id
-            LEFT JOIN users u ON u.id = o.assigned_to_id
+            LEFT JOIN sec_users u ON u.id = o.assigned_to_id
             %s
             ORDER BY o.id DESC
             OFFSET %d LIMIT %d
             """, where, start, length);
 
         List<Map<String, Object>> rows = jdbcTemplate.queryForList(sql);
-        long total = rows.isEmpty() ? 0L : CommonUtils.toLong(rows.get(0).get("full_count"));
+        long total = rows.isEmpty() ? 0L : CommonUtils.toLong(rows.getFirst().get("full_count"));
         return DataTableResponse.of(draw, total, total, rows);
     }
 
@@ -582,14 +582,14 @@ public class CrmServiceImpl implements CrmService {
             FROM  crm_activities a
             LEFT  JOIN acc_chart_of_accounts_sub s ON s.id = a.customer_id
             LEFT  JOIN crm_leads l                 ON l.id = a.lead_id
-            LEFT  JOIN users u                     ON u.id = a.assigned_to_id
+            LEFT  JOIN sec_users u                     ON u.id = a.assigned_to_id
             %s
             ORDER BY a.activity_date DESC, a.id DESC
             OFFSET %d LIMIT %d
             """, where, start, length);
 
         List<Map<String, Object>> rows = jdbcTemplate.queryForList(sql);
-        long total = rows.isEmpty() ? 0L : CommonUtils.toLong(rows.get(0).get("full_count"));
+        long total = rows.isEmpty() ? 0L : CommonUtils.toLong(rows.getFirst().get("full_count"));
         return DataTableResponse.of(draw, total, total, rows);
     }
 

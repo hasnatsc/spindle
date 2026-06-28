@@ -333,7 +333,7 @@
 
     function _onSubmit(e) {
       e.preventDefault();
-      var sb=document.getElementById('oppSubmitBtn'),sp=document.getElementById('oppSpinner'),bt=document.getElementById('oppBtnText');
+      var sb=document.getElementById('oppSubmitBtn'),sp=document.getElementById('oppSpinner'),bt=document.getElementById('oppBtnText'), fm = document.getElementById('oppForm');
       hsDisableButton(sb,sp,bt);
       secureFetch(BASE + '/save', { method:'POST', body: JSON.stringify({
         id              : document.getElementById('oppId').value||null,
@@ -349,7 +349,7 @@
         description     : document.getElementById('oppDesc').value||null,
         remarks         : document.getElementById('oppRemarks').value||null
       })}).then(function(d){
-        if (d.success) { hsAfterSaveMessages(d,dt); _loadPipelineKpi(); bootstrap.Modal.getOrCreateInstance(document.getElementById('oppModal')).hide(); }
+        if (d.success) { hsAfterSaveMessages(d.success, d.message, fm, dt); _loadPipelineKpi(); bootstrap.Modal.getOrCreateInstance(document.getElementById('oppModal')).hide(); }
         else { Swal.fire('Error',d.message,'error'); }
       }).catch(function(err){ Swal.fire('Error',err.message||'Request failed.','error'); })
         .finally(function(){ hsEnableButton(sb,sp,bt); });

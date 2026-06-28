@@ -3,6 +3,7 @@ package com.asg.spindleserp.security.service;
 import com.asg.spindleserp.common.dto.DataTableResponse;
 import com.asg.spindleserp.organization.entity.*;
 import com.asg.spindleserp.organization.repository.*;
+import com.asg.spindleserp.security.auth.ContextProvider;
 import com.asg.spindleserp.security.dto.UserDTO;
 import com.asg.spindleserp.security.entity.Role;
 import com.asg.spindleserp.security.entity.User;
@@ -10,6 +11,7 @@ import com.asg.spindleserp.security.repository.RoleRepository;
 import com.asg.spindleserp.security.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -55,6 +57,7 @@ public class UserServiceImpl implements UserService {
     private final CostCenterRepository   ccRepository;
     private final WarehouseRepository    whRepository;
     private final PasswordEncoder        passwordEncoder;
+    private final JdbcTemplate jdbcTemplate;
     private final UserContextService     userContextService;   // ← for default context
 
     private static final DateTimeFormatter DT = DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm");
@@ -326,6 +329,61 @@ public class UserServiceImpl implements UserService {
 
         return b.build();
     }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Map<String, Object> searchUsers(String search, int page) {
+
+        Long orgId = ContextProvider.getOrganizationId();
+        int pageSize = 30;
+        int offset = (page - 1) * pageSize;
+        StringBuilder sql = new StringBuilder("""
+        SELECT id, username, full_name, email, phone
+        FROM sec_users
+        WHERE enabled = true
+        """);
+        List<Object> params = new ArrayList<>();
+            sql.append(" AND organization_id = ?");
+            params.add(orgId);
+
+        if (search != null && !search.isBlank()) {
+            sql.append("""
+             AND (username ILIKE ? OR full_name ILIKE ? OR email ILIKE ? OR phone ILIKE ?)
+        """);
+
+            String keyword = "%" + search.trim() + "%";
+            params.add(keyword);
+            params.add(keyword);
+            params.add(keyword);
+            params.add(keyword);
+        }
+
+        sql.append("""
+        ORDER BY full_name LIMIT ? OFFSET ?
+    """);
+        params.add(pageSize + 1);
+        params.add(offset);
+        List<Map<String, Object>> rows = jdbcTemplate.queryForList(sql.toString(), params.toArray());
+        boolean hasMore = rows.size() > pageSize;
+        List<Map<String, Object>> items = rows.stream()
+                .limit(pageSize)
+                .map(r -> {
+                    Map<String, Object> item = new LinkedHashMap<>();
+                    item.put("id", r.get("id"));
+                    item.put("username", r.get("username"));
+                    item.put("fullName", r.get("full_name"));
+                    item.put("email", r.get("email"));
+                    item.put("phone", r.get("phone"));
+                    item.put("text", String.format("%s — %s", r.get("username"), r.get("full_name")));
+                    return item;
+                })
+                .toList();
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("items", items);
+        result.put("hasMore", hasMore);
+        return result;
+    }
+
 
     @Override
     public User toEntity(UserDTO dto) {

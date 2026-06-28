@@ -636,9 +636,9 @@ public class ProductionServiceImpl implements ProductionService {
      */
     @Override @Transactional(readOnly = true)
     public Map<String, Object> dashboardSummary() {
-        Long orgId = SecurityHelper.currentOrgId().orElse(null);
-        String f = orgId != null ? " AND organization_id=" + orgId : "";
-        String fj = orgId != null ? " AND p.organization_id=" + orgId : "";
+        Long orgId = ContextProvider.getOrganizationId();
+        String f  = " AND organization_id = " + orgId + " ";
+        String fj = " AND p.organization_id = " + orgId + " ";
 
         // Single pass over prd_productions — all KPIs in one query
         String kpiSql = """

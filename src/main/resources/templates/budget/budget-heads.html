@@ -180,7 +180,7 @@
 
     function _onSubmit(e) {
       e.preventDefault();
-      var sb=document.getElementById('headSubmitBtn'),sp=document.getElementById('headSpinner'),bt=document.getElementById('headBtnText');
+      var sb=document.getElementById('headSubmitBtn'),sp=document.getElementById('headSpinner'),bt=document.getElementById('headBtnText'),fm = document.getElementById('headForm');
       hsDisableButton(sb,sp,bt);
       secureFetch(BASE+'/save',{method:'POST',body:JSON.stringify({
         id          : document.getElementById('headId').value||null,
@@ -192,7 +192,7 @@
         active      : document.getElementById('headActive').checked,
         parentId    : document.getElementById('headParentId').value||null
       })}).then(function(d){
-        if (d.success) { hsAfterSaveMessages(d,dt); bootstrap.Modal.getOrCreateInstance(document.getElementById('headModal')).hide(); }
+        if (d.success) { hsAfterSaveMessages(d.success, d.message, fm, dt); bootstrap.Modal.getOrCreateInstance(document.getElementById('headModal')).hide(); }
         else Swal.fire('Error',d.message,'error');
       }).catch(function(err){ Swal.fire('Error',err.message||'Request failed.','error'); })
         .finally(function(){ hsEnableButton(sb,sp,bt); });
