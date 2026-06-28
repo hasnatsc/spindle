@@ -45,6 +45,14 @@ public class CrmController {
 
     // ── Pages ──────────────────────────────────────────────────────────────────
 
+
+    @GetMapping("/crm/dashboard")
+    public String dashboardPage(Model model) {
+        model.addAttribute("activePage", "crm-dashboard");
+        return "crm/crm-module-dashboard";
+    }
+
+
     @GetMapping("/crm/leads")
     public String leadsPage(Model model) {
         model.addAttribute("activePage", "crm-leads");

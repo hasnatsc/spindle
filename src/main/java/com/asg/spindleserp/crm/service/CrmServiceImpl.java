@@ -751,17 +751,120 @@ public class CrmServiceImpl implements CrmService {
     // DASHBOARD SUMMARY
     // =========================================================================
 
+// =========================================================================
+// DASHBOARD SUMMARY  — replace the existing dashboardSummary() method
+// File: src/main/java/com/asg/spindleserp/crm/service/CrmServiceImpl.java
+// =========================================================================
+
     @Override @Transactional(readOnly = true)
     public Map<String, Object> dashboardSummary() {
         Long orgId = SecurityHelper.currentOrgId().orElse(null);
-        String orgFilter = orgId != null ? " AND organization_id = " + orgId : "";
-        Map<String, Object> summary = new LinkedHashMap<>();
-        summary.put("openLeads",       jdbcTemplate.queryForObject("SELECT COUNT(*) FROM crm_leads WHERE status NOT IN ('CONVERTED','LOST')" + orgFilter, Long.class));
-        summary.put("openOpportunities",jdbcTemplate.queryForObject("SELECT COUNT(*) FROM crm_opportunities WHERE stage NOT IN ('WON','LOST')" + orgFilter, Long.class));
-        summary.put("openFeedback",    jdbcTemplate.queryForObject("SELECT COUNT(*) FROM crm_customer_feedback WHERE status IN ('OPEN','IN_PROGRESS')" + orgFilter, Long.class));
-        summary.put("pendingActivities",jdbcTemplate.queryForObject("SELECT COUNT(*) FROM crm_activities WHERE status = 'PLANNED'" + orgFilter, Long.class));
-        summary.put("pipelineValue",   jdbcTemplate.queryForObject("SELECT COALESCE(SUM(estimated_value * probability / 100),0) FROM crm_opportunities WHERE stage NOT IN ('WON','LOST')" + orgFilter, BigDecimal.class));
-        return summary;
+        String orgFilter     = orgId != null ? " AND organization_id = " + orgId : "";
+        String orgFilterL    = orgId != null ? " AND l.organization_id = " + orgId : "";
+        String orgFilterO    = orgId != null ? " AND o.organization_id = " + orgId : "";
+        String orgFilterF    = orgId != null ? " AND f.organization_id = " + orgId : "";
+        Map<String, Object> s = new LinkedHashMap<>();
+
+        // ── KPI cards ────────────────────────────────────────────────────────
+        s.put("openLeads",         jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM crm_leads WHERE status NOT IN ('CONVERTED','LOST','DORMANT')" + orgFilter, Long.class));
+        s.put("qualifiedLeads",    jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM crm_leads WHERE status = 'QUALIFIED'" + orgFilter, Long.class));
+        s.put("openOpportunities", jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM crm_opportunities WHERE stage NOT IN ('WON','LOST')" + orgFilter, Long.class));
+        s.put("wonOpportunities",  jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM crm_opportunities WHERE stage = 'WON'" + orgFilter, Long.class));
+        s.put("openFeedback",      jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM crm_customer_feedback WHERE status IN ('OPEN','IN_PROGRESS')" + orgFilter, Long.class));
+        s.put("pendingActivities", jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM crm_activities WHERE status = 'PLANNED'" + orgFilter, Long.class));
+        s.put("pipelineValue",     jdbcTemplate.queryForObject(
+                "SELECT COALESCE(SUM(estimated_value * probability / 100),0) FROM crm_opportunities WHERE stage NOT IN ('WON','LOST')" + orgFilter, BigDecimal.class));
+        s.put("totalPipelineValue",jdbcTemplate.queryForObject(
+                "SELECT COALESCE(SUM(estimated_value),0) FROM crm_opportunities WHERE stage NOT IN ('WON','LOST')" + orgFilter, BigDecimal.class));
+
+        // ── Lead funnel by status ─────────────────────────────────────────────
+        s.put("leadsByStatus", jdbcTemplate.queryForList(
+                "SELECT status, COUNT(*) AS cnt FROM crm_leads WHERE 1=1" + orgFilter +
+                        " GROUP BY status ORDER BY CASE status " +
+                        "WHEN 'NEW' THEN 1 WHEN 'CONTACTED' THEN 2 WHEN 'QUALIFIED' THEN 3 " +
+                        "WHEN 'UNQUALIFIED' THEN 4 WHEN 'CONVERTED' THEN 5 WHEN 'LOST' THEN 6 WHEN 'DORMANT' THEN 7 ELSE 8 END"));
+
+        // ── Opportunity pipeline by stage ─────────────────────────────────────
+        s.put("pipeline", jdbcTemplate.queryForList(
+                "SELECT stage, COUNT(*) AS cnt, " +
+                        "COALESCE(SUM(estimated_value),0) AS total_value, " +
+                        "COALESCE(SUM(estimated_value * probability / 100),0) AS weighted_value " +
+                        "FROM crm_opportunities WHERE 1=1" + orgFilter +
+                        " GROUP BY stage ORDER BY CASE stage " +
+                        "WHEN 'PROSPECT' THEN 1 WHEN 'QUALIFIED' THEN 2 WHEN 'PROPOSAL' THEN 3 " +
+                        "WHEN 'NEGOTIATION' THEN 4 WHEN 'WON' THEN 5 WHEN 'LOST' THEN 6 ELSE 7 END"));
+
+        // ── Activity breakdown by type (last 30 days) ─────────────────────────
+        s.put("activitiesByType", jdbcTemplate.queryForList(
+                "SELECT activity_type, COUNT(*) AS cnt FROM crm_activities " +
+                        "WHERE activity_date >= CURRENT_DATE - 30" + orgFilter +
+                        " GROUP BY activity_type ORDER BY cnt DESC"));
+
+        // ── Feedback by status ────────────────────────────────────────────────
+        s.put("feedbackByStatus", jdbcTemplate.queryForList(
+                "SELECT status, COUNT(*) AS cnt FROM crm_customer_feedback WHERE 1=1" + orgFilter +
+                        " GROUP BY status ORDER BY CASE status " +
+                        "WHEN 'OPEN' THEN 1 WHEN 'IN_PROGRESS' THEN 2 WHEN 'RESOLVED' THEN 3 WHEN 'CLOSED' THEN 4 ELSE 5 END"));
+
+        // ── Lead source breakdown ─────────────────────────────────────────────
+        s.put("leadsBySource", jdbcTemplate.queryForList(
+                "SELECT COALESCE(source,'Unknown') AS source, COUNT(*) AS cnt FROM crm_leads WHERE 1=1" + orgFilter +
+                        " GROUP BY COALESCE(source,'Unknown') ORDER BY cnt DESC LIMIT 8"));
+
+        // ── Monthly lead trend (last 6 months) ────────────────────────────────
+        s.put("leadTrend", jdbcTemplate.queryForList(
+                "SELECT TO_CHAR(DATE_TRUNC('month', created_at), 'Mon-YY') AS month, " +
+                        "COUNT(*) AS cnt FROM crm_leads " +
+                        "WHERE created_at >= DATE_TRUNC('month', NOW()) - INTERVAL '5 months'" + orgFilter +
+                        " GROUP BY DATE_TRUNC('month', created_at) ORDER BY DATE_TRUNC('month', created_at)"));
+
+        // ── Recent activities (last 10) ───────────────────────────────────────
+        s.put("recentActivities", jdbcTemplate.queryForList(
+                "SELECT a.id, a.activity_type, a.subject, a.status, " +
+                        "TO_CHAR(a.activity_date,'DD-Mon-YYYY') AS activity_date, " +
+                        "COALESCE(u.full_name, u.username,'—') AS assigned_to, " +
+                        "COALESCE(s.sub_account_name, l.contact_name,'—') AS related_to " +
+                        "FROM crm_activities a " +
+                        "LEFT JOIN acc_chart_of_accounts_sub s ON s.id = a.customer_id " +
+                        "LEFT JOIN crm_leads l ON l.id = a.lead_id " +
+                        "LEFT JOIN sec_users u ON u.id = a.assigned_to_id " +
+                        "WHERE a.status = 'PLANNED'" + orgFilterL.replace("l.", "a.") +
+                        " ORDER BY a.activity_date, a.id DESC LIMIT 10"));
+
+        // ── Top opportunities by value ─────────────────────────────────────────
+        s.put("topOpportunities", jdbcTemplate.queryForList(
+                "SELECT o.id, o.opportunity_no, o.title, o.stage, " +
+                        "COALESCE(o.estimated_value,0) AS estimated_value, " +
+                        "o.probability, o.currency, " +
+                        "COALESCE(s.sub_account_name,'—') AS customer_name, " +
+                        "COALESCE(TO_CHAR(o.expected_close_date,'DD-Mon-YYYY'),'—') AS expected_close_date " +
+                        "FROM crm_opportunities o " +
+                        "LEFT JOIN acc_chart_of_accounts_sub s ON s.id = o.customer_id " +
+                        "WHERE o.stage NOT IN ('WON','LOST')" + orgFilterO.replace("o.", "o.") +
+                        " ORDER BY o.estimated_value DESC NULLS LAST LIMIT 5"));
+
+        // ── Open feedback tickets ─────────────────────────────────────────────
+        s.put("openFeedbackList", jdbcTemplate.queryForList(
+                "SELECT f.id, COALESCE(f.subject,'—') AS subject, f.status, f.feedback_type, " +
+                        "TO_CHAR(f.feedback_date,'DD-Mon-YYYY') AS feedback_date, f.rating, " +
+                        "COALESCE(s.sub_account_name,'—') AS customer_name " +
+                        "FROM crm_customer_feedback f " +
+                        "LEFT JOIN acc_chart_of_accounts_sub s ON s.id = f.customer_id " +
+                        "WHERE f.status IN ('OPEN','IN_PROGRESS')" + orgFilterF.replace("f.", "f.") +
+                        " ORDER BY f.id DESC LIMIT 8"));
+
+        // ── Average rating (resolved feedback) ───────────────────────────────
+        s.put("avgRating", jdbcTemplate.queryForObject(
+                "SELECT COALESCE(AVG(rating),0) FROM crm_customer_feedback " +
+                        "WHERE status = 'RESOLVED' AND rating IS NOT NULL" + orgFilter, BigDecimal.class));
+
+        return s;
     }
 
     // =========================================================================
