@@ -1,6 +1,7 @@
 package com.asg.spindleserp.security.service;
 
 import com.asg.spindleserp.common.dto.DataTableResponse;
+import com.asg.spindleserp.security.auth.SecurityHelper;
 import com.asg.spindleserp.security.dto.RoleDTO;
 import com.asg.spindleserp.security.entity.Permission;
 import com.asg.spindleserp.security.entity.Role;
@@ -18,6 +19,24 @@ import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
 
+/**
+ * RoleServiceImpl
+ *
+ * ══════════════════════════════════════════════════════════════════════
+ * ORG-ADMIN PERMISSION ENFORCEMENT (new)
+ * ══════════════════════════════════════════════════════════════════════
+ *
+ * When an org-admin (not a super-admin) creates or updates a role,
+ * the permissions they assign are filtered through OrgModuleService:
+ *
+ *   1. Resolve the set of permission module-keys being assigned.
+ *   2. Call orgModuleService.assertPermissionsAllowedForOrg(orgId, modules).
+ *   3. If any module is not active for their org → throw, reject the save.
+ *
+ * Super-admin bypasses this check (SecurityHelper.isSuperAdmin() gate).
+ *
+ * Everything else is unchanged from the previous version.
+ */
 @Slf4j
 @Service
 @Transactional
@@ -27,6 +46,7 @@ public class RoleServiceImpl implements RoleService {
     private final RoleRepository       roleRepository;
     private final PermissionRepository permissionRepository;
     private final UserRepository       userRepository;
+    private final OrgModuleService     orgModuleService;   // ← NEW dependency
 
     private static final DateTimeFormatter DT = DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm");
     private static final String SUPER_ADMIN   = "ROLE_SUPER_ADMIN";
@@ -41,13 +61,21 @@ public class RoleServiceImpl implements RoleService {
         if (roleRepository.existsByName(roleName))
             throw new IllegalArgumentException("Role '" + roleName + "' already exists.");
 
+        Set<Permission> perms = resolvePermissions(dto.getPermissionIds());
+
+        // ── ORG-ADMIN CHECK: reject permissions for disabled modules ──────
+        if (!SecurityHelper.isSuperAdmin()) {
+            Long orgId = SecurityHelper.currentOrgId().orElse(null);
+            assertModulesAllowed(orgId, perms);
+        }
+
         Role role = Role.builder()
                 .name(roleName)
                 .nameBn(dto.getNameBn())
                 .description(dto.getDescription())
                 .masterRole(dto.getMasterRole())
                 .active(dto.isActive())
-                .permissions(resolvePermissions(dto.getPermissionIds()))
+                .permissions(perms)
                 .createdAt(LocalDateTime.now())
                 .updatedAt(LocalDateTime.now())
                 .build();
@@ -74,6 +102,30 @@ public class RoleServiceImpl implements RoleService {
                 .map(this::toDTO).toList();
     }
 
+    /**
+     * Returns only roles whose permissions are within the modules active for
+     * the current org. Super-admin gets all roles.
+     * Used by the user-form role dropdown for org-admins.
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public List<RoleDTO> findAllForCurrentOrg() {
+        if (SecurityHelper.isSuperAdmin()) return findAll();
+
+        Long orgId = SecurityHelper.currentOrgId().orElse(null);
+        Set<String> activeModules = orgId != null
+                ? orgModuleService.getActiveModuleKeys(orgId)
+                : Set.of("CORE_SECURITY");
+
+        return roleRepository.findAllActiveWithPermissions().stream()
+                .filter(role -> role.getPermissions().stream().allMatch(p ->
+                        p.getModule() == null
+                        || p.getModule().isBlank()
+                        || activeModules.contains(p.getModule().toUpperCase())))
+                .map(this::toDTO)
+                .toList();
+    }
+
     // ─────────────────────────────────────────────────────────────────────────
     // UPDATE
     // ─────────────────────────────────────────────────────────────────────────
@@ -89,12 +141,20 @@ public class RoleServiceImpl implements RoleService {
         if (roleRepository.existsByNameAndIdNot(roleName, id))
             throw new IllegalArgumentException("Role '" + roleName + "' already exists.");
 
+        Set<Permission> perms = resolvePermissions(dto.getPermissionIds());
+
+        // ── ORG-ADMIN CHECK ──────────────────────────────────────────────
+        if (!SecurityHelper.isSuperAdmin()) {
+            Long orgId = SecurityHelper.currentOrgId().orElse(null);
+            assertModulesAllowed(orgId, perms);
+        }
+
         role.setName(roleName);
         role.setNameBn(dto.getNameBn());
         role.setDescription(dto.getDescription());
         role.setMasterRole(dto.getMasterRole());
         role.setActive(dto.isActive());
-        role.setPermissions(resolvePermissions(dto.getPermissionIds()));
+        role.setPermissions(perms);
         role.setUpdatedAt(LocalDateTime.now());
 
         Role saved = roleRepository.save(role);
@@ -112,7 +172,6 @@ public class RoleServiceImpl implements RoleService {
                 .orElseThrow(() -> new IllegalArgumentException("Role #" + id + " not found."));
         guardSuperAdmin(role);
 
-        // Safety: refuse if any users still carry this role
         long userCount = userRepository.countByRoleId(id);
         if (userCount > 0)
             throw new IllegalArgumentException(
@@ -146,13 +205,26 @@ public class RoleServiceImpl implements RoleService {
     public DataTableResponse datatableList(int draw, int start, int length, String search) {
         List<Role> all = roleRepository.findAllActiveWithPermissions();
 
+        // Org-admin: filter to only roles within active modules for their org
+        if (!SecurityHelper.isSuperAdmin()) {
+            Long orgId = SecurityHelper.currentOrgId().orElse(null);
+            Set<String> activeModules = orgId != null
+                    ? orgModuleService.getActiveModuleKeys(orgId)
+                    : Set.of("CORE_SECURITY");
+            all = all.stream()
+                    .filter(role -> role.getPermissions().stream().allMatch(p ->
+                            p.getModule() == null || p.getModule().isBlank()
+                            || activeModules.contains(p.getModule().toUpperCase())))
+                    .collect(Collectors.toList());
+        }
+
         String q = search == null ? "" : search.trim().toLowerCase();
         List<Role> filtered = q.isBlank() ? all : all.stream()
                 .filter(r -> r.getName().toLowerCase().contains(q)
                           || (r.getDescription() != null && r.getDescription().toLowerCase().contains(q)))
                 .toList();
 
-        long total    = roleRepository.count();
+        long total         = roleRepository.count();
         long filteredCount = q.isBlank() ? total : filtered.size();
 
         List<Role> page = filtered.stream().skip(start).limit(length).toList();
@@ -162,19 +234,19 @@ public class RoleServiceImpl implements RoleService {
         for (Role r : page) {
             long uc = userRepository.countByRoleId(r.getId());
             Map<String, Object> row = new LinkedHashMap<>();
-            row.put("sl",          sl++);
-            row.put("name",        "<code>" + r.getName() + "</code>");
-            row.put("display_name",r.getName().replace("ROLE_", ""));
-            row.put("name_bn",     r.getNameBn() != null ? r.getNameBn() : "—");
-            row.put("description", r.getDescription() != null ? r.getDescription() : "—");
-            row.put("permissions", "<span class='badge bg-info text-dark'>"
-                                 + r.getPermissions().size() + " perms</span>");
-            row.put("users",       "<span class='badge bg-secondary'>" + uc + " users</span>");
-            row.put("status",      r.isActive()
+            row.put("sl",           sl++);
+            row.put("name",         "<code>" + r.getName() + "</code>");
+            row.put("display_name", r.getName().replace("ROLE_", ""));
+            row.put("name_bn",      r.getNameBn() != null ? r.getNameBn() : "—");
+            row.put("description",  r.getDescription() != null ? r.getDescription() : "—");
+            row.put("permissions",  "<span class='badge bg-info text-dark'>"
+                                    + r.getPermissions().size() + " perms</span>");
+            row.put("users",        "<span class='badge bg-secondary'>" + uc + " users</span>");
+            row.put("status",       r.isActive()
                     ? "<span class='badge bg-success'>Active</span>"
                     : "<span class='badge bg-danger'>Inactive</span>");
-            row.put("created_at",  r.getCreatedAt() != null ? r.getCreatedAt().format(DT) : "—");
-            row.put("actions",     buildActions(r.getId(), r.isActive()));
+            row.put("created_at",   r.getCreatedAt() != null ? r.getCreatedAt().format(DT) : "—");
+            row.put("actions",      buildActions(r.getId(), r.isActive()));
             rows.add(row);
         }
 
@@ -207,6 +279,20 @@ public class RoleServiceImpl implements RoleService {
     // ─────────────────────────────────────────────────────────────────────────
     // PRIVATE
     // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Checks that all permissions being assigned belong to modules
+     * that are active for the given org.
+     */
+    private void assertModulesAllowed(Long orgId, Set<Permission> perms) {
+        if (orgId == null || perms.isEmpty()) return;
+        Set<String> permModules = perms.stream()
+                .map(Permission::getModule)
+                .filter(m -> m != null && !m.isBlank())
+                .map(String::toUpperCase)
+                .collect(Collectors.toSet());
+        orgModuleService.assertPermissionsAllowedForOrg(orgId, permModules);
+    }
 
     private String normalizeName(String name) {
         if (name == null) return "";

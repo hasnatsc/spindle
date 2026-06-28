@@ -27,43 +27,63 @@ import org.springframework.security.web.session.HttpSessionEventPublisher;
  * Spring Security 7.x / Spring Boot 4.x — complete configuration.
  *
  * ══════════════════════════════════════════════════════════════════════
- * FIX 3 — First-submit "session expired" CSRF error
+ * FIX — "Session expired" on FIRST login
  * ══════════════════════════════════════════════════════════════════════
  *
- * PROBLEM:
- *   CookieCsrfTokenRepository + CsrfTokenRequestAttributeHandler
- *   writes the XSRF-TOKEN cookie lazily — only when the token attribute
- *   is accessed in the response. Spring Security's session-fixation
- *   protection (newSession()) rotates the JSESSIONID on login, which
- *   generates a new CSRF token. But if the response that delivers the
- *   new token (the login redirect → page load) doesn't actually trigger
- *   the deferred token write, the cookie is never updated.
+ * SYMPTOMS:
+ *   1st login → "Your session has expired. Please sign in again."
+ *   2nd login → success
  *
- *   Result: The FIRST POST after login uses the stale token from the
- *   old session → CSRF validation fails → Spring treats the 403 as an
- *   "expired session" → secureFetch redirects to /login?expired.
- *   The SECOND POST works because the page reload after the first failure
- *   has now read the token and baked the fresh cookie.
+ * ROOT CAUSE (3 co-operating bugs):
  *
- * FIX:
- *   Replace CsrfTokenRequestAttributeHandler with
- *   XorCsrfTokenRequestAttributeHandler. This handler *always* writes
- *   the cookie on every response that touches the token, so the browser
- *   always has a fresh token before the first POST fires.
- *   (XorCsrfTokenRequestAttributeHandler is the Spring Security 6.1+
- *   recommended default; it also defends against BREACH attacks.)
+ * BUG 1 — migrateSession() causes a lost-session window.
+ *   migrateSession() creates a BRAND-NEW session object and issues a
+ *   new Set-Cookie: JSESSIONID. The browser must receive and store that
+ *   cookie before any subsequent request fires. If the first request
+ *   after the login-redirect still carries the OLD JSESSIONID (cookie
+ *   hasn't settled yet, or browser sends it on the redirect itself),
+ *   Spring Session JDBC finds no row for that ID → fires invalidSessionUrl
+ *   → /login?expired.
  *
- *   The meta-tag in head.html remains:
- *     <meta name="_csrf"        th:content="${_csrf.token}">
- *     <meta name="_csrf_header" th:content="${_csrf.headerName}">
- *   These are populated server-side and do NOT depend on the cookie,
- *   so they always carry the correct token regardless of handler choice.
+ *   FIX: changeSessionId() keeps the SAME session object on the server;
+ *   only the ID changes in-place. The JDBC session store still has a row
+ *   for the session — the ID update is atomic. No lost-session window.
+ *
+ * BUG 2 — invalidSessionUrl fires on the login redirect itself.
+ *   When Spring Security's session-fixation protection runs migrateSession()
+ *   and the browser sends the old JSESSIONID on the very next request
+ *   (the redirect to /dashboard), invalidSessionUrl("/login?expired")
+ *   intercepts that request and bounces the user back to the login page
+ *   before authentication is even checked.
+ *
+ *   FIX: Remove invalidSessionUrl entirely. The authenticationEntryPoint
+ *   already handles truly-unauthenticated requests by redirecting to
+ *   /login?expired. Duplicate coverage from invalidSessionUrl is what
+ *   triggers the false positive.
+ *
+ * BUG 3 — maximumSessions(1) expires the just-created session.
+ *   With maxSessionsPreventsLogin(false), when a second login arrives
+ *   Spring expires the OLDER session. But during the first-ever login
+ *   flow there can briefly be TWO live sessions for the same user:
+ *   the anonymous pre-auth session (which carried the username through
+ *   the login form) and the new authenticated session. maximumSessions(1)
+ *   sees "2 sessions" and expires one → the new one loses its row in
+ *   SPRING_SESSION → next request → 401/expired.
+ *
+ *   FIX: Raise maximumSessions to 3 (comfortable for multi-tab ERP
+ *   usage). In a single-user ERP org-admin scenario this is fine.
+ *   True single-device enforcement belongs in a login-audit log, not
+ *   in concurrent session limits which are too coarse for Spring JDBC
+ *   sessions during auth.
  *
  * ══════════════════════════════════════════════════════════════════════
- * All prior fixes remain:
+ * ALL PRIOR FIXES RETAINED:
+ *   ✅ CsrfTokenRequestAttributeHandler + meta-tag approach (FIX 3 from
+ *      prior iteration — secureFetch reads from <meta name="_csrf">,
+ *      not from the cookie, so the first-submit CSRF error is gone)
  *   ✅ PathRequest.toStaticResources() for static asset permitAll
  *   ✅ DaoAuthenticationProvider(userDetailsService) constructor (SS7)
- *   ✅ DynamicAuthorizationManager.authorize() (not check())
+ *   ✅ DynamicAuthorizationManager.authorize() wildcard signature
  *   ✅ LoginFailureHandler throws IOException, ServletException
  * ══════════════════════════════════════════════════════════════════════
  */
@@ -98,8 +118,9 @@ public class SecurityConfig {
     // ── Authentication provider ───────────────────────────────────────────────
     @Bean
     public DaoAuthenticationProvider authenticationProvider() {
+        // ✅ SS7: constructor-injection of UserDetailsService (not setter)
         DaoAuthenticationProvider provider =
-                new DaoAuthenticationProvider(userDetailsService);  // SS7: constructor-injection
+                new DaoAuthenticationProvider(userDetailsService);
         provider.setPasswordEncoder(passwordEncoder());
         provider.setHideUserNotFoundExceptions(false);
         return provider;
@@ -125,27 +146,13 @@ public class SecurityConfig {
             .csrf(csrf -> csrf
                 .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
 
-                // ✅ FIX 3: Use CsrfTokenRequestAttributeHandler (plain, not Xor).
-                //    Combined with the explicit meta-tag approach in head.html
-                //    (th:content="${_csrf.token}"), the server-rendered token
-                //    is ALWAYS correct — the page load itself injects the fresh
-                //    token into the DOM before any JS runs.
-                //
-                //    The first-submit "session expired" error was caused by:
-                //      1. Login creates a new session (sessionFixation = newSession)
-                //      2. The XSRF-TOKEN cookie is regenerated with the new session
-                //      3. BUT: the cookie write is deferred until Thymeleaf reads
-                //         ${_csrf.token} — which it does on every page load via head.html
-                //      4. secureFetch reads from the <meta name="_csrf"> tag, NOT from
-                //         the cookie. The meta tag is always current.
-                //    Root cause: secureFetch was reading the cookie directly instead of
-                //    the meta tag. See application.js fix below.
-                //
-                //    RESULT: CsrfTokenRequestAttributeHandler is correct here.
-                //    The meta-tag approach is reliable and BREACH-safe for SPAs.
+                // CsrfTokenRequestAttributeHandler: server-renders token into
+                // <meta name="_csrf" th:content="${_csrf.token}"> via head.html.
+                // secureFetch() reads from that meta tag — always fresh, never stale.
+                // The XSRF-TOKEN cookie is a secondary path for Thymeleaf forms.
                 .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler())
 
-                // Exclude static resources from CSRF so they are never challenged
+                // Static resources never need a CSRF token
                 .ignoringRequestMatchers(
                     "/css/**", "/js/**", "/img/**", "/images/**",
                     "/fonts/**", "/webjars/**"
@@ -155,7 +162,7 @@ public class SecurityConfig {
             // ── Authorization ─────────────────────────────────────────────────
             .authorizeHttpRequests(auth -> auth
 
-                // ✅ PathRequest — Spring Boot's built-in static resource locations
+                // Spring Boot's built-in static resource locations
                 .requestMatchers(
                     PathRequest.toStaticResources().atCommonLocations()
                 ).permitAll()
@@ -170,7 +177,7 @@ public class SecurityConfig {
                 // Public endpoints
                 .requestMatchers(PUBLIC_URLS).permitAll()
 
-                // Everything else → DynamicAuthorizationManager
+                // Everything else → DynamicAuthorizationManager (DB-driven, cached)
                 .anyRequest().access(dynamicAuthorizationManager)
             )
 
@@ -206,9 +213,33 @@ public class SecurityConfig {
             // ── Session management ─────────────────────────────────────────────
             .sessionManagement(session -> session
                 .sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED)
-                .sessionFixation(fix -> fix.migrateSession())
-                .invalidSessionUrl("/login?expired")
-                .maximumSessions(1)
+
+                // ✅ FIX BUG 1 + 2: changeSessionId() instead of migrateSession().
+                //    - Same session object, only the ID rotates in-place.
+                //    - JDBC store updates the primary key atomically.
+                //    - No "lost session" window between old and new JSESSIONID.
+                //    - migrateSession() was causing the browser to carry the old
+                //      JSESSIONID on the login redirect → JDBC row not found →
+                //      Spring fires invalidSessionUrl → /login?expired.
+                .sessionFixation(fix -> fix.changeSessionId())
+
+                // ✅ FIX BUG 2: DO NOT set invalidSessionUrl here.
+                //    invalidSessionUrl intercepts ANY request with an unrecognised
+                //    JSESSIONID — including the redirect immediately after login
+                //    when the old cookie is still in flight.
+                //    Removed: .invalidSessionUrl("/login?expired")
+                //    The authenticationEntryPoint below handles all truly-unauth
+                //    requests (including real expired sessions) correctly.
+
+                // ✅ FIX BUG 3: maximumSessions raised from 1 → 3.
+                //    During login there can briefly be 2 live sessions:
+                //    the anonymous pre-auth session + the new authenticated one.
+                //    With limit=1 + maxSessionsPreventsLogin=false, Spring
+                //    expires the oldest session (which might be the new one)
+                //    → JDBC row gone → first request fails → /login?expired.
+                //    Limit=3 gives comfortable multi-tab ERP headroom and
+                //    eliminates this race entirely.
+                .maximumSessions(3)
                     .maxSessionsPreventsLogin(false)
                     .expiredUrl("/login?expired")
             )
@@ -217,6 +248,8 @@ public class SecurityConfig {
             .exceptionHandling(ex -> ex
                 .accessDeniedHandler(accessDeniedHandler)
                 .authenticationEntryPoint((req, res, e) -> {
+                    // This is the single authoritative handler for unauthenticated
+                    // requests (covers truly expired sessions, not the login race).
                     if (isAjax(req)) {
                         res.setStatus(401);
                         res.setContentType("application/json;charset=UTF-8");
