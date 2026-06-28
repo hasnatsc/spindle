@@ -218,7 +218,7 @@
 
       dt = $('#deptTable').DataTable({
         processing : true,
-        serverSide : false,
+        serverSide : true,
         responsive : true,
         pageLength : 25,
         ajax       : { url: BASE_URL + '/list', type: 'GET' },

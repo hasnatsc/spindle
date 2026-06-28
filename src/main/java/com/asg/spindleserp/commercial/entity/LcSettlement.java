@@ -3,6 +3,7 @@ package com.asg.spindleserp.commercial.entity;
 
 import com.asg.spindleserp.accounts.entity.ChartOfAccountSub;
 import com.asg.spindleserp.global.entity.BusinessDocument;
+import com.asg.spindleserp.security.auth.ContextProvider;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -18,7 +19,7 @@ public class LcSettlement {
     private Long id;
 
     @Column(name = "organization_id")
-    private Long organizationId;
+    private Long organizationId = ContextProvider.getOrganizationId();
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "lc_id")

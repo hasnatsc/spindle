@@ -168,7 +168,7 @@
     let bomForm = document.getElementById('bomForm');
     document.addEventListener('DOMContentLoaded', function () {
       dt = $('#bomTable').DataTable({
-        processing:true,serverSide:false,responsive:true,pageLength:25,
+        processing:true,serverSide:true,responsive:true,pageLength:25,
         ajax:{ url: BASE+'/list', type:'GET' },
         columns:[
           {data:'sl',orderable:false,width:'40px'},{data:'bom_code'},{data:'bom_name'},

@@ -730,7 +730,7 @@ public class ProductionServiceImpl implements ProductionService {
         // KPI block
         var kpiRows = jdbcTemplate.queryForList(kpiSql);
         if (!kpiRows.isEmpty()) {
-            var r = kpiRows.get(0);
+            var r = kpiRows.getFirst();
             res.put("draft",            CommonUtils.toLong(r.get("draft")));
             res.put("submitted",        CommonUtils.toLong(r.get("submitted")));
             res.put("approved",         CommonUtils.toLong(r.get("approved")));
@@ -750,8 +750,8 @@ public class ProductionServiceImpl implements ProductionService {
         // BOM block
         var bomRows = jdbcTemplate.queryForList(bomSql);
         if (!bomRows.isEmpty()) {
-            res.put("activeBoms", CommonUtils.toLong(bomRows.get(0).get("active_boms")));
-            res.put("totalBoms",  CommonUtils.toLong(bomRows.get(0).get("total_boms")));
+            res.put("activeBoms", CommonUtils.toLong(bomRows.getFirst().get("active_boms")));
+            res.put("totalBoms",  CommonUtils.toLong(bomRows.getFirst().get("total_boms")));
         }
 
         // Top items

@@ -206,141 +206,141 @@
   </div>
 
   <script th:inline="none">
-    (function () {
-      'use strict';
-      var _plChart, _vtChart;
-      var CHART_COLORS = ['#1f6bff','#28a745','#ffc107','#dc3545','#6f42c1','#fd7e14','#20c997','#e83e8c'];
+  (function () {
+    'use strict';
+    var _plChart, _vtChart;
+    var CHART_COLORS = ['#1f6bff','#28a745','#ffc107','#dc3545','#6f42c1','#fd7e14','#20c997','#e83e8c'];
 
-      function _fmt(n)  { var v=parseFloat(n||0); if(v>=10000000) return '৳'+(v/10000000).toFixed(2)+' Cr'; if(v>=100000) return '৳'+(v/100000).toFixed(2)+' L'; if(v>=1000) return '৳'+(v/1000).toFixed(1)+'K'; return '৳'+v.toFixed(2); }
-      function _fmtN(n) { return parseFloat(n||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}); }
-      function _fmtUSD(n){ var v=parseFloat(n||0); if(v>=1000000) return '$'+(v/1000000).toFixed(2)+'M'; if(v>=1000) return '$'+(v/1000).toFixed(1)+'K'; return '$'+v.toFixed(2); }
-      function _badge(s) {
-        var m={POSTED:'bg-success',DRAFT:'bg-warning text-dark',REVERSED:'bg-secondary',CANCELLED:'bg-danger'};
-        return '<span class="badge '+(m[s]||'bg-light text-dark')+'">'+(s||'—')+'</span>';
-      }
-      function _agingRows(ag, bodyId) {
-        var buckets=[{label:'Current',key:'current',cls:'bg-primary'},{label:'31-60 Days',key:'d3160',cls:'bg-warning text-dark'},{label:'61-90 Days',key:'d6190',cls:'bg-orange'},{label:'90+ Days',key:'d90plus',cls:'bg-danger'}];
-        var total=buckets.reduce(function(a,b){ return a+parseFloat(ag[b.key]||0); },0);
-        var html=buckets.map(function(b){
-          var v=parseFloat(ag[b.key]||0), pct=total>0?(v/total*100).toFixed(1):'0.0';
-          return '<tr><td><span class="badge '+b.cls+'">'+b.label+'</span></td><td class="text-end">'+_fmtN(v)+'</td><td class="text-end">'+pct+'%</td></tr>';
-        }).join('');
-        html+='<tr class="fw-bold table-light"><td>Total</td><td class="text-end">'+_fmtN(total)+'</td><td class="text-end">100%</td></tr>';
-        document.getElementById(bodyId).innerHTML=html;
-      }
+    function _fmt(n)  { var v=parseFloat(n||0); if(v>=10000000) return '৳'+(v/10000000).toFixed(2)+' Cr'; if(v>=100000) return '৳'+(v/100000).toFixed(2)+' L'; if(v>=1000) return '৳'+(v/1000).toFixed(1)+'K'; return '৳'+v.toFixed(2); }
+    function _fmtN(n) { return parseFloat(n||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+    function _fmtUSD(n){ var v=parseFloat(n||0); if(v>=1000000) return '$'+(v/1000000).toFixed(2)+'M'; if(v>=1000) return '$'+(v/1000).toFixed(1)+'K'; return '$'+v.toFixed(2); }
+    function _badge(s) {
+      var m={POSTED:'bg-success',DRAFT:'bg-warning text-dark',REVERSED:'bg-secondary',CANCELLED:'bg-danger'};
+      return '<span class="badge '+(m[s]||'bg-light text-dark')+'">'+(s||'—')+'</span>';
+    }
+    function _agingRows(ag, bodyId) {
+      var buckets=[{label:'Current',key:'current',cls:'bg-primary'},{label:'31-60 Days',key:'d3160',cls:'bg-warning text-dark'},{label:'61-90 Days',key:'d6190',cls:'bg-orange'},{label:'90+ Days',key:'d90plus',cls:'bg-danger'}];
+      var total=buckets.reduce(function(a,b){ return a+parseFloat(ag[b.key]||0); },0);
+      var html=buckets.map(function(b){
+        var v=parseFloat(ag[b.key]||0), pct=total>0?(v/total*100).toFixed(1):'0.0';
+        return '<tr><td><span class="badge '+b.cls+'">'+b.label+'</span></td><td class="text-end">'+_fmtN(v)+'</td><td class="text-end">'+pct+'%</td></tr>';
+      }).join('');
+      html+='<tr class="fw-bold table-light"><td>Total</td><td class="text-end">'+_fmtN(total)+'</td><td class="text-end">100%</td></tr>';
+      document.getElementById(bodyId).innerHTML=html;
+    }
 
-      document.addEventListener('DOMContentLoaded', function () {
-        _initCharts();
-        _loadAccounts();
-        _loadCommercial();
+    document.addEventListener('DOMContentLoaded', function () {
+      _initCharts();
+      _loadAccounts();
+      _loadCommercial();
+    });
+
+    function _loadAccounts() {
+      secureFetch('/accounts/dashboard/summary').then(function(data){
+        if (!data||data.error) return;
+        var a=data.accounts||{};
+        document.getElementById('kpiAR').textContent       = _fmt(a.totalReceivable);
+        document.getElementById('kpiOverdueAR').textContent= _fmt(a.overdueReceivable);
+        document.getElementById('kpiAP').textContent       = _fmt(Math.abs(parseFloat(a.totalPayable||0)));
+        document.getElementById('kpiCashBank').textContent = _fmt(a.cashBankBalance);
+        document.getElementById('kpiRevenue').textContent  = _fmt(a.mtdRevenue||a.mtd_revenue);
+        document.getElementById('kpiUnposted').textContent = (a.unpostedVoucherCount||a.unposted_voucher_count||0)+' vouchers';
+        document.getElementById('kpiExpense').textContent  = _fmt(a.mtdExpense||a.mtd_expense);
+        document.getElementById('kpiReversed').textContent = (a.reversedMTD||a.reversed_mtd||0)+' entries';
+        document.getElementById('kpiTotalCOA').textContent = (a.totalCOA||a.total_coa||0)+' accounts';
+        document.getElementById('kpiTotalSub').textContent = (a.totalSub||a.total_sub||0)+' accounts';
+        _agingRows(data.arAging||{}, 'arAgingBody');
+        _agingRows(data.apAging||{}, 'apAgingBody');
+        _fillTopList(data.topReceivables||[], 'topARBody', 'text-primary');
+        _fillTopList(data.topPayables||[], 'topAPBody', 'text-warning');
+        _fillCashBank(data.cashBankAccounts||[]);
+        _fillRecentVouchers(data.recentVouchers||[]);
+        _fillPlChart(data.monthlyPL||[]);
+        _fillVtChart(data.voucherTypes||[]);
       });
+    }
 
-      function _loadAccounts() {
-        secureFetch('/accounts/dashboard/summary').then(function(data){
-          if (!data||data.error) return;
-          var a=data.accounts||{};
-          document.getElementById('kpiAR').textContent       = _fmt(a.totalReceivable);
-          document.getElementById('kpiOverdueAR').textContent= _fmt(a.overdueReceivable);
-          document.getElementById('kpiAP').textContent       = _fmt(Math.abs(parseFloat(a.totalPayable||0)));
-          document.getElementById('kpiCashBank').textContent = _fmt(a.cashBankBalance);
-          document.getElementById('kpiRevenue').textContent  = _fmt(a.mtdRevenue||a.mtd_revenue);
-          document.getElementById('kpiUnposted').textContent = (a.unpostedVoucherCount||a.unposted_voucher_count||0)+' vouchers';
-          document.getElementById('kpiExpense').textContent  = _fmt(a.mtdExpense||a.mtd_expense);
-          document.getElementById('kpiReversed').textContent = (a.reversedMTD||a.reversed_mtd||0)+' entries';
-          document.getElementById('kpiTotalCOA').textContent = (a.totalCOA||a.total_coa||0)+' accounts';
-          document.getElementById('kpiTotalSub').textContent = (a.totalSub||a.total_sub||0)+' accounts';
-          _agingRows(data.arAging||{}, 'arAgingBody');
-          _agingRows(data.apAging||{}, 'apAgingBody');
-          _fillTopList(data.topReceivables||[], 'topARBody', 'text-primary');
-          _fillTopList(data.topPayables||[], 'topAPBody', 'text-warning');
-          _fillCashBank(data.cashBankAccounts||[]);
-          _fillRecentVouchers(data.recentVouchers||[]);
-          _fillPlChart(data.monthlyPL||[]);
-          _fillVtChart(data.voucherTypes||[]);
-        });
-      }
+    function _loadCommercial() {
+      secureFetch('/commercial/dashboard/summary').then(function(d){
+        if (!d) return;
+        document.getElementById('comExPosted').textContent  = (d.exportPosted||0);
+        document.getElementById('comImPosted').textContent  = (d.importPosted||0);
+        document.getElementById('comExUSD').textContent     = _fmtUSD(d.exportPostedUSD);
+        document.getElementById('comActiveLCs').textContent = (d.activeLCs||0);
+        document.getElementById('comPendingStl').textContent= (d.pendingSettlements||0);
+        document.getElementById('comExpiredLCs').textContent= (d.expiredLCCount||0);
+      });
+    }
 
-      function _loadCommercial() {
-        secureFetch('/commercial/dashboard/summary').then(function(d){
-          if (!d) return;
-          document.getElementById('comExPosted').textContent  = (d.exportPosted||0);
-          document.getElementById('comImPosted').textContent  = (d.importPosted||0);
-          document.getElementById('comExUSD').textContent     = _fmtUSD(d.exportPostedUSD);
-          document.getElementById('comActiveLCs').textContent = (d.activeLCs||0);
-          document.getElementById('comPendingStl').textContent= (d.pendingSettlements||0);
-          document.getElementById('comExpiredLCs').textContent= (d.expiredLCCount||0);
-        });
-      }
+    function _fillTopList(list, bodyId, cls) {
+      if (!list.length) { document.getElementById(bodyId).innerHTML='<tr><td colspan="2" class="text-center text-muted">No data</td></tr>'; return; }
+      var max=Math.max.apply(null,list.map(function(r){ return parseFloat(r.balance||0); }));
+      document.getElementById(bodyId).innerHTML=list.map(function(r){
+        var pct=max>0?Math.round(parseFloat(r.balance||0)/max*100):0;
+        return '<tr><td>'+r.party_name+'<div class="progress mt-1" style="height:3px"><div class="progress-bar '+cls.replace('text-','')+'" style="width:'+pct+'%"></div></div></td>'
+          +'<td class="text-end fw-bold '+cls+'">'+_fmtN(r.balance)+'</td></tr>';
+      }).join('');
+    }
+    function _fillCashBank(list) {
+      if (!list.length) { document.getElementById('cashBankBody').innerHTML='<tr><td colspan="3" class="text-center text-muted">No accounts</td></tr>'; return; }
+      document.getElementById('cashBankBody').innerHTML=list.map(function(r){
+        var t=(r.account_type||'').toUpperCase(), bal=parseFloat(r.balance||0);
+        var ico=t==='BANK'?'<i class="fas fa-building-columns text-primary me-1"></i>':'<i class="fas fa-money-bill-wave text-success me-1"></i>';
+        return '<tr><td>'+ico+(r.account_title||'—')+'</td>'
+          +'<td><span class="badge '+(t==='BANK'?'bg-primary':'bg-success')+' bg-opacity-25 text-dark">'+t+'</span></td>'
+          +'<td class="text-end fw-bold '+(bal>=0?'text-success':'text-danger')+'">'+_fmtN(bal)+'</td></tr>';
+      }).join('');
+    }
+    function _fillRecentVouchers(list) {
+      if (!list.length) { document.getElementById('recentVoucherBody').innerHTML='<tr><td colspan="6" class="text-center text-muted">No vouchers</td></tr>'; return; }
+      document.getElementById('recentVoucherBody').innerHTML=list.map(function(r){
+        var narr=(r.narration||''); if(narr.length>40) narr=narr.substring(0,40)+'…';
+        return '<tr>'
+          +'<td><strong class="text-primary">'+(r.voucher_no||'—')+'</strong></td>'
+          +'<td><span class="badge bg-secondary bg-opacity-25 text-dark small">'+(r.voucher_type||'').replace(/_/g,' ')+'</span></td>'
+          +'<td class="text-muted">'+(r.voucher_date||'—')+'</td>'
+          +'<td class="text-end">'+_fmtN(r.total_amount)+'</td>'
+          +'<td>'+_badge(r.voucher_status)+'</td>'
+          +'<td class="text-muted small">'+narr+'</td></tr>';
+      }).join('');
+    }
 
-      function _fillTopList(list, bodyId, cls) {
-        if (!list.length) { document.getElementById(bodyId).innerHTML='<tr><td colspan="2" class="text-center text-muted">No data</td></tr>'; return; }
-        var max=Math.max.apply(null,list.map(function(r){ return parseFloat(r.balance||0); }));
-        document.getElementById(bodyId).innerHTML=list.map(function(r){
-          var pct=max>0?Math.round(parseFloat(r.balance||0)/max*100):0;
-          return '<tr><td>'+r.party_name+'<div class="progress mt-1" style="height:3px"><div class="progress-bar '+cls.replace('text-','')+'" style="width:'+pct+'%"></div></div></td>'
-                  +'<td class="text-end fw-bold '+cls+'">'+_fmtN(r.balance)+'</td></tr>';
-        }).join('');
-      }
-      function _fillCashBank(list) {
-        if (!list.length) { document.getElementById('cashBankBody').innerHTML='<tr><td colspan="3" class="text-center text-muted">No accounts</td></tr>'; return; }
-        document.getElementById('cashBankBody').innerHTML=list.map(function(r){
-          var t=(r.account_type||'').toUpperCase(), bal=parseFloat(r.balance||0);
-          var ico=t==='BANK'?'<i class="fas fa-building-columns text-primary me-1"></i>':'<i class="fas fa-money-bill-wave text-success me-1"></i>';
-          return '<tr><td>'+ico+(r.account_title||'—')+'</td>'
-                  +'<td><span class="badge '+(t==='BANK'?'bg-primary':'bg-success')+' bg-opacity-25 text-dark">'+t+'</span></td>'
-                  +'<td class="text-end fw-bold '+(bal>=0?'text-success':'text-danger')+'">'+_fmtN(bal)+'</td></tr>';
-        }).join('');
-      }
-      function _fillRecentVouchers(list) {
-        if (!list.length) { document.getElementById('recentVoucherBody').innerHTML='<tr><td colspan="6" class="text-center text-muted">No vouchers</td></tr>'; return; }
-        document.getElementById('recentVoucherBody').innerHTML=list.map(function(r){
-          var narr=(r.narration||''); if(narr.length>40) narr=narr.substring(0,40)+'…';
-          return '<tr>'
-                  +'<td><strong class="text-primary">'+(r.voucher_no||'—')+'</strong></td>'
-                  +'<td><span class="badge bg-secondary bg-opacity-25 text-dark small">'+(r.voucher_type||'').replace(/_/g,' ')+'</span></td>'
-                  +'<td class="text-muted">'+(r.voucher_date||'—')+'</td>'
-                  +'<td class="text-end">'+_fmtN(r.total_amount)+'</td>'
-                  +'<td>'+_badge(r.voucher_status)+'</td>'
-                  +'<td class="text-muted small">'+narr+'</td></tr>';
-        }).join('');
-      }
-
-      function _initCharts() {
-        _plChart=new Chart(document.getElementById('plChart').getContext('2d'),{
-          type:'bar',
-          data:{labels:[],datasets:[
-              {label:'Revenue',data:[],backgroundColor:'rgba(40,167,69,0.65)',borderColor:'#28a745',borderWidth:1},
-              {label:'Expense',data:[],backgroundColor:'rgba(220,53,69,0.4)',borderColor:'#dc3545',borderWidth:1},
-              {label:'Net P/L',data:[],type:'line',borderColor:'#1f6bff',backgroundColor:'transparent',pointRadius:3,borderWidth:2,tension:0.35}
-            ]},
-          options:{responsive:true,interaction:{mode:'index',intersect:false},plugins:{legend:{position:'bottom'}},
-            scales:{y:{ticks:{callback:function(v){ return '৳'+Math.abs(v/1000).toFixed(0)+'K'; }}}}}
-        });
-        _vtChart=new Chart(document.getElementById('vtChart').getContext('2d'),{
-          type:'doughnut',
-          data:{labels:[],datasets:[{data:[],backgroundColor:CHART_COLORS,hoverOffset:6}]},
-          options:{responsive:false,plugins:{legend:{display:false}},cutout:'62%'}
-        });
-      }
-      function _fillPlChart(list) {
-        if (!list.length) return;
-        _plChart.data.labels=list.map(function(r){ return r.month; });
-        _plChart.data.datasets[0].data=list.map(function(r){ return parseFloat(r.revenue||0); });
-        _plChart.data.datasets[1].data=list.map(function(r){ return parseFloat(r.expense||0); });
-        _plChart.data.datasets[2].data=list.map(function(r){ return parseFloat(r.revenue||0)-parseFloat(r.expense||0); });
-        _plChart.update();
-      }
-      function _fillVtChart(list) {
-        if (!list.length) return;
-        _vtChart.data.labels=list.map(function(r){ return (r.voucher_type||'').replace(/_/g,' '); });
-        _vtChart.data.datasets[0].data=list.map(function(r){ return parseInt(r.count||0); });
-        _vtChart.data.datasets[0].backgroundColor=list.map(function(_,i){ return CHART_COLORS[i%CHART_COLORS.length]; });
-        _vtChart.update();
-        document.getElementById('vtLegend').innerHTML=list.map(function(r,i){
-          return '<div class="d-flex justify-content-between mb-1"><span><i class="fas fa-circle me-1" style="color:'+CHART_COLORS[i%CHART_COLORS.length]+'"></i>'+(r.voucher_type||'').replace(/_/g,' ')+'</span><strong>'+(r.count||0)+'</strong></div>';
-        }).join('');
-      }
-    })();
+    function _initCharts() {
+      _plChart=new Chart(document.getElementById('plChart').getContext('2d'),{
+        type:'bar',
+        data:{labels:[],datasets:[
+          {label:'Revenue',data:[],backgroundColor:'rgba(40,167,69,0.65)',borderColor:'#28a745',borderWidth:1},
+          {label:'Expense',data:[],backgroundColor:'rgba(220,53,69,0.4)',borderColor:'#dc3545',borderWidth:1},
+          {label:'Net P/L',data:[],type:'line',borderColor:'#1f6bff',backgroundColor:'transparent',pointRadius:3,borderWidth:2,tension:0.35}
+        ]},
+        options:{responsive:true,interaction:{mode:'index',intersect:false},plugins:{legend:{position:'bottom'}},
+          scales:{y:{ticks:{callback:function(v){ return '৳'+Math.abs(v/1000).toFixed(0)+'K'; }}}}}
+      });
+      _vtChart=new Chart(document.getElementById('vtChart').getContext('2d'),{
+        type:'doughnut',
+        data:{labels:[],datasets:[{data:[],backgroundColor:CHART_COLORS,hoverOffset:6}]},
+        options:{responsive:false,plugins:{legend:{display:false}},cutout:'62%'}
+      });
+    }
+    function _fillPlChart(list) {
+      if (!list.length) return;
+      _plChart.data.labels=list.map(function(r){ return r.month; });
+      _plChart.data.datasets[0].data=list.map(function(r){ return parseFloat(r.revenue||0); });
+      _plChart.data.datasets[1].data=list.map(function(r){ return parseFloat(r.expense||0); });
+      _plChart.data.datasets[2].data=list.map(function(r){ return parseFloat(r.revenue||0)-parseFloat(r.expense||0); });
+      _plChart.update();
+    }
+    function _fillVtChart(list) {
+      if (!list.length) return;
+      _vtChart.data.labels=list.map(function(r){ return (r.voucher_type||'').replace(/_/g,' '); });
+      _vtChart.data.datasets[0].data=list.map(function(r){ return parseInt(r.count||0); });
+      _vtChart.data.datasets[0].backgroundColor=list.map(function(_,i){ return CHART_COLORS[i%CHART_COLORS.length]; });
+      _vtChart.update();
+      document.getElementById('vtLegend').innerHTML=list.map(function(r,i){
+        return '<div class="d-flex justify-content-between mb-1"><span><i class="fas fa-circle me-1" style="color:'+CHART_COLORS[i%CHART_COLORS.length]+'"></i>'+(r.voucher_type||'').replace(/_/g,' ')+'</span><strong>'+(r.count||0)+'</strong></div>';
+      }).join('');
+    }
+  })();
   </script>
 </section>
 </html>

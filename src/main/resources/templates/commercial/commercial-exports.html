@@ -239,7 +239,7 @@
 
     document.addEventListener('DOMContentLoaded', function () {
       dt = $('#ciTable').DataTable({
-        processing:true,serverSide:false,responsive:true,pageLength:25,
+        processing:true,serverSide:true,responsive:true,pageLength:25,
         ajax:{ url:BASE+'/list',type:'GET',data:function(d){ d.invoiceType=INVOICE_TYPE; }},
         columns:[
           {data:'sl',orderable:false,width:'40px'},{data:'invoice_no'},

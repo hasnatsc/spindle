@@ -1,9 +1,10 @@
 <!DOCTYPE html>
 <!--
   commercial/commercial-dashboard.html    GET /commercial/dashboard
-  Full Commercial dashboard — Color Admin panel style, teal/blue accent
-  API: GET /commercial/dashboard/summary
-  Data keys from CommercialServiceImpl.dashboardSummary():
+  API: GET /commercial/dashboard/summary  → CommercialServiceImpl.dashboardSummary()
+  GL Panel: GET /commercial/gl/profit-loss, /commercial/gl/balance-sheet (bridged via CommercialController)
+
+  Dashboard Keys (exact from CommercialServiceImpl):
     exportDraft, exportFinalized, exportPosted, exportCancelled, exportTotal,
     exportPostedUSD, exportPostedBDT, exportPostedMTD,
     importDraft, importFinalized, importPosted, importCancelled, importTotal,
@@ -11,39 +12,24 @@
     totalLCs, activeLCs, totalLCValue, expiredLCValue, expiredLCCount, lcsExpiring30d,
     pendingSettlements, partialSettlements, settledSettlements, reversedSettlements,
     settledUSD, settledBDT, settledMTDUSD,
-    exportByIncoterms:  [ {incoterms, count, total_usd} ]
-    exportByCurrency:   [ {currency, count, total} ]
-    importByCurrency:   [ {currency, count, total} ]
-    settlementByType:   [ {settlement_type, count, total_usd} ]
-    recentExports:      [ last 10 export invoices ]
-    recentImports:      [ last 10 import invoices ]
-    activeLCList:       [ active LCs with expiry alert ]
-    monthlyExportTrend: [ {month, invoice_count, total_usd, total_bdt} ]
-    monthlyImportTrend: [ {month, invoice_count, total_usd, total_bdt} ]
+    exportByIncoterms:  [{incoterms, count, total_usd}]
+    exportByCurrency:   [{currency, count, total}]
+    importByCurrency:   [{currency, count, total}]
+    settlementByType:   [{settlement_type, count, total_usd}]
+    recentExports:      [{id, invoice_no, status, invoice_date, currency, total_amount, total_bdt, incoterms, party_name, vessel_name}]
+    recentImports:      [{id, invoice_no, status, invoice_date, currency, total_amount, total_bdt, lc_name, party_name}]
+    activeLCList:       [{id, lc_no, lc_name, lc_amount, currency, lc_type, issue_date, expiry_date, alert}]
+    monthlyExportTrend: [{month, invoice_count, total_usd, total_bdt}]
+    monthlyImportTrend: [{month, invoice_count, total_usd, total_bdt}]
 -->
 <html th:replace="~{layout/base :: layout('Commercial Dashboard', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
 <section>
 
 <style>
-.com-kpi-card {
-  border-radius: 10px; overflow: hidden; transition: transform .15s;
-}
-.com-kpi-card:hover { transform: translateY(-3px); }
-.com-kpi-val { font-size: 2rem; font-weight: 700; line-height: 1; }
-.com-kpi-lbl { font-size: .72rem; text-transform: uppercase;
-                font-weight: 600; letter-spacing: .04em; opacity: .85; }
-.com-strip-card { border-left: 4px solid; border-radius: 8px; }
-
-/* status tabs */
-.lc-alert-expired     { color: #dc3545; font-weight: 700; }
-.lc-alert-expiring    { color: #fd7e14; font-weight: 600; }
-.lc-alert-active      { color: #198754; }
-
-/* trend bars */
-.exp-bar { border-radius: 4px 4px 0 0; background: rgba(32,201,151,.45); transition: height .4s; }
-.exp-bar:hover { background: rgba(32,201,151,.85); }
-.imp-bar { border-radius: 4px 4px 0 0; background: rgba(67,97,238,.45); transition: height .4s; }
-.imp-bar:hover { background: rgba(67,97,238,.85); }
+.com-status-badge { font-size:.72rem; letter-spacing:.03em; }
+.lc-alert-expired     { color:#dc3545; font-weight:700; }
+.lc-alert-expiring    { color:#fd7e14; font-weight:600; }
+.lc-alert-active      { color:#198754; }
 </style>
 
   <ol class="breadcrumb float-xl-end">
@@ -51,311 +37,219 @@
     <li class="breadcrumb-item">Commercial</li>
     <li class="breadcrumb-item active">Dashboard</li>
   </ol>
-  <h1 class="page-header">
-    Commercial Dashboard
-    <small>exports · imports · LCs · settlements</small>
-    <a th:href="@{/commercial/exports}"  class="btn btn-sm btn-outline-teal ms-3">
-      <i class="fa fa-ship me-1"></i> Exports
-    </a>
-    <a th:href="@{/commercial/imports}"  class="btn btn-sm btn-outline-primary ms-1">
-      <i class="fa fa-download me-1"></i> Imports
-    </a>
-    <a th:href="@{/commercial/lc}"       class="btn btn-sm btn-outline-success ms-1">
-      <i class="fa fa-credit-card me-1"></i> LC
-    </a>
-    <button class="btn btn-sm btn-teal ms-1 text-white" onclick="_refresh()">
-      <i class="fa fa-refresh me-1"></i> Refresh
-    </button>
-  </h1>
+  <h1 class="page-header">Commercial Dashboard <small>exports · imports · LCs · settlements · GL</small></h1>
 
-  <!-- ══ ROW 1: KPI Widgets ═══════════════════════════════════════════════ -->
-  <div class="row g-2 mb-3">
-    <!-- Export -->
-    <div class="col-6 col-md-3 col-xl">
-      <div class="com-kpi-card widget widget-stats bg-teal h-100">
-        <div class="stats-icon"><i class="fa fa-ship"></i></div>
-        <div class="stats-info">
-          <div class="com-kpi-lbl">Export Posted</div>
-          <div class="com-kpi-val" id="kExpPosted">—</div>
-        </div>
-        <div class="stats-link">
-          <a th:href="@{/commercial/exports}">View Exports <i class="fa fa-arrow-alt-circle-right"></i></a>
-        </div>
-      </div>
-    </div>
-    <div class="col-6 col-md-3 col-xl">
-      <div class="com-kpi-card widget widget-stats bg-success h-100">
-        <div class="stats-icon"><i class="fa fa-dollar"></i></div>
-        <div class="stats-info">
-          <div class="com-kpi-lbl">Export Value (MTD)</div>
-          <div class="com-kpi-val fs-5" id="kExpMTD">—</div>
-        </div>
-        <div class="stats-link"><small class="text-white-50">Posted this month</small></div>
-      </div>
-    </div>
-    <!-- Import -->
-    <div class="col-6 col-md-3 col-xl">
-      <div class="com-kpi-card widget widget-stats bg-primary h-100">
-        <div class="stats-icon"><i class="fa fa-download"></i></div>
-        <div class="stats-info">
-          <div class="com-kpi-lbl">Import Posted</div>
-          <div class="com-kpi-val" id="kImpPosted">—</div>
-        </div>
-        <div class="stats-link">
-          <a th:href="@{/commercial/imports}">View Imports <i class="fa fa-arrow-alt-circle-right"></i></a>
-        </div>
-      </div>
-    </div>
-    <div class="col-6 col-md-3 col-xl">
-      <div class="com-kpi-card widget widget-stats bg-indigo h-100">
-        <div class="stats-icon"><i class="fa fa-dollar"></i></div>
-        <div class="stats-info">
-          <div class="com-kpi-lbl">Import Value (MTD)</div>
-          <div class="com-kpi-val fs-5" id="kImpMTD">—</div>
-        </div>
-        <div class="stats-link"><small class="text-white-50">Posted this month</small></div>
-      </div>
-    </div>
-    <!-- LC -->
-    <div class="col-6 col-md-3 col-xl">
-      <div class="com-kpi-card widget widget-stats bg-warning h-100">
-        <div class="stats-icon"><i class="fa fa-credit-card"></i></div>
-        <div class="stats-info">
-          <div class="com-kpi-lbl">Active LCs</div>
-          <div class="com-kpi-val" id="kActiveLCs">—</div>
-        </div>
-        <div class="stats-link">
-          <small class="text-dark" id="kExpiredLCs">Expired: —</small>
-        </div>
-      </div>
-    </div>
-    <div class="col-6 col-md-3 col-xl">
-      <div class="com-kpi-card widget widget-stats bg-danger h-100">
-        <div class="stats-icon"><i class="fa fa-exchange"></i></div>
-        <div class="stats-info">
-          <div class="com-kpi-lbl">Pending Settlements</div>
-          <div class="com-kpi-val" id="kPendingStl">—</div>
-        </div>
-        <div class="stats-link">
-          <a th:href="@{/commercial/lc}">View LC <i class="fa fa-arrow-alt-circle-right"></i></a>
-        </div>
-      </div>
-    </div>
+  <!-- MODULE NAV -->
+  <div class="d-flex gap-2 mb-3 flex-wrap">
+    <a th:href="@{/commercial/dashboard}" class="btn btn-sm btn-primary"><i class="fas fa-tachometer-alt me-1"></i> Dashboard</a>
+    <a th:href="@{/commercial/exports}"   class="btn btn-sm btn-outline-teal"><i class="fa fa-plane-departure me-1"></i> Exports</a>
+    <a th:href="@{/commercial/imports}"   class="btn btn-sm btn-outline-primary"><i class="fa fa-plane-arrival me-1"></i> Imports</a>
+    <a th:href="@{/commercial/lc}"        class="btn btn-sm btn-outline-warning"><i class="fa fa-file-contract me-1"></i> LC Settlements</a>
+    <span class="border-start mx-1"></span>
+    <a th:href="@{/accounts/ledger}"        class="btn btn-sm btn-outline-secondary"><i class="fas fa-list-ul me-1"></i> Ledger</a>
+    <a th:href="@{/accounts/profit-loss}"   class="btn btn-sm btn-outline-secondary"><i class="fas fa-chart-line me-1"></i> P&amp;L</a>
+    <a th:href="@{/accounts/balance-sheet}" class="btn btn-sm btn-outline-secondary"><i class="fas fa-file-invoice me-1"></i> Balance Sheet</a>
   </div>
 
-  <!-- ══ ROW 2: Financial Strip ═══════════════════════════════════════════ -->
-  <div class="row g-2 mb-3">
-    <div class="col-6 col-md-3">
-      <div class="card border-0 shadow-sm com-strip-card h-100" style="border-color:#20c997!important">
-        <div class="card-body py-2 px-3">
-          <div class="text-muted small fw-bold text-uppercase">Total Export (Posted)</div>
-          <div class="fs-6 fw-bold text-teal" id="kExpTotalUSD">—</div>
-          <div class="text-muted small" id="kExpTotalBDT">—</div>
-        </div>
-      </div>
-    </div>
-    <div class="col-6 col-md-3">
-      <div class="card border-0 shadow-sm com-strip-card h-100" style="border-color:#4361ee!important">
-        <div class="card-body py-2 px-3">
-          <div class="text-muted small fw-bold text-uppercase">Total Import (Posted)</div>
-          <div class="fs-6 fw-bold text-primary" id="kImpTotalUSD">—</div>
-          <div class="text-muted small" id="kImpTotalBDT">—</div>
-        </div>
-      </div>
-    </div>
-    <div class="col-6 col-md-3">
-      <div class="card border-0 shadow-sm com-strip-card h-100" style="border-color:#ffc107!important">
-        <div class="card-body py-2 px-3">
-          <div class="text-muted small fw-bold text-uppercase">Total LC Value</div>
-          <div class="fs-6 fw-bold text-warning" id="kLCValue">—</div>
-          <div class="text-muted small">Expiring 30d: <span id="kLCExpiring30">—</span></div>
-        </div>
-      </div>
-    </div>
-    <div class="col-6 col-md-3">
-      <div class="card border-0 shadow-sm com-strip-card h-100" style="border-color:#198754!important">
-        <div class="card-body py-2 px-3">
-          <div class="text-muted small fw-bold text-uppercase">Settled (USD)</div>
-          <div class="fs-6 fw-bold text-success" id="kSettledUSD">—</div>
-          <div class="text-muted small">MTD: <span id="kSettledMTD">—</span></div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ══ ROW 3: Lifecycle Flow Strips ═════════════════════════════════════ -->
+  <!-- ROW 1: EXPORT KPIs -->
+  <p class="fw-semibold text-muted mb-2 small text-uppercase"><i class="fas fa-plane-departure me-1 text-teal"></i> Export Documents</p>
   <div class="row g-3 mb-3">
-    <div class="col-lg-6">
-      <div class="panel panel-inverse mb-0 h-100">
+    <div class="col-6 col-xl-2"><div class="widget widget-stats bg-secondary"><div class="stats-icon"><i class="fas fa-pen-to-square"></i></div><div class="stats-info"><h4>DRAFT</h4><p id="kpiExDraft">—</p></div><div class="stats-link"><a th:href="@{/commercial/exports}">View <i class="fa fa-arrow-alt-circle-right"></i></a></div></div></div>
+    <div class="col-6 col-xl-2"><div class="widget widget-stats bg-blue"><div class="stats-icon"><i class="fas fa-check"></i></div><div class="stats-info"><h4>FINALIZED</h4><p id="kpiExFinal">—</p></div><div class="stats-link"><a th:href="@{/commercial/exports}">View <i class="fa fa-arrow-alt-circle-right"></i></a></div></div></div>
+    <div class="col-6 col-xl-2"><div class="widget widget-stats bg-teal"><div class="stats-icon"><i class="fas fa-paper-plane"></i></div><div class="stats-info"><h4>POSTED</h4><p id="kpiExPosted">—</p></div><div class="stats-link"><a th:href="@{/commercial/exports}">View <i class="fa fa-arrow-alt-circle-right"></i></a></div></div></div>
+    <div class="col-6 col-xl-2"><div class="widget widget-stats bg-green"><div class="stats-icon"><i class="fas fa-dollar-sign"></i></div><div class="stats-info"><h4>POSTED USD</h4><p id="kpiExUSD">—</p></div></div></div>
+    <div class="col-6 col-xl-2"><div class="widget widget-stats bg-lime"><div class="stats-icon"><i class="fas fa-bangladeshi-taka-sign"></i></div><div class="stats-info"><h4>POSTED BDT</h4><p id="kpiExBDT">—</p></div></div></div>
+    <div class="col-6 col-xl-2"><div class="widget widget-stats bg-indigo"><div class="stats-icon"><i class="fas fa-calendar-day"></i></div><div class="stats-info"><h4>MTD USD</h4><p id="kpiExMTD">—</p></div></div></div>
+  </div>
+
+  <!-- ROW 2: IMPORT KPIs -->
+  <p class="fw-semibold text-muted mb-2 small text-uppercase"><i class="fas fa-plane-arrival me-1 text-primary"></i> Import Documents</p>
+  <div class="row g-3 mb-3">
+    <div class="col-6 col-xl-2"><div class="widget widget-stats bg-secondary"><div class="stats-icon"><i class="fas fa-pen-to-square"></i></div><div class="stats-info"><h4>DRAFT</h4><p id="kpiImDraft">—</p></div><div class="stats-link"><a th:href="@{/commercial/imports}">View <i class="fa fa-arrow-alt-circle-right"></i></a></div></div></div>
+    <div class="col-6 col-xl-2"><div class="widget widget-stats bg-blue"><div class="stats-icon"><i class="fas fa-check"></i></div><div class="stats-info"><h4>FINALIZED</h4><p id="kpiImFinal">—</p></div></div></div>
+    <div class="col-6 col-xl-2"><div class="widget widget-stats bg-primary"><div class="stats-icon"><i class="fas fa-paper-plane"></i></div><div class="stats-info"><h4>POSTED</h4><p id="kpiImPosted">—</p></div></div></div>
+    <div class="col-6 col-xl-2"><div class="widget widget-stats bg-green"><div class="stats-icon"><i class="fas fa-dollar-sign"></i></div><div class="stats-info"><h4>POSTED USD</h4><p id="kpiImUSD">—</p></div></div></div>
+    <div class="col-6 col-xl-2"><div class="widget widget-stats bg-lime"><div class="stats-icon"><i class="fas fa-bangladeshi-taka-sign"></i></div><div class="stats-info"><h4>POSTED BDT</h4><p id="kpiImBDT">—</p></div></div></div>
+    <div class="col-6 col-xl-2"><div class="widget widget-stats bg-indigo"><div class="stats-icon"><i class="fas fa-calendar-day"></i></div><div class="stats-info"><h4>MTD USD</h4><p id="kpiImMTD">—</p></div></div></div>
+  </div>
+
+  <!-- ROW 3: LC + Settlement KPIs -->
+  <div class="row g-3 mb-3">
+    <div class="col-6 col-md-3"><div class="widget widget-stats bg-orange"><div class="stats-icon"><i class="fas fa-file-contract"></i></div><div class="stats-info"><h4>ACTIVE LCs</h4><p id="kpiActiveLCs">—</p></div><div class="stats-link"><a th:href="@{/commercial/lc}">LC List <i class="fa fa-arrow-alt-circle-right"></i></a></div></div></div>
+    <div class="col-6 col-md-3"><div class="widget widget-stats bg-red"><div class="stats-icon"><i class="fas fa-triangle-exclamation"></i></div><div class="stats-info"><h4>EXPIRED LCs</h4><p id="kpiExpiredLCs">—</p></div></div></div>
+    <div class="col-6 col-md-3"><div class="widget widget-stats bg-yellow"><div class="stats-icon"><i class="fas fa-clock"></i></div><div class="stats-info"><h4>PENDING STL</h4><p id="kpiPendingStl">—</p></div><div class="stats-link"><a th:href="@{/commercial/lc}">Settlements <i class="fa fa-arrow-alt-circle-right"></i></a></div></div></div>
+    <div class="col-6 col-md-3"><div class="widget widget-stats bg-success"><div class="stats-icon"><i class="fas fa-check-double"></i></div><div class="stats-info"><h4>SETTLED USD</h4><p id="kpiSettledUSD">—</p></div></div></div>
+  </div>
+
+  <!-- ROW 4: Export/Import Trend Charts -->
+  <div class="row g-3 mb-3">
+    <div class="col-12 col-xl-6">
+      <div class="panel panel-inverse">
         <div class="panel-heading">
-          <div class="panel-title"><i class="fa fa-ship me-1"></i> Export Invoice Lifecycle</div>
+          <div class="panel-title"><i class="fas fa-chart-bar me-1 text-teal"></i> Export Trend (12 months)</div>
+          <div class="panel-heading-btn"><a href="javascript:;" class="btn btn-sm btn-icon btn-default" data-toggle="panel-expand"><i class="fa fa-expand"></i></a></div>
         </div>
-        <div class="panel-body">
-          <div class="d-flex flex-wrap gap-1 justify-content-center align-items-center py-2">
-            <div style="text-align:center;min-width:70px">
-              <span class="badge bg-secondary fs-6" id="fl-exp-draft">0</span><br><small class="text-muted fw-bold">DRAFT</small>
-            </div>
-            <div class="text-muted">→</div>
-            <div style="text-align:center;min-width:70px">
-              <span class="badge bg-primary fs-6" id="fl-exp-final">0</span><br><small class="text-muted fw-bold">FINALIZED</small>
-            </div>
-            <div class="text-muted">→</div>
-            <div style="text-align:center;min-width:70px">
-              <span class="badge bg-success fs-6" id="fl-exp-posted">0</span><br><small class="text-muted fw-bold">POSTED</small>
-            </div>
-          </div>
-          <div class="text-center mt-2">
-            <span class="text-muted small"><i class="fa fa-times-circle text-danger me-1"></i>Cancelled: <strong id="fl-exp-cancel">0</strong></span>
-          </div>
-          <hr class="my-2">
-          <!-- Incoterms breakdown -->
-          <div class="fw-semibold text-muted small mb-1">By Incoterms (posted)</div>
-          <div id="incotermsBreakdown">
-            <div class="text-muted small text-center py-1">Loading…</div>
-          </div>
+        <div class="panel-body"><canvas id="exportTrendChart" height="120"></canvas></div>
+      </div>
+    </div>
+    <div class="col-12 col-xl-6">
+      <div class="panel panel-inverse">
+        <div class="panel-heading">
+          <div class="panel-title"><i class="fas fa-chart-bar me-1 text-primary"></i> Import Trend (12 months)</div>
+          <div class="panel-heading-btn"><a href="javascript:;" class="btn btn-sm btn-icon btn-default" data-toggle="panel-expand"><i class="fa fa-expand"></i></a></div>
+        </div>
+        <div class="panel-body"><canvas id="importTrendChart" height="120"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ROW 5: Incoterms + Currency Breakdown -->
+  <div class="row g-3 mb-3">
+    <div class="col-12 col-md-4">
+      <div class="panel panel-inverse">
+        <div class="panel-heading"><div class="panel-title"><i class="fas fa-chart-pie me-1"></i> Export by Incoterms</div></div>
+        <div class="panel-body p-0">
+          <table class="table table-sm table-bordered mb-0">
+            <thead class="table-light"><tr><th>Incoterms</th><th class="text-center">Count</th><th class="text-end">Total USD</th></tr></thead>
+            <tbody id="incotermsBody"><tr><td colspan="3" class="text-center text-muted py-2">Loading…</td></tr></tbody>
+          </table>
         </div>
       </div>
     </div>
-    <div class="col-lg-6">
-      <div class="panel panel-inverse mb-0 h-100">
-        <div class="panel-heading">
-          <div class="panel-title"><i class="fa fa-download me-1"></i> Import Invoice Lifecycle</div>
+    <div class="col-12 col-md-4">
+      <div class="panel panel-inverse">
+        <div class="panel-heading"><div class="panel-title"><i class="fas fa-coins me-1 text-teal"></i> Export Currency Mix</div></div>
+        <div class="panel-body p-0">
+          <table class="table table-sm table-bordered mb-0">
+            <thead class="table-light"><tr><th>Currency</th><th class="text-center">Count</th><th class="text-end">Total</th></tr></thead>
+            <tbody id="expCurrencyBody"><tr><td colspan="3" class="text-center text-muted py-2">Loading…</td></tr></tbody>
+          </table>
         </div>
-        <div class="panel-body">
-          <div class="d-flex flex-wrap gap-1 justify-content-center align-items-center py-2">
-            <div style="text-align:center;min-width:70px">
-              <span class="badge bg-secondary fs-6" id="fl-imp-draft">0</span><br><small class="text-muted fw-bold">DRAFT</small>
-            </div>
-            <div class="text-muted">→</div>
-            <div style="text-align:center;min-width:70px">
-              <span class="badge bg-indigo fs-6" id="fl-imp-final">0</span><br><small class="text-muted fw-bold">FINALIZED</small>
-            </div>
-            <div class="text-muted">→</div>
-            <div style="text-align:center;min-width:70px">
-              <span class="badge bg-success fs-6" id="fl-imp-posted">0</span><br><small class="text-muted fw-bold">POSTED</small>
-            </div>
-          </div>
-          <div class="text-center mt-2">
-            <span class="text-muted small"><i class="fa fa-times-circle text-danger me-1"></i>Cancelled: <strong id="fl-imp-cancel">0</strong></span>
-          </div>
-          <hr class="my-2">
-          <!-- Currency breakdown -->
-          <div class="fw-semibold text-muted small mb-1">By Currency (posted)</div>
-          <div id="importCurrencyBreakdown">
-            <div class="text-muted small text-center py-1">Loading…</div>
-          </div>
+      </div>
+    </div>
+    <div class="col-12 col-md-4">
+      <div class="panel panel-inverse">
+        <div class="panel-heading"><div class="panel-title"><i class="fas fa-coins me-1 text-primary"></i> Import Currency Mix</div></div>
+        <div class="panel-body p-0">
+          <table class="table table-sm table-bordered mb-0">
+            <thead class="table-light"><tr><th>Currency</th><th class="text-center">Count</th><th class="text-end">Total</th></tr></thead>
+            <tbody id="impCurrencyBody"><tr><td colspan="3" class="text-center text-muted py-2">Loading…</td></tr></tbody>
+          </table>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- ══ ROW 4: 12-Month Trend ════════════════════════════════════════════ -->
+  <!-- ROW 6: Active LC List + Settlement Type -->
   <div class="row g-3 mb-3">
-    <div class="col-lg-6">
-      <div class="panel panel-inverse mb-0">
+    <div class="col-12 col-md-8">
+      <div class="panel panel-inverse">
         <div class="panel-heading">
-          <div class="panel-title"><i class="fa fa-bar-chart me-1 text-teal"></i> Export Value Trend (12 months)</div>
-        </div>
-        <div class="panel-body">
-          <div id="expTrendChart" style="height:160px;display:flex;align-items:flex-end;gap:6px;padding:0 4px;">
-            <div class="text-muted text-center w-100 pt-4">Loading…</div>
-          </div>
-          <div id="expTrendLabels" class="d-flex gap-0 mt-1" style="font-size:.65rem;color:#888;"></div>
-        </div>
-      </div>
-    </div>
-    <div class="col-lg-6">
-      <div class="panel panel-inverse mb-0">
-        <div class="panel-heading">
-          <div class="panel-title"><i class="fa fa-bar-chart me-1 text-primary"></i> Import Value Trend (12 months)</div>
-        </div>
-        <div class="panel-body">
-          <div id="impTrendChart" style="height:160px;display:flex;align-items:flex-end;gap:6px;padding:0 4px;">
-            <div class="text-muted text-center w-100 pt-4">Loading…</div>
-          </div>
-          <div id="impTrendLabels" class="d-flex gap-0 mt-1" style="font-size:.65rem;color:#888;"></div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ══ ROW 5: Active LC List ════════════════════════════════════════════ -->
-  <div class="row g-3 mb-3">
-    <div class="col-12">
-      <div class="panel panel-inverse mb-0">
-        <div class="panel-heading">
-          <div class="panel-title">
-            <i class="fa fa-credit-card me-1 text-warning"></i>
-            Active Letters of Credit
-            <small class="text-muted ms-1">sorted by expiry date</small>
-          </div>
-          <div class="panel-heading-btn">
-            <a th:href="@{/commercial/lc}" class="btn btn-sm btn-outline-warning">
-              All LC <i class="fa fa-arrow-right ms-1"></i>
-            </a>
-          </div>
+          <div class="panel-title"><i class="fas fa-file-contract me-1 text-orange"></i> Active LC Accounts</div>
+          <div class="panel-heading-btn"><a th:href="@{/commercial/lc}" class="btn btn-xs btn-warning"><i class="fas fa-arrow-right me-1"></i> All LCs</a></div>
         </div>
         <div class="panel-body p-0">
           <div class="table-responsive">
-            <table class="table table-sm table-hover mb-0">
-              <thead class="table-light">
-                <tr>
-                  <th>LC No</th><th>LC Name</th><th>Type</th><th class="text-end">LC Amount</th>
-                  <th>Currency</th><th>Issue Date</th><th>Expiry Date</th><th>Alert</th>
-                </tr>
-              </thead>
-              <tbody id="activeLCBody">
-                <tr><td colspan="8" class="text-center text-muted py-3">Loading…</td></tr>
-              </tbody>
+            <table class="table table-sm table-bordered mb-0 text-nowrap">
+              <thead class="table-light"><tr>
+                <th>LC No</th><th>LC Name</th><th>Type</th>
+                <th class="text-end">Amount</th><th>CCY</th>
+                <th>Issue</th><th>Expiry</th><th>Status</th>
+              </tr></thead>
+              <tbody id="activeLCBody"><tr><td colspan="8" class="text-center text-muted py-2">Loading…</td></tr></tbody>
             </table>
           </div>
         </div>
       </div>
     </div>
-  </div>
-
-  <!-- ══ ROW 6: Recent Exports + Recent Imports ═══════════════════════════ -->
-  <div class="row g-3">
-    <div class="col-lg-6">
-      <div class="panel panel-inverse mb-0 h-100">
-        <div class="panel-heading">
-          <div class="panel-title"><i class="fa fa-ship me-1 text-teal"></i> Recent Export Invoices</div>
-          <div class="panel-heading-btn">
-            <a th:href="@{/commercial/exports}" class="btn btn-sm btn-outline-teal">All <i class="fa fa-arrow-right ms-1"></i></a>
-          </div>
-        </div>
-        <div class="panel-body p-0">
-          <div class="table-responsive">
-            <table class="table table-sm table-hover mb-0">
-              <thead class="table-light">
-                <tr><th>Invoice No</th><th>Party</th><th>Date</th><th class="text-end">Amount</th><th>Status</th></tr>
-              </thead>
-              <tbody id="recentExportsBody">
-                <tr><td colspan="5" class="text-muted text-center py-3">Loading…</td></tr>
-              </tbody>
-            </table>
-          </div>
+    <div class="col-12 col-md-4">
+      <div class="panel panel-inverse">
+        <div class="panel-heading"><div class="panel-title"><i class="fas fa-chart-donut me-1"></i> Settlement by Type</div></div>
+        <div class="panel-body d-flex flex-column align-items-center">
+          <canvas id="stlTypeChart" width="180" height="180"></canvas>
+          <div id="stlTypeLegend" class="mt-2 w-100 small"></div>
         </div>
       </div>
     </div>
-    <div class="col-lg-6">
-      <div class="panel panel-inverse mb-0 h-100">
+  </div>
+
+  <!-- ROW 7: Recent Exports + Recent Imports -->
+  <div class="row g-3 mb-3">
+    <div class="col-12 col-md-6">
+      <div class="panel panel-inverse">
         <div class="panel-heading">
-          <div class="panel-title"><i class="fa fa-download me-1 text-primary"></i> Recent Import Invoices</div>
-          <div class="panel-heading-btn">
-            <a th:href="@{/commercial/imports}" class="btn btn-sm btn-outline-primary">All <i class="fa fa-arrow-right ms-1"></i></a>
-          </div>
+          <div class="panel-title"><i class="fas fa-plane-departure me-1 text-teal"></i> Recent Exports</div>
+          <div class="panel-heading-btn"><a th:href="@{/commercial/exports}" class="btn btn-xs btn-teal"><i class="fas fa-list me-1"></i> All</a></div>
         </div>
         <div class="panel-body p-0">
-          <div class="table-responsive">
-            <table class="table table-sm table-hover mb-0">
-              <thead class="table-light">
-                <tr><th>Invoice No</th><th>Party</th><th>LC</th><th class="text-end">Amount</th><th>Status</th></tr>
-              </thead>
-              <tbody id="recentImportsBody">
-                <tr><td colspan="5" class="text-muted text-center py-3">Loading…</td></tr>
-              </tbody>
-            </table>
+          <table class="table table-sm table-bordered mb-0">
+            <thead class="table-light"><tr><th>Invoice No</th><th>Date</th><th>Party</th><th class="text-end">USD</th><th>Status</th></tr></thead>
+            <tbody id="recentExportBody"><tr><td colspan="5" class="text-center text-muted py-2">Loading…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <div class="col-12 col-md-6">
+      <div class="panel panel-inverse">
+        <div class="panel-heading">
+          <div class="panel-title"><i class="fas fa-plane-arrival me-1 text-primary"></i> Recent Imports</div>
+          <div class="panel-heading-btn"><a th:href="@{/commercial/imports}" class="btn btn-xs btn-primary"><i class="fas fa-list me-1"></i> All</a></div>
+        </div>
+        <div class="panel-body p-0">
+          <table class="table table-sm table-bordered mb-0">
+            <thead class="table-light"><tr><th>Invoice No</th><th>Date</th><th>Party</th><th class="text-end">USD</th><th>Status</th></tr></thead>
+            <tbody id="recentImportBody"><tr><td colspan="5" class="text-center text-muted py-2">Loading…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ROW 8: INTEGRATED GL PANEL (P&L + Balance Sheet) -->
+  <div class="panel panel-inverse">
+    <div class="panel-heading">
+      <div class="panel-title"><i class="fas fa-book-open me-1 text-primary"></i> GL Financial Snapshot</div>
+      <div class="panel-heading-btn">
+        <a th:href="@{/accounts/profit-loss}"   class="btn btn-xs btn-outline-secondary me-1"><i class="fas fa-chart-line me-1"></i> Full P&amp;L</a>
+        <a th:href="@{/accounts/balance-sheet}" class="btn btn-xs btn-outline-secondary me-1"><i class="fas fa-file-invoice me-1"></i> Full B/S</a>
+        <button class="btn btn-xs btn-success" onclick="glLoad()"><i class="fas fa-sync-alt me-1"></i> Refresh GL</button>
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-default" data-toggle="panel-expand"><i class="fa fa-expand"></i></a>
+      </div>
+    </div>
+    <div class="panel-body">
+      <div class="row g-2 mb-3" id="glKpiBanner">
+        <div class="col-6 col-md-3"><div class="widget widget-stats bg-green" style="padding:10px"><div class="stats-info"><h4>REVENUE (FY)</h4><p id="glRevenue">৳ —</p></div></div></div>
+        <div class="col-6 col-md-3"><div class="widget widget-stats bg-red"   style="padding:10px"><div class="stats-info"><h4>EXPENSE (FY)</h4><p id="glExpense">৳ —</p></div></div></div>
+        <div class="col-6 col-md-3"><div id="glNetWidget" class="widget widget-stats bg-blue" style="padding:10px"><div class="stats-info"><h4>NET PROFIT</h4><p id="glNet">৳ —</p></div></div></div>
+        <div class="col-6 col-md-3"><div class="widget widget-stats bg-purple" style="padding:10px"><div class="stats-info"><h4>TOTAL ASSETS</h4><p id="glAssets">৳ —</p></div></div></div>
+      </div>
+      <div class="row g-3">
+        <!-- P&L mini table -->
+        <div class="col-12 col-md-6">
+          <h6 class="border-bottom pb-1 mb-2 text-muted small text-uppercase"><i class="fas fa-chart-line me-1"></i> P&amp;L (FY)</h6>
+          <table class="table table-sm table-bordered mb-0" style="font-size:12px">
+            <thead class="table-dark"><tr><th>Account</th><th class="text-end">Amount (৳)</th></tr></thead>
+            <tbody id="glPlBody"><tr><td colspan="2" class="text-center text-muted py-2">Click Refresh GL</td></tr></tbody>
+          </table>
+        </div>
+        <!-- Balance sheet mini -->
+        <div class="col-12 col-md-6">
+          <h6 class="border-bottom pb-1 mb-2 text-muted small text-uppercase"><i class="fas fa-file-invoice me-1"></i> Balance Sheet (today)</h6>
+          <div class="row g-2">
+            <div class="col-6">
+              <p class="fw-semibold small mb-1 text-primary">Assets</p>
+              <table class="table table-sm table-bordered mb-0" style="font-size:12px">
+                <tbody id="glBsAssetsBody"><tr><td colspan="2" class="text-center text-muted py-2">—</td></tr></tbody>
+                <tfoot><tr class="fw-bold table-primary"><td>Total</td><td id="glBsTotalA" class="text-end">—</td></tr></tfoot>
+              </table>
+            </div>
+            <div class="col-6">
+              <p class="fw-semibold small mb-1 text-warning">Liab. &amp; Equity</p>
+              <table class="table table-sm table-bordered mb-0" style="font-size:12px">
+                <tbody id="glBsLiabBody"><tr><td colspan="2" class="text-center text-muted py-2">—</td></tr></tbody>
+                <tfoot><tr class="fw-bold table-warning"><td>Total</td><td id="glBsTotalL" class="text-end">—</td></tr></tfoot>
+              </table>
+            </div>
           </div>
         </div>
       </div>
@@ -365,178 +259,199 @@
   <script th:inline="none">
   (function () {
     'use strict';
+    var _expChart, _impChart, _stlChart;
+    var COLORS = ['#1f6bff','#20c997','#ffc107','#dc3545','#6f42c1','#fd7e14','#0dcaf0'];
+    var STATUS_BADGES = {DRAFT:'bg-secondary',FINALIZED:'bg-primary',POSTED:'bg-success',CANCELLED:'bg-danger'};
 
-    var _data = null;
+    function _fmt(n)  { var v=parseFloat(n||0); if(v>=10000000) return '৳'+(v/10000000).toFixed(2)+' Cr'; if(v>=100000) return '৳'+(v/100000).toFixed(2)+' L'; if(v>=1000) return '৳'+(v/1000).toFixed(1)+'K'; return '৳'+v.toFixed(2); }
+    function _fmtN(n) { return parseFloat(n||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+    function _fmtUSD(n){ var v=parseFloat(n||0); if(v>=1000000) return '$'+(v/1000000).toFixed(2)+'M'; if(v>=1000) return '$'+(v/1000).toFixed(1)+'K'; return '$'+v.toFixed(2); }
+    function _badge(s){ return '<span class="badge '+( STATUS_BADGES[s]||'bg-light text-dark')+' com-status-badge">'+s+'</span>'; }
 
-    document.addEventListener('DOMContentLoaded', function () { _refresh(); });
+    document.addEventListener('DOMContentLoaded', function () {
+      _initCharts();
+      _loadDashboard();
+      _fyDates();
+      setTimeout(glLoad, 800);  // stagger GL load
+    });
 
-    function _refresh() {
-      secureFetch('/commercial/dashboard/summary').then(function(d){
-        _data = d;
-        _renderKpis(d);
-        _renderStrip(d);
-        _renderLifecycle(d);
-        _renderIncoterms(d.exportByIncoterms || []);
-        _renderImportCurrency(d.importByCurrency || []);
-        _renderTrend('expTrendChart','expTrendLabels', d.monthlyExportTrend||[], 'exp-bar');
-        _renderTrend('impTrendChart','impTrendLabels', d.monthlyImportTrend||[], 'imp-bar');
-        _renderActiveLCs(d.activeLCList || []);
-        _renderRecentInvoices('recentExportsBody', d.recentExports||[], false);
-        _renderRecentInvoices('recentImportsBody', d.recentImports||[], true);
+    function _fyDates() {
+      var now = new Date(), y = now.getFullYear();
+      window._fyStart = now.getMonth() >= 6 ? (y+'-07-01') : ((y-1)+'-07-01');
+      window._fyEnd   = now.toISOString().split('T')[0];
+    }
+
+    function _loadDashboard() {
+      secureFetch('/commercial/dashboard/summary').then(function(d) {
+        if (!d) return;
+        // Export KPIs
+        document.getElementById('kpiExDraft').textContent  = d.exportDraft     || '0';
+        document.getElementById('kpiExFinal').textContent  = d.exportFinalized || '0';
+        document.getElementById('kpiExPosted').textContent = d.exportPosted    || '0';
+        document.getElementById('kpiExUSD').textContent    = _fmtUSD(d.exportPostedUSD);
+        document.getElementById('kpiExBDT').textContent    = _fmt(d.exportPostedBDT);
+        document.getElementById('kpiExMTD').textContent    = _fmtUSD(d.exportPostedMTD);
+        // Import KPIs
+        document.getElementById('kpiImDraft').textContent  = d.importDraft     || '0';
+        document.getElementById('kpiImFinal').textContent  = d.importFinalized || '0';
+        document.getElementById('kpiImPosted').textContent = d.importPosted    || '0';
+        document.getElementById('kpiImUSD').textContent    = _fmtUSD(d.importPostedUSD);
+        document.getElementById('kpiImBDT').textContent    = _fmt(d.importPostedBDT);
+        document.getElementById('kpiImMTD').textContent    = _fmtUSD(d.importPostedMTD);
+        // LC + Settlement KPIs
+        document.getElementById('kpiActiveLCs').textContent  = (d.activeLCs||0)+' / '+(d.totalLCs||0);
+        document.getElementById('kpiExpiredLCs').textContent = (d.expiredLCCount||0)+' LC(s)';
+        document.getElementById('kpiPendingStl').textContent = (d.pendingSettlements||0)+' pending';
+        document.getElementById('kpiSettledUSD').textContent = _fmtUSD(d.settledUSD);
+        // Tables
+        _fillIncoterms(d.exportByIncoterms||[]);
+        _fillCurrency(d.exportByCurrency||[], 'expCurrencyBody');
+        _fillCurrency(d.importByCurrency||[], 'impCurrencyBody');
+        _fillActiveLCs(d.activeLCList||[]);
+        _fillRecent(d.recentExports||[], 'recentExportBody');
+        _fillRecent(d.recentImports||[], 'recentImportBody');
+        // Charts
+        _fillTrendChart(_expChart, d.monthlyExportTrend||[], '#20c997');
+        _fillTrendChart(_impChart, d.monthlyImportTrend||[], '#1f6bff');
+        _fillStlChart(d.settlementByType||[]);
       }).catch(function(e){ console.error('Commercial dashboard error:', e); });
     }
 
-    window._refresh = _refresh;
-
-    // ── KPI widgets ───────────────────────────────────────────────────────────
-    function _renderKpis(d) {
-      _set('kExpPosted',   d.exportPosted  || 0);
-      _set('kExpMTD',      _fmtAmt(d.exportPostedMTD || 0));
-      _set('kImpPosted',   d.importPosted  || 0);
-      _set('kImpMTD',      _fmtAmt(d.importPostedMTD || 0));
-      _set('kActiveLCs',   d.activeLCs     || 0);
-      _set('kExpiredLCs',  'Expired: ' + (d.expiredLCCount||0));
-      _set('kPendingStl',  d.pendingSettlements || 0);
+    function _fillIncoterms(list) {
+      if (!list.length) { document.getElementById('incotermsBody').innerHTML='<tr><td colspan="3" class="text-center text-muted">No data</td></tr>'; return; }
+      document.getElementById('incotermsBody').innerHTML = list.map(function(r){
+        return '<tr><td><strong>'+r.incoterms+'</strong></td><td class="text-center">'+r.count+'</td><td class="text-end">'+_fmtN(r.total_usd)+'</td></tr>';
+      }).join('');
+    }
+    function _fillCurrency(list, bodyId) {
+      if (!list.length) { document.getElementById(bodyId).innerHTML='<tr><td colspan="3" class="text-center text-muted">No data</td></tr>'; return; }
+      document.getElementById(bodyId).innerHTML = list.map(function(r){
+        return '<tr><td><span class="badge bg-secondary">'+r.currency+'</span></td><td class="text-center">'+r.count+'</td><td class="text-end">'+_fmtN(r.total)+'</td></tr>';
+      }).join('');
+    }
+    function _fillActiveLCs(list) {
+      if (!list.length) { document.getElementById('activeLCBody').innerHTML='<tr><td colspan="8" class="text-center text-muted">No active LCs</td></tr>'; return; }
+      document.getElementById('activeLCBody').innerHTML = list.map(function(r){
+        var alertCls = r.alert==='EXPIRED'?'lc-alert-expired':r.alert==='EXPIRING_SOON'?'lc-alert-expiring':'lc-alert-active';
+        var alertTxt = r.alert==='EXPIRED'?'⚠ Expired':r.alert==='EXPIRING_SOON'?'⚡ Expiring Soon':'✓ Active';
+        return '<tr>'
+          + '<td><strong>'+r.lc_no+'</strong></td>'
+          + '<td>'+r.lc_name+'</td>'
+          + '<td><span class="badge bg-secondary">'+r.lc_type+'</span></td>'
+          + '<td class="text-end">'+_fmtN(r.lc_amount)+'</td>'
+          + '<td>'+r.currency+'</td>'
+          + '<td class="text-muted small">'+r.issue_date+'</td>'
+          + '<td class="text-muted small">'+r.expiry_date+'</td>'
+          + '<td class="'+alertCls+'">'+alertTxt+'</td>'
+          + '</tr>';
+      }).join('');
+    }
+    function _fillRecent(list, bodyId) {
+      if (!list.length) { document.getElementById(bodyId).innerHTML='<tr><td colspan="5" class="text-center text-muted">No data</td></tr>'; return; }
+      document.getElementById(bodyId).innerHTML = list.map(function(r){
+        return '<tr>'
+          + '<td><strong class="text-primary">'+r.invoice_no+'</strong></td>'
+          + '<td class="text-muted small">'+r.invoice_date+'</td>'
+          + '<td>'+(r.party_name||'—')+'</td>'
+          + '<td class="text-end">'+_fmtN(r.total_amount)+'</td>'
+          + '<td>'+_badge(r.status)+'</td>'
+          + '</tr>';
+      }).join('');
     }
 
-    // ── Financial strip ───────────────────────────────────────────────────────
-    function _renderStrip(d) {
-      _set('kExpTotalUSD', _fmtAmt(d.exportPostedUSD || 0) + ' USD');
-      _set('kExpTotalBDT', '৳ ' + _fmtBDT(d.exportPostedBDT||0));
-      _set('kImpTotalUSD', _fmtAmt(d.importPostedUSD || 0) + ' USD');
-      _set('kImpTotalBDT', '৳ ' + _fmtBDT(d.importPostedBDT||0));
-      _set('kLCValue',     _fmtAmt(d.totalLCValue||0));
-      _set('kLCExpiring30',d.lcsExpiring30d || 0);
-      _set('kSettledUSD',  _fmtAmt(d.settledUSD||0));
-      _set('kSettledMTD',  _fmtAmt(d.settledMTDUSD||0));
-    }
-
-    // ── Lifecycle flows ───────────────────────────────────────────────────────
-    function _renderLifecycle(d) {
-      _set('fl-exp-draft',  d.exportDraft     || 0);
-      _set('fl-exp-final',  d.exportFinalized || 0);
-      _set('fl-exp-posted', d.exportPosted    || 0);
-      _set('fl-exp-cancel', d.exportCancelled || 0);
-      _set('fl-imp-draft',  d.importDraft     || 0);
-      _set('fl-imp-final',  d.importFinalized || 0);
-      _set('fl-imp-posted', d.importPosted    || 0);
-      _set('fl-imp-cancel', d.importCancelled || 0);
-    }
-
-    // ── Incoterms breakdown ───────────────────────────────────────────────────
-    function _renderIncoterms(rows) {
-      var el = document.getElementById('incotermsBreakdown');
-      if (!rows.length) { el.innerHTML = '<div class="text-muted small text-center">No posted exports.</div>'; return; }
-      el.innerHTML = '<div class="d-flex flex-wrap gap-2">'
-        + rows.map(function(r){
-          return '<span class="badge bg-teal text-white px-2 py-1">'
-            + _esc(r.incoterms) + ' <strong>' + (r.count||0) + '</strong>'
-            + ' <small>(' + _fmtAmt(r.total_usd||0) + ')</small></span>';
-        }).join('') + '</div>';
-    }
-
-    // ── Import currency breakdown ─────────────────────────────────────────────
-    function _renderImportCurrency(rows) {
-      var el = document.getElementById('importCurrencyBreakdown');
-      if (!rows.length) { el.innerHTML = '<div class="text-muted small text-center">No posted imports.</div>'; return; }
-      el.innerHTML = '<div class="d-flex flex-wrap gap-2">'
-        + rows.map(function(r){
-          return '<span class="badge bg-primary text-white px-2 py-1">'
-            + _esc(r.currency) + ' <strong>' + (r.count||0) + '</strong>'
-            + ' <small>(' + _fmtAmt(r.total||0) + ')</small></span>';
-        }).join('') + '</div>';
-    }
-
-    // ── Trend chart ───────────────────────────────────────────────────────────
-    function _renderTrend(chartId, labelId, trend, barCls) {
-      var chart  = document.getElementById(chartId);
-      var labels = document.getElementById(labelId);
-      if (!trend.length) {
-        chart.innerHTML  = '<div class="text-muted text-center w-100 pt-4">No posted invoices in 12 months.</div>';
-        labels.innerHTML = '';
-        return;
+    // ── Charts ─────────────────────────────────────────────────────────────
+    function _initCharts() {
+      function _trendChart(id) {
+        return new Chart(document.getElementById(id).getContext('2d'), {
+          type:'bar',
+          data:{labels:[],datasets:[
+            {label:'USD',data:[],backgroundColor:'rgba(0,0,0,0)',borderColor:'#aaa',borderWidth:1},
+            {label:'Count',data:[],type:'line',yAxisID:'y2',borderColor:'#fd7e14',backgroundColor:'transparent',pointRadius:3,borderWidth:2}
+          ]},
+          options:{responsive:true,interaction:{mode:'index',intersect:false},
+            plugins:{legend:{position:'bottom',labels:{boxWidth:12}}},
+            scales:{y:{ticks:{callback:function(v){return '$'+Math.abs(v/1000).toFixed(0)+'K';}}},
+                    y2:{position:'right',grid:{drawOnChartArea:false},ticks:{stepSize:1}}}}
+        });
       }
-      var vals   = trend.map(function(t){ return parseFloat(t.total_usd||0); });
-      var maxVal = Math.max.apply(null,vals) || 1;
-      var chartH = 140;
-      chart.innerHTML  = '';
-      labels.innerHTML = '';
-      trend.forEach(function(t, i){
-        var raw = vals[i]; var h = Math.max(4, Math.round((raw/maxVal)*chartH));
-        var col = document.createElement('div');
-        col.style.cssText = 'flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:2px;position:relative;';
-        var lbl = document.createElement('div');
-        lbl.style.cssText = 'font-size:.6rem;color:#888;position:absolute;top:0;width:100%;text-align:center;';
-        lbl.textContent = raw > 0 ? (raw>=1e6?(raw/1e6).toFixed(1)+'M':raw>=1000?(raw/1000).toFixed(0)+'K':_num(raw,0)) : '';
-        var bar = document.createElement('div');
-        bar.className = barCls + ' w-100'; bar.style.height = h+'px';
-        bar.title = (t.month||'')+': USD '+_num(raw,2)+' ('+parseInt(t.invoice_count||0)+' invoices)';
-        col.appendChild(lbl); col.appendChild(bar); chart.appendChild(col);
-        var lab = document.createElement('div');
-        lab.style.cssText = 'flex:1;text-align:center;font-size:.62rem;color:#999;';
-        lab.textContent = t.month||'';
-        labels.appendChild(lab);
+      _expChart = _trendChart('exportTrendChart');
+      _impChart = _trendChart('importTrendChart');
+      _stlChart = new Chart(document.getElementById('stlTypeChart').getContext('2d'), {
+        type:'doughnut',
+        data:{labels:[],datasets:[{data:[],backgroundColor:COLORS,hoverOffset:4}]},
+        options:{responsive:false,plugins:{legend:{display:false}},cutout:'60%'}
       });
     }
-
-    // ── Active LC list ────────────────────────────────────────────────────────
-    function _renderActiveLCs(rows) {
-      var body = document.getElementById('activeLCBody');
-      if (!rows.length) { body.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-3">No active LCs.</td></tr>'; return; }
-      body.innerHTML = rows.map(function(r){
-        var alertCls = r.alert === 'EXPIRED' ? 'lc-alert-expired'
-                     : r.alert === 'EXPIRING_SOON' ? 'lc-alert-expiring'
-                     : 'lc-alert-active';
-        var alertBadge = r.alert === 'EXPIRED' ? '<span class="badge bg-danger">EXPIRED</span>'
-                       : r.alert === 'EXPIRING_SOON' ? '<span class="badge bg-warning text-dark">EXPIRING</span>'
-                       : '<span class="badge bg-success">OK</span>';
-        return '<tr class="'+(r.alert==='EXPIRED'?'table-danger':r.alert==='EXPIRING_SOON'?'table-warning':'')+'">'
-          + '<td><strong>' + _esc(r.lc_no||'—') + '</strong></td>'
-          + '<td>' + _esc(r.lc_name||'—') + '</td>'
-          + '<td><small>' + _esc(r.lc_type||'—') + '</small></td>'
-          + '<td class="text-end fw-bold">' + _fmtAmt(r.lc_amount||0) + '</td>'
-          + '<td>' + _esc(r.currency||'—') + '</td>'
-          + '<td class="text-nowrap"><small>' + (r.issue_date||'—') + '</small></td>'
-          + '<td class="text-nowrap"><small ' + (r.alert==='EXPIRED'?'class="text-danger fw-bold"':r.alert==='EXPIRING_SOON'?'class="text-warning fw-bold"':'') + '>' + (r.expiry_date||'—') + '</small></td>'
-          + '<td>' + alertBadge + '</td>'
-          + '</tr>';
+    function _fillTrendChart(chart, list, color) {
+      if (!list.length) return;
+      chart.data.labels            = list.map(function(r){ return r.month; });
+      chart.data.datasets[0].data  = list.map(function(r){ return parseFloat(r.total_usd||0); });
+      chart.data.datasets[0].backgroundColor = color.replace(')',',0.55)').replace('rgb','rgba').replace('#','rgba(').replace(/,/,',') || color+'88';
+      chart.data.datasets[0].borderColor     = color;
+      chart.data.datasets[1].data  = list.map(function(r){ return parseInt(r.invoice_count||0); });
+      chart.update();
+    }
+    function _fillStlChart(list) {
+      if (!list.length) return;
+      _stlChart.data.labels                    = list.map(function(r){ return r.settlement_type; });
+      _stlChart.data.datasets[0].data          = list.map(function(r){ return parseInt(r.count||0); });
+      _stlChart.data.datasets[0].backgroundColor = COLORS.slice(0, list.length);
+      _stlChart.update();
+      document.getElementById('stlTypeLegend').innerHTML = list.map(function(r,i){
+        return '<div class="d-flex justify-content-between mb-1"><span><i class="fas fa-circle me-1" style="color:'+COLORS[i]+'"></i>'+r.settlement_type+'</span><strong>'+r.count+'</strong></div>';
       }).join('');
     }
 
-    // ── Recent invoices ───────────────────────────────────────────────────────
-    var STATUS_CLR = {DRAFT:'bg-secondary',FINALIZED:'bg-primary',POSTED:'bg-success',CANCELLED:'bg-danger'};
-    function _renderRecentInvoices(bodyId, rows, isImport) {
-      var body = document.getElementById(bodyId);
-      if (!rows.length) { body.innerHTML = '<tr><td colspan="5" class="text-muted text-center py-3">No invoices.</td></tr>'; return; }
-      body.innerHTML = rows.map(function(r){
-        var sc = STATUS_CLR[r.status] || 'bg-secondary';
-        return '<tr>'
-          + '<td><strong class="text-primary">' + _esc(r.invoice_no||'—') + '</strong></td>'
-          + '<td><small>' + _esc(r.party_name||'—') + '</small></td>'
-          + (isImport ? '<td><small class="text-muted">'+_esc(r.lc_name||'—')+'</small></td>' : '<td><small>'+_esc(r.vessel_name||'—')+'</small></td>')
-          + '<td class="text-end">' + _fmtAmt(r.total_amount||0) + ' <small class="text-muted">' + (r.currency||'') + '</small></td>'
-          + '<td><span class="badge ' + sc + '">' + (r.status||'—') + '</span></td>'
-          + '</tr>';
-      }).join('');
-    }
+    // ── GL Integration ──────────────────────────────────────────────────────
+    window.glLoad = function() {
+      var fyStart = window._fyStart || (new Date().getFullYear()-1)+'-07-01';
+      var fyEnd   = window._fyEnd   || new Date().toISOString().split('T')[0];
+      var today   = new Date().toISOString().split('T')[0];
 
-    // ── Helpers ───────────────────────────────────────────────────────────────
-    function _set(id, val) { var el = document.getElementById(id); if (el) el.textContent = val != null ? String(val) : '—'; }
-    function _num(v, d) { return parseFloat(v||0).toLocaleString('en-BD',{minimumFractionDigits:d||0,maximumFractionDigits:d||0}); }
-    function _fmtAmt(v) {
-      var n = parseFloat(v||0);
-      if (n >= 1e6) return (n/1e6).toFixed(2)+'M';
-      if (n >= 1000) return (n/1000).toFixed(1)+'K';
-      return n.toFixed(2);
-    }
-    function _fmtBDT(v) {
-      var n = parseFloat(v||0);
-      if (n >= 1e7) return (n/1e7).toFixed(2)+' Cr';
-      if (n >= 1e5) return (n/1e5).toFixed(2)+' Lac';
-      return n.toFixed(2);
-    }
-    function _esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+      // P&L load
+      secureFetch('/commercial/gl/profit-loss?startDate='+fyStart+'&endDate='+fyEnd).then(function(data){
+        if (data.error) return;
+        var meta = data.summary || {};
+        var totRev = parseFloat(meta.totalRevenue||0);
+        var totExp = parseFloat(meta.totalExpense||0);
+        var net    = totRev - totExp;
+        document.getElementById('glRevenue').textContent = _fmt(totRev);
+        document.getElementById('glExpense').textContent = _fmt(totExp);
+        document.getElementById('glNet').textContent     = _fmt(Math.abs(net));
+        document.getElementById('glNetWidget').className = 'widget widget-stats '+(net>=0?'bg-blue':'bg-danger')+' pe-3';
+        var sects = data.sections || [];
+        document.getElementById('glPlBody').innerHTML = sects.slice(0, 12).map(function(r) {
+          var amt = parseFloat(r.amount||0);
+          var type = (r.account_type||'').toUpperCase();
+          return '<tr>'
+            + '<td class="small"><span class="text-muted me-1">'+(r.account_code||'')+'</span>'+r.account_name+'</td>'
+            + '<td class="text-end fw-semibold '+(type==='REVENUE'?'text-success':'text-danger')+'">'+_fmtN(amt)+'</td>'
+            + '</tr>';
+        }).join('') || '<tr><td colspan="2" class="text-center text-muted">No data</td></tr>';
+      });
 
+      // Balance Sheet load
+      secureFetch('/commercial/gl/balance-sheet?asOfDate='+today).then(function(data){
+        if (data.error) return;
+        var meta = data.summary || {};
+        var totA = parseFloat(meta.totalAssets||0);
+        var totL = parseFloat(meta.totalLiabilities||0)+parseFloat(meta.totalEquity||0);
+        document.getElementById('glAssets').textContent  = _fmt(totA);
+        document.getElementById('glBsTotalA').textContent = _fmtN(totA);
+        document.getElementById('glBsTotalL').textContent = _fmtN(totL);
+        var rows = data.accounts || [];
+        var aRows = rows.filter(function(r){ return (r.account_type||'').toUpperCase()==='ASSET'; }).slice(0,8);
+        var lRows = rows.filter(function(r){ var t=(r.account_type||'').toUpperCase(); return t==='LIABILITY'||t==='EQUITY'; }).slice(0,8);
+        function _bsRows(list) {
+          return list.map(function(r){
+            var amt=parseFloat(r.amount||0);
+            return '<tr><td class="small text-truncate" style="max-width:120px">'+r.account_name+'</td><td class="text-end small">'+_fmtN(amt)+'</td></tr>';
+          }).join('') || '<tr><td colspan="2" class="text-center text-muted">—</td></tr>';
+        }
+        document.getElementById('glBsAssetsBody').innerHTML = _bsRows(aRows);
+        document.getElementById('glBsLiabBody').innerHTML   = _bsRows(lRows);
+      });
+    };
   })();
   </script>
 </section>

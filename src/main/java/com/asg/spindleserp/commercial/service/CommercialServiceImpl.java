@@ -151,11 +151,11 @@ public class CommercialServiceImpl implements CommercialService {
                        '<a href="javascript:;" onclick="ciEdit('     || ci.id || ')" class="btn btn-white btn-sm" title="Edit"><i class="fa-regular fa-pen-to-square text-warning"></i></a>'
                        || '<a href="javascript:;" onclick="ciFinalize('|| ci.id || ')" class="btn btn-white btn-sm" title="Finalize"><i class="fas fa-check text-teal"></i></a>'
                        || '<a href="javascript:;" onclick="ciDelete(' || ci.id || ')" class="btn btn-white btn-sm" title="Delete"><i class="fa-regular fa-trash-can text-danger"></i></a>'
-                      END
+                       ELSE '' END
                    || CASE WHEN ci.status = 'FINALIZED' THEN
                        '<a href="javascript:;" onclick="ciPost('     || ci.id || ')" class="btn btn-white btn-sm" title="Post"><i class="fas fa-paper-plane text-primary"></i></a>'
                        || '<a href="javascript:;" onclick="ciCancel('|| ci.id || ')" class="btn btn-white btn-sm" title="Cancel"><i class="fas fa-ban text-danger"></i></a>'
-                      END
+                       ELSE '' END
                    || '</div>' AS actions
             FROM com_commercial_invoice ci
             LEFT JOIN acc_chart_of_accounts_sub lc ON lc.id = ci.lc_id
@@ -269,9 +269,8 @@ public class CommercialServiceImpl implements CommercialService {
 
     @Override @Transactional(readOnly = true)
     public DataTableResponse settlementDatatable(int draw, int start, int length, String search, Long lcId) {
-        Long orgId = SecurityHelper.currentOrgId().orElse(null);
         // Settlement has no org_id column; filter via LC → org join
-        String where = "WHERE 1=1"
+        String where = "WHERE s.organization_id ="+ContextProvider.getOrganizationId()
             + (lcId != null ? " AND s.lc_id=" + lcId : "")
             + CommonUtils.searchILike(search, Arrays.asList("lc.sub_account_code","lc.sub_account_name","s.settlement_type","s.status"));
         String sql = String.format("""
@@ -294,21 +293,21 @@ public class CommercialServiceImpl implements CommercialService {
                    END AS status_badge,
                    '<div class="btn-group">'
                    || '<a href="javascript:;" onclick="stlShow('   || s.id || ')" class="btn btn-white btn-sm"><i class="fas fa-eye text-success"></i></a>'
-                   || CASE WHEN s.status IN ('PENDING','PARTIAL') THEN
+                   || CASE WHEN s.status IN ('PENDING','PENDING') THEN
                        '<a href="javascript:;" onclick="stlEdit('   || s.id || ')" class="btn btn-white btn-sm"><i class="fa-regular fa-pen-to-square text-warning"></i></a>'
                        || '<a href="javascript:;" onclick="stlSettle('|| s.id || ')" class="btn btn-white btn-sm" title="Mark Settled"><i class="fas fa-check-double text-success"></i></a>'
                        || '<a href="javascript:;" onclick="stlDelete('|| s.id || ')" class="btn btn-white btn-sm"><i class="fa-regular fa-trash-can text-danger"></i></a>'
-                      END
+                       ELSE '' END
                    || CASE WHEN s.status = 'SETTLED' THEN
                        '<a href="javascript:;" onclick="stlReverse('|| s.id || ')" class="btn btn-white btn-sm" title="Reverse"><i class="fas fa-undo text-danger"></i></a>'
-                      END
+                       ELSE '' END
                    || '</div>' AS actions
             FROM com_lc_settlement s
             LEFT JOIN acc_chart_of_accounts_sub lc ON lc.id = s.lc_id
             %s ORDER BY s.id DESC OFFSET %d LIMIT %d
             """, where, start, length);
         List<Map<String,Object>> rows = jdbcTemplate.queryForList(sql);
-        long total = rows.isEmpty() ? 0L : CommonUtils.toLong(rows.get(0).get("full_count"));
+        long total = rows.isEmpty() ? 0L : CommonUtils.toLong(rows.getFirst().get("full_count"));
         return DataTableResponse.of(draw, total, total, rows);
     }
 

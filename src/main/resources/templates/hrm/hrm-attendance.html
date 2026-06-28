@@ -184,7 +184,7 @@
       document.getElementById('attDateTo').value   = today;
 
       dt = $('#attTable').DataTable({
-        processing:true,serverSide:false,responsive:true,pageLength:25,
+        processing:true,serverSide:true,responsive:true,pageLength:25,
         ajax:{url:BASE+'/list',type:'GET',data:function(d){
           d.status   = document.getElementById('attStatusFilter').value||'';
           d.dateFrom = document.getElementById('attDateFrom').value||'';
