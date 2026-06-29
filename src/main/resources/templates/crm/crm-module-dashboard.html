@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+
+<html th:replace="~{layout/base :: layout('CRM Dashboard', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
+<section>
+
+    <!-- ═══════════════════════════════════════════════════════════════
+         PAGE HEADER
+    ═══════════════════════════════════════════════════════════════ -->
+    <div class="d-flex align-items-center mb-3">
+        <div>
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a th:href="@{/}">Home</a></li>
+                <li class="breadcrumb-item active">CRM Dashboard</li>
+            </ol>
+            <h1 class="page-header mb-0">
+                <i class="fas fa-handshake me-2 text-theme"></i>CRM Dashboard
+            </h1>
+        </div>
+        <div class="ms-auto">
+            <a th:href="@{/crm/dashboard}"    class="btn btn-outline-theme btn-sm me-1"><i class="fa fa-tachometer-alt me-1"></i> Dashboard</a>
+            <a th:href="@{/crm/leads}"        class="btn btn-outline-theme btn-sm me-1"><i class="fas fa-user-tag me-1"></i>Leads</a>
+            <a th:href="@{/crm/opportunities}" class="btn btn-outline-theme btn-sm me-1"><i class="fas fa-funnel-dollar me-1"></i>Pipeline</a>
+            <a th:href="@{/crm/activities}"   class="btn btn-outline-theme btn-sm me-1"><i class="fas fa-tasks me-1"></i>Activities</a>
+            <a th:href="@{/crm/feedback}"     class="btn btn-outline-theme btn-sm"><i class="fas fa-comments me-1"></i>Feedback</a>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════
+         KPI CARDS ROW 1
+    ═══════════════════════════════════════════════════════════════ -->
+    <div class="row mb-3" id="kpiRow">
+        <!-- Open Leads -->
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="widget widget-stats bg-orange">
+                <div class="stats-icon"><i class="fa fa-user-tag"></i></div>
+                <div class="stats-info">
+                    <h4>OPEN LEADS</h4>
+                    <p id="kpi-openLeads">—</p>
+                </div>
+                <div class="stats-link">
+                    <a th:href="@{/crm/leads}">View Leads <i class="fa fa-arrow-alt-circle-right"></i></a>
+                </div>
+            </div>
+        </div>
+        <!-- Qualified Leads -->
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="widget widget-stats bg-teal">
+                <div class="stats-icon"><i class="fa fa-star"></i></div>
+                <div class="stats-info">
+                    <h4>QUALIFIED LEADS</h4>
+                    <p id="kpi-qualifiedLeads">—</p>
+                </div>
+                <div class="stats-link">
+                    <a th:href="@{/crm/leads}">View Leads <i class="fa fa-arrow-alt-circle-right"></i></a>
+                </div>
+            </div>
+        </div>
+        <!-- Open Opportunities -->
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="widget widget-stats bg-blue">
+                <div class="stats-icon"><i class="fa fa-funnel-dollar"></i></div>
+                <div class="stats-info">
+                    <h4>OPEN OPPORTUNITIES</h4>
+                    <p id="kpi-openOpportunities">—</p>
+                </div>
+                <div class="stats-link">
+                    <a th:href="@{/crm/opportunities}">View Pipeline <i class="fa fa-arrow-alt-circle-right"></i></a>
+                </div>
+            </div>
+        </div>
+        <!-- Won Opportunities -->
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="widget widget-stats bg-green">
+                <div class="stats-icon"><i class="fa fa-trophy"></i></div>
+                <div class="stats-info">
+                    <h4>WON OPPORTUNITIES</h4>
+                    <p id="kpi-wonOpportunities">—</p>
+                </div>
+                <div class="stats-link">
+                    <a th:href="@{/crm/opportunities}">View All <i class="fa fa-arrow-alt-circle-right"></i></a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- KPI CARDS ROW 2 -->
+    <div class="row mb-3">
+        <!-- Weighted Pipeline -->
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="widget widget-stats bg-indigo">
+                <div class="stats-icon"><i class="fa fa-balance-scale"></i></div>
+                <div class="stats-info">
+                    <h4>WEIGHTED PIPELINE</h4>
+                    <p id="kpi-pipelineValue">—</p>
+                </div>
+                <div class="stats-link">
+                    <a href="javascript:;">Probability-Weighted Value <i class="fa fa-arrow-alt-circle-right"></i></a>
+                </div>
+            </div>
+        </div>
+        <!-- Total Pipeline -->
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="widget widget-stats bg-purple">
+                <div class="stats-icon"><i class="fa fa-coins"></i></div>
+                <div class="stats-info">
+                    <h4>TOTAL PIPELINE VALUE</h4>
+                    <p id="kpi-totalPipelineValue">—</p>
+                </div>
+                <div class="stats-link">
+                    <a th:href="@{/crm/opportunities}">View Pipeline <i class="fa fa-arrow-alt-circle-right"></i></a>
+                </div>
+            </div>
+        </div>
+        <!-- Open Feedback -->
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="widget widget-stats bg-red">
+                <div class="stats-icon"><i class="fa fa-comments"></i></div>
+                <div class="stats-info">
+                    <h4>OPEN FEEDBACK</h4>
+                    <p id="kpi-openFeedback">—</p>
+                </div>
+                <div class="stats-link">
+                    <a th:href="@{/crm/feedback}">View Feedback <i class="fa fa-arrow-alt-circle-right"></i></a>
+                </div>
+            </div>
+        </div>
+        <!-- Pending Activities -->
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="widget widget-stats bg-dark">
+                <div class="stats-icon"><i class="fa fa-calendar-check"></i></div>
+                <div class="stats-info">
+                    <h4>PENDING ACTIVITIES</h4>
+                    <p id="kpi-pendingActivities">—</p>
+                </div>
+                <div class="stats-link">
+                    <a th:href="@{/crm/activities}">View Activities <i class="fa fa-arrow-alt-circle-right"></i></a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════
+         ROW: Pipeline Funnel + Lead Trend
+    ═══════════════════════════════════════════════════════════════ -->
+    <div class="row mb-3">
+        <!-- Pipeline by Stage -->
+        <div class="col-xl-8 mb-3">
+            <div class="panel panel-inverse">
+                <div class="panel-heading">
+                    <h4 class="panel-title"><i class="fas fa-chart-bar me-2"></i>Opportunity Pipeline by Stage</h4>
+                    <div class="panel-heading-btn">
+                        <a href="javascript:;" class="btn btn-xs btn-icon btn-default" data-toggle="panel-collapse"><i class="fa fa-minus"></i></a>
+                    </div>
+                </div>
+                <div class="panel-body">
+                    <div style="position:relative; height:240px;">
+                        <canvas id="chartPipeline"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- Lead Trend -->
+        <div class="col-xl-4 mb-3">
+            <div class="panel panel-inverse">
+                <div class="panel-heading">
+                    <h4 class="panel-title"><i class="fas fa-chart-line me-2"></i>Lead Trend (6 Months)</h4>
+                </div>
+                <div class="panel-body">
+                    <div style="position:relative; height:240px;">
+                        <canvas id="chartLeadTrend"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════
+         ROW: Lead Status Doughnut + Lead Source + Activity Breakdown
+    ═══════════════════════════════════════════════════════════════ -->
+    <div class="row mb-3">
+        <!-- Lead Status -->
+        <div class="col-xl-3 mb-3">
+            <div class="panel panel-inverse">
+                <div class="panel-heading">
+                    <h4 class="panel-title"><i class="fas fa-chart-pie me-2"></i>Leads by Status</h4>
+                </div>
+                <div class="panel-body">
+                    <div style="position:relative; height:200px;">
+                        <canvas id="chartLeadStatus"></canvas>
+                    </div>
+                    <div id="leadStatusLegend" class="mt-2 small text-center"></div>
+                </div>
+            </div>
+        </div>
+        <!-- Lead Source -->
+        <div class="col-xl-4 mb-3">
+            <div class="panel panel-inverse">
+                <div class="panel-heading">
+                    <h4 class="panel-title"><i class="fas fa-project-diagram me-2"></i>Lead Source Breakdown</h4>
+                </div>
+                <div class="panel-body">
+                    <div style="position:relative; height:220px;">
+                        <canvas id="chartLeadSource"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- Activity Type (30-day) -->
+        <div class="col-xl-5 mb-3">
+            <div class="panel panel-inverse">
+                <div class="panel-heading">
+                    <h4 class="panel-title"><i class="fas fa-tasks me-2"></i>Activities by Type <small class="text-muted">(Last 30 Days)</small></h4>
+                </div>
+                <div class="panel-body">
+                    <div style="position:relative; height:220px;">
+                        <canvas id="chartActivityType"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════
+         ROW: Top Opportunities + Feedback Status
+    ═══════════════════════════════════════════════════════════════ -->
+    <div class="row mb-3">
+        <!-- Top Opportunities -->
+        <div class="col-xl-8 mb-3">
+            <div class="panel panel-inverse">
+                <div class="panel-heading">
+                    <h4 class="panel-title"><i class="fas fa-crown me-2"></i>Top Open Opportunities by Value</h4>
+                </div>
+                <div class="panel-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover mb-0" id="tblTopOpp">
+                            <thead class="table-dark">
+                            <tr>
+                                <th>#</th>
+                                <th>Opportunity</th>
+                                <th>Customer</th>
+                                <th>Stage</th>
+                                <th class="text-end">Value</th>
+                                <th class="text-center">Prob%</th>
+                                <th>Close Date</th>
+                            </tr>
+                            </thead>
+                            <tbody id="tblTopOppBody">
+                            <tr><td colspan="7" class="text-center py-3 text-muted">Loading…</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- Feedback Status + Rating -->
+        <div class="col-xl-4 mb-3">
+            <div class="panel panel-inverse">
+                <div class="panel-heading">
+                    <h4 class="panel-title"><i class="fas fa-star me-2"></i>Feedback Overview</h4>
+                </div>
+                <div class="panel-body text-center">
+                    <div class="display-4 fw-bold text-warning mb-0" id="avgRatingDisplay">—</div>
+                    <div class="text-muted small mb-3" id="avgRatingStars">Loading…</div>
+                    <div style="position:relative; height:160px;">
+                        <canvas id="chartFeedbackStatus"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════
+         ROW: Pending Activities + Open Feedback Tickets
+    ═══════════════════════════════════════════════════════════════ -->
+    <div class="row mb-3">
+        <!-- Pending Activities -->
+        <div class="col-xl-6 mb-3">
+            <div class="panel panel-inverse">
+                <div class="panel-heading">
+                    <h4 class="panel-title"><i class="fas fa-calendar-alt me-2"></i>Pending Activities</h4>
+                    <div class="panel-heading-btn">
+                        <a th:href="@{/crm/activities}" class="btn btn-xs btn-success"><i class="fa fa-external-link-alt me-1"></i>All Activities</a>
+                    </div>
+                </div>
+                <div class="panel-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover mb-0">
+                            <thead class="table-dark">
+                            <tr>
+                                <th>Type</th>
+                                <th>Subject</th>
+                                <th>Related To</th>
+                                <th>Date</th>
+                                <th>Assigned</th>
+                            </tr>
+                            </thead>
+                            <tbody id="tblPendingAct">
+                            <tr><td colspan="5" class="text-center py-3 text-muted">Loading…</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- Open Feedback Tickets -->
+        <div class="col-xl-6 mb-3">
+            <div class="panel panel-inverse">
+                <div class="panel-heading">
+                    <h4 class="panel-title"><i class="fas fa-headset me-2"></i>Open Feedback Tickets</h4>
+                    <div class="panel-heading-btn">
+                        <a th:href="@{/crm/feedback}" class="btn btn-xs btn-danger"><i class="fa fa-external-link-alt me-1"></i>All Feedback</a>
+                    </div>
+                </div>
+                <div class="panel-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover mb-0">
+                            <thead class="table-dark">
+                            <tr>
+                                <th>Customer</th>
+                                <th>Subject</th>
+                                <th>Type</th>
+                                <th>Status</th>
+                                <th>Date</th>
+                                <th class="text-center">Rating</th>
+                            </tr>
+                            </thead>
+                            <tbody id="tblOpenFeedback">
+                            <tr><td colspan="6" class="text-center py-3 text-muted">Loading…</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+    <script th:inline="none">
+        (function () {
+            'use strict';
+            // ── colour palette ───────────────────────────────────────────────────────
+            const PALETTE = ['#348fe2','#00acac','#f59c1a','#49b6d6','#ff5b57','#2d353c','#727cb6','#5bc0de','#8bc34a','#ff9800'];
+            const STAGE_COLORS = {
+                PROSPECT:    '#f59c1a',
+                QUALIFIED:   '#348fe2',
+                PROPOSAL:    '#727cb6',
+                NEGOTIATION: '#49b6d6',
+                WON:         '#00acac',
+                LOST:        '#ff5b57'
+            };
+            const STATUS_COLORS = {
+                NEW:'#2d353c', CONTACTED:'#49b6d6', QUALIFIED:'#348fe2',
+                UNQUALIFIED:'#727cb6', CONVERTED:'#00acac', LOST:'#ff5b57', DORMANT:'#f59c1a'
+            };
+            const FB_COLORS = { OPEN:'#ff5b57', IN_PROGRESS:'#f59c1a', RESOLVED:'#00acac', CLOSED:'#2d353c' };
+
+            // ── Chart.js global defaults ──────────────────────────────────────────────
+            Chart.defaults.font.family = "'Open Sans', sans-serif";
+            Chart.defaults.font.size   = 12;
+
+            // ── helper: format BDT ───────────────────────────────────────────────────
+            function fmtBDT(v) {
+                const n = parseFloat(v) || 0;
+                if (n >= 10000000) return '৳' + (n / 10000000).toFixed(2) + ' Cr';
+                if (n >= 100000)   return '৳' + (n / 100000).toFixed(2) + ' Lac';
+                if (n >= 1000)     return '৳' + (n / 1000).toFixed(1) + 'K';
+                return '৳' + n.toFixed(0);
+            }
+
+            // ── chart holders ────────────────────────────────────────────────────────
+            let chartPipeline, chartLeadTrend, chartLeadStatus,
+                chartLeadSource, chartActivityType, chartFeedbackStatus;
+
+            function destroyIfExists(c) { if (c) c.destroy(); }
+
+            // ═════════════════════════════════════════════════════════════════════════
+            // LOAD SUMMARY
+            // ═════════════════════════════════════════════════════════════════════════
+            function loadDashboard() {
+                secureFetch('/crm/dashboard/summary')
+                    .then(d => {
+                        renderKpis(d);
+                        renderPipelineChart(d.pipeline || []);
+                        renderLeadTrend(d.leadTrend || []);
+                        renderLeadStatusChart(d.leadsByStatus || []);
+                        renderLeadSourceChart(d.leadsBySource || []);
+                        renderActivityTypeChart(d.activitiesByType || []);
+                        renderFeedbackStatusChart(d.feedbackByStatus || []);
+                        renderTopOpportunities(d.topOpportunities || []);
+                        renderPendingActivities(d.recentActivities || []);
+                        renderOpenFeedback(d.openFeedbackList || []);
+                        renderAvgRating(d.avgRating);
+                    })
+                    .catch(e => console.error('CRM dashboard error:', e));
+            }
+
+            // ── KPI cards ────────────────────────────────────────────────────────────
+            function renderKpis(d) {
+                $('#kpi-openLeads').text(d.openLeads || 0);
+                $('#kpi-qualifiedLeads').text(d.qualifiedLeads || 0);
+                $('#kpi-openOpportunities').text(d.openOpportunities || 0);
+                $('#kpi-wonOpportunities').text(d.wonOpportunities || 0);
+                $('#kpi-openFeedback').text(d.openFeedback || 0);
+                $('#kpi-pendingActivities').text(d.pendingActivities || 0);
+                $('#kpi-pipelineValue').text(fmtBDT(d.pipelineValue));
+                $('#kpi-totalPipelineValue').text(fmtBDT(d.totalPipelineValue));
+            }
+
+            // ── Pipeline horizontal bar ───────────────────────────────────────────────
+            function renderPipelineChart(data) {
+                destroyIfExists(chartPipeline);
+                const labels  = data.map(r => r.stage);
+                const counts  = data.map(r => parseInt(r.cnt) || 0);
+                const values  = data.map(r => parseFloat(r.total_value) || 0);
+                const colors  = labels.map(l => STAGE_COLORS[l] || '#aaa');
+                chartPipeline = new Chart(document.getElementById('chartPipeline'), {
+                    type: 'bar',
+                    data: {
+                        labels,
+                        datasets: [
+                            { label: 'Count',       data: counts, backgroundColor: colors, yAxisID: 'y', borderRadius: 4 },
+                            { label: 'Total Value', data: values, backgroundColor: colors.map(c => c + '55'),
+                                borderColor: colors, borderWidth: 1, type: 'line', yAxisID: 'y1', tension: 0.3, pointRadius: 5 }
+                        ]
+                    },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        plugins: { legend: { display: true, position: 'top' } },
+                        scales: {
+                            y:  { beginAtZero: true, position: 'left',  title: { display: true, text: 'Count' } },
+                            y1: { beginAtZero: true, position: 'right', grid: { drawOnChartArea: false },
+                                ticks: { callback: v => fmtBDT(v) }, title: { display: true, text: 'Value' } }
+                        }
+                    }
+                });
+            }
+
+            // ── Lead Trend line ────────────────────────────────────────────────────────
+            function renderLeadTrend(data) {
+                destroyIfExists(chartLeadTrend);
+                chartLeadTrend = new Chart(document.getElementById('chartLeadTrend'), {
+                    type: 'line',
+                    data: {
+                        labels: data.map(r => r.month),
+                        datasets: [{
+                            label: 'Leads', data: data.map(r => parseInt(r.cnt) || 0),
+                            borderColor: '#348fe2', backgroundColor: 'rgba(52,143,226,0.15)',
+                            fill: true, tension: 0.4, pointRadius: 5, pointHoverRadius: 7
+                        }]
+                    },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+                    }
+                });
+            }
+
+            // ── Lead Status doughnut ──────────────────────────────────────────────────
+            function renderLeadStatusChart(data) {
+                destroyIfExists(chartLeadStatus);
+                const labels = data.map(r => r.status);
+                const counts = data.map(r => parseInt(r.cnt) || 0);
+                chartLeadStatus = new Chart(document.getElementById('chartLeadStatus'), {
+                    type: 'doughnut',
+                    data: {
+                        labels,
+                        datasets: [{ data: counts, backgroundColor: labels.map(l => STATUS_COLORS[l] || '#aaa'), borderWidth: 2 }]
+                    },
+                    options: {
+                        responsive: true, maintainAspectRatio: false, cutout: '60%',
+                        plugins: { legend: { display: false } }
+                    }
+                });
+                // custom legend
+                const legend = data.map((r, i) =>
+                    `<span class="me-2"><i class="fas fa-circle" style="color:${STATUS_COLORS[r.status]||'#aaa'}"></i> ${r.status} <strong>(${r.cnt})</strong></span>`
+                ).join('');
+                document.getElementById('leadStatusLegend').innerHTML = legend;
+            }
+
+            // ── Lead Source horizontal bar ────────────────────────────────────────────
+            function renderLeadSourceChart(data) {
+                destroyIfExists(chartLeadSource);
+                chartLeadSource = new Chart(document.getElementById('chartLeadSource'), {
+                    type: 'bar',
+                    data: {
+                        labels: data.map(r => r.source),
+                        datasets: [{
+                            label: 'Leads',
+                            data:  data.map(r => parseInt(r.cnt) || 0),
+                            backgroundColor: PALETTE.slice(0, data.length),
+                            borderRadius: 4
+                        }]
+                    },
+                    options: {
+                        indexAxis: 'y',
+                        responsive: true, maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: { x: { beginAtZero: true, ticks: { precision: 0 } } }
+                    }
+                });
+            }
+
+            // ── Activity Type bar ─────────────────────────────────────────────────────
+            function renderActivityTypeChart(data) {
+                destroyIfExists(chartActivityType);
+                chartActivityType = new Chart(document.getElementById('chartActivityType'), {
+                    type: 'bar',
+                    data: {
+                        labels: data.map(r => r.activity_type),
+                        datasets: [{
+                            label: 'Activities (30d)',
+                            data:  data.map(r => parseInt(r.cnt) || 0),
+                            backgroundColor: PALETTE.slice(0, data.length),
+                            borderRadius: 4
+                        }]
+                    },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+                    }
+                });
+            }
+
+            // ── Feedback Status doughnut ──────────────────────────────────────────────
+            function renderFeedbackStatusChart(data) {
+                destroyIfExists(chartFeedbackStatus);
+                chartFeedbackStatus = new Chart(document.getElementById('chartFeedbackStatus'), {
+                    type: 'doughnut',
+                    data: {
+                        labels: data.map(r => r.status),
+                        datasets: [{
+                            data:            data.map(r => parseInt(r.cnt) || 0),
+                            backgroundColor: data.map(r => FB_COLORS[r.status] || '#aaa'),
+                            borderWidth: 2
+                        }]
+                    },
+                    options: {
+                        responsive: true, maintainAspectRatio: false, cutout: '55%',
+                        plugins: { legend: { position: 'bottom', labels: { font: { size: 11 } } } }
+                    }
+                });
+            }
+
+            // ── Average Rating ────────────────────────────────────────────────────────
+            function renderAvgRating(avg) {
+                const n = parseFloat(avg) || 0;
+                document.getElementById('avgRatingDisplay').textContent = n.toFixed(1);
+                const full  = Math.floor(n);
+                const half  = n - full >= 0.5 ? 1 : 0;
+                const empty = 5 - full - half;
+                document.getElementById('avgRatingStars').innerHTML =
+                    '★'.repeat(full) + (half ? '½' : '') + '☆'.repeat(empty) +
+                    ' <span class="text-muted">Avg. Customer Rating</span>';
+            }
+
+            // ── Top Opportunities table ───────────────────────────────────────────────
+            function stageBadge(stage) {
+                const map = {
+                    PROSPECT:'secondary', QUALIFIED:'primary', PROPOSAL:'info',
+                    NEGOTIATION:'warning', WON:'success', LOST:'danger'
+                };
+                return `<span class="badge bg-${map[stage]||'secondary'}">${stage}</span>`;
+            }
+
+            function renderTopOpportunities(data) {
+                const tbody = document.getElementById('tblTopOppBody');
+                if (!data.length) { tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-3">No open opportunities.</td></tr>'; return; }
+                tbody.innerHTML = data.map((r, i) => `
+            <tr>
+                <td>${i+1}</td>
+                <td><a href="/crm/opportunities" class="text-theme fw-semibold">${r.opportunity_no}</a><br>
+                    <small class="text-muted">${r.title}</small></td>
+                <td>${r.customer_name}</td>
+                <td>${stageBadge(r.stage)}</td>
+                <td class="text-end fw-semibold">${fmtBDT(r.estimated_value)}</td>
+                <td class="text-center">${r.probability}%</td>
+                <td><small>${r.expected_close_date}</small></td>
+            </tr>`).join('');
+            }
+
+            // ── Pending Activities table ──────────────────────────────────────────────
+            const ACT_ICON = {
+                CALL:'phone', EMAIL:'envelope', MEETING:'users', VISIT:'map-marker-alt',
+                SAMPLE_SENT:'box', QUOTATION:'file-invoice', FOLLOW_UP:'redo', NOTE:'sticky-note', OTHER:'tasks'
+            };
+            function renderPendingActivities(data) {
+                const tbody = document.getElementById('tblPendingAct');
+                if (!data.length) { tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-3">No pending activities.</td></tr>'; return; }
+                tbody.innerHTML = data.map(r => `
+            <tr>
+                <td><i class="fas fa-${ACT_ICON[r.activity_type]||'tasks'} text-theme me-1"></i>${r.activity_type.replace('_',' ')}</td>
+                <td class="text-truncate" style="max-width:160px;" title="${r.subject}">${r.subject}</td>
+                <td class="text-truncate" style="max-width:120px;">${r.related_to}</td>
+                <td><small class="text-warning">${r.activity_date}</small></td>
+                <td><small>${r.assigned_to}</small></td>
+            </tr>`).join('');
+            }
+
+            // ── Open Feedback table ───────────────────────────────────────────────────
+            function fbStatusBadge(s) {
+                const map = { OPEN:'danger', IN_PROGRESS:'warning' };
+                return `<span class="badge bg-${map[s]||'secondary'}">${s.replace('_',' ')}</span>`;
+            }
+            function stars(n) {
+                if (!n) return '—';
+                return '★'.repeat(n) + '☆'.repeat(5-n);
+            }
+            function renderOpenFeedback(data) {
+                const tbody = document.getElementById('tblOpenFeedback');
+                if (!data.length) { tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-3">No open feedback.</td></tr>'; return; }
+                tbody.innerHTML = data.map(r => `
+            <tr>
+                <td class="text-truncate" style="max-width:130px;">${r.customer_name}</td>
+                <td class="text-truncate" style="max-width:160px;" title="${r.subject}">${r.subject}</td>
+                <td><span class="badge bg-secondary">${r.feedback_type}</span></td>
+                <td>${fbStatusBadge(r.status)}</td>
+                <td><small>${r.feedback_date}</small></td>
+                <td class="text-center text-warning">${stars(r.rating)}</td>
+            </tr>`).join('');
+            }
+
+            // ── Boot ─────────────────────────────────────────────────────────────────
+            $(function () {
+                loadDashboard();
+            });
+
+        })();
+    </script>
+</section>
+
+</html>
