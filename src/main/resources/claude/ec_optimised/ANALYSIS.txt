@@ -1,0 +1,152 @@
+========================================================================
+SPINDLE ERP — INVENTORY & ACCOUNTS ENTITY ANALYSIS
+vs ECOMMERCE SCHEMA OPTIMISATION
+========================================================================
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. ENTITY ARCHITECTURE PATTERNS (from uploaded files)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+PATTERN A — BaseEntity (all domain entities except ItemUom/InventoryLot)
+  @MappedSuperclass with:
+    • organization → @ManyToOne(LAZY) Organization  ← auto-seeded from ContextProvider
+    • created_by / updated_by ← Spring Data auditing (@CreatedBy / @LastModifiedBy)
+    • created_at / updated_at ← @CreatedDate / @LastModifiedDate
+  ALL entities extending BaseEntity automatically get multi-tenant scoping.
+
+PATTERN B — ItemUom / InventoryLot (does NOT extend BaseEntity)
+  • organizationId stored as plain Long (ContextProvider.getOrganizationId())
+  • Manual @PrePersist / @PreUpdate for timestamps
+  • No Spring auditing — intentional (these are global master/transaction entities)
+
+PATTERN C — ChartOfAccountSub STI hierarchy (Single Table Inheritance)
+  • Parent: ChartOfAccountSub (abstract, @Inheritance SINGLE_TABLE)
+  • Discriminator column: sub_account_type (STRING)
+  • Concrete subtypes: BankAccount, CashAccount, CustomerAccount,
+    SupplierAccount, EmployeeSubAccount, GeneralSubAccount,
+    InterCompanyAccount, LetterOfCredit
+  • ALL subtype fields live in acc_chart_of_accounts_sub (fat table)
+  • FK references use Long stubs (customerId, supplierId) NOT @ManyToOne
+    to avoid circular dependencies / lazy-init issues
+
+PATTERN D — Soft FKs on inventory entities
+  • Item.hsCodeId, Item.originId → resolved at service layer
+  • InventoryLot.supplierId, .bankId, .countryOfOriginId → same
+  • Reason: avoids cross-module JPA graph, reduces N+1 risk
+
+PATTERN E — JournalEntryMaster AP/AR settlement design
+  • allocatedAmount stored as plain NUMERIC (updated atomically via JPQL)
+  • getDueAmount() is @Transient (never persisted)
+  • partyId is Long (NOT @ManyToOne ChartOfAccountSub) — avoids lazy-init
+
+PATTERN F — @Builder.Default for all nullable booleans
+  • isActive = true, isApproved = false, isPosted = false etc.
+  • Boolean wrapper used on nullable fields to avoid NPE from JSON null
+
+KEY OBSERVATIONS FOR ECOMMERCE:
+  1. Any new EC entity extending BaseEntity gets org + audit for free.
+  2. ChartOfAccountSub (CustomerAccount discriminator) IS the ERP customer
+     for B2B. The ec_customers table is ADDITIVE (B2C portal layer).
+  3. Item entity already has: sku, barcode, weight, unitPrice, costPrice,
+     standardCost, minimumStock, itemType, hasLotTracking — these MUST NOT
+     be duplicated in ec_product_catalog or ec_product_variants.
+  4. ItemUom is the authoritative unit — ec tables must reference it
+     for any quantity column's unit (NOT duplicate free-text unit fields).
+  5. Warehouse entity is already ERP-managed — ec_shipping must reference it,
+     not duplicate warehouse data.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2. FIELD-LEVEL REDUNDANCY FOUND IN ECOMMERCE SCHEMA (to remove/reuse)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ec_product_catalog (FILE 01):
+  REMOVE  → short_description: already in inv_items.description
+  REMOVE  → specification: use inv_items.internalNotes or add inv_items.specification
+  KEEP    → seo_title/keywords/description: storefront-only, no ERP equivalent
+  KEEP    → product_title: marketing name, different from inv_items.itemName
+  REMOVE  → minimum_order_qty/maximum_order_qty: already in inv_items.minimumStock
+             (for B2C minimum per ORDER, keep as ec-specific override with NULL=use item default)
+  KEEP    → min/max_order_qty as NULLABLE overrides (NULL = use item master value)
+  KEEP    → featured/best_seller/trending/new_arrival: merchandising flags, no ERP equivalent
+  REMOVE  → total_sales/total_views: should be computed from ec_product_analytics, not stored
+
+ec_product_variants (FILE 01):
+  REMOVE  → weight, length, width, height: already on inv_items (weight, volume, dimensions)
+             Keep only as NULLABLE overrides (variant-specific override of item master)
+  REMOVE  → cost_price: sourced from inv_items.costPrice via item_id FK — never duplicate
+  REMOVE  → sku: already on inv_items.sku — use item_id FK to get it
+  REMOVE  → barcode: already on inv_items.barcode
+
+ec_order_items (FILE 04):
+  KEEP    → cost_price snapshot: justified as point-in-time COGS snapshot
+  KEEP    → unit_price snapshot: same — prices change, order must preserve what was charged
+  REMOVE  → item_id is redundant if variant_id → ec_product_variants → item_id exists
+             But KEEP for direct lot tracking and stock deduction (denormalisation is intentional)
+
+ec_payments (FILE 05):
+  REMOVE  → bank_name, account_number: redundant — receiving_sub_account_id → BankAccount
+             already has bankName, accountNumber via ChartOfAccountSub STI fields
+  KEEP    → gateway_transaction_id, transaction_reference: gateway-specific, not in ERP
+
+ec_customer_wallet (FILE 02):
+  REMOVE  → The wallet balance is also stored on ec_customers.wallet_balance
+             wallet_balance on ec_customers should be @Transient or removed — 
+             it must always be SUM(ec_customer_wallet) to avoid sync bugs
+
+ec_product_catalog.total_sales / total_views:
+  REMOVE  → Both are derivable from ec_product_analytics — storing them here creates
+             a dual-write sync problem. Remove from table; compute in service/query.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+3. TABLES THAT CAN REUSE ERP ENTITIES DIRECTLY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ERP Entity                  → EC Usage
+─────────────────────────────────────────────────────────────────────
+inv_items (Item)            → ec_product_catalog.item_id (1:1)
+                              ec_product_variants.item_id (1:1, optional)
+                              ec_order_items.item_id (direct stock deduction)
+inv_item_uom (ItemUom)      → ec_order_items should reference item's salesUnit
+                              No new UOM table needed
+inv_item_brands (ItemBrand) → ec_product_catalog can derive brand from item.brand
+                              No ec_brands table needed
+inv_item_categories         → ec_categories is STOREFRONT category (different hierarchy)
+(ItemCategory)                KEEP ec_categories — it's the CMS/SEO category tree;
+                              inv_item_categories is the inventory classification.
+                              Link via ec_product_catalog.item_id → item.category
+global_inv_lots             → ec_order_items.inventory_lot_id (correct, already done)
+(InventoryLot)              
+org_warehouses (Warehouse)  → ec_shipping.warehouse_id (correct, already done)
+acc_chart_of_accounts_sub   → ec_customers.erp_sub_account_id (CustomerAccount)
+(CustomerAccount)             ec_payments.receiving_sub_account_id (BankAccount/CashAccount)
+acc_journal_entry_master    → ec_orders.journal_entry_id
+(JournalEntryMaster)          ec_payments.journal_entry_id
+                              ec_returns.journal_entry_id
+                              ec_refunds.journal_entry_id
+sec_users (User)            → ec_blog_posts.author_user_id
+                              ec_product_answers.answered_by_user
+                              ec_media_library.uploaded_by
+stp_currencies              → ec_payments and ec_orders currency fields reference
+                              'BDT' which aligns with stp_currencies.code
+                              No ec_currencies table needed ✓ (already removed)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+4. NET RESULT: TABLES REMOVED / CONSOLIDATED
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+REMOVED TABLES (reuse ERP):
+  ✗ ec_currencies        → stp_currencies
+  ✗ ec_exchange_rates    → stp_currencies / external rate API
+  ✗ ec_erp_integrations  → service-layer bridge, no config table
+  ✗ ec_system_parameters → consolidated into ec_settings
+
+COLUMNS REMOVED / MADE NULLABLE OVERRIDES:
+  ec_product_catalog:   total_sales, total_views (computed)
+  ec_product_variants:  sku, barcode, cost_price (sourced from inv_items via item_id)
+                        weight/length/width/height → NULLABLE overrides only
+  ec_payments:          bank_name, account_number (from receiving_sub_account_id)
+  ec_customers:         wallet_balance → removed (always SUM ec_customer_wallet)
+
+SUMMARY: 4 tables removed, ~12 columns removed/made nullable,
+         3 column types changed to be proper ERP FK references.
+========================================================================
