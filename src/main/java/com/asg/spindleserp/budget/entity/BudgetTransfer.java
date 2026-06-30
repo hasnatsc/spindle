@@ -1,5 +1,6 @@
 package com.asg.spindleserp.budget.entity;
 
+import com.asg.spindleserp.security.auth.ContextProvider;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -22,6 +23,10 @@ public class BudgetTransfer {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+
+    @Column(name = "organization_id", nullable = false)
+    private Long organizationId = ContextProvider.getOrganizationId();
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "budget_id", nullable = false)

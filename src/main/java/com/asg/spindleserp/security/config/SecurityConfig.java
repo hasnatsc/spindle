@@ -6,6 +6,7 @@ import com.asg.spindleserp.security.auth.LoginFailureHandler;
 import com.asg.spindleserp.security.auth.LoginSuccessHandler;
 import com.asg.spindleserp.security.service.UserDetailsServiceImpl;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.security.autoconfigure.web.servlet.PathRequest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -146,6 +147,7 @@ import org.springframework.session.security.SpringSessionBackedSessionRegistry;
 @EnableWebSecurity
 @EnableMethodSecurity(prePostEnabled = true)
 @RequiredArgsConstructor
+@Slf4j
 public class SecurityConfig {
 
     private final UserDetailsServiceImpl      userDetailsService;
@@ -320,6 +322,9 @@ public class SecurityConfig {
                         .authenticationEntryPoint((req, res, e) -> {
                             // This is the single authoritative handler for unauthenticated
                             // requests (covers truly expired sessions, not the login race).
+                            log.warn("AUTH REQUIRED  uri='{}' method='{}' type='{}' reason='{}'",
+                                    req.getRequestURI(), req.getMethod(),
+                                    e.getClass().getSimpleName(), e.getMessage());
                             if (isAjax(req)) {
                                 res.setStatus(401);
                                 res.setContentType("application/json;charset=UTF-8");
