@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<!-- ecommerce/ec-setting-index.html  JS fns: ecstShow/ecstEdit/ecstDelete/ecstOpenCreate -->
+<html th:replace="~{layout/base :: layout('EC Settings', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
+<section>
+  <ol class="breadcrumb float-xl-end">
+    <li class="breadcrumb-item"><a th:href="@{/dashboard}">Home</a></li>
+    <li class="breadcrumb-item">eCommerce</li><li class="breadcrumb-item active">Settings</li>
+  </ol>
+  <h1 class="page-header">eCommerce Settings <small>key-value configuration store per group</small></h1>
+  <div class="panel panel-inverse">
+    <div class="panel-heading">
+      <div class="panel-title"><a href="javascript:;" onclick="ecstOpenCreate()"><span class="badge btn btn-outline-success"><i class="fa fa-plus me-1"></i> Add Setting</span></a></div>
+      <div class="panel-heading-btn">
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-default" data-toggle="panel-expand"><i class="fa fa-expand"></i></a>
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-success" data-toggle="panel-reload"><i class="fa fa-redo"></i></a>
+      </div>
+    </div>
+    <div class="panel-body">
+      <table id="ecstTable" width="100%" class="table table-striped table-bordered align-middle">
+        <thead><tr>
+          <th width="1%">SL</th><th>Group</th><th>Key</th><th>Value</th>
+          <th>Data Type</th><th class="text-center">Editable</th><th>Updated</th>
+          <th class="text-center" width="10%">Actions</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <!-- CREATE / EDIT MODAL -->
+    <div tabindex="-1" id="ecstModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+          <div class="modal-header"><h5 class="modal-title" id="ecstModalTitle"><i class="fa fa-cog me-1 text-success"></i> Add Setting</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+          <form id="ecstForm" novalidate>
+            <div class="modal-body">
+              <input type="hidden" id="ecstId">
+              <div class="row g-2">
+                <div class="col-md-4 view-group">
+                  <input id="ecstGroup" type="text" class="form-control hs_span_view" required maxlength="100" placeholder="STORE / EMAIL / PAYMENT …">
+                  <label class="input-label">Setting Group <span class="text-danger">*</span></label>
+                </div>
+                <div class="col-md-4 view-group">
+                  <input id="ecstKey" type="text" class="form-control hs_span_view font-monospace" required maxlength="150" placeholder="site_name">
+                  <label class="input-label">Setting Key <span class="text-danger">*</span></label>
+                </div>
+                <div class="col-md-4 view-group">
+                  <select id="ecstDataType" class="form-select hs_span_view">
+                    <option value="STRING">STRING</option><option value="NUMBER">NUMBER</option>
+                    <option value="BOOLEAN">BOOLEAN</option><option value="JSON">JSON</option>
+                  </select>
+                  <label class="input-label">Data Type</label>
+                </div>
+                <div class="col-12 view-group">
+                  <textarea id="ecstValue" class="form-control hs_span_view font-monospace" rows="4" placeholder="Setting value…"></textarea>
+                  <label class="input-label">Value</label>
+                </div>
+                <div class="col-12 view-group">
+                  <input id="ecstDesc" type="text" class="form-control hs_span_view" maxlength="500" placeholder="What does this setting do?">
+                  <label class="input-label">Description</label>
+                </div>
+                <div class="col-md-3 mt-1"><div class="form-check form-switch pt-2"><input type="checkbox" id="ecstEditable" class="form-check-input" checked><label class="form-check-label" for="ecstEditable"><strong>Editable</strong></label></div></div>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-success" type="submit" id="ecstSubmitBtn"><span class="spinner-border spinner-border-sm me-2 d-none" id="ecstSpinner"></span><span id="ecstBtnText">Save</span></button>
+              <button type="button" class="btn btn-white" data-bs-dismiss="modal">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script th:inline="none">
+  (function(){
+    'use strict';
+    const BASE='/ecommerce/settings'; var dt;
+    document.addEventListener('DOMContentLoaded',function(){
+      dt=$('#ecstTable').DataTable({processing:true,serverSide:true,responsive:true,pageLength:50,
+        ajax:{url:BASE+'/list',type:'GET'},
+        columns:[{data:'sl',orderable:false,width:'40px'},{data:'setting_group'},{data:'setting_key',className:'font-monospace small'},
+          {data:'setting_value',defaultContent:'—'},{data:'data_type'},{data:'editable_badge',orderable:false,className:'text-center'},
+          {data:'updated_at',defaultContent:'—'},{data:'actions',orderable:false,className:'text-center'}],
+        language:{emptyTable:'No settings found.'}});
+      document.getElementById('ecstForm').addEventListener('submit',_onSubmit);
+    });
+    window.ecstOpenCreate=function(){_reset();document.getElementById('ecstModalTitle').innerHTML='<i class="fa fa-plus me-1 text-success"></i> Add Setting';document.getElementById('ecstBtnText').textContent='Save';bootstrap.Modal.getOrCreateInstance(document.getElementById('ecstModal')).show();};
+    window.ecstShow=function(id){secureFetch(BASE+'/show/'+id).then(function(res){if(!res.success){Swal.fire('Error',res.message,'error');return;}
+      var o=res.obj.defaultData;Swal.fire({title:o.settingGroup+' → '+o.settingKey,html:'<pre class="text-start small bg-light p-2 rounded">'+_esc(o.settingValue||'')+'</pre><small class="text-muted">'+_esc(o.description||'')+'</small>',width:'500px'});});};
+    window.ecstEdit=function(id){secureFetch(BASE+'/show/'+id).then(function(res){if(!res.success){Swal.fire('Error',res.message,'error');return;}
+      var o=res.obj.defaultData; _reset();
+      _v('ecstId',o.id);_v('ecstGroup',o.settingGroup);_v('ecstKey',o.settingKey);_v('ecstValue',o.settingValue||'');
+      _v('ecstDesc',o.description||'');document.getElementById('ecstDataType').value=o.dataType||'STRING';
+      document.getElementById('ecstEditable').checked=o.editable;
+      document.getElementById('ecstModalTitle').innerHTML='<i class="fa fa-pencil me-1 text-warning"></i> Edit Setting';
+      document.getElementById('ecstBtnText').textContent='Update';
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('ecstModal')).show();
+    });};
+    window.ecstDelete=function(id){hsConfirmDelete(BASE+'/delete/'+id,dt);};
+    function _onSubmit(e){e.preventDefault();var sb=document.getElementById('ecstSubmitBtn'),sp=document.getElementById('ecstSpinner'),bt=document.getElementById('ecstBtnText');hsDisableButton(sb,sp,bt);
+      secureFetch(BASE+'/save',{method:'POST',body:JSON.stringify({
+        id:document.getElementById('ecstId').value||null,settingGroup:document.getElementById('ecstGroup').value,
+        settingKey:document.getElementById('ecstKey').value,settingValue:document.getElementById('ecstValue').value,
+        dataType:document.getElementById('ecstDataType').value,description:document.getElementById('ecstDesc').value,
+        editable:document.getElementById('ecstEditable').checked
+      })}).then(function(d){if(d.success){Swal.fire({icon:'success',title:'Saved!',text:d.message,timer:1600,showConfirmButton:false});bootstrap.Modal.getOrCreateInstance(document.getElementById('ecstModal')).hide();dt.ajax.reload(null,false);}
+        else{Swal.fire('Error',d.message,'error');}}).catch(function(err){Swal.fire('Error',err.message||'Failed.','error');}).finally(function(){hsEnableButton(sb,sp,bt);});
+    }
+    function _reset(){document.getElementById('ecstForm').reset();document.getElementById('ecstId').value='';document.getElementById('ecstEditable').checked=true;}
+    function _v(id,v){var e=document.getElementById(id);if(e)e.value=(v!=null&&v!==undefined)?v:'';}
+    function _esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+  })();
+  </script>
+</section>
+</html>

@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<!-- ecommerce/ec-cart-index.html  JS fns: eccartShow/eccartAbandon/eccartDelete -->
+<html th:replace="~{layout/base :: layout('EC Carts', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
+<section>
+  <ol class="breadcrumb float-xl-end">
+    <li class="breadcrumb-item"><a th:href="@{/dashboard}">Home</a></li>
+    <li class="breadcrumb-item">eCommerce</li><li class="breadcrumb-item active">Carts</li>
+  </ol>
+  <h1 class="page-header">Carts <small>customer cart monitoring &amp; abandoned cart management</small></h1>
+  <div class="panel panel-inverse">
+    <div class="panel-heading">
+      <div class="panel-title"><span class="text-muted small">Carts are created from storefront. Admin can monitor and mark abandoned carts for remarketing.</span></div>
+      <div class="panel-heading-btn">
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-default" data-toggle="panel-expand"><i class="fa fa-expand"></i></a>
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-success" data-toggle="panel-reload"><i class="fa fa-redo"></i></a>
+      </div>
+    </div>
+    <div class="panel-body">
+      <table id="eccartTable" width="100%" class="table table-striped table-bordered align-middle">
+        <thead><tr>
+          <th width="1%">SL</th><th>Customer</th><th>Phone</th><th>Session ID</th>
+          <th>Status</th><th class="text-center">Items</th><th class="text-end">Grand Total</th>
+          <th>Expires At</th><th>Created</th>
+          <th class="text-center" width="10%">Actions</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <!-- VIEW MODAL -->
+    <div tabindex="-1" id="eccartViewModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+          <div class="modal-header"><h5 class="modal-title"><i class="fa fa-shopping-cart me-1 text-primary"></i> Cart Details</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+          <div class="modal-body">
+            <div class="hs-box"><div class="row g-2">
+              <div class="col-md-4 view-group"><label class="view-label">Customer</label><span id="vw_cart_cust" class="form-control hs_span_show"></span></div>
+              <div class="col-md-4 view-group"><label class="view-label">Session ID</label><span id="vw_cart_sess" class="form-control hs_span_show font-monospace small"></span></div>
+              <div class="col-md-4 view-group"><label class="view-label">Status</label><span id="vw_cart_status" class="form-control hs_span_show fw-bold"></span></div>
+              <div class="col-md-3 view-group"><label class="view-label">Total Items</label><span id="vw_cart_items" class="form-control hs_span_show text-center"></span></div>
+              <div class="col-md-3 view-group"><label class="view-label">Subtotal</label><span id="vw_cart_sub" class="form-control hs_span_show text-end"></span></div>
+              <div class="col-md-3 view-group"><label class="view-label">Shipping</label><span id="vw_cart_ship" class="form-control hs_span_show text-end"></span></div>
+              <div class="col-md-3 view-group"><label class="view-label">Grand Total</label><span id="vw_cart_total" class="form-control hs_span_show text-end fw-bold"></span></div>
+              <div class="col-md-6 view-group"><label class="view-label">Discount</label><span id="vw_cart_disc" class="form-control hs_span_show text-end"></span></div>
+              <div class="col-md-6 view-group"><label class="view-label">Expires At</label><span id="vw_cart_exp" class="form-control hs_span_show"></span></div>
+              <div class="col-md-6 view-group"><label class="view-label">Created At</label><span id="vw_cart_at" class="form-control hs_span_show"></span></div>
+            </div></div>
+          </div>
+          <div class="modal-footer"><button type="button" class="btn btn-white" data-bs-dismiss="modal">Close</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script th:inline="none">
+  (function(){
+    'use strict';
+    const BASE='/ecommerce/carts'; var dt;
+    document.addEventListener('DOMContentLoaded',function(){
+      dt=$('#eccartTable').DataTable({processing:true,serverSide:true,responsive:true,pageLength:25,
+        ajax:{url:BASE+'/list',type:'GET'},
+        columns:[{data:'sl',orderable:false,width:'40px'},{data:'customer_name',defaultContent:'Guest'},{data:'customer_phone',defaultContent:'—'},
+          {data:'session_id',defaultContent:'—'},{data:'cart_status'},{data:'total_items',className:'text-center'},
+          {data:'grand_total',className:'text-end'},{data:'expires_at',defaultContent:'—'},
+          {data:'created_at',defaultContent:'—'},{data:'actions',orderable:false,className:'text-center'}],
+        language:{emptyTable:'No carts found.'}});
+    });
+    window.eccartShow=function(id){secureFetch(BASE+'/show/'+id).then(function(res){if(!res.success){Swal.fire('Error',res.message,'error');return;}
+      var o=res.obj.defaultData;
+      _st('vw_cart_cust',o.customerName);_st('vw_cart_sess',o.sessionId);_st('vw_cart_status',o.cartStatus);
+      _st('vw_cart_items',o.totalItems);_st('vw_cart_sub',o.subtotal);_st('vw_cart_ship',o.shippingCharge);
+      _st('vw_cart_total',o.grandTotal);_st('vw_cart_disc',o.discountAmount);
+      _st('vw_cart_exp',o.expiresAt);_st('vw_cart_at',o.createdAt);
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('eccartViewModal')).show();
+    });};
+    window.eccartAbandon=function(id){Swal.fire({title:'Mark Abandoned?',text:'This cart will be marked as abandoned.',icon:'warning',showCancelButton:true,confirmButtonText:'Yes'}).then(function(r){
+      if(!r.isConfirmed)return;secureFetch(BASE+'/abandon/'+id,{method:'POST'}).then(function(d){if(d.success){Swal.fire({icon:'success',title:d.message,timer:1400,showConfirmButton:false});dt.ajax.reload(null,false);}else{Swal.fire('Error',d.message,'error');}});});};
+    window.eccartDelete=function(id){hsConfirmDelete(BASE+'/delete/'+id,dt);};
+    function _st(id,v){var e=document.getElementById(id);if(e)e.textContent=(v!=null&&v!=='')?v:'—';}
+  })();
+  </script>
+</section>
+</html>

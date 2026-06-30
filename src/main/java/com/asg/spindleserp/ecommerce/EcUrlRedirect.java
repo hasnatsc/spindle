@@ -7,8 +7,7 @@ import lombok.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "ec_url_redirects",
-        uniqueConstraints = @UniqueConstraint(name = "uq_ec_redirect",
+@Table(name = "ec_url_redirects", uniqueConstraints = @UniqueConstraint(name = "uq_ec_redirect",
                 columnNames = {"organization_id", "source_url"}),
         indexes = @Index(name = "idx_ec_redirect_src", columnList = "source_url"))
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
