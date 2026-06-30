@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<!-- ecommerce/ec-review-index.html  JS fns: ecrevShow/ecrevApprove/ecrevReject/ecrevHide/ecrevDelete -->
+<html th:replace="~{layout/base :: layout('EC Reviews', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
+<section>
+  <ol class="breadcrumb float-xl-end">
+    <li class="breadcrumb-item"><a th:href="@{/dashboard}">Home</a></li>
+    <li class="breadcrumb-item">eCommerce</li><li class="breadcrumb-item active">Reviews</li>
+  </ol>
+  <h1 class="page-header">Reviews <small>customer review moderation</small></h1>
+  <div class="panel panel-inverse">
+    <div class="panel-heading">
+      <div class="panel-title"><span class="text-muted small">Reviews are submitted from storefront. Moderate below.</span></div>
+      <div class="panel-heading-btn">
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-default" data-toggle="panel-expand"><i class="fa fa-expand"></i></a>
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-success" data-toggle="panel-reload"><i class="fa fa-redo"></i></a>
+      </div>
+    </div>
+    <div class="panel-body">
+      <table id="ecrevTable" width="100%" class="table table-striped table-bordered align-middle">
+        <thead><tr>
+          <th width="1%">SL</th><th>Product</th><th>Customer</th>
+          <th class="text-center">Rating</th><th>Title</th>
+          <th class="text-center">Verified</th><th class="text-center">Helpful</th>
+          <th>Status</th><th>Created</th>
+          <th class="text-center" width="14%">Actions</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <!-- VIEW MODAL -->
+    <div tabindex="-1" id="ecrevViewModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title"><i class="fa fa-star me-1 text-warning"></i> Review Details</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <div class="hs-box"><div class="row g-2">
+              <div class="col-md-6 view-group"><label class="view-label">Product</label><span id="vw_rev_product" class="form-control hs_span_show"></span></div>
+              <div class="col-md-4 view-group"><label class="view-label">Customer</label><span id="vw_rev_customer" class="form-control hs_span_show"></span></div>
+              <div class="col-md-2 view-group"><label class="view-label">Rating</label><span id="vw_rev_rating" class="form-control hs_span_show fw-bold text-center"></span></div>
+              <div class="col-md-6 view-group"><label class="view-label">Review Title</label><span id="vw_rev_title" class="form-control hs_span_show"></span></div>
+              <div class="col-md-3 view-group"><label class="view-label">Status</label><span id="vw_rev_status" class="form-control hs_span_show"></span></div>
+              <div class="col-md-3 view-group"><label class="view-label">Verified Purchase</label><span id="vw_rev_verified" class="form-control hs_span_show"></span></div>
+              <div class="col-12 view-group"><label class="view-label">Review Text</label><div id="vw_rev_text" class="form-control hs_span_show" style="min-height:80px;white-space:pre-wrap"></div></div>
+              <div class="col-md-6 view-group"><label class="view-label">Pros</label><div id="vw_rev_pros" class="form-control hs_span_show" style="min-height:50px;white-space:pre-wrap"></div></div>
+              <div class="col-md-6 view-group"><label class="view-label">Cons</label><div id="vw_rev_cons" class="form-control hs_span_show" style="min-height:50px;white-space:pre-wrap"></div></div>
+              <div class="col-md-3 view-group"><label class="view-label">Helpful Count</label><span id="vw_rev_helpful" class="form-control hs_span_show text-center"></span></div>
+              <div class="col-md-3 view-group"><label class="view-label">Likes</label><span id="vw_rev_likes" class="form-control hs_span_show text-center"></span></div>
+              <div class="col-md-3 view-group"><label class="view-label">Approved By</label><span id="vw_rev_approvedBy" class="form-control hs_span_show"></span></div>
+              <div class="col-md-3 view-group"><label class="view-label">Created</label><span id="vw_rev_created" class="form-control hs_span_show"></span></div>
+            </div></div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-success btn-sm" id="vwRevApproveBtn" onclick="_vwApprove()"><i class="fa fa-check me-1"></i>Approve</button>
+            <button type="button" class="btn btn-warning btn-sm" id="vwRevRejectBtn" onclick="_vwReject()"><i class="fa fa-times me-1"></i>Reject</button>
+            <button type="button" class="btn btn-secondary btn-sm" id="vwRevHideBtn" onclick="_vwHide()"><i class="fa fa-eye-slash me-1"></i>Hide</button>
+            <button type="button" class="btn btn-white" data-bs-dismiss="modal">Close</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script th:inline="none">
+  (function(){
+    'use strict';
+    const BASE='/ecommerce/reviews'; var dt; var _currentRevId=null;
+    document.addEventListener('DOMContentLoaded',function(){
+      dt=$('#ecrevTable').DataTable({processing:true,serverSide:true,responsive:true,pageLength:25,
+        ajax:{url:BASE+'/list',type:'GET'},
+        columns:[
+          {data:'sl',orderable:false,width:'40px'},{data:'product_title'},{data:'customer_name',defaultContent:'—'},
+          {data:'rating',className:'text-center'},{data:'review_title',defaultContent:'—'},
+          {data:'verified_badge',orderable:false,className:'text-center'},{data:'helpful_count',className:'text-center'},
+          {data:'review_status'},{data:'created_at',defaultContent:'—'},
+          {data:'actions',orderable:false,className:'text-center'}
+        ],
+        language:{emptyTable:'No reviews found.',processing:'<span class="spinner-border spinner-border-sm me-2"></span> Loading…'}
+      });
+    });
+
+    window.ecrevShow=function(id){
+      _currentRevId=id;
+      secureFetch(BASE+'/show/'+id).then(function(res){
+        if(!res.success){Swal.fire('Error',res.message,'error');return;}
+        var o=res.obj.defaultData;
+        _st('vw_rev_product',o.productTitle);_st('vw_rev_customer',o.customerName);
+        _st('vw_rev_rating','★'.repeat(o.rating||0)+' ('+o.rating+'/5)');
+        _st('vw_rev_title',o.reviewTitle);_st('vw_rev_status',o.reviewStatus);
+        _st('vw_rev_verified',o.verifiedPurchase?'Yes ✓':'No');
+        document.getElementById('vw_rev_text').textContent=o.reviewText||'—';
+        document.getElementById('vw_rev_pros').textContent=o.pros||'—';
+        document.getElementById('vw_rev_cons').textContent=o.cons||'—';
+        _st('vw_rev_helpful',o.helpfulCount);_st('vw_rev_likes',o.likesCount);
+        _st('vw_rev_approvedBy',o.approvedBy);_st('vw_rev_created',o.createdAt);
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('ecrevViewModal')).show();
+      });
+    };
+
+    window.ecrevApprove=function(id){_modAction(BASE+'/approve/'+id,'Approve this review?','Approved!');};
+    window.ecrevReject=function(id){_modAction(BASE+'/reject/'+id,'Reject this review?','Rejected.');};
+    window.ecrevHide=function(id){_modAction(BASE+'/hide/'+id,'Hide this review?','Hidden.');};
+    window.ecrevDelete=function(id){hsConfirmDelete(BASE+'/delete/'+id,dt);};
+
+    window._vwApprove=function(){if(_currentRevId) window.ecrevApprove(_currentRevId);bootstrap.Modal.getOrCreateInstance(document.getElementById('ecrevViewModal')).hide();};
+    window._vwReject =function(){if(_currentRevId) window.ecrevReject(_currentRevId); bootstrap.Modal.getOrCreateInstance(document.getElementById('ecrevViewModal')).hide();};
+    window._vwHide   =function(){if(_currentRevId) window.ecrevHide(_currentRevId);   bootstrap.Modal.getOrCreateInstance(document.getElementById('ecrevViewModal')).hide();};
+
+    function _modAction(url,confirmMsg,okMsg){
+      Swal.fire({title:'Confirm',text:confirmMsg,icon:'question',showCancelButton:true,confirmButtonText:'Yes'}).then(function(r){
+        if(!r.isConfirmed) return;
+        secureFetch(url,{method:'POST'}).then(function(d){
+          if(d.success){Swal.fire({icon:'success',title:okMsg,timer:1400,showConfirmButton:false});dt.ajax.reload(null,false);}
+          else{Swal.fire('Error',d.message,'error');}
+        });
+      });
+    }
+    function _st(id,v){var e=document.getElementById(id);if(e)e.textContent=(v!=null&&v!=='')?v:'—';}
+  })();
+  </script>
+</section>
+</html>

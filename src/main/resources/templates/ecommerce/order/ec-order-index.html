@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<!-- ecommerce/ec-order-index.html  GET /ecommerce/orders
+     JS fns: ecordShow / ecordStatus / ecordDelete -->
+<html th:replace="~{layout/base :: layout('EC Orders', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
+<section>
+  <ol class="breadcrumb float-xl-end">
+    <li class="breadcrumb-item"><a th:href="@{/dashboard}">Home</a></li>
+    <li class="breadcrumb-item">eCommerce</li><li class="breadcrumb-item active">Orders</li>
+  </ol>
+  <h1 class="page-header">EC Orders <small>storefront order management</small></h1>
+  <div class="panel panel-inverse">
+    <div class="panel-heading">
+      <div class="panel-title"><span class="text-muted small">Orders are created from storefront checkout. Admin can update status below.</span></div>
+      <div class="panel-heading-btn">
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-default" data-toggle="panel-expand"><i class="fa fa-expand"></i></a>
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-success" data-toggle="panel-reload"><i class="fa fa-redo"></i></a>
+      </div>
+    </div>
+    <div class="panel-body">
+      <table id="ecordTable" width="100%" class="table table-striped table-bordered align-middle">
+        <thead><tr>
+          <th width="1%">SL</th><th>Order No</th><th>Customer</th><th>Phone</th>
+          <th class="text-end">Grand Total</th><th>Order Status</th>
+          <th>Payment</th><th>Shipping</th><th>Order Date</th>
+          <th class="text-center" width="10%">Actions</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <!-- VIEW MODAL -->
+    <div tabindex="-1" id="ecordViewModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title"><i class="fa fa-receipt me-1 text-primary"></i> Order Details</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <div class="hs-box"><div class="row g-2">
+              <div class="col-md-3 view-group"><label class="view-label">Order No</label><span id="vw_ord_no" class="form-control hs_span_show fw-bold"></span></div>
+              <div class="col-md-3 view-group"><label class="view-label">Customer</label><span id="vw_ord_cust" class="form-control hs_span_show"></span></div>
+              <div class="col-md-3 view-group"><label class="view-label">Phone</label><span id="vw_ord_phone" class="form-control hs_span_show"></span></div>
+              <div class="col-md-3 view-group"><label class="view-label">Order Status</label><span id="vw_ord_status" class="form-control hs_span_show"></span></div>
+              <div class="col-md-3 view-group"><label class="view-label">Payment</label><span id="vw_ord_pay" class="form-control hs_span_show"></span></div>
+              <div class="col-md-3 view-group"><label class="view-label">Shipping</label><span id="vw_ord_ship" class="form-control hs_span_show"></span></div>
+              <div class="col-md-3 view-group"><label class="view-label">Grand Total</label><span id="vw_ord_total" class="form-control hs_span_show fw-bold text-end"></span></div>
+              <div class="col-md-3 view-group"><label class="view-label">Coupon</label><span id="vw_ord_coupon" class="form-control hs_span_show"></span></div>
+              <div class="col-12 view-group"><label class="view-label">Admin Note</label><span id="vw_ord_adminNote" class="form-control hs_span_show" style="min-height:38px"></span></div>
+              <div class="col-md-4 view-group"><label class="view-label">GL Voucher</label><span id="vw_ord_gl" class="form-control hs_span_show"></span></div>
+              <div class="col-md-4 view-group"><label class="view-label">Order Date</label><span id="vw_ord_date" class="form-control hs_span_show"></span></div>
+              <div class="col-md-4 view-group"><label class="view-label">Created By</label><span id="vw_ord_by" class="form-control hs_span_show"></span></div>
+              <div class="col-12"><hr class="my-1"><strong class="small text-muted">Order Items</strong></div>
+              <div class="col-12" id="vw_ord_items_container">
+                <table class="table table-sm table-bordered"><thead class="table-dark"><tr>
+                  <th>Product</th><th>Item</th><th>Variant</th><th class="text-center">Qty</th>
+                  <th class="text-end">Unit Price</th><th class="text-end">Line Total</th>
+                </tr></thead><tbody id="vw_ord_items"></tbody></table>
+              </div>
+            </div></div>
+          </div>
+          <div class="modal-footer"><button type="button" class="btn btn-white" data-bs-dismiss="modal">Close</button></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- STATUS UPDATE MODAL -->
+    <div tabindex="-1" id="ecordStatusModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content">
+          <div class="modal-header"><h5 class="modal-title"><i class="fa fa-exchange-alt me-1"></i> Update Status</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+          <div class="modal-body">
+            <input type="hidden" id="statusOrderId">
+            <div class="view-group mb-3">
+              <select id="statusNewStatus" class="form-select hs_span_view"><option value="">— Select Status —</option></select>
+              <label class="input-label">New Status</label>
+            </div>
+            <div class="view-group">
+              <textarea id="statusAdminNote" class="form-control hs_span_view" rows="3" placeholder="Admin note (optional)…"></textarea>
+              <label class="input-label">Admin Note</label>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-warning" type="button" id="statusSaveBtn" onclick="_doUpdateStatus()">
+              <span class="spinner-border spinner-border-sm me-2 d-none" id="statusSpinner"></span>Update
+            </button>
+            <button type="button" class="btn btn-white" data-bs-dismiss="modal">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script th:inline="none">
+  (function(){
+    'use strict';
+    const BASE='/ecommerce/orders'; var dt;
+    document.addEventListener('DOMContentLoaded',function(){
+      dt=$('#ecordTable').DataTable({processing:true,serverSide:true,responsive:true,pageLength:25,
+        ajax:{url:BASE+'/list',type:'GET'},
+        columns:[
+          {data:'sl',orderable:false,width:'40px'},{data:'order_no'},{data:'customer_name'},
+          {data:'customer_phone',defaultContent:'—'},{data:'grand_total',className:'text-end'},
+          {data:'order_status'},{data:'payment_status'},{data:'shipping_status'},
+          {data:'order_date',defaultContent:'—'},{data:'actions',orderable:false,className:'text-center'}
+        ],
+        language:{emptyTable:'No orders found.',processing:'<span class="spinner-border spinner-border-sm me-2"></span> Loading…'}
+      });
+      // Load statuses
+      secureFetch(BASE+'/statuses').then(function(statuses){
+        var sel=document.getElementById('statusNewStatus'); sel.innerHTML='<option value="">— Select Status —</option>';
+        statuses.forEach(function(s){var opt=document.createElement('option');opt.value=s;opt.textContent=s.replace(/_/g,' ');sel.appendChild(opt);});
+      });
+    });
+
+    window.ecordShow=function(id){
+      secureFetch(BASE+'/show/'+id).then(function(res){if(!res.success){Swal.fire('Error',res.message,'error');return;}
+        var o=res.obj.defaultData;
+        document.getElementById('vw_ord_no').textContent=o.orderNo||'—';
+        document.getElementById('vw_ord_cust').textContent=o.customerName||'Guest';
+        document.getElementById('vw_ord_phone').textContent=o.customerPhone||'—';
+        document.getElementById('vw_ord_status').textContent=o.orderStatus||'—';
+        document.getElementById('vw_ord_pay').textContent=o.paymentStatus||'—';
+        document.getElementById('vw_ord_ship').textContent=o.shippingStatus||'—';
+        document.getElementById('vw_ord_total').textContent=o.grandTotal||'—';
+        document.getElementById('vw_ord_coupon').textContent=o.couponCode||'—';
+        document.getElementById('vw_ord_adminNote').textContent=o.adminNote||'—';
+        document.getElementById('vw_ord_gl').textContent=o.journalEntryNo||'—';
+        document.getElementById('vw_ord_date').textContent=o.createdAt||'—';
+        document.getElementById('vw_ord_by').textContent=o.createdBy||'—';
+        var tbody=document.getElementById('vw_ord_items'); tbody.innerHTML='';
+        (o.orderItems||[]).forEach(function(i){
+          var tr=document.createElement('tr');
+          tr.innerHTML='<td>'+(i.productTitle||'—')+'</td><td>'+(i.itemCode||'—')+'</td><td>'+(i.variantName||'—')+'</td>'+
+            '<td class="text-center">'+(i.quantity||0)+'</td><td class="text-end">'+(i.unitPrice||0)+'</td><td class="text-end fw-bold">'+(i.lineTotal||0)+'</td>';
+          tbody.appendChild(tr);
+        });
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('ecordViewModal')).show();
+      });
+    };
+
+    window.ecordStatus=function(id){
+      document.getElementById('statusOrderId').value=id;
+      document.getElementById('statusNewStatus').value='';
+      document.getElementById('statusAdminNote').value='';
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('ecordStatusModal')).show();
+    };
+
+    window._doUpdateStatus=function(){
+      var id=document.getElementById('statusOrderId').value;
+      var status=document.getElementById('statusNewStatus').value;
+      if(!status){Swal.fire('Warning','Please select a status.','warning');return;}
+      var sb=document.getElementById('statusSaveBtn'),sp=document.getElementById('statusSpinner');
+      sb.disabled=true; sp.classList.remove('d-none');
+      secureFetch(BASE+'/status/'+id,{method:'POST',body:JSON.stringify({status:status,adminNote:document.getElementById('statusAdminNote').value})})
+        .then(function(d){
+          if(d.success){Swal.fire({icon:'success',title:d.message,timer:1400,showConfirmButton:false});
+            bootstrap.Modal.getOrCreateInstance(document.getElementById('ecordStatusModal')).hide();dt.ajax.reload(null,false);}
+          else{Swal.fire('Error',d.message,'error');}
+        }).catch(function(err){Swal.fire('Error',err.message||'Failed.','error');})
+          .finally(function(){sb.disabled=false;sp.classList.add('d-none');});
+    };
+
+    window.ecordDelete=function(id){hsConfirmDelete(BASE+'/delete/'+id,dt);};
+  })();
+  </script>
+</section>
+</html>

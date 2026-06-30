@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<!-- ecommerce/ec-shipping-method-index.html  JS fns: ecshipShow/ecshipEdit/ecshipToggle/ecshipDelete/ecshipOpenCreate -->
+<html th:replace="~{layout/base :: layout('Shipping Methods', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
+<section>
+  <ol class="breadcrumb float-xl-end">
+    <li class="breadcrumb-item"><a th:href="@{/dashboard}">Home</a></li>
+    <li class="breadcrumb-item">eCommerce</li><li class="breadcrumb-item active">Shipping Methods</li>
+  </ol>
+  <h1 class="page-header">Shipping Methods <small>delivery method master</small></h1>
+  <div class="panel panel-inverse">
+    <div class="panel-heading">
+      <div class="panel-title"><a href="javascript:;" onclick="ecshipOpenCreate()"><span class="badge btn btn-outline-success"><i class="fa fa-plus me-1"></i> Add Method</span></a></div>
+      <div class="panel-heading-btn">
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-default" data-toggle="panel-expand"><i class="fa fa-expand"></i></a>
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-success" data-toggle="panel-reload"><i class="fa fa-redo"></i></a>
+      </div>
+    </div>
+    <div class="panel-body">
+      <table id="ecshipTable" width="100%" class="table table-striped table-bordered align-middle">
+        <thead><tr>
+          <th width="1%">SL</th><th>Code</th><th>Name</th><th>Courier</th>
+          <th class="text-center">Est. Days</th><th class="text-end">Base Charge</th>
+          <th class="text-end">Charge/Kg</th><th class="text-center">COD</th>
+          <th class="text-center" width="7%">Status</th><th>Created</th>
+          <th class="text-center" width="12%">Actions</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div tabindex="-1" id="ecshipModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+          <div class="modal-header"><h5 class="modal-title" id="ecshipModalTitle"><i class="fa fa-truck me-1 text-success"></i> Add Shipping Method</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+          <form id="ecshipForm" novalidate>
+            <div class="modal-body">
+              <input type="hidden" id="ecshipId">
+              <div class="row g-2">
+                <div class="col-md-4 view-group"><input id="ecshipCode" type="text" class="form-control hs_span_view text-uppercase" required maxlength="30" placeholder="DHL-EXPRESS"><label class="input-label">Code <span class="text-danger">*</span></label></div>
+                <div class="col-md-4 view-group"><input id="ecshipName" type="text" class="form-control hs_span_view" required maxlength="100" placeholder="DHL Express"><label class="input-label">Method Name <span class="text-danger">*</span></label></div>
+                <div class="col-md-4 view-group"><input id="ecshipCourier" type="text" class="form-control hs_span_view" maxlength="100" placeholder="DHL"><label class="input-label">Courier Name</label></div>
+                <div class="col-md-3 view-group"><input id="ecshipDays" type="number" min="0" class="form-control hs_span_view" placeholder="3"><label class="input-label">Est. Days</label></div>
+                <div class="col-md-3 view-group"><input id="ecshipBase" type="number" step="0.01" min="0" class="form-control hs_span_view" placeholder="60.00"><label class="input-label">Base Charge (৳)</label></div>
+                <div class="col-md-3 view-group"><input id="ecshipPerKg" type="number" step="0.01" min="0" class="form-control hs_span_view" placeholder="10.00"><label class="input-label">Charge / Kg (৳)</label></div>
+                <div class="col-md-3 mt-1"><div class="form-check form-switch pt-4"><input type="checkbox" id="ecshipCod" class="form-check-input"><label class="form-check-label" for="ecshipCod">Cash on Delivery</label></div></div>
+                <div class="col-md-3 mt-1"><div class="form-check form-switch pt-4"><input type="checkbox" id="ecshipApi" class="form-check-input"><label class="form-check-label" for="ecshipApi">API Integration</label></div></div>
+                <div class="col-md-3 mt-1"><div class="form-check form-switch pt-4"><input type="checkbox" id="ecshipActive" class="form-check-input" checked><label class="form-check-label" for="ecshipActive"><strong>Active</strong></label></div></div>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-success" type="submit" id="ecshipSubmitBtn"><span class="spinner-border spinner-border-sm me-2 d-none" id="ecshipSpinner"></span><span id="ecshipBtnText">Save</span></button>
+              <button type="button" class="btn btn-white" data-bs-dismiss="modal">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script th:inline="none">
+  (function(){
+    'use strict';
+    const BASE='/ecommerce/shipping-methods'; var dt;
+    document.addEventListener('DOMContentLoaded',function(){
+      dt=$('#ecshipTable').DataTable({processing:true,serverSide:true,responsive:true,pageLength:25,
+        ajax:{url:BASE+'/list',type:'GET'},
+        columns:[{data:'sl',orderable:false,width:'40px'},{data:'method_code'},{data:'method_name'},{data:'courier_name',defaultContent:'—'},
+          {data:'estimated_days',className:'text-center',defaultContent:'—'},{data:'base_charge',className:'text-end',defaultContent:'—'},
+          {data:'charge_per_kg',className:'text-end',defaultContent:'—'},{data:'cod_badge',orderable:false,className:'text-center'},
+          {data:'status',orderable:false,className:'text-center'},{data:'created_at',defaultContent:'—'},{data:'actions',orderable:false,className:'text-center'}],
+        language:{emptyTable:'No shipping methods found.'}});
+      document.getElementById('ecshipForm').addEventListener('submit',_onSubmit);
+    });
+    window.ecshipOpenCreate=function(){_reset();document.getElementById('ecshipModalTitle').innerHTML='<i class="fa fa-plus me-1 text-success"></i> Add Shipping Method';document.getElementById('ecshipBtnText').textContent='Save';bootstrap.Modal.getOrCreateInstance(document.getElementById('ecshipModal')).show();};
+    window.ecshipShow=function(id){secureFetch(BASE+'/show/'+id).then(function(res){if(!res.success){Swal.fire('Error',res.message,'error');return;}var o=res.obj.defaultData;Swal.fire({title:o.methodName,html:o.methodCode+' | Courier: '+(o.courierName||'—')+'<br>Base: ৳'+(o.baseCharge||0)+' + ৳'+(o.chargePerKg||0)+'/kg'});});};
+    window.ecshipEdit=function(id){secureFetch(BASE+'/show/'+id).then(function(res){if(!res.success){Swal.fire('Error',res.message,'error');return;}
+      var o=res.obj.defaultData;_reset();
+      _v('ecshipId',o.id);_v('ecshipCode',o.methodCode);_v('ecshipName',o.methodName);_v('ecshipCourier',o.courierName||'');
+      _v('ecshipDays',o.estimatedDays||'');_v('ecshipBase',o.baseCharge||'');_v('ecshipPerKg',o.chargePerKg||'');
+      document.getElementById('ecshipCod').checked=o.cashOnDelivery;document.getElementById('ecshipApi').checked=o.apiEnabled;document.getElementById('ecshipActive').checked=o.active;
+      document.getElementById('ecshipModalTitle').innerHTML='<i class="fa fa-pencil me-1 text-warning"></i> Edit Shipping Method';document.getElementById('ecshipBtnText').textContent='Update';
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('ecshipModal')).show();
+    });};
+    window.ecshipToggle=function(id){hsChangeStatus(BASE+'/toggle/'+id,dt,'Shipping Method');};
+    window.ecshipDelete=function(id){hsConfirmDelete(BASE+'/delete/'+id,dt);};
+    function _onSubmit(e){e.preventDefault();
+      var sb=document.getElementById('ecshipSubmitBtn'),sp=document.getElementById('ecshipSpinner'),bt=document.getElementById('ecshipBtnText');
+      hsDisableButton(sb,sp,bt);
+      secureFetch(BASE+'/save',{method:'POST',body:JSON.stringify({
+        id:document.getElementById('ecshipId').value||null,methodCode:document.getElementById('ecshipCode').value,methodName:document.getElementById('ecshipName').value,
+        courierName:document.getElementById('ecshipCourier').value||null,estimatedDays:document.getElementById('ecshipDays').value||null,
+        baseCharge:document.getElementById('ecshipBase').value||null,chargePerKg:document.getElementById('ecshipPerKg').value||null,
+        cashOnDelivery:document.getElementById('ecshipCod').checked,apiEnabled:document.getElementById('ecshipApi').checked,active:document.getElementById('ecshipActive').checked
+      })}).then(function(d){
+        if(d.success){Swal.fire({icon:'success',title:'Saved!',text:d.message,timer:1600,showConfirmButton:false});bootstrap.Modal.getOrCreateInstance(document.getElementById('ecshipModal')).hide();dt.ajax.reload(null,false);}
+        else{Swal.fire('Error',d.message,'error');}
+      }).catch(function(err){Swal.fire('Error',err.message||'Failed.','error');}).finally(function(){hsEnableButton(sb,sp,bt);});
+    }
+    function _reset(){document.getElementById('ecshipForm').reset();document.getElementById('ecshipId').value='';document.getElementById('ecshipActive').checked=true;}
+    function _v(id,v){var e=document.getElementById(id);if(e)e.value=(v!=null&&v!==undefined)?v:'';}
+  })();
+  </script>
+</section>
+</html>

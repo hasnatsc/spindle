@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<!-- ecommerce/ec-tax-class-index.html  JS fns: ectaxShow/ectaxEdit/ectaxToggle/ectaxDelete/ectaxOpenCreate -->
+<html th:replace="~{layout/base :: layout('Tax Classes', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
+<section>
+  <ol class="breadcrumb float-xl-end">
+    <li class="breadcrumb-item"><a th:href="@{/dashboard}">Home</a></li>
+    <li class="breadcrumb-item">eCommerce</li><li class="breadcrumb-item active">Tax Classes</li>
+  </ol>
+  <h1 class="page-header">Tax Classes <small>VAT / tax rule management</small></h1>
+  <div class="panel panel-inverse">
+    <div class="panel-heading">
+      <div class="panel-title"><a href="javascript:;" onclick="ectaxOpenCreate()"><span class="badge btn btn-outline-success"><i class="fa fa-plus me-1"></i> Add Tax Class</span></a></div>
+      <div class="panel-heading-btn">
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-default" data-toggle="panel-expand"><i class="fa fa-expand"></i></a>
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-success" data-toggle="panel-reload"><i class="fa fa-redo"></i></a>
+      </div>
+    </div>
+    <div class="panel-body">
+      <table id="ectaxTable" width="100%" class="table table-striped table-bordered align-middle">
+        <thead><tr>
+          <th width="1%">SL</th><th>Code</th><th>Name</th>
+          <th class="text-center">Rules</th><th class="text-center" width="7%">Status</th>
+          <th>Created</th><th class="text-center" width="12%">Actions</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <!-- CREATE / EDIT MODAL -->
+    <div tabindex="-1" id="ectaxModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header"><h5 class="modal-title" id="ectaxModalTitle"><i class="fa fa-percent me-1 text-success"></i> Add Tax Class</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+          <form id="ectaxForm" novalidate>
+            <div class="modal-body">
+              <input type="hidden" id="ectaxId">
+              <ul class="nav nav-tabs mb-3 bg-gray-700">
+                <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#etaxtab1">Basic</a></li>
+                <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#etaxtab2">Tax Rules</a></li>
+              </ul>
+              <div class="tab-content hs-box">
+                <div class="tab-pane fade show active" id="etaxtab1">
+                  <div class="row g-2">
+                    <div class="col-md-4 view-group"><input id="ectaxCode" type="text" class="form-control hs_span_view text-uppercase" required maxlength="30" placeholder="VAT-15"><label class="input-label">Class Code <span class="text-danger">*</span></label></div>
+                    <div class="col-md-5 view-group"><input id="ectaxName" type="text" class="form-control hs_span_view" required maxlength="150" placeholder="Standard VAT 15%"><label class="input-label">Class Name <span class="text-danger">*</span></label></div>
+                    <div class="col-md-3 mt-1"><div class="form-check form-switch pt-4"><input type="checkbox" id="ectaxActive" class="form-check-input" checked><label class="form-check-label" for="ectaxActive"><strong>Active</strong></label></div></div>
+                    <div class="col-12 view-group"><textarea id="ectaxDesc" class="form-control hs_span_view" rows="2" placeholder="Description…"></textarea><label class="input-label">Description</label></div>
+                  </div>
+                </div>
+                <div class="tab-pane fade" id="etaxtab2">
+                  <div class="mb-2 d-flex justify-content-between align-items-center">
+                    <small class="text-muted">Define per-region tax rules within this class.</small>
+                    <button type="button" class="btn btn-sm btn-outline-success" onclick="ectaxAddRuleRow()"><i class="fa fa-plus me-1"></i> Add Rule</button>
+                  </div>
+                  <div class="table-responsive">
+                    <table class="table table-sm table-bordered align-middle">
+                      <thead class="table-dark"><tr>
+                        <th>Country</th><th>Division</th><th>District</th>
+                        <th>Tax Name</th><th>Tax %</th><th>Effective From</th><th>Effective To</th>
+                        <th class="text-center">Active</th><th></th>
+                      </tr></thead>
+                      <tbody id="ectaxRuleRows"></tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-success" type="submit" id="ectaxSubmitBtn"><span class="spinner-border spinner-border-sm me-2 d-none" id="ectaxSpinner"></span><span id="ectaxBtnText">Save</span></button>
+              <button type="button" class="btn btn-white" data-bs-dismiss="modal">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- VIEW MODAL -->
+    <div tabindex="-1" id="ectaxViewModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header"><h5 class="modal-title"><i class="fa fa-percent me-1 text-primary"></i> Tax Class Details</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+          <div class="modal-body">
+            <div class="hs-box"><div class="row g-2">
+              <div class="col-md-3 view-group"><label class="view-label">Code</label><span id="vw_tax_code" class="form-control hs_span_show"></span></div>
+              <div class="col-md-5 view-group"><label class="view-label">Name</label><span id="vw_tax_name" class="form-control hs_span_show"></span></div>
+              <div class="col-md-2 view-group"><label class="view-label">Status</label><span id="vw_tax_status" class="form-control hs_span_show"></span></div>
+              <div class="col-12 view-group"><label class="view-label">Description</label><span id="vw_tax_desc" class="form-control hs_span_show" style="min-height:38px"></span></div>
+              <div class="col-12"><hr class="my-1"><strong class="small text-muted">Tax Rules</strong></div>
+              <div class="col-12">
+                <table class="table table-sm table-bordered"><thead class="table-dark"><tr>
+                  <th>Country</th><th>Division</th><th>District</th><th>Tax Name</th><th class="text-end">Tax %</th><th>From</th><th>To</th><th class="text-center">Active</th>
+                </tr></thead><tbody id="vw_tax_rules"></tbody></table>
+              </div>
+            </div></div>
+          </div>
+          <div class="modal-footer"><button type="button" class="btn btn-white" data-bs-dismiss="modal">Close</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script th:inline="none">
+  (function(){
+    'use strict';
+    const BASE='/ecommerce/tax-classes'; var dt; var _ruleIdx=0;
+    document.addEventListener('DOMContentLoaded',function(){
+      dt=$('#ectaxTable').DataTable({processing:true,serverSide:true,responsive:true,pageLength:25,
+        ajax:{url:BASE+'/list',type:'GET'},
+        columns:[{data:'sl',orderable:false,width:'40px'},{data:'class_code'},{data:'class_name'},
+          {data:'rule_count',orderable:false,className:'text-center'},
+          {data:'status',orderable:false,className:'text-center'},{data:'created_at',defaultContent:'—'},
+          {data:'actions',orderable:false,className:'text-center'}],
+        language:{emptyTable:'No tax classes found.'}});
+      document.getElementById('ectaxForm').addEventListener('submit',_onSubmit);
+    });
+
+    window.ectaxAddRuleRow=function(rule){
+      rule=rule||{}; var i=_ruleIdx++;
+      var tr=document.createElement('tr'); tr.className='ectax-rule-row'; tr.dataset.idx=i;
+      tr.innerHTML=
+        '<td><input id="trCountry_'+i+'" type="text" class="form-control form-control-sm" value="'+(rule.country||'Bangladesh')+'" maxlength="100"></td>'+
+        '<td><input id="trDiv_'+i+'" type="text" class="form-control form-control-sm" value="'+(rule.division||'')+'" maxlength="100" placeholder="All"></td>'+
+        '<td><input id="trDist_'+i+'" type="text" class="form-control form-control-sm" value="'+(rule.district||'')+'" maxlength="100" placeholder="All"></td>'+
+        '<td><input id="trName_'+i+'" type="text" class="form-control form-control-sm" value="'+(rule.taxName||'')+'" required maxlength="100" placeholder="VAT"></td>'+
+        '<td><input id="trPct_'+i+'" type="number" step="0.01" min="0" max="100" class="form-control form-control-sm" value="'+(rule.taxPercent||'')+'" required placeholder="15.00" style="width:80px"></td>'+
+        '<td><input id="trFrom_'+i+'" type="date" class="form-control form-control-sm" value="'+(rule.effectiveFrom||'')+'"></td>'+
+        '<td><input id="trTo_'+i+'" type="date" class="form-control form-control-sm" value="'+(rule.effectiveTo||'')+'"></td>'+
+        '<td class="text-center"><input type="checkbox" id="trAct_'+i+'" class="form-check-input"'+(rule.active!==false?' checked':'')+'/></td>'+
+        '<td><button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest(\'.ectax-rule-row\').remove()"><i class="fa fa-times"></i></button></td>';
+      document.getElementById('ectaxRuleRows').appendChild(tr);
+    };
+
+    function _collectRules(){
+      return Array.from(document.querySelectorAll('.ectax-rule-row')).map(function(row){
+        var i=row.dataset.idx;
+        var pct=document.getElementById('trPct_'+i).value;
+        if(!pct) return null;
+        return{country:document.getElementById('trCountry_'+i).value||'Bangladesh',
+          division:document.getElementById('trDiv_'+i).value||null,
+          district:document.getElementById('trDist_'+i).value||null,
+          taxName:document.getElementById('trName_'+i).value||null,
+          taxPercent:parseFloat(pct),
+          effectiveFrom:document.getElementById('trFrom_'+i).value||null,
+          effectiveTo:document.getElementById('trTo_'+i).value||null,
+          active:document.getElementById('trAct_'+i).checked};
+      }).filter(Boolean);
+    }
+
+    window.ectaxOpenCreate=function(){_reset();document.getElementById('ectaxModalTitle').innerHTML='<i class="fa fa-plus me-1 text-success"></i> Add Tax Class';document.getElementById('ectaxBtnText').textContent='Save';bootstrap.Modal.getOrCreateInstance(document.getElementById('ectaxModal')).show();};
+    window.ectaxShow=function(id){
+      secureFetch(BASE+'/show/'+id).then(function(res){if(!res.success){Swal.fire('Error',res.message,'error');return;}
+        var o=res.obj.defaultData;
+        _st('vw_tax_code',o.classCode);_st('vw_tax_name',o.className);
+        document.getElementById('vw_tax_status').innerHTML=o.active?"<span class='badge bg-success'>Active</span>":"<span class='badge bg-danger'>Inactive</span>";
+        _st('vw_tax_desc',o.description);
+        var tbody=document.getElementById('vw_tax_rules'); tbody.innerHTML='';
+        (o.rules||[]).forEach(function(r){var tr=document.createElement('tr');
+          tr.innerHTML='<td>'+(r.country||'—')+'</td><td>'+(r.division||'All')+'</td><td>'+(r.district||'All')+'</td>'+
+            '<td>'+(r.taxName||'—')+'</td><td class="text-end fw-bold">'+(r.taxPercent||0)+'%</td>'+
+            '<td>'+(r.effectiveFrom||'—')+'</td><td>'+(r.effectiveTo||'—')+'</td>'+
+            '<td class="text-center">'+(r.active?'✓':'✗')+'</td>';
+          tbody.appendChild(tr);
+        });
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('ectaxViewModal')).show();
+      });
+    };
+    window.ectaxEdit=function(id){
+      secureFetch(BASE+'/show/'+id).then(function(res){if(!res.success){Swal.fire('Error',res.message,'error');return;}
+        var o=res.obj.defaultData; _reset();
+        _v('ectaxId',o.id);_v('ectaxCode',o.classCode);_v('ectaxName',o.className);_v('ectaxDesc',o.description||'');
+        document.getElementById('ectaxActive').checked=o.active;
+        (o.rules||[]).forEach(function(r){ectaxAddRuleRow(r);});
+        document.getElementById('ectaxModalTitle').innerHTML='<i class="fa fa-pencil me-1 text-warning"></i> Edit Tax Class';
+        document.getElementById('ectaxBtnText').textContent='Update';
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('ectaxModal')).show();
+      });
+    };
+    window.ectaxToggle=function(id){hsChangeStatus(BASE+'/toggle/'+id,dt,'Tax Class');};
+    window.ectaxDelete=function(id){hsConfirmDelete(BASE+'/delete/'+id,dt);};
+
+    function _onSubmit(e){e.preventDefault();
+      var sb=document.getElementById('ectaxSubmitBtn'),sp=document.getElementById('ectaxSpinner'),bt=document.getElementById('ectaxBtnText');
+      hsDisableButton(sb,sp,bt);
+      secureFetch(BASE+'/save',{method:'POST',body:JSON.stringify({
+        id:document.getElementById('ectaxId').value||null,
+        classCode:document.getElementById('ectaxCode').value,className:document.getElementById('ectaxName').value,
+        description:document.getElementById('ectaxDesc').value,active:document.getElementById('ectaxActive').checked,
+        rules:_collectRules()
+      })}).then(function(d){
+        if(d.success){Swal.fire({icon:'success',title:'Saved!',text:d.message,timer:1600,showConfirmButton:false});bootstrap.Modal.getOrCreateInstance(document.getElementById('ectaxModal')).hide();dt.ajax.reload(null,false);}
+        else{Swal.fire('Error',d.message,'error');}
+      }).catch(function(err){Swal.fire('Error',err.message||'Failed.','error');}).finally(function(){hsEnableButton(sb,sp,bt);});
+    }
+    function _reset(){document.getElementById('ectaxForm').reset();document.getElementById('ectaxId').value='';document.getElementById('ectaxActive').checked=true;document.getElementById('ectaxRuleRows').innerHTML='';_ruleIdx=0;var ft=document.querySelector('#ectaxModal .nav-link');if(ft)bootstrap.Tab.getOrCreateInstance(ft).show();}
+    function _v(id,v){var e=document.getElementById(id);if(e)e.value=(v!=null&&v!==undefined)?v:'';}
+    function _st(id,v){var e=document.getElementById(id);if(e)e.textContent=(v!=null&&v!=='')?v:'—';}
+  })();
+  </script>
+</section>
+</html>
