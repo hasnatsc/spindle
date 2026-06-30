@@ -1,0 +1,191 @@
+<!-- ============================================================
+     ecommerce/ec-customer-index.html   GET /ecommerce/customers
+     JS fns: eccustShow / eccustEdit / eccustToggle / eccustDelete / eccustOpenCreate
+============================================================ -->
+<!DOCTYPE html>
+<html th:replace="~{layout/base :: layout('EC Customers', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
+<section>
+  <ol class="breadcrumb float-xl-end">
+    <li class="breadcrumb-item"><a th:href="@{/dashboard}">Home</a></li>
+    <li class="breadcrumb-item">eCommerce</li><li class="breadcrumb-item active">Customers</li>
+  </ol>
+  <h1 class="page-header">EC Customers <small>storefront registered customers</small></h1>
+
+  <div class="panel panel-inverse">
+    <div class="panel-heading">
+      <div class="panel-title"><a href="javascript:;" onclick="eccustOpenCreate()"><span class="badge btn btn-outline-success"><i class="fa fa-plus me-1"></i> Add Customer</span></a></div>
+      <div class="panel-heading-btn">
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-default" data-toggle="panel-expand"><i class="fa fa-expand"></i></a>
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-success" data-toggle="panel-reload"><i class="fa fa-redo"></i></a>
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-warning" data-toggle="panel-collapse"><i class="fa fa-minus"></i></a>
+      </div>
+    </div>
+    <div class="panel-body">
+      <table id="eccustTable" width="100%" class="table table-striped table-bordered align-middle">
+        <thead><tr>
+          <th width="1%">SL</th><th>Code</th><th>Name</th><th>Email</th><th>Phone</th>
+          <th>Company</th><th>Group</th><th class="text-center">Orders</th><th>Total Purchase</th>
+          <th>Account Status</th><th class="text-center" width="7%">Status</th>
+          <th>Created</th><th class="text-center" width="12%">Actions</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <!-- CREATE / EDIT MODAL -->
+    <div tabindex="-1" id="eccustModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="eccustModalTitle"><i class="fa fa-user me-1 text-success"></i> Add Customer</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <form id="eccustForm" novalidate>
+            <div class="modal-body">
+              <input type="hidden" id="eccustId">
+              <div class="row g-2">
+                <div class="col-md-3 view-group">
+                  <input id="eccustCode" type="text" class="form-control hs_span_view text-uppercase" required maxlength="50" placeholder="CUST-0001">
+                  <label class="input-label">Customer Code <span class="text-danger">*</span></label>
+                </div>
+                <div class="col-md-3 view-group">
+                  <input id="eccustFirstName" type="text" class="form-control hs_span_view" required maxlength="100" placeholder="First Name">
+                  <label class="input-label">First Name <span class="text-danger">*</span></label>
+                </div>
+                <div class="col-md-3 view-group">
+                  <input id="eccustLastName" type="text" class="form-control hs_span_view" maxlength="100" placeholder="Last Name">
+                  <label class="input-label">Last Name</label>
+                </div>
+                <div class="col-md-3 view-group">
+                  <select id="eccustGender" class="form-select hs_span_view">
+                    <option value="">— Gender —</option>
+                    <option value="MALE">Male</option><option value="FEMALE">Female</option><option value="OTHER">Other</option>
+                  </select>
+                  <label class="input-label">Gender</label>
+                </div>
+                <div class="col-md-4 view-group">
+                  <input id="eccustPhone" type="text" class="form-control hs_span_view" required maxlength="30" placeholder="+8801XXXXXXXXX">
+                  <label class="input-label">Phone <span class="text-danger">*</span></label>
+                </div>
+                <div class="col-md-4 view-group">
+                  <input id="eccustEmail" type="email" class="form-control hs_span_view" maxlength="200" placeholder="email@example.com">
+                  <label class="input-label">Email</label>
+                </div>
+                <div class="col-md-4 view-group">
+                  <input id="eccustDob" type="date" class="form-control hs_span_view">
+                  <label class="input-label">Date of Birth</label>
+                </div>
+                <div class="col-md-4 view-group">
+                  <input id="eccustCompany" type="text" class="form-control hs_span_view" maxlength="200" placeholder="Company (B2B)">
+                  <label class="input-label">Company Name</label>
+                </div>
+                <div class="col-md-4 view-group">
+                  <input id="eccustTaxNo" type="text" class="form-control hs_span_view" maxlength="100" placeholder="Tax/VAT Number">
+                  <label class="input-label">Tax Number</label>
+                </div>
+                <div class="col-md-4 view-group">
+                  <input id="eccustNid" type="text" class="form-control hs_span_view" maxlength="100" placeholder="NID/Passport">
+                  <label class="input-label">National ID</label>
+                </div>
+                <div class="col-md-4 view-group">
+                  <select id="eccustAccountStatus" class="form-select hs_span_view">
+                    <option value="PENDING">Pending</option><option value="ACTIVE">Active</option>
+                    <option value="BLOCKED">Blocked</option>
+                  </select>
+                  <label class="input-label">Account Status</label>
+                </div>
+                <div class="col-md-4 view-group">
+                  <input id="eccustGroup" type="text" class="form-control hs_span_view" maxlength="50" placeholder="e.g. VIP, Wholesale">
+                  <label class="input-label">Customer Group</label>
+                </div>
+                <div class="col-md-3 mt-1"><div class="form-check form-switch pt-2"><input type="checkbox" id="eccustActive" class="form-check-input" checked><label class="form-check-label" for="eccustActive"><strong>Active</strong></label></div></div>
+                <div class="col-md-3 mt-1"><div class="form-check form-switch pt-2"><input type="checkbox" id="eccustEmailVerified" class="form-check-input"><label class="form-check-label" for="eccustEmailVerified">Email Verified</label></div></div>
+                <div class="col-md-3 mt-1"><div class="form-check form-switch pt-2"><input type="checkbox" id="eccustPhoneVerified" class="form-check-input"><label class="form-check-label" for="eccustPhoneVerified">Phone Verified</label></div></div>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-success" type="submit" id="eccustSubmitBtn">
+                <span class="spinner-border spinner-border-sm me-2 d-none" id="eccustSpinner"></span>
+                <span id="eccustBtnText">Save</span>
+              </button>
+              <button type="button" class="btn btn-white" data-bs-dismiss="modal">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script th:inline="none">
+  (function(){
+    'use strict';
+    const BASE='/ecommerce/customers'; var dt;
+    document.addEventListener('DOMContentLoaded',function(){
+      dt=$('#eccustTable').DataTable({processing:true,serverSide:true,responsive:true,pageLength:25,
+        ajax:{url:BASE+'/list',type:'GET'},
+        columns:[
+          {data:'sl',orderable:false,width:'40px'},{data:'customer_code'},{data:'full_name'},
+          {data:'email',defaultContent:'—'},{data:'phone'},{data:'company_name',defaultContent:'—'},
+          {data:'customer_group',defaultContent:'—'},{data:'total_orders',className:'text-center'},
+          {data:'total_purchase',className:'text-end'},{data:'account_status'},
+          {data:'status',orderable:false,className:'text-center'},{data:'created_at',defaultContent:'—'},
+          {data:'actions',orderable:false,className:'text-center'}
+        ],
+        language:{emptyTable:'No customers found.',processing:'<span class="spinner-border spinner-border-sm me-2"></span> Loading…'}
+      });
+      document.getElementById('eccustForm').addEventListener('submit',_onSubmit);
+    });
+
+    window.eccustOpenCreate=function(){_reset();document.getElementById('eccustModalTitle').innerHTML='<i class="fa fa-plus me-1 text-success"></i> Add Customer';document.getElementById('eccustBtnText').textContent='Save';bootstrap.Modal.getOrCreateInstance(document.getElementById('eccustModal')).show();};
+    window.eccustShow=function(id){secureFetch(BASE+'/show/'+id).then(function(res){if(!res.success){Swal.fire('Error',res.message,'error');return;}Swal.fire({title:'Customer Details',html:'<pre class="text-start small">'+JSON.stringify(res.obj.defaultData,null,2)+'</pre>',width:'600px'});});};
+    window.eccustEdit=function(id){
+      secureFetch(BASE+'/show/'+id).then(function(res){if(!res.success){Swal.fire('Error',res.message,'error');return;}
+        var o=res.obj.defaultData; _reset();
+        _v('eccustId',o.id);_v('eccustCode',o.customerCode);_v('eccustFirstName',o.firstName);_v('eccustLastName',o.lastName||'');
+        _v('eccustPhone',o.phone);_v('eccustEmail',o.email||'');_v('eccustDob',o.dateOfBirth||'');
+        _v('eccustCompany',o.companyName||'');_v('eccustTaxNo',o.taxNumber||'');_v('eccustNid',o.nationalId||'');
+        _v('eccustGroup',o.customerGroup||'');
+        document.getElementById('eccustGender').value=o.gender||'';
+        document.getElementById('eccustAccountStatus').value=o.accountStatus||'PENDING';
+        document.getElementById('eccustActive').checked=o.active;
+        document.getElementById('eccustEmailVerified').checked=o.emailVerified;
+        document.getElementById('eccustPhoneVerified').checked=o.phoneVerified;
+        document.getElementById('eccustModalTitle').innerHTML='<i class="fa fa-pencil me-1 text-warning"></i> Edit Customer';
+        document.getElementById('eccustBtnText').textContent='Update';
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('eccustModal')).show();
+      });
+    };
+    window.eccustToggle=function(id){hsChangeStatus(BASE+'/toggle/'+id,dt,'Customer');};
+    window.eccustDelete=function(id){hsConfirmDelete(BASE+'/delete/'+id,dt);};
+
+    function _onSubmit(e){e.preventDefault();
+      var sb=document.getElementById('eccustSubmitBtn'),sp=document.getElementById('eccustSpinner'),bt=document.getElementById('eccustBtnText');
+      hsDisableButton(sb,sp,bt);
+      secureFetch(BASE+'/save',{method:'POST',body:JSON.stringify({
+        id:document.getElementById('eccustId').value||null,
+        customerCode:document.getElementById('eccustCode').value,
+        firstName:document.getElementById('eccustFirstName').value,
+        lastName:document.getElementById('eccustLastName').value,
+        phone:document.getElementById('eccustPhone').value,
+        email:document.getElementById('eccustEmail').value||null,
+        dateOfBirth:document.getElementById('eccustDob').value||null,
+        gender:document.getElementById('eccustGender').value||null,
+        companyName:document.getElementById('eccustCompany').value||null,
+        taxNumber:document.getElementById('eccustTaxNo').value||null,
+        nationalId:document.getElementById('eccustNid').value||null,
+        customerGroup:document.getElementById('eccustGroup').value||null,
+        accountStatus:document.getElementById('eccustAccountStatus').value,
+        active:document.getElementById('eccustActive').checked,
+        emailVerified:document.getElementById('eccustEmailVerified').checked,
+        phoneVerified:document.getElementById('eccustPhoneVerified').checked
+      })}).then(function(d){
+        if(d.success){Swal.fire({icon:'success',title:'Saved!',text:d.message,timer:1600,showConfirmButton:false});bootstrap.Modal.getOrCreateInstance(document.getElementById('eccustModal')).hide();dt.ajax.reload(null,false);}
+        else{Swal.fire('Error',d.message,'error');}
+      }).catch(function(err){Swal.fire('Error',err.message||'Failed.','error');}).finally(function(){hsEnableButton(sb,sp,bt);});
+    }
+    function _reset(){document.getElementById('eccustForm').reset();document.getElementById('eccustId').value='';document.getElementById('eccustActive').checked=true;}
+    function _v(id,v){var e=document.getElementById(id);if(e)e.value=(v!=null&&v!==undefined)?v:'';}
+  })();
+  </script>
+</section>
+</html>

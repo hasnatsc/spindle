@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<!-- ecommerce/ec-gl-defaults.html  GET /ecommerce/gl-defaults  Singleton settings page -->
+<html th:replace="~{layout/base :: layout('EC GL Defaults', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
+<section>
+  <ol class="breadcrumb float-xl-end">
+    <li class="breadcrumb-item"><a th:href="@{/dashboard}">Home</a></li>
+    <li class="breadcrumb-item">eCommerce</li><li class="breadcrumb-item active">GL Account Defaults</li>
+  </ol>
+  <h1 class="page-header">EC GL Account Defaults <small>default GL accounts for eCommerce journal postings</small></h1>
+
+  <div class="panel panel-inverse">
+    <div class="panel-heading">
+      <div class="panel-title"><i class="fa fa-book me-1"></i> GL Account Mapping</div>
+      <div class="panel-heading-btn">
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-default" data-toggle="panel-expand"><i class="fa fa-expand"></i></a>
+      </div>
+    </div>
+    <div class="panel-body">
+      <div id="ecglLoadingMsg" class="text-center py-4"><span class="spinner-border spinner-border-sm me-2"></span> Loading GL defaults…</div>
+      <form id="ecglForm" novalidate class="d-none">
+        <input type="hidden" id="ecglId">
+        <div class="row g-3">
+          <!-- Sales Revenue -->
+          <div class="col-12"><h6 class="text-muted border-bottom pb-1 mb-2"><i class="fa fa-arrow-up text-success me-1"></i> Revenue Accounts</h6></div>
+          <div class="col-md-6 view-group">
+            <select id="ecglSalesRev" class="form-select hs_span_view hsSelectTwo" data-placeholder="— Sales Revenue Account —"></select>
+            <label class="input-label">Sales Revenue Account (DR on order)</label>
+          </div>
+          <div class="col-md-6 view-group">
+            <select id="ecglSalesRet" class="form-select hs_span_view hsSelectTwo" data-placeholder="— Sales Returns Account —"></select>
+            <label class="input-label">Sales Returns Account (DR on credit note)</label>
+          </div>
+          <div class="col-md-6 view-group">
+            <select id="ecglShipInc" class="form-select hs_span_view hsSelectTwo" data-placeholder="— Shipping Income Account —"></select>
+            <label class="input-label">Shipping Income Account</label>
+          </div>
+          <!-- Cost / Expense -->
+          <div class="col-12"><h6 class="text-muted border-bottom pb-1 mb-2 mt-2"><i class="fa fa-arrow-down text-danger me-1"></i> Cost &amp; Expense Accounts</h6></div>
+          <div class="col-md-6 view-group">
+            <select id="ecglCogs" class="form-select hs_span_view hsSelectTwo" data-placeholder="— COGS Account —"></select>
+            <label class="input-label">COGS Account</label>
+          </div>
+          <div class="col-md-6 view-group">
+            <select id="ecglDiscount" class="form-select hs_span_view hsSelectTwo" data-placeholder="— Discount Expense Account —"></select>
+            <label class="input-label">Discount Expense Account</label>
+          </div>
+          <!-- Receivable / Liability -->
+          <div class="col-12"><h6 class="text-muted border-bottom pb-1 mb-2 mt-2"><i class="fa fa-balance-scale text-primary me-1"></i> Receivable &amp; Liability Accounts</h6></div>
+          <div class="col-md-6 view-group">
+            <select id="ecglAR" class="form-select hs_span_view hsSelectTwo" data-placeholder="— Accounts Receivable (Control) —"></select>
+            <label class="input-label">Accounts Receivable Control</label>
+          </div>
+          <div class="col-md-6 view-group">
+            <select id="ecglVat" class="form-select hs_span_view hsSelectTwo" data-placeholder="— VAT Payable Account —"></select>
+            <label class="input-label">VAT Payable Account</label>
+          </div>
+          <!-- Sub-account -->
+          <div class="col-12"><h6 class="text-muted border-bottom pb-1 mb-2 mt-2"><i class="fa fa-university text-info me-1"></i> Default Payment Sub-Account</h6></div>
+          <div class="col-md-6 view-group">
+            <select id="ecglBankSub" class="form-select hs_span_view hsSelectTwo" data-placeholder="— Default Bank / Cash Sub-Account —"></select>
+            <label class="input-label">Default Receiving Bank/Cash Sub-Account</label>
+          </div>
+        </div>
+        <div class="mt-4 text-end">
+          <button class="btn btn-success" type="submit" id="ecglSubmitBtn">
+            <span class="spinner-border spinner-border-sm me-2 d-none" id="ecglSpinner"></span>
+            <span id="ecglBtnText"><i class="fa fa-save me-1"></i> Save GL Defaults</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script th:inline="none">
+  (function(){
+    'use strict';
+    const BASE='/ecommerce/gl-defaults';
+    const COA_BASE='/accounts/coa';
+    const SUB_BASE='/accounts/sub-accounts';
+
+    document.addEventListener('DOMContentLoaded',function(){
+      _initSelect2();
+      _loadDefaults();
+      document.getElementById('ecglForm').addEventListener('submit',_onSubmit);
+    });
+
+    function _initSelect2(){
+      var coaFields=['ecglSalesRev','ecglSalesRet','ecglShipInc','ecglCogs','ecglDiscount','ecglAR','ecglVat'];
+      coaFields.forEach(function(fid){
+        if(window.$&&$.fn.select2){
+          $('#'+fid).select2({
+            placeholder:document.getElementById(fid).dataset.placeholder||'— Select —',
+            allowClear:true,
+            ajax:{url:COA_BASE+'/search',dataType:'json',delay:300,data:function(p){return{q:p.term||'',page:p.page||1};},
+              processResults:function(d){return{results:(d.items||[]).map(function(i){return{id:i.id,text:i.text};}),pagination:{more:d.hasMore}};}
+            }
+          });
+        }
+      });
+      if(window.$&&$.fn.select2){
+        $('#ecglBankSub').select2({
+          placeholder:'— Default Bank / Cash Sub-Account —',allowClear:true,
+          ajax:{url:SUB_BASE+'/search',dataType:'json',delay:300,data:function(p){return{q:p.term||'',page:p.page||1};},
+            processResults:function(d){return{results:(d.items||[]).map(function(i){return{id:i.id,text:i.text};}),pagination:{more:d.hasMore}};}
+          }
+        });
+      }
+    }
+
+    function _loadDefaults(){
+      secureFetch(BASE+'/load').then(function(res){
+        document.getElementById('ecglLoadingMsg').classList.add('d-none');
+        if(!res.success){Swal.fire('Error',res.message,'error');return;}
+        var o=res.obj;
+        document.getElementById('ecglId').value=o.id||'';
+        _setSelect2('#ecglSalesRev',o.salesRevenueAccountId,o.salesRevenueAccountName);
+        _setSelect2('#ecglSalesRet',o.salesReturnsAccountId,o.salesReturnsAccountName);
+        _setSelect2('#ecglShipInc',o.shippingIncomeAccountId,o.shippingIncomeAccountName);
+        _setSelect2('#ecglCogs',o.cogsAccountId,o.cogsAccountName);
+        _setSelect2('#ecglDiscount',o.discountExpenseAccountId,o.discountExpenseAccountName);
+        _setSelect2('#ecglAR',o.accountsReceivableId,o.accountsReceivableName);
+        _setSelect2('#ecglVat',o.vatPayableAccountId,o.vatPayableAccountName);
+        _setSelect2('#ecglBankSub',o.defaultBankSubAccountId,o.defaultBankSubAccountName);
+        document.getElementById('ecglForm').classList.remove('d-none');
+      }).catch(function(){document.getElementById('ecglLoadingMsg').textContent='Failed to load GL defaults.';});
+    }
+
+    function _setSelect2(sel,id,text){
+      if(!id||!window.$||!$.fn.select2) return;
+      var opt=new Option(text||('ID:'+id),id,true,true);
+      $(sel).append(opt).trigger('change');
+    }
+
+    function _onSubmit(e){e.preventDefault();
+      var sb=document.getElementById('ecglSubmitBtn'),sp=document.getElementById('ecglSpinner'),bt=document.getElementById('ecglBtnText');
+      hsDisableButton(sb,sp,bt);
+      secureFetch(BASE+'/save',{method:'POST',body:JSON.stringify({
+        id:document.getElementById('ecglId').value||null,
+        salesRevenueAccountId:   _selVal('#ecglSalesRev'),
+        salesReturnsAccountId:   _selVal('#ecglSalesRet'),
+        shippingIncomeAccountId: _selVal('#ecglShipInc'),
+        cogsAccountId:           _selVal('#ecglCogs'),
+        discountExpenseAccountId:_selVal('#ecglDiscount'),
+        accountsReceivableId:    _selVal('#ecglAR'),
+        vatPayableAccountId:     _selVal('#ecglVat'),
+        defaultBankSubAccountId: _selVal('#ecglBankSub')
+      })}).then(function(d){
+        if(d.success){Swal.fire({icon:'success',title:'Saved!',text:d.message,timer:1600,showConfirmButton:false});}
+        else{Swal.fire('Error',d.message,'error');}
+      }).catch(function(err){Swal.fire('Error',err.message||'Failed.','error');}).finally(function(){hsEnableButton(sb,sp,bt);});
+    }
+
+    function _selVal(sel){
+      if(window.$&&$.fn.select2){var v=$(sel).val();return v?parseInt(v):null;}
+      var e=document.querySelector(sel); return e&&e.value?parseInt(e.value):null;
+    }
+  })();
+  </script>
+</section>
+</html>

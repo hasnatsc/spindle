@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<!-- ecommerce/ec-home-section-index.html  JS fns: echsShow/echsEdit/echsToggle/echsDelete/echsOpenCreate -->
+<html th:replace="~{layout/base :: layout('Home Sections', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
+<section>
+  <ol class="breadcrumb float-xl-end">
+    <li class="breadcrumb-item"><a th:href="@{/dashboard}">Home</a></li>
+    <li class="breadcrumb-item">eCommerce</li><li class="breadcrumb-item active">Home Sections</li>
+  </ol>
+  <h1 class="page-header">Home Sections <small>storefront homepage CMS blocks</small></h1>
+  <div class="panel panel-inverse">
+    <div class="panel-heading">
+      <div class="panel-title"><a href="javascript:;" onclick="echsOpenCreate()"><span class="badge btn btn-outline-success"><i class="fa fa-plus me-1"></i> Add Section</span></a></div>
+      <div class="panel-heading-btn">
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-default" data-toggle="panel-expand"><i class="fa fa-expand"></i></a>
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-success" data-toggle="panel-reload"><i class="fa fa-redo"></i></a>
+      </div>
+    </div>
+    <div class="panel-body">
+      <table id="echsTable" width="100%" class="table table-striped table-bordered align-middle">
+        <thead><tr>
+          <th width="1%">SL</th><th>Code</th><th>Name</th><th>Type</th>
+          <th class="text-center">Order</th><th class="text-center">Max Products</th>
+          <th class="text-center">Products</th><th class="text-center" width="7%">Status</th>
+          <th>Created</th><th class="text-center" width="12%">Actions</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <!-- CREATE / EDIT MODAL -->
+    <div tabindex="-1" id="echsModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header"><h5 class="modal-title" id="echsModalTitle"><i class="fa fa-th-large me-1 text-success"></i> Add Home Section</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+          <form id="echsForm" novalidate>
+            <div class="modal-body">
+              <input type="hidden" id="echsId">
+              <ul class="nav nav-tabs mb-3 bg-gray-700">
+                <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#echstab1">Basic</a></li>
+                <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#echstab2">Products</a></li>
+              </ul>
+              <div class="tab-content hs-box">
+                <div class="tab-pane fade show active" id="echstab1">
+                  <div class="row g-2">
+                    <div class="col-md-3 view-group"><input id="echsCode" type="text" class="form-control hs_span_view text-uppercase" required maxlength="50" placeholder="FEATURED-TOP"><label class="input-label">Section Code <span class="text-danger">*</span></label></div>
+                    <div class="col-md-5 view-group"><input id="echsName" type="text" class="form-control hs_span_view" required maxlength="200" placeholder="Featured Products"><label class="input-label">Section Name <span class="text-danger">*</span></label></div>
+                    <div class="col-md-4 view-group">
+                      <select id="echsType" class="form-select hs_span_view" required>
+                        <option value="">— Select Type —</option>
+                        <option value="FEATURED">Featured</option><option value="NEW_ARRIVAL">New Arrival</option>
+                        <option value="BEST_SELLER">Best Seller</option><option value="TOP_RATED">Top Rated</option>
+                        <option value="FLASH_SALE">Flash Sale</option><option value="TRENDING">Trending</option>
+                        <option value="CUSTOM">Custom</option>
+                      </select>
+                      <label class="input-label">Section Type <span class="text-danger">*</span></label>
+                    </div>
+                    <div class="col-md-6 view-group"><input id="echsTitle" type="text" class="form-control hs_span_view" maxlength="300" placeholder="Our Featured Products"><label class="input-label">Section Title</label></div>
+                    <div class="col-md-6 view-group"><input id="echsSubtitle" type="text" class="form-control hs_span_view" maxlength="500" placeholder="Handpicked for you"><label class="input-label">Subtitle</label></div>
+                    <div class="col-md-3 view-group"><input id="echsOrder" type="number" min="0" class="form-control hs_span_view" value="0" placeholder="0"><label class="input-label">Display Order</label></div>
+                    <div class="col-md-3 view-group"><input id="echsMaxProd" type="number" min="1" max="100" class="form-control hs_span_view" value="12"><label class="input-label">Max Products</label></div>
+                    <div class="col-md-3 mt-1"><div class="form-check form-switch pt-4"><input type="checkbox" id="echsActive" class="form-check-input" checked><label class="form-check-label" for="echsActive"><strong>Active</strong></label></div></div>
+                  </div>
+                </div>
+                <div class="tab-pane fade" id="echstab2">
+                  <div class="mb-2 d-flex justify-content-between align-items-center">
+                    <small class="text-muted">Select products to feature in this section.</small>
+                    <button type="button" class="btn btn-sm btn-outline-success" onclick="echsAddProductRow()"><i class="fa fa-plus me-1"></i> Add Product</button>
+                  </div>
+                  <div class="table-responsive">
+                    <table class="table table-sm table-bordered align-middle">
+                      <thead class="table-dark"><tr><th>Product</th><th>Display Order</th><th></th></tr></thead>
+                      <tbody id="echsProdRows"></tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-success" type="submit" id="echsSubmitBtn"><span class="spinner-border spinner-border-sm me-2 d-none" id="echsSpinner"></span><span id="echsBtnText">Save</span></button>
+              <button type="button" class="btn btn-white" data-bs-dismiss="modal">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script th:inline="none">
+  (function(){
+    'use strict';
+    const BASE='/ecommerce/home-sections';
+    const PROD_BASE='/ecommerce/products';
+    var dt; var _prodIdx=0; var _products=[];
+
+    document.addEventListener('DOMContentLoaded',function(){
+      dt=$('#echsTable').DataTable({processing:true,serverSide:true,responsive:true,pageLength:25,
+        ajax:{url:BASE+'/list',type:'GET'},
+        columns:[{data:'sl',orderable:false,width:'40px'},{data:'section_code'},{data:'section_name'},
+          {data:'section_type'},{data:'display_order',className:'text-center'},
+          {data:'max_products',className:'text-center'},{data:'product_count',orderable:false,className:'text-center'},
+          {data:'status',orderable:false,className:'text-center'},{data:'created_at',defaultContent:'—'},
+          {data:'actions',orderable:false,className:'text-center'}],
+        language:{emptyTable:'No home sections found.'}});
+      document.getElementById('echsForm').addEventListener('submit',_onSubmit);
+      _loadProducts();
+    });
+
+    function _loadProducts(){
+      secureFetch(PROD_BASE+'/active').then(function(data){_products=data||[];});
+    }
+
+    window.echsAddProductRow=function(sp){
+      sp=sp||{}; var i=_prodIdx++;
+      var opts=_products.map(function(p){return '<option value="'+p.id+'"'+(sp.productId==p.id?' selected':'')+'>'+p.title+'</option>';}).join('');
+      var tr=document.createElement('tr'); tr.className='echs-prod-row'; tr.dataset.idx=i;
+      tr.innerHTML='<td><select id="hspProd_'+i+'" class="form-select form-select-sm"><option value="">— Select Product —</option>'+opts+'</select></td>'+
+        '<td><input id="hspOrder_'+i+'" type="number" min="0" class="form-control form-control-sm" style="width:80px" value="'+(sp.displayOrder||0)+'"></td>'+
+        '<td><button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest(\'.echs-prod-row\').remove()"><i class="fa fa-times"></i></button></td>';
+      document.getElementById('echsProdRows').appendChild(tr);
+    };
+
+    function _collectProducts(){
+      return Array.from(document.querySelectorAll('.echs-prod-row')).map(function(row){
+        var i=row.dataset.idx;
+        var pid=document.getElementById('hspProd_'+i).value;
+        if(!pid) return null;
+        return{productId:parseInt(pid),displayOrder:parseInt(document.getElementById('hspOrder_'+i).value||'0')};
+      }).filter(Boolean);
+    }
+
+    window.echsOpenCreate=function(){_reset();document.getElementById('echsModalTitle').innerHTML='<i class="fa fa-plus me-1 text-success"></i> Add Home Section';document.getElementById('echsBtnText').textContent='Save';bootstrap.Modal.getOrCreateInstance(document.getElementById('echsModal')).show();};
+    window.echsShow=function(id){secureFetch(BASE+'/show/'+id).then(function(res){if(!res.success){Swal.fire('Error',res.message,'error');return;}var o=res.obj.defaultData;Swal.fire({title:o.sectionName,html:'Type: '+o.sectionType+'<br>Products: '+(o.sectionProducts||[]).length+'<br>Order: '+o.displayOrder});});};
+    window.echsEdit=function(id){
+      secureFetch(BASE+'/show/'+id).then(function(res){if(!res.success){Swal.fire('Error',res.message,'error');return;}
+        var o=res.obj.defaultData; _reset();
+        _v('echsId',o.id);_v('echsCode',o.sectionCode);_v('echsName',o.sectionName);
+        _v('echsTitle',o.sectionTitle||'');_v('echsSubtitle',o.sectionSubtitle||'');
+        _v('echsOrder',o.displayOrder||0);_v('echsMaxProd',o.maxProducts||12);
+        document.getElementById('echsType').value=o.sectionType||'';
+        document.getElementById('echsActive').checked=o.active;
+        (o.sectionProducts||[]).forEach(function(sp){echsAddProductRow(sp);});
+        document.getElementById('echsModalTitle').innerHTML='<i class="fa fa-pencil me-1 text-warning"></i> Edit Home Section';
+        document.getElementById('echsBtnText').textContent='Update';
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('echsModal')).show();
+      });
+    };
+    window.echsToggle=function(id){hsChangeStatus(BASE+'/toggle/'+id,dt,'Section');};
+    window.echsDelete=function(id){hsConfirmDelete(BASE+'/delete/'+id,dt);};
+
+    function _onSubmit(e){e.preventDefault();
+      var sb=document.getElementById('echsSubmitBtn'),sp=document.getElementById('echsSpinner'),bt=document.getElementById('echsBtnText');
+      hsDisableButton(sb,sp,bt);
+      secureFetch(BASE+'/save',{method:'POST',body:JSON.stringify({
+        id:document.getElementById('echsId').value||null,
+        sectionCode:document.getElementById('echsCode').value,sectionName:document.getElementById('echsName').value,
+        sectionTitle:document.getElementById('echsTitle').value||null,sectionSubtitle:document.getElementById('echsSubtitle').value||null,
+        sectionType:document.getElementById('echsType').value||null,displayOrder:document.getElementById('echsOrder').value||0,
+        maxProducts:document.getElementById('echsMaxProd').value||12,active:document.getElementById('echsActive').checked,
+        sectionProducts:_collectProducts()
+      })}).then(function(d){
+        if(d.success){Swal.fire({icon:'success',title:'Saved!',text:d.message,timer:1600,showConfirmButton:false});bootstrap.Modal.getOrCreateInstance(document.getElementById('echsModal')).hide();dt.ajax.reload(null,false);}
+        else{Swal.fire('Error',d.message,'error');}
+      }).catch(function(err){Swal.fire('Error',err.message||'Failed.','error');}).finally(function(){hsEnableButton(sb,sp,bt);});
+    }
+    function _reset(){document.getElementById('echsForm').reset();document.getElementById('echsId').value='';document.getElementById('echsActive').checked=true;document.getElementById('echsProdRows').innerHTML='';_prodIdx=0;var ft=document.querySelector('#echsModal .nav-link');if(ft)bootstrap.Tab.getOrCreateInstance(ft).show();}
+    function _v(id,v){var e=document.getElementById(id);if(e)e.value=(v!=null&&v!==undefined)?v:'';}
+  })();
+  </script>
+</section>
+</html>

@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<!--  ecommerce/ec-category-index.html   GET /ecommerce/categories
+      JS fns: eccShow / eccEdit / eccToggle / eccDelete / eccOpenCreate -->
+<html th:replace="~{layout/base :: layout('EC Categories', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
+<section>
+  <ol class="breadcrumb float-xl-end">
+    <li class="breadcrumb-item"><a th:href="@{/dashboard}">Home</a></li>
+    <li class="breadcrumb-item">eCommerce</li>
+    <li class="breadcrumb-item active">Categories</li>
+  </ol>
+  <h1 class="page-header">EC Categories <small>storefront navigation &amp; SEO category tree</small></h1>
+
+  <div class="panel panel-inverse">
+    <div class="panel-heading">
+      <div class="panel-title">
+        <a href="javascript:;" onclick="eccOpenCreate()">
+          <span class="badge btn btn-outline-success"><i class="fa fa-plus me-1"></i> Add Category</span>
+        </a>
+      </div>
+      <div class="panel-heading-btn">
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-default" data-toggle="panel-expand"><i class="fa fa-expand"></i></a>
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-success" data-toggle="panel-reload"><i class="fa fa-redo"></i></a>
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-warning" data-toggle="panel-collapse"><i class="fa fa-minus"></i></a>
+      </div>
+    </div>
+    <div class="panel-body">
+      <table id="eccTable" width="100%" class="table table-striped table-bordered align-middle">
+        <thead><tr>
+          <th width="1%">SL</th><th>Code</th><th>Name</th><th>Slug</th>
+          <th>Parent</th><th class="text-center">Level</th><th class="text-center">Attrs</th>
+          <th class="text-center">Featured</th><th class="text-center" width="7%">Status</th>
+          <th>Created</th><th class="text-center" width="12%">Actions</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <!-- CREATE / EDIT MODAL -->
+    <div tabindex="-1" id="eccModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="eccModalTitle"><i class="fa fa-sitemap me-1 text-success"></i> Add Category</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <form id="eccForm" novalidate>
+            <div class="modal-body">
+              <input type="hidden" id="eccId">
+              <ul class="nav nav-tabs mb-3 bg-gray-700">
+                <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#ecctab1">Basic</a></li>
+                <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#ecctab2">Display &amp; SEO</a></li>
+                <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#ecctab3">Attributes</a></li>
+              </ul>
+              <div class="tab-content hs-box">
+                <!-- TAB 1: BASIC -->
+                <div class="tab-pane fade show active" id="ecctab1">
+                  <div class="row g-2">
+                    <div class="col-md-3 view-group">
+                      <input id="eccCode" type="text" class="form-control hs_span_view text-uppercase" placeholder="CAT-001" required maxlength="50">
+                      <label class="input-label">Code <span class="text-danger">*</span></label>
+                    </div>
+                    <div class="col-md-5 view-group">
+                      <input id="eccName" type="text" class="form-control hs_span_view" placeholder="Category Name" required maxlength="200">
+                      <label class="input-label">Name <span class="text-danger">*</span></label>
+                    </div>
+                    <div class="col-md-4 view-group">
+                      <input id="eccSlug" type="text" class="form-control hs_span_view font-monospace text-lowercase" placeholder="url-slug" required maxlength="250">
+                      <label class="input-label">Slug <span class="text-danger">*</span></label>
+                    </div>
+                    <div class="col-md-6 view-group">
+                      <select id="eccParentId" class="form-select hs_span_view hsSelectTwo">
+                        <option value="">— Root (no parent) —</option>
+                      </select>
+                      <label class="input-label">Parent Category</label>
+                    </div>
+                    <div class="col-md-3 view-group">
+                      <input id="eccDisplayOrder" type="number" min="0" placeholder="0" class="form-control hs_span_view">
+                      <label class="input-label">Display Order</label>
+                    </div>
+                    <div class="col-md-3 view-group">
+                      <input id="eccIcon" type="text" placeholder="fa fa-tag" class="form-control hs_span_view" maxlength="100">
+                      <label class="input-label">Icon Class</label>
+                    </div>
+                    <div class="col-12 view-group">
+                      <input id="eccShortDesc" type="text" class="form-control hs_span_view" placeholder="Short description" maxlength="500">
+                      <label class="input-label">Short Description</label>
+                    </div>
+                    <div class="col-12 view-group">
+                      <textarea id="eccDescription" class="form-control hs_span_view" rows="3" placeholder="Full description…"></textarea>
+                      <label class="input-label">Description</label>
+                    </div>
+                    <div class="col-md-3 mt-1"><div class="form-check form-switch pt-2"><input type="checkbox" id="eccActive" class="form-check-input" checked><label class="form-check-label" for="eccActive"><strong>Active</strong></label></div></div>
+                    <div class="col-md-3 mt-1"><div class="form-check form-switch pt-2"><input type="checkbox" id="eccIsMenu" class="form-check-input" checked><label class="form-check-label" for="eccIsMenu">Show in Menu</label></div></div>
+                    <div class="col-md-3 mt-1"><div class="form-check form-switch pt-2"><input type="checkbox" id="eccFeatured" class="form-check-input"><label class="form-check-label" for="eccFeatured">Featured</label></div></div>
+                  </div>
+                </div>
+                <!-- TAB 2: SEO -->
+                <div class="tab-pane fade" id="ecctab2">
+                  <div class="row g-2">
+                    <div class="col-md-6 view-group">
+                      <input id="eccImageUrl" type="url" class="form-control hs_span_view" placeholder="https://…/image.jpg" maxlength="700">
+                      <label class="input-label">Image URL</label>
+                    </div>
+                    <div class="col-md-6 view-group">
+                      <input id="eccBannerUrl" type="url" class="form-control hs_span_view" placeholder="https://…/banner.jpg" maxlength="700">
+                      <label class="input-label">Banner URL</label>
+                    </div>
+                    <div class="col-12 view-group">
+                      <input id="eccMetaTitle" type="text" class="form-control hs_span_view" placeholder="SEO title" maxlength="255">
+                      <label class="input-label">Meta Title</label>
+                    </div>
+                    <div class="col-12 view-group">
+                      <input id="eccMetaKeywords" type="text" class="form-control hs_span_view" placeholder="keyword1, keyword2" maxlength="500">
+                      <label class="input-label">Meta Keywords</label>
+                    </div>
+                    <div class="col-12 view-group">
+                      <textarea id="eccMetaDesc" class="form-control hs_span_view" rows="3" placeholder="SEO meta description…" maxlength="1000"></textarea>
+                      <label class="input-label">Meta Description</label>
+                    </div>
+                  </div>
+                </div>
+                <!-- TAB 3: ATTRIBUTES -->
+                <div class="tab-pane fade" id="ecctab3">
+                  <div class="mb-2 d-flex justify-content-between align-items-center">
+                    <small class="text-muted">Define filterable attribute schema for products in this category.</small>
+                    <button type="button" class="btn btn-sm btn-outline-success" onclick="eccAddAttrRow()"><i class="fa fa-plus me-1"></i> Add Attribute</button>
+                  </div>
+                  <div class="table-responsive">
+                    <table class="table table-sm table-bordered align-middle">
+                      <thead class="table-dark"><tr>
+                        <th>Attribute Name</th><th>Label</th><th>Data Type</th>
+                        <th class="text-center">Required</th><th class="text-center">Searchable</th>
+                        <th class="text-center">Filterable</th><th>Order</th><th></th>
+                      </tr></thead>
+                      <tbody id="eccAttrRows"></tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-success" type="submit" id="eccSubmitBtn">
+                <span class="spinner-border spinner-border-sm me-2 d-none" id="eccSpinner"></span>
+                <span id="eccBtnText">Save</span>
+              </button>
+              <button type="button" class="btn btn-white" data-bs-dismiss="modal">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- VIEW MODAL -->
+    <div tabindex="-1" id="eccViewModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title"><i class="fa fa-sitemap me-1 text-primary"></i> Category Details</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <div class="hs-box"><div class="row g-2">
+              <div class="col-md-3 view-group"><label class="view-label">Code</label><span id="vw_ecc_code" class="form-control hs_span_show"></span></div>
+              <div class="col-md-5 view-group"><label class="view-label">Name</label><span id="vw_ecc_name" class="form-control hs_span_show"></span></div>
+              <div class="col-md-4 view-group"><label class="view-label">Slug</label><span id="vw_ecc_slug" class="form-control hs_span_show font-monospace"></span></div>
+              <div class="col-md-4 view-group"><label class="view-label">Parent</label><span id="vw_ecc_parent" class="form-control hs_span_show"></span></div>
+              <div class="col-md-2 view-group"><label class="view-label">Level</label><span id="vw_ecc_level" class="form-control hs_span_show"></span></div>
+              <div class="col-md-3 view-group"><label class="view-label">Status</label><span id="vw_ecc_status" class="form-control hs_span_show"></span></div>
+              <div class="col-md-3 view-group"><label class="view-label">Featured</label><span id="vw_ecc_featured" class="form-control hs_span_show"></span></div>
+              <div class="col-12 view-group"><label class="view-label">Short Description</label><span id="vw_ecc_shortDesc" class="form-control hs_span_show" style="min-height:38px"></span></div>
+              <div class="col-md-4 view-group"><label class="view-label">Created</label><span id="vw_ecc_createdAt" class="form-control hs_span_show"></span></div>
+              <div class="col-md-4 view-group"><label class="view-label">Created By</label><span id="vw_ecc_createdBy" class="form-control hs_span_show"></span></div>
+            </div></div>
+          </div>
+          <div class="modal-footer"><button type="button" class="btn btn-white" data-bs-dismiss="modal">Close</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script th:inline="none">
+  (function () {
+    'use strict';
+    const BASE = '/ecommerce/categories';
+    var dt;
+    var _attrIdx = 0;
+    var ATTR_TYPES = ['TEXT','NUMBER','BOOLEAN','DATE','LIST','COLOR'];
+
+    document.addEventListener('DOMContentLoaded', function () {
+      dt = $('#eccTable').DataTable({
+        processing:true, serverSide:true, responsive:true, pageLength:25,
+        ajax:{ url:BASE+'/list', type:'GET' },
+        columns:[
+          {data:'sl',orderable:false,width:'40px'},
+          {data:'category_code'},
+          {data:'category_name'},
+          {data:'slug',className:'font-monospace small'},
+          {data:'parent_name',defaultContent:'—'},
+          {data:'level_no',orderable:false,className:'text-center'},
+          {data:'attr_count',orderable:false,className:'text-center'},
+          {data:'featured_badge',orderable:false,className:'text-center'},
+          {data:'status',orderable:false,className:'text-center'},
+          {data:'created_at',defaultContent:'—'},
+          {data:'actions',orderable:false,className:'text-center'}
+        ],
+        language:{emptyTable:'No categories found.',processing:'<span class="spinner-border spinner-border-sm me-2"></span> Loading…'}
+      });
+      _loadParentDropdown();
+      document.getElementById('eccForm').addEventListener('submit', _onSubmit);
+      document.getElementById('eccName').addEventListener('input', function(){
+        var sl = document.getElementById('eccSlug');
+        if (!sl.dataset.manual) sl.value = _slugify(this.value);
+      });
+      document.getElementById('eccSlug').addEventListener('input', function(){
+        this.dataset.manual = this.value ? '1' : '';
+        this.value = this.value.toLowerCase().replace(/[^a-z0-9-]/g,'-').replace(/-+/g,'-');
+      });
+    });
+
+    function _loadParentDropdown(excludeId) {
+      secureFetch(BASE+'/active').then(function(data){
+        var sel = document.getElementById('eccParentId');
+        while(sel.options.length>1) sel.remove(1);
+        (data||[]).forEach(function(c){
+          if(excludeId && Number(c.id)===Number(excludeId)) return;
+          var opt=document.createElement('option'); opt.value=c.id;
+          opt.textContent='['+c.code+'] '+c.name; sel.appendChild(opt);
+        });
+        if(window.$&&$.fn.select2) $(sel).select2({dropdownParent:$('#eccModal'),placeholder:'— Root —',allowClear:true});
+      });
+    }
+
+    window.eccAddAttrRow = function(attr) {
+      attr = attr||{}; var i = _attrIdx++;
+      var tr = document.createElement('tr'); tr.className='ecc-attr-row'; tr.dataset.idx=i;
+      var typeOpts = ATTR_TYPES.map(function(t){return '<option value="'+t+'"'+(attr.dataType===t?' selected':'')+'>'+t+'</option>';}).join('');
+      tr.innerHTML =
+        '<td><input id="attrName_'+i+'" type="text" class="form-control form-control-sm" placeholder="count" value="'+_esc(attr.attributeName||'')+'" required maxlength="150"></td>'+
+        '<td><input id="attrLabel_'+i+'" type="text" class="form-control form-control-sm" placeholder="Count" value="'+_esc(attr.attributeLabel||'')+'" maxlength="150"></td>'+
+        '<td><select id="attrType_'+i+'" class="form-select form-select-sm">'+typeOpts+'</select></td>'+
+        '<td class="text-center"><input type="checkbox" id="attrReq_'+i+'" class="form-check-input"'+(attr.isRequired?' checked':'')+' /></td>'+
+        '<td class="text-center"><input type="checkbox" id="attrSearch_'+i+'" class="form-check-input"'+(attr.searchable!==false?' checked':'')+' /></td>'+
+        '<td class="text-center"><input type="checkbox" id="attrFilter_'+i+'" class="form-check-input"'+(attr.filterable!==false?' checked':'')+' /></td>'+
+        '<td><input id="attrOrder_'+i+'" type="number" min="0" class="form-control form-control-sm" style="width:60px" value="'+(attr.displayOrder||0)+'"></td>'+
+        '<td><button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest(\'.ecc-attr-row\').remove()"><i class="fa fa-times"></i></button></td>';
+      document.getElementById('eccAttrRows').appendChild(tr);
+    };
+
+    function _collectAttrs() {
+      return Array.from(document.querySelectorAll('.ecc-attr-row')).map(function(row){
+        var i = row.dataset.idx;
+        var name = document.getElementById('attrName_'+i).value.trim();
+        if(!name) return null;
+        return {
+          attributeName:  name,
+          attributeLabel: document.getElementById('attrLabel_'+i).value.trim()||null,
+          dataType:       document.getElementById('attrType_'+i).value,
+          isRequired:     document.getElementById('attrReq_'+i).checked,
+          searchable:     document.getElementById('attrSearch_'+i).checked,
+          filterable:     document.getElementById('attrFilter_'+i).checked,
+          displayOrder:   parseInt(document.getElementById('attrOrder_'+i).value||'0'),
+          active:         true
+        };
+      }).filter(Boolean);
+    }
+
+    window.eccOpenCreate = function(){
+      _reset();
+      document.getElementById('eccModalTitle').innerHTML='<i class="fa fa-plus me-1 text-success"></i> Add Category';
+      document.getElementById('eccBtnText').textContent='Save';
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('eccModal')).show();
+    };
+
+    window.eccShow = function(id){
+      secureFetch(BASE+'/show/'+id).then(function(res){
+        if(!res.success){Swal.fire('Error',res.message,'error');return;}
+        var o=res.obj.defaultData;
+        _st('vw_ecc_code',o.categoryCode); _st('vw_ecc_name',o.categoryName);
+        _st('vw_ecc_slug',o.slug); _st('vw_ecc_parent',o.parentCategoryName);
+        _st('vw_ecc_level',o.levelNo); _st('vw_ecc_shortDesc',o.shortDescription);
+        _st('vw_ecc_createdAt',o.createdAt); _st('vw_ecc_createdBy',o.createdBy);
+        document.getElementById('vw_ecc_status').innerHTML=o.active?"<span class='badge bg-success'>Active</span>":"<span class='badge bg-danger'>Inactive</span>";
+        document.getElementById('vw_ecc_featured').innerHTML=o.isFeatured?"<span class='badge bg-warning text-dark'>Yes</span>":'—';
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('eccViewModal')).show();
+      });
+    };
+
+    window.eccEdit = function(id){
+      secureFetch(BASE+'/show/'+id).then(function(res){
+        if(!res.success){Swal.fire('Error',res.message,'error');return;}
+        var o=res.obj.defaultData; _reset();
+        _v('eccId',o.id); _v('eccCode',o.categoryCode); _v('eccName',o.categoryName);
+        _v('eccSlug',o.slug); _v('eccDisplayOrder',o.displayOrder||0);
+        _v('eccIcon',o.icon||''); _v('eccShortDesc',o.shortDescription||'');
+        _v('eccDescription',o.description||''); _v('eccImageUrl',o.imageUrl||'');
+        _v('eccBannerUrl',o.bannerUrl||''); _v('eccMetaTitle',o.metaTitle||'');
+        _v('eccMetaKeywords',o.metaKeywords||''); _v('eccMetaDesc',o.metaDescription||'');
+        document.getElementById('eccParentId').value=o.parentCategoryId||'';
+        document.getElementById('eccActive').checked=o.active;
+        document.getElementById('eccIsMenu').checked=o.isMenu!==false;
+        document.getElementById('eccFeatured').checked=o.isFeatured;
+        document.getElementById('eccSlug').dataset.manual='1';
+        if(window.$&&$.fn.select2) $(document.getElementById('eccParentId')).trigger('change');
+        (o.attributes||[]).forEach(function(a){eccAddAttrRow(a);});
+        document.getElementById('eccModalTitle').innerHTML='<i class="fa fa-pencil me-1 text-warning"></i> Edit Category';
+        document.getElementById('eccBtnText').textContent='Update';
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('eccModal')).show();
+      });
+    };
+
+    window.eccToggle = function(id){ hsChangeStatus(BASE+'/toggle/'+id, dt, 'Category'); };
+    window.eccDelete = function(id){ hsConfirmDelete(BASE+'/delete/'+id, dt); };
+
+    function _onSubmit(e){
+      e.preventDefault();
+      var sb=document.getElementById('eccSubmitBtn'),sp=document.getElementById('eccSpinner'),bt=document.getElementById('eccBtnText');
+      hsDisableButton(sb,sp,bt);
+      secureFetch(BASE+'/save',{method:'POST',body:JSON.stringify({
+        id:                document.getElementById('eccId').value||null,
+        categoryCode:      document.getElementById('eccCode').value,
+        categoryName:      document.getElementById('eccName').value,
+        slug:              document.getElementById('eccSlug').value,
+        parentCategoryId:  document.getElementById('eccParentId').value||null,
+        displayOrder:      document.getElementById('eccDisplayOrder').value||0,
+        icon:              document.getElementById('eccIcon').value,
+        shortDescription:  document.getElementById('eccShortDesc').value,
+        description:       document.getElementById('eccDescription').value,
+        imageUrl:          document.getElementById('eccImageUrl').value||null,
+        bannerUrl:         document.getElementById('eccBannerUrl').value||null,
+        metaTitle:         document.getElementById('eccMetaTitle').value,
+        metaKeywords:      document.getElementById('eccMetaKeywords').value,
+        metaDescription:   document.getElementById('eccMetaDesc').value,
+        active:            document.getElementById('eccActive').checked,
+        isMenu:            document.getElementById('eccIsMenu').checked,
+        isFeatured:        document.getElementById('eccFeatured').checked,
+        attributes:        _collectAttrs()
+      })}).then(function(d){
+        if(d.success){Swal.fire({icon:'success',title:'Saved!',text:d.message,timer:1600,showConfirmButton:false});
+          bootstrap.Modal.getOrCreateInstance(document.getElementById('eccModal')).hide(); dt.ajax.reload(null,false);}
+        else{Swal.fire('Error',d.message,'error');}
+      }).catch(function(err){Swal.fire('Error',err.message||'Request failed.','error');})
+        .finally(function(){hsEnableButton(sb,sp,bt);});
+    }
+
+    function _reset(){
+      document.getElementById('eccForm').reset(); document.getElementById('eccId').value='';
+      document.getElementById('eccActive').checked=true; document.getElementById('eccIsMenu').checked=true;
+      document.getElementById('eccFeatured').checked=false;
+      document.getElementById('eccAttrRows').innerHTML='';
+      document.getElementById('eccSlug').dataset.manual='';
+      _attrIdx=0;
+      if(window.$&&$.fn.select2){$(document.getElementById('eccParentId')).val(null).trigger('change');}
+      var ft=document.querySelector('#eccModal .nav-link'); if(ft) bootstrap.Tab.getOrCreateInstance(ft).show();
+    }
+    function _v(id,v){ var e=document.getElementById(id); if(e) e.value=(v!=null&&v!==undefined)?v:''; }
+    function _st(id,v){ var e=document.getElementById(id); if(e) e.textContent=(v!=null&&v!=='')?v:'—'; }
+    function _esc(s){ return String(s||'').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
+    function _slugify(s){ return (s||'').toLowerCase().trim().replace(/[^\w\s-]/g,'').replace(/\s+/g,'-').replace(/-+/g,'-').substring(0,250); }
+  })();
+  </script>
+</section>
+</html>

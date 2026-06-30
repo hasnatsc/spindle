@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<!-- ecommerce/ec-coupon-index.html  JS fns: ecoupShow/ecoupEdit/ecoupToggle/ecoupDelete/ecoupOpenCreate -->
+<html th:replace="~{layout/base :: layout('EC Coupons', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
+<section>
+  <ol class="breadcrumb float-xl-end">
+    <li class="breadcrumb-item"><a th:href="@{/dashboard}">Home</a></li>
+    <li class="breadcrumb-item">eCommerce</li><li class="breadcrumb-item active">Coupons</li>
+  </ol>
+  <h1 class="page-header">Coupons <small>discount coupon management</small></h1>
+  <div class="panel panel-inverse">
+    <div class="panel-heading">
+      <div class="panel-title"><a href="javascript:;" onclick="ecoupOpenCreate()"><span class="badge btn btn-outline-success"><i class="fa fa-plus me-1"></i> Add Coupon</span></a></div>
+      <div class="panel-heading-btn">
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-default" data-toggle="panel-expand"><i class="fa fa-expand"></i></a>
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-success" data-toggle="panel-reload"><i class="fa fa-redo"></i></a>
+      </div>
+    </div>
+    <div class="panel-body">
+      <table id="ecoupTable" width="100%" class="table table-striped table-bordered align-middle">
+        <thead><tr>
+          <th width="1%">SL</th><th>Code</th><th>Name</th><th>Type</th><th>Value</th>
+          <th>Min Order</th><th>Usage Limit</th><th>Valid From</th><th>Valid To</th>
+          <th class="text-center" width="7%">Status</th><th>Created</th>
+          <th class="text-center" width="12%">Actions</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <div tabindex="-1" id="ecoupModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header"><h5 class="modal-title" id="ecoupModalTitle"><i class="fa fa-tag me-1 text-success"></i> Add Coupon</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+          <form id="ecoupForm" novalidate>
+            <div class="modal-body">
+              <input type="hidden" id="ecoupId">
+              <div class="row g-2">
+                <div class="col-md-4 view-group"><input id="ecoupCode" type="text" class="form-control hs_span_view text-uppercase" required maxlength="50" placeholder="SUMMER20"><label class="input-label">Coupon Code <span class="text-danger">*</span></label></div>
+                <div class="col-md-4 view-group"><input id="ecoupName" type="text" class="form-control hs_span_view" maxlength="200" placeholder="Summer Sale 20%"><label class="input-label">Coupon Name</label></div>
+                <div class="col-md-4 view-group">
+                  <select id="ecoupDiscountType" class="form-select hs_span_view" required><option value="PERCENTAGE">Percentage (%)</option><option value="FIXED">Fixed Amount (৳)</option></select>
+                  <label class="input-label">Discount Type <span class="text-danger">*</span></label>
+                </div>
+                <div class="col-md-3 view-group"><input id="ecoupDiscountValue" type="number" step="0.01" min="0" class="form-control hs_span_view" required placeholder="20.00"><label class="input-label">Discount Value <span class="text-danger">*</span></label></div>
+                <div class="col-md-3 view-group"><input id="ecoupMinOrder" type="number" step="0.01" min="0" class="form-control hs_span_view" placeholder="Min order amount"><label class="input-label">Minimum Order</label></div>
+                <div class="col-md-3 view-group"><input id="ecoupMaxDiscount" type="number" step="0.01" min="0" class="form-control hs_span_view" placeholder="Max discount cap"><label class="input-label">Max Discount</label></div>
+                <div class="col-md-3 view-group"><input id="ecoupUsageLimit" type="number" min="0" class="form-control hs_span_view" placeholder="Total uses allowed"><label class="input-label">Usage Limit</label></div>
+                <div class="col-md-3 view-group"><input id="ecoupUsagePerCust" type="number" min="1" value="1" class="form-control hs_span_view"><label class="input-label">Per Customer Limit</label></div>
+                <div class="col-md-4 view-group"><input id="ecoupValidFrom" type="datetime-local" class="form-control hs_span_view"><label class="input-label">Valid From</label></div>
+                <div class="col-md-4 view-group"><input id="ecoupValidTo" type="datetime-local" class="form-control hs_span_view"><label class="input-label">Valid To</label></div>
+                <div class="col-12 view-group"><textarea id="ecoupDesc" class="form-control hs_span_view" rows="2" placeholder="Description…"></textarea><label class="input-label">Description</label></div>
+                <div class="col-md-3 mt-1"><div class="form-check form-switch pt-2"><input type="checkbox" id="ecoupActive" class="form-check-input" checked><label class="form-check-label" for="ecoupActive"><strong>Active</strong></label></div></div>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-success" type="submit" id="ecoupSubmitBtn"><span class="spinner-border spinner-border-sm me-2 d-none" id="ecoupSpinner"></span><span id="ecoupBtnText">Save</span></button>
+              <button type="button" class="btn btn-white" data-bs-dismiss="modal">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script th:inline="none">
+  (function(){
+    'use strict';
+    const BASE='/ecommerce/coupons'; var dt;
+    document.addEventListener('DOMContentLoaded',function(){
+      dt=$('#ecoupTable').DataTable({processing:true,serverSide:true,responsive:true,pageLength:25,
+        ajax:{url:BASE+'/list',type:'GET'},
+        columns:[{data:'sl',orderable:false,width:'40px'},{data:'coupon_code'},{data:'coupon_name',defaultContent:'—'},
+          {data:'discount_type'},{data:'discount_value',className:'text-end'},{data:'minimum_order',defaultContent:'—'},
+          {data:'usage_limit',defaultContent:'∞',className:'text-center'},{data:'valid_from',defaultContent:'—'},
+          {data:'valid_to',defaultContent:'—'},{data:'status',orderable:false,className:'text-center'},
+          {data:'created_at',defaultContent:'—'},{data:'actions',orderable:false,className:'text-center'}],
+        language:{emptyTable:'No coupons found.'}});
+      document.getElementById('ecoupForm').addEventListener('submit',_onSubmit);
+    });
+    window.ecoupOpenCreate=function(){_reset();document.getElementById('ecoupModalTitle').innerHTML='<i class="fa fa-plus me-1 text-success"></i> Add Coupon';document.getElementById('ecoupBtnText').textContent='Save';bootstrap.Modal.getOrCreateInstance(document.getElementById('ecoupModal')).show();};
+    window.ecoupShow=function(id){secureFetch(BASE+'/show/'+id).then(function(res){if(!res.success){Swal.fire('Error',res.message,'error');return;}var o=res.obj.defaultData;Swal.fire({title:o.couponCode,html:'Type: '+o.discountType+'<br>Value: '+o.discountValue+'<br>Valid: '+(o.validFrom||'—')+' → '+(o.validTo||'—')});});};
+    window.ecoupEdit=function(id){secureFetch(BASE+'/show/'+id).then(function(res){if(!res.success){Swal.fire('Error',res.message,'error');return;}
+      var o=res.obj.defaultData;_reset();
+      _v('ecoupId',o.id);_v('ecoupCode',o.couponCode);_v('ecoupName',o.couponName||'');_v('ecoupDiscountValue',o.discountValue||'');
+      _v('ecoupMinOrder',o.minimumOrder||'');_v('ecoupMaxDiscount',o.maximumDiscount||'');_v('ecoupUsageLimit',o.usageLimit||'');
+      _v('ecoupUsagePerCust',o.usagePerCustomer||1);_v('ecoupDesc',o.description||'');
+      if(o.validFrom) _v('ecoupValidFrom',o.validFrom.replace(' ','T').substring(0,16));
+      if(o.validTo)   _v('ecoupValidTo',o.validTo.replace(' ','T').substring(0,16));
+      document.getElementById('ecoupDiscountType').value=o.discountType||'PERCENTAGE';
+      document.getElementById('ecoupActive').checked=o.active;
+      document.getElementById('ecoupModalTitle').innerHTML='<i class="fa fa-pencil me-1 text-warning"></i> Edit Coupon';
+      document.getElementById('ecoupBtnText').textContent='Update';
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('ecoupModal')).show();
+    });};
+    window.ecoupToggle=function(id){hsChangeStatus(BASE+'/toggle/'+id,dt,'Coupon');};
+    window.ecoupDelete=function(id){hsConfirmDelete(BASE+'/delete/'+id,dt);};
+    function _onSubmit(e){e.preventDefault();
+      var sb=document.getElementById('ecoupSubmitBtn'),sp=document.getElementById('ecoupSpinner'),bt=document.getElementById('ecoupBtnText');
+      hsDisableButton(sb,sp,bt);
+      secureFetch(BASE+'/save',{method:'POST',body:JSON.stringify({
+        id:document.getElementById('ecoupId').value||null,
+        couponCode:document.getElementById('ecoupCode').value,
+        couponName:document.getElementById('ecoupName').value,
+        discountType:document.getElementById('ecoupDiscountType').value,
+        discountValue:document.getElementById('ecoupDiscountValue').value||null,
+        minimumOrder:document.getElementById('ecoupMinOrder').value||null,
+        maximumDiscount:document.getElementById('ecoupMaxDiscount').value||null,
+        usageLimit:document.getElementById('ecoupUsageLimit').value||null,
+        usagePerCustomer:document.getElementById('ecoupUsagePerCust').value||1,
+        description:document.getElementById('ecoupDesc').value,
+        validFrom:document.getElementById('ecoupValidFrom').value||null,
+        validTo:document.getElementById('ecoupValidTo').value||null,
+        active:document.getElementById('ecoupActive').checked
+      })}).then(function(d){
+        if(d.success){Swal.fire({icon:'success',title:'Saved!',text:d.message,timer:1600,showConfirmButton:false});bootstrap.Modal.getOrCreateInstance(document.getElementById('ecoupModal')).hide();dt.ajax.reload(null,false);}
+        else{Swal.fire('Error',d.message,'error');}
+      }).catch(function(err){Swal.fire('Error',err.message||'Failed.','error');}).finally(function(){hsEnableButton(sb,sp,bt);});
+    }
+    function _reset(){document.getElementById('ecoupForm').reset();document.getElementById('ecoupId').value='';document.getElementById('ecoupActive').checked=true;}
+    function _v(id,v){var e=document.getElementById(id);if(e)e.value=(v!=null&&v!==undefined)?v:'';}
+  })();
+  </script>
+</section>
+</html>
