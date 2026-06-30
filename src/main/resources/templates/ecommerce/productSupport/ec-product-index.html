@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<!--
+  ecommerce/ec-product-index.html   GET /ecommerce/products
+  JS fns: ecpShow / ecpEdit / ecpToggle / ecpTogglePublish / ecpDelete / ecpOpenCreate
+-->
+<html th:replace="~{layout/base :: layout('Product Catalog', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
+<section>
+
+  <ol class="breadcrumb float-xl-end">
+    <li class="breadcrumb-item"><a th:href="@{/dashboard}">Home</a></li>
+    <li class="breadcrumb-item">eCommerce</li>
+    <li class="breadcrumb-item active">Product Catalog</li>
+  </ol>
+  <h1 class="page-header">Product Catalog <small>storefront products linked to inventory items</small></h1>
+
+  <div class="panel panel-inverse">
+    <div class="panel-heading">
+      <div class="panel-title">
+        <a href="javascript:;" onclick="ecpOpenCreate()">
+          <span class="badge btn btn-outline-success"><i class="fa fa-plus me-1"></i> Add Product</span>
+        </a>
+      </div>
+      <div class="panel-heading-btn">
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-default" data-toggle="panel-expand"><i class="fa fa-expand"></i></a>
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-success" data-toggle="panel-reload"><i class="fa fa-redo"></i></a>
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-warning" data-toggle="panel-collapse"><i class="fa fa-minus"></i></a>
+      </div>
+    </div>
+    <div class="panel-body">
+      <table id="ecpTable" width="100%" class="table table-striped table-bordered align-middle">
+        <thead><tr>
+          <th width="1%">SL</th>
+          <th>Product Title</th>
+          <th>Slug</th>
+          <th>Item Code</th>
+          <th>EC Category</th>
+          <th class="text-center">Images</th>
+          <th class="text-center">Variants</th>
+          <th class="text-center">Featured</th>
+          <th class="text-center">Publish</th>
+          <th class="text-center" width="7%">Status</th>
+          <th>Created</th>
+          <th class="text-center" width="13%">Actions</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <!-- ════════════════════════════════════════════════════════════════════
+         CREATE / EDIT MODAL — 7 tabs
+    ════════════════════════════════════════════════════════════════════ -->
+    <div tabindex="-1" id="ecpModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="ecpModalTitle"><i class="fa fa-store me-1 text-success"></i> Add Product</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <form id="ecpForm" novalidate>
+            <div class="modal-body">
+              <input type="hidden" id="ecpId">
+              <ul class="nav nav-tabs mb-3 bg-gray-700" id="ecpTabs">
+                <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#etab1">Basic</a></li>
+                <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#etab2">SEO</a></li>
+                <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#etab3">CMS Content</a></li>
+                <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#etab4">Images</a></li>
+                <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#etab5">Variants</a></li>
+                <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#etab6">Attributes</a></li>
+                <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#etab7">Merchandising</a></li>
+              </ul>
+              <div class="tab-content hs-box">
+
+                <!-- TAB 1: BASIC ─────────────────────────────────────────── -->
+                <div class="tab-pane fade show active" id="etab1">
+                  <div class="row g-2">
+                    <div class="col-md-6 view-group">
+                      <select id="ecpItemId" class="form-select hs_span_view hsSelectTwo" required data-parsley-required="true" data-parsley-required-message="Item is required.">
+                        <option value="">— Select Inventory Item —</option>
+                      </select>
+                      <label for="ecpItemId" class="input-label">Inventory Item <span class="text-danger">*</span></label>
+                    </div>
+                    <div class="col-md-6 view-group">
+                      <select id="ecpCategoryId" class="form-select hs_span_view hsSelectTwo">
+                        <option value="">— EC Category (optional) —</option>
+                      </select>
+                      <label for="ecpCategoryId" class="input-label">Storefront Category</label>
+                    </div>
+                    <div class="col-md-6 view-group">
+                      <input id="ecpProductTitle" type="text" placeholder="Marketing product title" class="form-control hs_span_view" required maxlength="300">
+                      <label for="ecpProductTitle" class="input-label">Product Title <span class="text-danger">*</span></label>
+                    </div>
+                    <div class="col-md-6 view-group">
+                      <input id="ecpSlug" type="text" placeholder="url-friendly-slug" class="form-control hs_span_view font-monospace text-lowercase" required maxlength="250">
+                      <label for="ecpSlug" class="input-label">Slug <span class="text-danger">*</span> <small class="text-muted">auto-generated from title</small></label>
+                    </div>
+                    <div class="col-md-4 view-group">
+                      <input id="ecpMinOrderQty" type="number" step="0.01" min="0" placeholder="inherited from item" class="form-control hs_span_view">
+                      <label for="ecpMinOrderQty" class="input-label">Min Order Qty</label>
+                    </div>
+                    <div class="col-md-4 view-group">
+                      <input id="ecpMaxOrderQty" type="number" step="0.01" min="0" placeholder="inherited from item" class="form-control hs_span_view">
+                      <label for="ecpMaxOrderQty" class="input-label">Max Order Qty</label>
+                    </div>
+                    <div class="col-12 view-group">
+                      <input id="ecpShortDesc" type="text" placeholder="Short description (500 chars max)" class="form-control hs_span_view" maxlength="1000">
+                      <label for="ecpShortDesc" class="input-label">Short Description</label>
+                    </div>
+                    <div class="col-12 view-group">
+                      <textarea id="ecpDescription" class="form-control hs_span_view" rows="4" placeholder="Full rich description (supports HTML)…"></textarea>
+                      <label for="ecpDescription" class="input-label">Full Description</label>
+                    </div>
+                    <div class="col-md-3 mt-1"><div class="form-check form-switch pt-2"><input type="checkbox" id="ecpActive" class="form-check-input" checked><label class="form-check-label" for="ecpActive"><strong>Active</strong></label></div></div>
+                    <div class="col-md-3 mt-1"><div class="form-check form-switch pt-2"><input type="checkbox" id="ecpPublished" class="form-check-input"><label class="form-check-label" for="ecpPublished"><strong>Published</strong></label></div></div>
+                  </div>
+                </div>
+
+                <!-- TAB 2: SEO ───────────────────────────────────────────── -->
+                <div class="tab-pane fade" id="etab2">
+                  <div class="row g-2">
+                    <div class="col-12 view-group">
+                      <input id="ecpSeoTitle" type="text" placeholder="SEO page title" class="form-control hs_span_view" maxlength="255">
+                      <label for="ecpSeoTitle" class="input-label">SEO Title</label>
+                    </div>
+                    <div class="col-12 view-group">
+                      <input id="ecpSeoKeywords" type="text" placeholder="keyword1, keyword2, …" class="form-control hs_span_view" maxlength="500">
+                      <label for="ecpSeoKeywords" class="input-label">SEO Keywords</label>
+                    </div>
+                    <div class="col-12 view-group">
+                      <textarea id="ecpSeoDescription" class="form-control hs_span_view" rows="3" placeholder="SEO meta description (160 chars ideal)…" maxlength="1000"></textarea>
+                      <label for="ecpSeoDescription" class="input-label">SEO Meta Description</label>
+                    </div>
+                    <div class="col-12">
+                      <div class="alert alert-info py-2 mb-0 small">
+                        <i class="fa fa-info-circle me-1"></i>
+                        SEO Title and Description are used in <code>&lt;head&gt;</code> meta tags on the storefront. Keep description under 160 characters for best results.
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- TAB 3: CMS CONTENT ───────────────────────────────────── -->
+                <div class="tab-pane fade" id="etab3">
+                  <div class="row g-2">
+                    <div class="col-12 view-group">
+                      <input id="ecpYoutube" type="url" placeholder="https://youtube.com/watch?v=…" class="form-control hs_span_view" maxlength="500">
+                      <label for="ecpYoutube" class="input-label">YouTube Video URL</label>
+                    </div>
+                    <div class="col-12 view-group">
+                      <input id="ecpWarrantyInfo" type="text" placeholder="e.g. 12 months manufacturer warranty" class="form-control hs_span_view" maxlength="500">
+                      <label for="ecpWarrantyInfo" class="input-label">Warranty Information</label>
+                    </div>
+                    <div class="col-12 view-group">
+                      <textarea id="ecpReturnPolicy" class="form-control hs_span_view" rows="3" placeholder="Return policy details…"></textarea>
+                      <label for="ecpReturnPolicy" class="input-label">Return Policy</label>
+                    </div>
+                    <div class="col-12 view-group">
+                      <textarea id="ecpShippingInfo" class="form-control hs_span_view" rows="3" placeholder="Shipping information…"></textarea>
+                      <label for="ecpShippingInfo" class="input-label">Shipping Information</label>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- TAB 4: IMAGES ────────────────────────────────────────── -->
+                <div class="tab-pane fade" id="etab4">
+                  <div class="mb-2 d-flex justify-content-between align-items-center">
+                    <small class="text-muted">Add product image URLs. Mark one as primary (thumbnail/cover).</small>
+                    <button type="button" class="btn btn-sm btn-outline-success" onclick="ecpAddImageRow()">
+                      <i class="fa fa-plus me-1"></i> Add Image
+                    </button>
+                  </div>
+                  <div id="ecpImageRows">
+                    <!-- rows injected by JS -->
+                  </div>
+                  <div class="alert alert-warning py-2 small mt-2">
+                    <i class="fa fa-exclamation-triangle me-1"></i>
+                    Image URLs must be publicly accessible. Upload to CDN / cloud storage first.
+                  </div>
+                </div>
+
+                <!-- TAB 5: VARIANTS ─────────────────────────────────────── -->
+                <div class="tab-pane fade" id="etab5">
+                  <div class="mb-2 d-flex justify-content-between align-items-center">
+                    <small class="text-muted">Each variant maps to a distinct inventory item. Override dimensions and storefront price per variant.</small>
+                    <button type="button" class="btn btn-sm btn-outline-success" onclick="ecpAddVariantRow()">
+                      <i class="fa fa-plus me-1"></i> Add Variant
+                    </button>
+                  </div>
+                  <div class="table-responsive">
+                    <table class="table table-sm table-bordered align-middle" id="ecpVariantTable">
+                      <thead class="table-dark">
+                        <tr>
+                          <th>Item</th><th>Code</th><th>Name</th>
+                          <th>Color</th><th>Size</th>
+                          <th>Sell Price</th><th>Compare Price</th>
+                          <th class="text-center">Active</th><th></th>
+                        </tr>
+                      </thead>
+                      <tbody id="ecpVariantRows"></tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <!-- TAB 6: ATTRIBUTES ───────────────────────────────────── -->
+                <div class="tab-pane fade" id="etab6">
+                  <div class="mb-2">
+                    <small class="text-muted">Attribute schema is defined on the Storefront Category. Select a category on Tab 1 first, then values load here.</small>
+                  </div>
+                  <div id="ecpAttrRows">
+                    <div class="alert alert-secondary py-2 small">
+                      <i class="fa fa-info-circle me-1"></i> Select an EC Category on the Basic tab to load attribute fields.
+                    </div>
+                  </div>
+                </div>
+
+                <!-- TAB 7: MERCHANDISING ─────────────────────────────────── -->
+                <div class="tab-pane fade" id="etab7">
+                  <div class="row g-3 mt-1">
+                    <div class="col-md-4">
+                      <div class="card border-0 shadow-sm p-3">
+                        <div class="form-check form-switch">
+                          <input type="checkbox" id="ecpFeatured" class="form-check-input">
+                          <label class="form-check-label fw-bold" for="ecpFeatured">
+                            <i class="fa fa-star text-warning me-1"></i> Featured
+                          </label>
+                          <div class="text-muted small mt-1">Show on homepage featured section.</div>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="col-md-4">
+                      <div class="card border-0 shadow-sm p-3">
+                        <div class="form-check form-switch">
+                          <input type="checkbox" id="ecpBestSeller" class="form-check-input">
+                          <label class="form-check-label fw-bold" for="ecpBestSeller">
+                            <i class="fa fa-trophy text-success me-1"></i> Best Seller
+                          </label>
+                          <div class="text-muted small mt-1">Show in best-sellers collection.</div>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="col-md-4">
+                      <div class="card border-0 shadow-sm p-3">
+                        <div class="form-check form-switch">
+                          <input type="checkbox" id="ecpTrending" class="form-check-input">
+                          <label class="form-check-label fw-bold" for="ecpTrending">
+                            <i class="fa fa-fire text-danger me-1"></i> Trending
+                          </label>
+                          <div class="text-muted small mt-1">Show in trending / hot section.</div>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="col-md-4">
+                      <div class="card border-0 shadow-sm p-3">
+                        <div class="form-check form-switch">
+                          <input type="checkbox" id="ecpNewArrival" class="form-check-input">
+                          <label class="form-check-label fw-bold" for="ecpNewArrival">
+                            <i class="fa fa-tag text-info me-1"></i> New Arrival
+                          </label>
+                          <div class="text-muted small mt-1">Display "New" badge on storefront.</div>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="col-md-4">
+                      <div class="card border-0 shadow-sm p-3">
+                        <div class="form-check form-switch">
+                          <input type="checkbox" id="ecpRecommended" class="form-check-input">
+                          <label class="form-check-label fw-bold" for="ecpRecommended">
+                            <i class="fa fa-thumbs-up text-primary me-1"></i> Recommended
+                          </label>
+                          <div class="text-muted small mt-1">Show in recommended/similar products.</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+              </div><!-- /tab-content -->
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-success" type="submit" id="ecpSubmitBtn">
+                <span class="spinner-border spinner-border-sm me-2 d-none" id="ecpSpinner"></span>
+                <span id="ecpBtnText">Save</span>
+              </button>
+              <button type="button" class="btn btn-white" data-bs-dismiss="modal">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- ════════════════════════════════════════════════════════════════════
+         VIEW MODAL
+    ════════════════════════════════════════════════════════════════════ -->
+    <div tabindex="-1" id="ecpViewModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title"><i class="fa fa-store me-1 text-primary"></i> Product Details</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <div class="hs-box"><div class="row g-2">
+              <!-- Core -->
+              <div class="col-md-4 view-group"><label class="view-label">Item Code</label><span id="vw_itemCode" class="form-control hs_span_show"></span></div>
+              <div class="col-md-8 view-group"><label class="view-label">Item Name</label><span id="vw_itemName" class="form-control hs_span_show"></span></div>
+              <div class="col-md-6 view-group"><label class="view-label">Product Title</label><span id="vw_productTitle" class="form-control hs_span_show"></span></div>
+              <div class="col-md-6 view-group"><label class="view-label">Slug</label><span id="vw_slug" class="form-control hs_span_show font-monospace"></span></div>
+              <div class="col-md-4 view-group"><label class="view-label">EC Category</label><span id="vw_category" class="form-control hs_span_show"></span></div>
+              <div class="col-md-4 view-group"><label class="view-label">Min Order Qty</label><span id="vw_minOrderQty" class="form-control hs_span_show"></span></div>
+              <div class="col-md-4 view-group"><label class="view-label">Max Order Qty</label><span id="vw_maxOrderQty" class="form-control hs_span_show"></span></div>
+              <!-- SEO -->
+              <div class="col-12"><hr class="my-1"><strong class="small text-muted">SEO</strong></div>
+              <div class="col-md-6 view-group"><label class="view-label">SEO Title</label><span id="vw_seoTitle" class="form-control hs_span_show"></span></div>
+              <div class="col-md-6 view-group"><label class="view-label">SEO Keywords</label><span id="vw_seoKeywords" class="form-control hs_span_show"></span></div>
+              <div class="col-12 view-group"><label class="view-label">SEO Description</label><span id="vw_seoDesc" class="form-control hs_span_show" style="min-height:38px"></span></div>
+              <!-- Flags -->
+              <div class="col-12"><hr class="my-1"><strong class="small text-muted">Flags</strong></div>
+              <div class="col-md-3 view-group"><label class="view-label">Featured</label><span id="vw_featured" class="form-control hs_span_show"></span></div>
+              <div class="col-md-3 view-group"><label class="view-label">Best Seller</label><span id="vw_bestSeller" class="form-control hs_span_show"></span></div>
+              <div class="col-md-3 view-group"><label class="view-label">Trending</label><span id="vw_trending" class="form-control hs_span_show"></span></div>
+              <div class="col-md-3 view-group"><label class="view-label">New Arrival</label><span id="vw_newArrival" class="form-control hs_span_show"></span></div>
+              <!-- Status -->
+              <div class="col-12"><hr class="my-1"><strong class="small text-muted">Status &amp; Audit</strong></div>
+              <div class="col-md-3 view-group"><label class="view-label">Publish</label><span id="vw_published" class="form-control hs_span_show"></span></div>
+              <div class="col-md-3 view-group"><label class="view-label">Status</label><span id="vw_status" class="form-control hs_span_show"></span></div>
+              <div class="col-md-3 view-group"><label class="view-label">Images</label><span id="vw_imageCount" class="form-control hs_span_show"></span></div>
+              <div class="col-md-3 view-group"><label class="view-label">Variants</label><span id="vw_variantCount" class="form-control hs_span_show"></span></div>
+              <div class="col-md-4 view-group"><label class="view-label">Created</label><span id="vw_createdAt" class="form-control hs_span_show"></span></div>
+              <div class="col-md-4 view-group"><label class="view-label">Created By</label><span id="vw_createdBy" class="form-control hs_span_show"></span></div>
+              <div class="col-md-4 view-group"><label class="view-label">Updated By</label><span id="vw_updatedBy" class="form-control hs_span_show"></span></div>
+            </div></div>
+          </div>
+          <div class="modal-footer"><button type="button" class="btn btn-white" data-bs-dismiss="modal">Close</button></div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /panel -->
+
+  <script th:inline="none">
+  (function () {
+    'use strict';
+    const BASE = '/ecommerce/products';
+    var dt;
+    var _imgIdx     = 0;
+    var _varIdx     = 0;
+    var _attrSchema = [];   // [{id, name, label, dataType}] loaded per category
+
+    // ── DataTable ──────────────────────────────────────────────────────────────
+    document.addEventListener('DOMContentLoaded', function () {
+      dt = $('#ecpTable').DataTable({
+        processing: true, serverSide: true, responsive: true, pageLength: 25,
+        ajax: { url: BASE + '/list', type: 'GET' },
+        columns: [
+          { data: 'sl',            orderable: false, width: '40px' },
+          { data: 'product_title' },
+          { data: 'slug',          className: 'font-monospace small' },
+          { data: 'item_code' },
+          { data: 'category_name', defaultContent: '—' },
+          { data: 'image_count',   orderable: false, className: 'text-center' },
+          { data: 'variant_count', orderable: false, className: 'text-center' },
+          { data: 'featured_badge',  orderable: false, className: 'text-center' },
+          { data: 'publish_status',  orderable: false, className: 'text-center' },
+          { data: 'status',          orderable: false, className: 'text-center' },
+          { data: 'created_at',      defaultContent: '—' },
+          { data: 'actions',         orderable: false, className: 'text-center' }
+        ],
+        language: {
+          emptyTable: 'No products found.',
+          processing: '<span class="spinner-border spinner-border-sm me-2"></span> Loading…'
+        }
+      });
+
+      _loadDropdowns();
+      document.getElementById('ecpForm').addEventListener('submit', _onSubmit);
+
+      // Auto-generate slug from product title
+      document.getElementById('ecpProductTitle').addEventListener('input', function () {
+        var slugEl = document.getElementById('ecpSlug');
+        if (!slugEl.dataset.manualEdit) {
+          slugEl.value = _slugify(this.value);
+        }
+      });
+      document.getElementById('ecpSlug').addEventListener('input', function () {
+        this.dataset.manualEdit = this.value ? '1' : '';
+        this.value = this.value.toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-');
+      });
+
+      // Reload attributes when category changes
+      document.getElementById('ecpCategoryId').addEventListener('change', function () {
+        _loadCategoryAttributes(this.value);
+      });
+    });
+
+    // ── Dropdown loaders ──────────────────────────────────────────────────────
+    function _loadDropdowns() {
+      // Inventory items for Select2
+      secureFetch('/inventory/items/active').then(function (data) {
+        var sel = document.getElementById('ecpItemId');
+        while (sel.options.length > 1) sel.remove(1);
+        (data || []).forEach(function (i) {
+          var opt = document.createElement('option');
+          opt.value = i.id;
+          opt.textContent = i.code + ' — ' + i.name + (i.uom ? ' [' + i.uom + ']' : '');
+          sel.appendChild(opt);
+        });
+        if (window.$ && $.fn.select2) { $(sel).select2({ dropdownParent: $('#ecpModal'), placeholder: '— Select Inventory Item —' }); }
+      });
+      // EC Categories
+      secureFetch('/ecommerce/categories/active').then(function (data) {
+        var sel = document.getElementById('ecpCategoryId');
+        while (sel.options.length > 1) sel.remove(1);
+        (data || []).forEach(function (c) {
+          var opt = document.createElement('option');
+          opt.value = c.id;
+          opt.textContent = c.name + ' (' + (c.code || c.slug) + ')';
+          sel.appendChild(opt);
+        });
+        if (window.$ && $.fn.select2) { $(sel).select2({ dropdownParent: $('#ecpModal'), placeholder: '— EC Category —', allowClear: true }); }
+      });
+    }
+
+    function _loadCategoryAttributes(catId) {
+      var container = document.getElementById('ecpAttrRows');
+      _attrSchema = [];
+      if (!catId) {
+        container.innerHTML = '<div class="alert alert-secondary py-2 small"><i class="fa fa-info-circle me-1"></i> Select an EC Category to load attribute fields.</div>';
+        return;
+      }
+      secureFetch('/ecommerce/categories/' + catId + '/attributes').then(function (attrs) {
+        _attrSchema = attrs || [];
+        _renderAttrInputs(_attrSchema, []);
+      });
+    }
+
+    function _renderAttrInputs(schema, existingValues) {
+      var container = document.getElementById('ecpAttrRows');
+      if (!schema || schema.length === 0) {
+        container.innerHTML = '<div class="alert alert-info py-2 small"><i class="fa fa-info-circle me-1"></i> No attributes defined for this category.</div>';
+        return;
+      }
+      var html = '<div class="row g-2">';
+      schema.forEach(function (attr) {
+        var existing = (existingValues || []).find(function (v) { return v.categoryAttributeId === attr.id; });
+        var val = existing ? (existing.attributeValue || '') : '';
+        html += '<div class="col-md-4 view-group">';
+        html += '<input type="hidden" name="attr_id_' + attr.id + '" value="' + attr.id + '">';
+        if (attr.dataType === 'BOOLEAN') {
+          html += '<div class="form-check form-switch pt-3"><input type="checkbox" id="attr_' + attr.id + '" class="form-check-input ec-attr-val"' + (val === 'true' ? ' checked' : '') + ' data-attr-id="' + attr.id + '"><label class="form-check-label" for="attr_' + attr.id + '">' + (attr.attributeLabel || attr.attributeName) + '</label></div>';
+        } else {
+          html += '<input id="attr_' + attr.id + '" type="' + (attr.dataType === 'NUMBER' ? 'number' : attr.dataType === 'DATE' ? 'date' : 'text') + '" value="' + _esc(val) + '" placeholder="' + _esc(attr.attributeLabel || attr.attributeName) + '" class="form-control hs_span_view ec-attr-val" data-attr-id="' + attr.id + '"' + (attr.isRequired ? ' required' : '') + '>';
+          html += '<label for="attr_' + attr.id + '" class="input-label">' + _esc(attr.attributeLabel || attr.attributeName) + (attr.isRequired ? ' <span class="text-danger">*</span>' : '') + '</label>';
+        }
+        html += '</div>';
+      });
+      html += '</div>';
+      document.getElementById('ecpAttrRows').innerHTML = html;
+    }
+
+    // ── Image rows ────────────────────────────────────────────────────────────
+    window.ecpAddImageRow = function (img) {
+      img = img || {};
+      var i   = _imgIdx++;
+      var row = document.createElement('div');
+      row.className = 'row g-2 align-items-center border-bottom pb-2 mb-2 ec-img-row';
+      row.dataset.idx = i;
+      row.innerHTML =
+        '<div class="col-md-5 view-group">' +
+          '<input type="text" class="form-control hs_span_view" id="imgUrl_' + i + '" placeholder="https://…/image.jpg" value="' + _esc(img.imageUrl || '') + '" required>' +
+          '<label class="input-label">Image URL <span class="text-danger">*</span></label>' +
+        '</div>' +
+        '<div class="col-md-4 view-group">' +
+          '<input type="text" class="form-control hs_span_view" id="imgAlt_' + i + '" placeholder="Alt text for accessibility" value="' + _esc(img.altText || '') + '">' +
+          '<label class="input-label">Alt Text</label>' +
+        '</div>' +
+        '<div class="col-md-1 view-group">' +
+          '<input type="number" class="form-control hs_span_view" id="imgOrder_' + i + '" placeholder="0" value="' + (img.displayOrder != null ? img.displayOrder : i) + '" min="0">' +
+          '<label class="input-label">Order</label>' +
+        '</div>' +
+        '<div class="col-md-1 d-flex align-items-end pb-1">' +
+          '<div class="form-check form-switch">' +
+            '<input type="checkbox" class="form-check-input" id="imgPrimary_' + i + '"' + (img.isPrimary ? ' checked' : '') + '>' +
+            '<label class="form-check-label small" for="imgPrimary_' + i + '">Primary</label>' +
+          '</div>' +
+        '</div>' +
+        '<div class="col-md-1 d-flex align-items-end pb-1">' +
+          '<button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest(\'.ec-img-row\').remove()"><i class="fa fa-times"></i></button>' +
+        '</div>';
+      document.getElementById('ecpImageRows').appendChild(row);
+    };
+
+    function _collectImages() {
+      return Array.from(document.querySelectorAll('.ec-img-row')).map(function (row) {
+        var i = row.dataset.idx;
+        return {
+          imageUrl:     document.getElementById('imgUrl_'     + i).value.trim(),
+          altText:      document.getElementById('imgAlt_'     + i).value.trim(),
+          displayOrder: parseInt(document.getElementById('imgOrder_' + i).value || '0'),
+          isPrimary:    document.getElementById('imgPrimary_' + i).checked,
+          active:       true
+        };
+      }).filter(function (img) { return img.imageUrl; });
+    }
+
+    // ── Variant rows ──────────────────────────────────────────────────────────
+    window.ecpAddVariantRow = function (v) {
+      v = v || {};
+      var i   = _varIdx++;
+      var row = document.createElement('tr');
+      row.className = 'ec-var-row';
+      row.dataset.idx = i;
+      row.innerHTML =
+        '<td style="min-width:180px"><select id="varItemId_' + i + '" class="form-select form-select-sm" required><option value="">— Item —</option></select></td>' +
+        '<td><input id="varCode_' + i + '" type="text" class="form-control form-control-sm" placeholder="VAR-01" value="' + _esc(v.variantCode || '') + '" maxlength="50"></td>' +
+        '<td><input id="varName_' + i + '" type="text" class="form-control form-control-sm" placeholder="Red / XL" value="' + _esc(v.variantName || '') + '" maxlength="200"></td>' +
+        '<td><input id="varColor_' + i + '" type="text" class="form-control form-control-sm" placeholder="Red" value="' + _esc(v.color || '') + '" maxlength="100"></td>' +
+        '<td><input id="varSize_' + i + '" type="text" class="form-control form-control-sm" placeholder="XL" value="' + _esc(v.sizeName || '') + '" maxlength="100"></td>' +
+        '<td><input id="varSell_' + i + '" type="number" step="0.01" class="form-control form-control-sm" placeholder="0.00" value="' + (v.sellingPrice != null ? v.sellingPrice : '') + '"></td>' +
+        '<td><input id="varCompare_' + i + '" type="number" step="0.01" class="form-control form-control-sm" placeholder="0.00" value="' + (v.comparePrice != null ? v.comparePrice : '') + '"></td>' +
+        '<td class="text-center"><input type="checkbox" id="varActive_' + i + '" class="form-check-input"' + (v.active !== false ? ' checked' : '') + '></td>' +
+        '<td><button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest(\'.ec-var-row\').remove()"><i class="fa fa-times"></i></button></td>';
+      document.getElementById('ecpVariantRows').appendChild(row);
+      // Populate item select
+      secureFetch('/inventory/items/active').then(function (items) {
+        var sel = document.getElementById('varItemId_' + i);
+        (items || []).forEach(function (it) {
+          var opt = document.createElement('option');
+          opt.value = it.id;
+          opt.textContent = it.code + ' — ' + it.name;
+          if (v.itemId && Number(v.itemId) === Number(it.id)) opt.selected = true;
+          sel.appendChild(opt);
+        });
+      });
+    };
+
+    function _collectVariants() {
+      return Array.from(document.querySelectorAll('.ec-var-row')).map(function (row) {
+        var i = row.dataset.idx;
+        var itemId = document.getElementById('varItemId_' + i).value;
+        if (!itemId) return null;
+        return {
+          itemId:       Number(itemId),
+          variantCode:  document.getElementById('varCode_'    + i).value.trim() || null,
+          variantName:  document.getElementById('varName_'    + i).value.trim() || null,
+          color:        document.getElementById('varColor_'   + i).value.trim() || null,
+          sizeName:     document.getElementById('varSize_'    + i).value.trim() || null,
+          sellingPrice: document.getElementById('varSell_'    + i).value || null,
+          comparePrice: document.getElementById('varCompare_' + i).value || null,
+          active:       document.getElementById('varActive_'  + i).checked
+        };
+      }).filter(Boolean);
+    }
+
+    function _collectAttrValues() {
+      return Array.from(document.querySelectorAll('.ec-attr-val')).map(function (el) {
+        var attrId = el.dataset.attrId;
+        var val    = el.type === 'checkbox' ? String(el.checked) : el.value;
+        return { categoryAttributeId: Number(attrId), attributeValue: val };
+      });
+    }
+
+    // ── CRUD fns (global) ─────────────────────────────────────────────────────
+    window.ecpOpenCreate = function () {
+      _reset();
+      document.getElementById('ecpModalTitle').innerHTML = '<i class="fa fa-plus me-1 text-success"></i> Add Product';
+      document.getElementById('ecpBtnText').textContent  = 'Save';
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('ecpModal')).show();
+    };
+
+    window.ecpShow = function (id) {
+      secureFetch(BASE + '/show/' + id).then(function (res) {
+        if (!res.success) { Swal.fire('Error', res.message, 'error'); return; }
+        var o = res.obj.defaultData;
+        _st('vw_itemCode',     o.itemCode);
+        _st('vw_itemName',     o.itemName);
+        _st('vw_productTitle', o.productTitle);
+        _st('vw_slug',         o.slug);
+        _st('vw_category',     o.categoryName);
+        _st('vw_minOrderQty',  o.minimumOrderQty);
+        _st('vw_maxOrderQty',  o.maximumOrderQty);
+        _st('vw_seoTitle',     o.seoTitle);
+        _st('vw_seoKeywords',  o.seoKeywords);
+        _st('vw_seoDesc',      o.seoDescription);
+        _st('vw_imageCount',   (o.images   || []).length + ' image(s)');
+        _st('vw_variantCount', (o.variants || []).length + ' variant(s)');
+        _st('vw_createdAt',    o.createdAt);
+        _st('vw_createdBy',    o.createdBy);
+        _st('vw_updatedBy',    o.updatedBy);
+        document.getElementById('vw_published').innerHTML  = o.published  ? "<span class='badge bg-success'>Published</span>"  : "<span class='badge bg-secondary'>Draft</span>";
+        document.getElementById('vw_status').innerHTML     = o.active     ? "<span class='badge bg-success'>Active</span>"    : "<span class='badge bg-danger'>Inactive</span>";
+        document.getElementById('vw_featured').innerHTML   = o.featured   ? "<span class='badge bg-warning text-dark'>Yes</span>"  : '—';
+        document.getElementById('vw_bestSeller').innerHTML = o.bestSeller ? "<span class='badge bg-success'>Yes</span>"      : '—';
+        document.getElementById('vw_trending').innerHTML   = o.trending   ? "<span class='badge bg-danger'>Yes</span>"        : '—';
+        document.getElementById('vw_newArrival').innerHTML = o.newArrival ? "<span class='badge bg-info'>Yes</span>"          : '—';
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('ecpViewModal')).show();
+      });
+    };
+
+    window.ecpEdit = function (id) {
+      secureFetch(BASE + '/show/' + id).then(function (res) {
+        if (!res.success) { Swal.fire('Error', res.message, 'error'); return; }
+        var o = res.obj.defaultData;
+        _reset();
+        _v('ecpId',           o.id);
+        _v('ecpProductTitle', o.productTitle);
+        _v('ecpSlug',         o.slug);
+        _v('ecpShortDesc',    o.shortDescription || '');
+        _v('ecpDescription',  o.description      || '');
+        _v('ecpSeoTitle',     o.seoTitle         || '');
+        _v('ecpSeoKeywords',  o.seoKeywords      || '');
+        _v('ecpSeoDescription', o.seoDescription || '');
+        _v('ecpYoutube',      o.youtubeVideo     || '');
+        _v('ecpWarrantyInfo', o.warrantyInformation || '');
+        _v('ecpReturnPolicy', o.returnPolicy     || '');
+        _v('ecpShippingInfo', o.shippingInformation || '');
+        _v('ecpMinOrderQty',  o.minimumOrderQty  || '');
+        _v('ecpMaxOrderQty',  o.maximumOrderQty  || '');
+        document.getElementById('ecpItemId').value        = o.itemId     || '';
+        document.getElementById('ecpCategoryId').value    = o.categoryId || '';
+        document.getElementById('ecpActive').checked      = o.active;
+        document.getElementById('ecpPublished').checked   = o.published;
+        document.getElementById('ecpFeatured').checked    = o.featured;
+        document.getElementById('ecpBestSeller').checked  = o.bestSeller;
+        document.getElementById('ecpTrending').checked    = o.trending;
+        document.getElementById('ecpNewArrival').checked  = o.newArrival;
+        document.getElementById('ecpRecommended').checked = o.recommended;
+        document.getElementById('ecpSlug').dataset.manualEdit = '1';
+        // Reload Select2 display
+        if (window.$ && $.fn.select2) {
+          $(document.getElementById('ecpItemId')).trigger('change');
+          $(document.getElementById('ecpCategoryId')).trigger('change');
+        }
+        // Images
+        (o.images || []).forEach(function (img) { ecpAddImageRow(img); });
+        // Variants
+        (o.variants || []).forEach(function (v) { ecpAddVariantRow(v); });
+        // Attributes — load schema then populate values
+        if (o.categoryId) {
+          secureFetch('/ecommerce/categories/' + o.categoryId + '/attributes').then(function (schema) {
+            _attrSchema = schema || [];
+            _renderAttrInputs(_attrSchema, o.attrValues || []);
+          });
+        }
+        document.getElementById('ecpModalTitle').innerHTML = '<i class="fa fa-pencil me-1 text-warning"></i> Edit Product';
+        document.getElementById('ecpBtnText').textContent  = 'Update';
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('ecpModal')).show();
+      });
+    };
+
+    window.ecpToggle        = function (id) { hsChangeStatus(BASE + '/toggle/' + id, dt, 'Product'); };
+    window.ecpTogglePublish = function (id) {
+      Swal.fire({ title: 'Toggle Publish?', text: 'This will switch the product between Published and Draft.', icon: 'question', showCancelButton: true, confirmButtonText: 'Yes, toggle' })
+        .then(function (r) {
+          if (!r.isConfirmed) return;
+          secureFetch(BASE + '/toggle-publish/' + id, { method: 'POST' }).then(function (res) {
+            if (res.success) { Swal.fire({ icon: 'success', title: res.message, timer: 1400, showConfirmButton: false }); dt.ajax.reload(null, false); }
+            else { Swal.fire('Error', res.message, 'error'); }
+          });
+        });
+    };
+    window.ecpDelete = function (id) { hsConfirmDelete(BASE + '/delete/' + id, dt); };
+
+    // ── Submit ────────────────────────────────────────────────────────────────
+    function _onSubmit(e) {
+      e.preventDefault();
+      var form = document.getElementById('ecpForm');
+      if (window.$ && $(form).parsley && !$(form).parsley().validate()) return;
+      var sb = document.getElementById('ecpSubmitBtn');
+      var sp = document.getElementById('ecpSpinner');
+      var bt = document.getElementById('ecpBtnText');
+      hsDisableButton(sb, sp, bt);
+
+      secureFetch(BASE + '/save', {
+        method: 'POST',
+        body: JSON.stringify({
+          id:                   document.getElementById('ecpId').value || null,
+          itemId:               document.getElementById('ecpItemId').value || null,
+          categoryId:           document.getElementById('ecpCategoryId').value || null,
+          productTitle:         document.getElementById('ecpProductTitle').value,
+          slug:                 document.getElementById('ecpSlug').value,
+          shortDescription:     document.getElementById('ecpShortDesc').value,
+          description:          document.getElementById('ecpDescription').value,
+          seoTitle:             document.getElementById('ecpSeoTitle').value,
+          seoKeywords:          document.getElementById('ecpSeoKeywords').value,
+          seoDescription:       document.getElementById('ecpSeoDescription').value,
+          youtubeVideo:         document.getElementById('ecpYoutube').value || null,
+          warrantyInformation:  document.getElementById('ecpWarrantyInfo').value || null,
+          returnPolicy:         document.getElementById('ecpReturnPolicy').value || null,
+          shippingInformation:  document.getElementById('ecpShippingInfo').value || null,
+          minimumOrderQty:      document.getElementById('ecpMinOrderQty').value || null,
+          maximumOrderQty:      document.getElementById('ecpMaxOrderQty').value || null,
+          featured:             document.getElementById('ecpFeatured').checked,
+          bestSeller:           document.getElementById('ecpBestSeller').checked,
+          trending:             document.getElementById('ecpTrending').checked,
+          newArrival:           document.getElementById('ecpNewArrival').checked,
+          recommended:          document.getElementById('ecpRecommended').checked,
+          published:            document.getElementById('ecpPublished').checked,
+          active:               document.getElementById('ecpActive').checked,
+          images:               _collectImages(),
+          variants:             _collectVariants(),
+          attrValues:           _collectAttrValues()
+        })
+      }).then(function (d) {
+        if (d.success) {
+          Swal.fire({ icon: 'success', title: 'Saved!', text: d.message, timer: 1600, showConfirmButton: false });
+          bootstrap.Modal.getOrCreateInstance(document.getElementById('ecpModal')).hide();
+          dt.ajax.reload(null, false);
+        } else {
+          Swal.fire('Error', d.message, 'error');
+        }
+      }).catch(function (err) {
+        Swal.fire('Error', err.message || 'Request failed.', 'error');
+      }).finally(function () {
+        hsEnableButton(sb, sp, bt);
+      });
+    }
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
+    function _reset() {
+      document.getElementById('ecpForm').reset();
+      document.getElementById('ecpId').value = '';
+      document.getElementById('ecpActive').checked = true;
+      ['ecpPublished','ecpFeatured','ecpBestSeller','ecpTrending','ecpNewArrival','ecpRecommended']
+        .forEach(function (id) { document.getElementById(id).checked = false; });
+      document.getElementById('ecpImageRows').innerHTML   = '';
+      document.getElementById('ecpVariantRows').innerHTML = '';
+      document.getElementById('ecpAttrRows').innerHTML    = '<div class="alert alert-secondary py-2 small"><i class="fa fa-info-circle me-1"></i> Select an EC Category to load attribute fields.</div>';
+      document.getElementById('ecpSlug').dataset.manualEdit = '';
+      _imgIdx = 0; _varIdx = 0; _attrSchema = [];
+      // Reset Select2
+      if (window.$ && $.fn.select2) {
+        $(document.getElementById('ecpItemId')).val(null).trigger('change');
+        $(document.getElementById('ecpCategoryId')).val(null).trigger('change');
+      }
+      // Reset tabs to first
+      var firstTab = document.querySelector('#ecpTabs .nav-link');
+      if (firstTab) bootstrap.Tab.getOrCreateInstance(firstTab).show();
+    }
+
+    function _v(id, v)  { var e = document.getElementById(id); if (e) e.value = (v !== null && v !== undefined) ? v : ''; }
+    function _st(id, v) { var e = document.getElementById(id); if (e) e.textContent = (v !== null && v !== undefined && v !== '') ? v : '—'; }
+    function _esc(s)    { return String(s || '').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+    function _slugify(s) {
+      return (s || '').toLowerCase().trim()
+        .replace(/[^\w\s-]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-').substring(0, 250);
+    }
+
+  })();
+  </script>
+</section>
+</html>

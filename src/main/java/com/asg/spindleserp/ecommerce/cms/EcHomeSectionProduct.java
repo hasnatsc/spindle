@@ -1,6 +1,6 @@
 package com.asg.spindleserp.ecommerce.cms;
 
-import com.asg.spindleserp.ecommerce.EcProductCatalog;
+import com.asg.spindleserp.ecommerce.productSupport.entity.EcProductCatalog;
 import jakarta.persistence.*;
 import lombok.*;
 
