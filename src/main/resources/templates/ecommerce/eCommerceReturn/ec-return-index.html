@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<!-- ecommerce/ec-return-index.html  JS fns: ecretShow/ecretStatus/ecretDelete/ecretOpenCreate -->
+<html th:replace="~{layout/base :: layout('EC Returns', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
+<section>
+  <ol class="breadcrumb float-xl-end">
+    <li class="breadcrumb-item"><a th:href="@{/dashboard}">Home</a></li>
+    <li class="breadcrumb-item">eCommerce</li><li class="breadcrumb-item active">Returns</li>
+  </ol>
+  <h1 class="page-header">Returns <small>customer return request management</small></h1>
+  <div class="panel panel-inverse">
+    <div class="panel-heading">
+      <div class="panel-title"><a href="javascript:;" onclick="ecretOpenCreate()"><span class="badge btn btn-outline-success"><i class="fa fa-plus me-1"></i> New Return</span></a></div>
+      <div class="panel-heading-btn">
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-default" data-toggle="panel-expand"><i class="fa fa-expand"></i></a>
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-success" data-toggle="panel-reload"><i class="fa fa-redo"></i></a>
+      </div>
+    </div>
+    <div class="panel-body">
+      <table id="ecretTable" width="100%" class="table table-striped table-bordered align-middle">
+        <thead><tr>
+          <th width="1%">SL</th><th>Return No</th><th>Order No</th><th>Customer</th>
+          <th>Phone</th><th>Status</th><th class="text-end">Refund Amt</th>
+          <th class="text-center">Items</th><th>Return Date</th><th>Created</th>
+          <th class="text-center" width="10%">Actions</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <!-- CREATE MODAL -->
+    <div tabindex="-1" id="ecretModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header"><h5 class="modal-title"><i class="fa fa-undo me-1 text-warning"></i> New Return Request</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+          <form id="ecretForm" novalidate>
+            <div class="modal-body">
+              <ul class="nav nav-tabs mb-3 bg-gray-700">
+                <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#ecrttab1">Return Info</a></li>
+                <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#ecrttab2">Return Items</a></li>
+              </ul>
+              <div class="tab-content hs-box">
+                <div class="tab-pane fade show active" id="ecrttab1">
+                  <div class="row g-2">
+                    <div class="col-md-5 view-group">
+                      <select id="ecretOrderId" class="form-select hs_span_view hsSelectTwo" required data-placeholder="— Search Order No —"></select>
+                      <label class="input-label">Order <span class="text-danger">*</span></label>
+                    </div>
+                    <div class="col-md-4 view-group"><input id="ecretReturnDate" type="datetime-local" class="form-control hs_span_view"><label class="input-label">Return Date</label></div>
+                    <div class="col-md-3 view-group"><input id="ecretRefundAmount" type="number" step="0.01" min="0" class="form-control hs_span_view" placeholder="0.00"><label class="input-label">Refund Amount (৳)</label></div>
+                    <div class="col-12 view-group"><textarea id="ecretReason" class="form-control hs_span_view" rows="3" placeholder="Reason for return…" required></textarea><label class="input-label">Return Reason <span class="text-danger">*</span></label></div>
+                    <div class="col-12 view-group"><textarea id="ecretRemarks" class="form-control hs_span_view" rows="2" placeholder="Admin remarks…"></textarea><label class="input-label">Remarks</label></div>
+                  </div>
+                </div>
+                <div class="tab-pane fade" id="ecrttab2">
+                  <div class="mb-2 d-flex justify-content-between">
+                    <small class="text-muted">Add order items being returned.</small>
+                    <button type="button" class="btn btn-sm btn-outline-success" onclick="ecretAddItemRow()"><i class="fa fa-plus me-1"></i> Add Item</button>
+                  </div>
+                  <div class="table-responsive">
+                    <table class="table table-sm table-bordered align-middle">
+                      <thead class="table-dark"><tr><th>Order Item ID</th><th>Qty</th><th>Approved Qty</th><th>Condition</th><th>Reason</th><th></th></tr></thead>
+                      <tbody id="ecretItemRows"></tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-success" type="submit" id="ecretSubmitBtn"><span class="spinner-border spinner-border-sm me-2 d-none" id="ecretSpinner"></span><span id="ecretBtnText">Create Return</span></button>
+              <button type="button" class="btn btn-white" data-bs-dismiss="modal">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- STATUS MODAL -->
+    <div tabindex="-1" id="ecretStatusModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content">
+          <div class="modal-header"><h5 class="modal-title">Update Return Status</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+          <div class="modal-body">
+            <input type="hidden" id="retStatusId">
+            <div class="view-group mb-3"><select id="retNewStatus" class="form-select hs_span_view"><option value="">— Select —</option></select><label class="input-label">New Status</label></div>
+            <div class="view-group"><textarea id="retStatusRemarks" class="form-control hs_span_view" rows="2" placeholder="Remarks…"></textarea><label class="input-label">Remarks</label></div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-warning btn-sm" type="button" id="retStatusSaveBtn" onclick="_doRetStatus()"><span class="spinner-border spinner-border-sm me-2 d-none" id="retStatusSpinner"></span>Update</button>
+            <button type="button" class="btn btn-white" data-bs-dismiss="modal">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- VIEW MODAL -->
+    <div tabindex="-1" id="ecretViewModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header"><h5 class="modal-title"><i class="fa fa-undo me-1 text-primary"></i> Return Details</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+          <div class="modal-body">
+            <div class="hs-box"><div class="row g-2">
+              <div class="col-md-3 view-group"><label class="view-label">Return No</label><span id="vw_ret_no" class="form-control hs_span_show fw-bold"></span></div>
+              <div class="col-md-3 view-group"><label class="view-label">Order No</label><span id="vw_ret_order" class="form-control hs_span_show"></span></div>
+              <div class="col-md-3 view-group"><label class="view-label">Customer</label><span id="vw_ret_cust" class="form-control hs_span_show"></span></div>
+              <div class="col-md-3 view-group"><label class="view-label">Status</label><span id="vw_ret_status" class="form-control hs_span_show fw-bold"></span></div>
+              <div class="col-md-4 view-group"><label class="view-label">Refund Amount</label><span id="vw_ret_refund" class="form-control hs_span_show text-end"></span></div>
+              <div class="col-md-4 view-group"><label class="view-label">Return Date</label><span id="vw_ret_date" class="form-control hs_span_show"></span></div>
+              <div class="col-md-4 view-group"><label class="view-label">GL Voucher</label><span id="vw_ret_gl" class="form-control hs_span_show"></span></div>
+              <div class="col-12 view-group"><label class="view-label">Reason</label><div id="vw_ret_reason" class="form-control hs_span_show" style="min-height:50px;white-space:pre-wrap"></div></div>
+              <div class="col-12"><hr class="my-1"><strong class="small text-muted">Return Items</strong>
+                <table class="table table-sm table-bordered mt-1"><thead class="table-dark"><tr><th>Product</th><th>Item</th><th>Qty</th><th>Approved</th><th>Condition</th><th>Reason</th></tr></thead>
+                <tbody id="vw_ret_items"></tbody></table></div>
+            </div></div>
+          </div>
+          <div class="modal-footer"><button type="button" class="btn btn-white" data-bs-dismiss="modal">Close</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script th:inline="none">
+  (function(){
+    'use strict';
+    const BASE='/ecommerce/returns'; var dt; var _itemIdx=0;
+    var CONDITIONS=['GOOD','DAMAGED','USED','DEFECTIVE'];
+    document.addEventListener('DOMContentLoaded',function(){
+      dt=$('#ecretTable').DataTable({processing:true,serverSide:true,responsive:true,pageLength:25,
+        ajax:{url:BASE+'/list',type:'GET'},
+        columns:[{data:'sl',orderable:false,width:'40px'},{data:'return_no'},{data:'order_no'},
+          {data:'customer_name'},{data:'customer_phone',defaultContent:'—'},{data:'return_status'},
+          {data:'refund_amount',className:'text-end',defaultContent:'—'},{data:'item_count',className:'text-center'},
+          {data:'return_date',defaultContent:'—'},{data:'created_at',defaultContent:'—'},
+          {data:'actions',orderable:false,className:'text-center'}],
+        language:{emptyTable:'No returns found.'}});
+      document.getElementById('ecretForm').addEventListener('submit',_onSubmit);
+      secureFetch(BASE+'/statuses').then(function(s){var sel=document.getElementById('retNewStatus');sel.innerHTML='<option value="">— Select —</option>';s.forEach(function(st){var o=document.createElement('option');o.value=st;o.textContent=st.replace(/_/g,' ');sel.appendChild(o);});});
+      if(window.$&&$.fn.select2){$('#ecretOrderId').select2({dropdownParent:$('#ecretModal'),placeholder:'— Search Order —',allowClear:true,minimumInputLength:2,ajax:{url:'/ecommerce/orders/search-select',dataType:'json',delay:300,data:function(p){return{q:p.term||''};},processResults:function(d){return{results:(d||[]).map(function(o){return{id:o.id,text:o.orderNo||o.text};})};}}});}
+    });
+
+    window.ecretAddItemRow=function(item){item=item||{};var i=_itemIdx++;
+      var condOpts=CONDITIONS.map(function(c){return'<option value="'+c+'"'+(item.conditionStatus===c?' selected':'')+'>'+c+'</option>';}).join('');
+      var tr=document.createElement('tr');tr.className='ecret-item-row';tr.dataset.idx=i;
+      tr.innerHTML='<td><input id="riOrderItem_'+i+'" type="number" class="form-control form-control-sm" value="'+(item.orderItemId||'')+'" required placeholder="Order Item ID"></td>'+
+        '<td><input id="riQty_'+i+'" type="number" step="0.001" min="0" class="form-control form-control-sm" value="'+(item.quantity||'')+'" required></td>'+
+        '<td><input id="riApproved_'+i+'" type="number" step="0.001" min="0" class="form-control form-control-sm" value="'+(item.approvedQty||'')+'"></td>'+
+        '<td><select id="riCond_'+i+'" class="form-select form-select-sm"><option value="">—</option>'+condOpts+'</select></td>'+
+        '<td><input id="riReason_'+i+'" type="text" class="form-control form-control-sm" value="'+(item.reason||'')+'" maxlength="500"></td>'+
+        '<td><button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest(\'.ecret-item-row\').remove()"><i class="fa fa-times"></i></button></td>';
+      document.getElementById('ecretItemRows').appendChild(tr);
+    };
+    function _collectItems(){
+      return Array.from(document.querySelectorAll('.ecret-item-row')).map(function(row){
+        var i=row.dataset.idx;var oiId=document.getElementById('riOrderItem_'+i).value;if(!oiId)return null;
+        return{orderItemId:parseInt(oiId),quantity:parseFloat(document.getElementById('riQty_'+i).value)||null,
+          approvedQty:parseFloat(document.getElementById('riApproved_'+i).value)||null,
+          conditionStatus:document.getElementById('riCond_'+i).value||null,reason:document.getElementById('riReason_'+i).value||null};
+      }).filter(Boolean);
+    }
+    window.ecretOpenCreate=function(){_reset();bootstrap.Modal.getOrCreateInstance(document.getElementById('ecretModal')).show();};
+    window.ecretShow=function(id){secureFetch(BASE+'/show/'+id).then(function(res){if(!res.success){Swal.fire('Error',res.message,'error');return;}
+      var o=res.obj.defaultData;
+      _st('vw_ret_no',o.returnNo);_st('vw_ret_order',o.orderNo);_st('vw_ret_cust',o.customerName);_st('vw_ret_status',o.returnStatus);
+      _st('vw_ret_refund',o.refundAmount);_st('vw_ret_date',o.returnDate);_st('vw_ret_gl',o.journalEntryNo);
+      document.getElementById('vw_ret_reason').textContent=o.returnReason||'—';
+      var tbody=document.getElementById('vw_ret_items');tbody.innerHTML='';
+      (o.returnItems||[]).forEach(function(ri){var tr=document.createElement('tr');
+        tr.innerHTML='<td>'+(ri.productTitle||'—')+'</td><td>'+(ri.itemCode||'—')+'</td><td>'+(ri.quantity||'—')+'</td><td>'+(ri.approvedQty||'—')+'</td><td>'+(ri.conditionStatus||'—')+'</td><td>'+(ri.reason||'—')+'</td>';
+        tbody.appendChild(tr);});
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('ecretViewModal')).show();
+    });};
+    window.ecretStatus=function(id){document.getElementById('retStatusId').value=id;bootstrap.Modal.getOrCreateInstance(document.getElementById('ecretStatusModal')).show();};
+    window._doRetStatus=function(){var id=document.getElementById('retStatusId').value;var status=document.getElementById('retNewStatus').value;if(!status){Swal.fire('Warning','Please select a status.','warning');return;}
+      var sb=document.getElementById('retStatusSaveBtn'),sp=document.getElementById('retStatusSpinner');sb.disabled=true;sp.classList.remove('d-none');
+      secureFetch(BASE+'/status/'+id,{method:'POST',body:JSON.stringify({status:status,remarks:document.getElementById('retStatusRemarks').value})})
+        .then(function(d){if(d.success){Swal.fire({icon:'success',title:d.message,timer:1400,showConfirmButton:false});bootstrap.Modal.getOrCreateInstance(document.getElementById('ecretStatusModal')).hide();dt.ajax.reload(null,false);}else{Swal.fire('Error',d.message,'error');}}
+        ).finally(function(){sb.disabled=false;sp.classList.add('d-none');});};
+    window.ecretDelete=function(id){hsConfirmDelete(BASE+'/delete/'+id,dt);};
+    function _onSubmit(e){e.preventDefault();var sb=document.getElementById('ecretSubmitBtn'),sp=document.getElementById('ecretSpinner'),bt=document.getElementById('ecretBtnText');hsDisableButton(sb,sp,bt);
+      secureFetch(BASE+'/save',{method:'POST',body:JSON.stringify({
+        orderId:document.getElementById('ecretOrderId').value||null,returnDate:document.getElementById('ecretReturnDate').value||null,
+        refundAmount:document.getElementById('ecretRefundAmount').value||null,returnReason:document.getElementById('ecretReason').value,
+        remarks:document.getElementById('ecretRemarks').value||null,returnItems:_collectItems()
+      })}).then(function(d){if(d.success){Swal.fire({icon:'success',title:'Created!',text:d.message,timer:1600,showConfirmButton:false});bootstrap.Modal.getOrCreateInstance(document.getElementById('ecretModal')).hide();dt.ajax.reload(null,false);}
+        else{Swal.fire('Error',d.message,'error');}}).catch(function(err){Swal.fire('Error',err.message||'Failed.','error');}).finally(function(){hsEnableButton(sb,sp,bt);});
+    }
+    function _reset(){document.getElementById('ecretForm').reset();document.getElementById('ecretItemRows').innerHTML='';_itemIdx=0;var ft=document.querySelector('#ecretModal .nav-link');if(ft)bootstrap.Tab.getOrCreateInstance(ft).show();}
+    function _st(id,v){var e=document.getElementById(id);if(e)e.textContent=(v!=null&&v!=='')?v:'—';}
+  })();
+  </script>
+</section>
+</html>

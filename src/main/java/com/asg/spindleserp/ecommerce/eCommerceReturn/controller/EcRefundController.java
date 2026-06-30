@@ -1,8 +1,9 @@
 // Path: com/asg/spindleserp/ecommerce/controller/EcRefundController.java
 package com.asg.spindleserp.ecommerce.eCommerceReturn.controller;
 import com.asg.spindleserp.common.dto.DataTableResponse;
-import com.asg.spindleserp.ecommerce.dto.EcRefundDTO;
-import com.asg.spindleserp.ecommerce.service.EcRefundService;
+import com.asg.spindleserp.ecommerce.eCommerceReturn.dto.EcRefundDTO;
+import com.asg.spindleserp.ecommerce.eCommerceReturn.entity.EcRefund;
+import com.asg.spindleserp.ecommerce.eCommerceReturn.service.EcRefundService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -12,7 +13,7 @@ import java.util.*;
 @Controller @RequestMapping("/ecommerce/refunds") @RequiredArgsConstructor
 public class EcRefundController {
     private final EcRefundService refundService;
-    @GetMapping public String index(Model m){m.addAttribute("activePage","ec-refunds");return "ecommerce/ec-refund-index";}
+    @GetMapping public String index(Model m){m.addAttribute("activePage","ec-refunds");return "ecommerce/eCommerceReturn/ec-refund-index";}
     @GetMapping("/list") @ResponseBody
     public DataTableResponse list(@RequestParam(defaultValue="1") int draw,@RequestParam(defaultValue="0") int start,
             @RequestParam(defaultValue="10") int length,@RequestParam(value="search[value]",defaultValue="") String search){
@@ -30,5 +31,5 @@ public class EcRefundController {
         try{refundService.delete(id);res.put("success",true);res.put("message","Refund deleted.");}
         catch(Exception e){res.put("success",false);res.put("message",e.getMessage());}return res;}
     @GetMapping("/methods") @ResponseBody
-    public List<String> methods(){return Arrays.stream(com.asg.spindleserp.ecommerce.eCommerceReturn.EcRefund.RefundMethod.values()).map(Enum::name).toList();}
+    public List<String> methods(){return Arrays.stream(EcRefund.RefundMethod.values()).map(Enum::name).toList();}
 }

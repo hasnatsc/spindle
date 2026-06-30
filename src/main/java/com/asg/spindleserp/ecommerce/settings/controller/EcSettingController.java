@@ -1,8 +1,8 @@
 // Path: com/asg/spindleserp/ecommerce/controller/EcSettingController.java
 package com.asg.spindleserp.ecommerce.settings.controller;
 import com.asg.spindleserp.common.dto.DataTableResponse;
-import com.asg.spindleserp.ecommerce.dto.EcSettingDTO;
-import com.asg.spindleserp.ecommerce.service.EcSettingService;
+import com.asg.spindleserp.ecommerce.settings.dto.EcSettingDTO;
+import com.asg.spindleserp.ecommerce.settings.service.EcSettingService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Controller;
@@ -13,7 +13,7 @@ import java.util.*;
 @Controller @RequestMapping("/ecommerce/settings") @RequiredArgsConstructor
 public class EcSettingController {
     private final EcSettingService settingService;
-    @GetMapping public String index(Model m){m.addAttribute("activePage","ec-settings");return "ecommerce/ec-setting-index";}
+    @GetMapping public String index(Model m){m.addAttribute("activePage","ec-settings");return "ecommerce/settings/ec-setting-index";}
     @GetMapping("/list") @ResponseBody
     public DataTableResponse list(@RequestParam(defaultValue="1") int draw,@RequestParam(defaultValue="0") int start,
             @RequestParam(defaultValue="10") int length,@RequestParam(value="search[value]",defaultValue="") String search){

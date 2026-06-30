@@ -2,9 +2,9 @@
 package com.asg.spindleserp.ecommerce.eCommerceReturn.controller;
 
 import com.asg.spindleserp.common.dto.DataTableResponse;
-import com.asg.spindleserp.ecommerce.dto.EcReturnDTO;
-import com.asg.spindleserp.ecommerce.eCommerceReturn.EcReturn;
-import com.asg.spindleserp.ecommerce.service.EcReturnService;
+import com.asg.spindleserp.ecommerce.eCommerceReturn.dto.EcReturnDTO;
+import com.asg.spindleserp.ecommerce.eCommerceReturn.entity.EcReturn;
+import com.asg.spindleserp.ecommerce.eCommerceReturn.service.EcReturnService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Controller;
@@ -18,7 +18,7 @@ public class EcReturnController {
     private final EcReturnService returnService;
 
     @GetMapping
-    public String index(Model m) { m.addAttribute("activePage","ec-returns"); return "ecommerce/ec-return-index"; }
+    public String index(Model m) { m.addAttribute("activePage","ec-returns"); return "ecommerce/eCommerceReturn/ec-return-index"; }
 
     @GetMapping("/list") @ResponseBody
     public DataTableResponse list(@RequestParam(defaultValue="1") int draw,

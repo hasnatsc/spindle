@@ -13,6 +13,41 @@
   </ol>
   <h1 class="page-header">Product Catalog <small>storefront products linked to inventory items</small></h1>
 
+  <style>
+    .ecp-img-dropzone {
+      border: 2px dashed #c5c9d0; border-radius: 8px; cursor: pointer;
+      transition: border-color .15s, background-color .15s;
+    }
+    .ecp-img-dropzone:hover, .ecp-img-dropzone.dragover {
+      border-color: #348fe2; background-color: rgba(52,143,226,0.05);
+    }
+    .ecp-img-card {
+      position: relative; border: 1px solid #e2e5e9; border-radius: 6px; overflow: hidden;
+      background: #fff;
+    }
+    .ecp-img-card img {
+      width: 100%; height: 120px; object-fit: cover; display: block; background: #f4f5f7;
+    }
+    .ecp-img-card .ecp-img-badge {
+      position: absolute; top: 4px; left: 4px; font-size: 10px; padding: 2px 6px;
+    }
+    .ecp-img-card .ecp-img-actions {
+      position: absolute; top: 4px; right: 4px; display: flex; gap: 2px;
+    }
+    .ecp-img-card .ecp-img-actions button {
+      width: 24px; height: 24px; padding: 0; line-height: 1; font-size: 11px;
+      border-radius: 4px; border: none;
+    }
+    .ecp-img-card .ecp-img-alt-input {
+      font-size: 11px; padding: 3px 6px; border: none; border-top: 1px solid #e2e5e9; width: 100%;
+    }
+    .ecp-img-card.is-uploading { opacity: 0.5; }
+    .ecp-img-card.is-uploading::after {
+      content: ''; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+      background: rgba(255,255,255,0.6);
+    }
+  </style>
+
   <div class="panel panel-inverse">
     <div class="panel-heading">
       <div class="panel-title">
@@ -162,19 +197,52 @@
 
                 <!-- TAB 4: IMAGES ────────────────────────────────────────── -->
                 <div class="tab-pane fade" id="etab4">
-                  <div class="mb-2 d-flex justify-content-between align-items-center">
-                    <small class="text-muted">Add product image URLs. Mark one as primary (thumbnail/cover).</small>
-                    <button type="button" class="btn btn-sm btn-outline-success" onclick="ecpAddImageRow()">
-                      <i class="fa fa-plus me-1"></i> Add Image
-                    </button>
+
+                  <div class="alert alert-info py-2 small mb-2" id="ecpImgNewProductHint">
+                    <i class="fa fa-info-circle me-1"></i>
+                    Save the product first (Basic tab) before uploading images — images attach to a saved product.
                   </div>
-                  <div id="ecpImageRows">
-                    <!-- rows injected by JS -->
+
+                  <!-- Drag-and-drop upload zone -->
+                  <div id="ecpImgDropZone" class="ecp-img-dropzone mb-3">
+                    <input type="file" id="ecpImgFileInput" accept="image/jpeg,image/jpg,image/png,image/webp,image/gif" multiple hidden>
+                    <div class="text-center py-4">
+                      <i class="fa fa-cloud-upload-alt fa-2x text-muted mb-2"></i>
+                      <div class="fw-bold">Drag &amp; drop images here, or click to browse</div>
+                      <div class="text-muted small">JPEG, PNG, WEBP, or GIF — up to 10MB each. First upload becomes the primary image.</div>
+                    </div>
                   </div>
-                  <div class="alert alert-warning py-2 small mt-2">
-                    <i class="fa fa-exclamation-triangle me-1"></i>
-                    Image URLs must be publicly accessible. Upload to CDN / cloud storage first.
+
+                  <!-- Live thumbnail gallery -->
+                  <div class="row g-2" id="ecpImgGallery">
+                    <!-- thumbnail cards injected by JS -->
                   </div>
+                  <div id="ecpImgEmptyState" class="text-center text-muted small py-3">
+                    <i class="fa fa-image me-1"></i> No images yet. Upload some above.
+                  </div>
+
+                  <!-- Manual URL fallback, collapsed by default -->
+                  <div class="mt-3">
+                    <a href="javascript:;" class="small text-muted" data-bs-toggle="collapse" data-bs-target="#ecpImgUrlFallback">
+                      <i class="fa fa-link me-1"></i> Or add an image by pasting an external URL instead
+                    </a>
+                    <div class="collapse mt-2" id="ecpImgUrlFallback">
+                      <div class="row g-2 align-items-end">
+                        <div class="col-md-7 view-group">
+                          <input type="text" id="ecpImgUrlInput" class="form-control hs_span_view" placeholder="https://cdn.example.com/image.jpg">
+                          <label class="input-label">External Image URL</label>
+                        </div>
+                        <div class="col-md-3 view-group">
+                          <input type="text" id="ecpImgUrlAlt" class="form-control hs_span_view" placeholder="Alt text">
+                          <label class="input-label">Alt Text</label>
+                        </div>
+                        <div class="col-md-2">
+                          <button type="button" class="btn btn-outline-success w-100" onclick="ecpAddImageByUrl()"><i class="fa fa-plus"></i> Add</button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
                 </div>
 
                 <!-- TAB 5: VARIANTS ─────────────────────────────────────── -->
@@ -307,6 +375,12 @@
               <div class="col-md-4 view-group"><label class="view-label">EC Category</label><span id="vw_category" class="form-control hs_span_show"></span></div>
               <div class="col-md-4 view-group"><label class="view-label">Min Order Qty</label><span id="vw_minOrderQty" class="form-control hs_span_show"></span></div>
               <div class="col-md-4 view-group"><label class="view-label">Max Order Qty</label><span id="vw_maxOrderQty" class="form-control hs_span_show"></span></div>
+              <!-- Image Gallery -->
+              <div class="col-12"><hr class="my-1"><strong class="small text-muted">Images</strong></div>
+              <div class="col-12">
+                <div class="row g-2" id="vw_imageGallery"></div>
+                <div id="vw_imageEmptyState" class="text-muted small d-none"><i class="fa fa-image me-1"></i> No images uploaded for this product.</div>
+              </div>
               <!-- SEO -->
               <div class="col-12"><hr class="my-1"><strong class="small text-muted">SEO</strong></div>
               <div class="col-md-6 view-group"><label class="view-label">SEO Title</label><span id="vw_seoTitle" class="form-control hs_span_show"></span></div>
@@ -322,14 +396,24 @@
               <div class="col-12"><hr class="my-1"><strong class="small text-muted">Status &amp; Audit</strong></div>
               <div class="col-md-3 view-group"><label class="view-label">Publish</label><span id="vw_published" class="form-control hs_span_show"></span></div>
               <div class="col-md-3 view-group"><label class="view-label">Status</label><span id="vw_status" class="form-control hs_span_show"></span></div>
-              <div class="col-md-3 view-group"><label class="view-label">Images</label><span id="vw_imageCount" class="form-control hs_span_show"></span></div>
               <div class="col-md-3 view-group"><label class="view-label">Variants</label><span id="vw_variantCount" class="form-control hs_span_show"></span></div>
+              <div class="col-md-9"></div>
               <div class="col-md-4 view-group"><label class="view-label">Created</label><span id="vw_createdAt" class="form-control hs_span_show"></span></div>
               <div class="col-md-4 view-group"><label class="view-label">Created By</label><span id="vw_createdBy" class="form-control hs_span_show"></span></div>
               <div class="col-md-4 view-group"><label class="view-label">Updated By</label><span id="vw_updatedBy" class="form-control hs_span_show"></span></div>
             </div></div>
           </div>
           <div class="modal-footer"><button type="button" class="btn btn-white" data-bs-dismiss="modal">Close</button></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- LIGHTBOX — full-size image preview on thumbnail click -->
+    <div tabindex="-1" id="ecpLightbox" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content bg-dark">
+          <button type="button" class="btn-close btn-close-white position-absolute top-0 end-0 m-3" style="z-index:10" data-bs-dismiss="modal"></button>
+          <img id="ecpLightboxImg" src="" style="width:100%;max-height:80vh;object-fit:contain" alt="">
         </div>
       </div>
     </div>
@@ -341,7 +425,6 @@
     'use strict';
     const BASE = '/ecommerce/products';
     var dt;
-    var _imgIdx     = 0;
     var _varIdx     = 0;
     var _attrSchema = [];   // [{id, name, label, dataType}] loaded per category
 
@@ -389,6 +472,8 @@
       document.getElementById('ecpCategoryId').addEventListener('change', function () {
         _loadCategoryAttributes(this.value);
       });
+
+      _initImgDropZone();
     });
 
     // ── Dropdown loaders ──────────────────────────────────────────────────────
@@ -456,49 +541,142 @@
       document.getElementById('ecpAttrRows').innerHTML = html;
     }
 
-    // ── Image rows ────────────────────────────────────────────────────────────
-    window.ecpAddImageRow = function (img) {
-      img = img || {};
-      var i   = _imgIdx++;
-      var row = document.createElement('div');
-      row.className = 'row g-2 align-items-center border-bottom pb-2 mb-2 ec-img-row';
-      row.dataset.idx = i;
-      row.innerHTML =
-        '<div class="col-md-5 view-group">' +
-          '<input type="text" class="form-control hs_span_view" id="imgUrl_' + i + '" placeholder="https://…/image.jpg" value="' + _esc(img.imageUrl || '') + '" required>' +
-          '<label class="input-label">Image URL <span class="text-danger">*</span></label>' +
-        '</div>' +
-        '<div class="col-md-4 view-group">' +
-          '<input type="text" class="form-control hs_span_view" id="imgAlt_' + i + '" placeholder="Alt text for accessibility" value="' + _esc(img.altText || '') + '">' +
-          '<label class="input-label">Alt Text</label>' +
-        '</div>' +
-        '<div class="col-md-1 view-group">' +
-          '<input type="number" class="form-control hs_span_view" id="imgOrder_' + i + '" placeholder="0" value="' + (img.displayOrder != null ? img.displayOrder : i) + '" min="0">' +
-          '<label class="input-label">Order</label>' +
-        '</div>' +
-        '<div class="col-md-1 d-flex align-items-end pb-1">' +
-          '<div class="form-check form-switch">' +
-            '<input type="checkbox" class="form-check-input" id="imgPrimary_' + i + '"' + (img.isPrimary ? ' checked' : '') + '>' +
-            '<label class="form-check-label small" for="imgPrimary_' + i + '">Primary</label>' +
+    // ── Image gallery (upload-based) ─────────────────────────────────────────
+    var _currentProductId = null;   // set once a product is saved/loaded; images attach to this id
+
+    function _setImgTabEnabled(productId) {
+      _currentProductId = productId || null;
+      var hint = document.getElementById('ecpImgNewProductHint');
+      var dz   = document.getElementById('ecpImgDropZone');
+      if (_currentProductId) {
+        hint.classList.add('d-none');
+        dz.style.opacity = '1'; dz.style.pointerEvents = 'auto';
+      } else {
+        hint.classList.remove('d-none');
+        dz.style.opacity = '0.5'; dz.style.pointerEvents = 'none';
+      }
+    }
+
+    function _imgBase() { return BASE + '/' + _currentProductId + '/images'; }
+
+    function _loadImageGallery() {
+      var gallery = document.getElementById('ecpImgGallery');
+      var empty   = document.getElementById('ecpImgEmptyState');
+      gallery.innerHTML = '';
+      if (!_currentProductId) { empty.classList.remove('d-none'); return; }
+      secureFetch(_imgBase()).then(function (images) {
+        images = images || [];
+        empty.classList.toggle('d-none', images.length > 0);
+        images.forEach(function (img) { _renderImageCard(img); });
+      });
+    }
+
+    function _renderImageCard(img) {
+      var col = document.createElement('div');
+      col.className = 'col-4 col-md-3';
+      col.dataset.imageId = img.id;
+      col.innerHTML =
+        '<div class="ecp-img-card">' +
+          (img.isPrimary ? '<span class="badge bg-success ecp-img-badge">Primary</span>' : '') +
+          '<div class="ecp-img-actions">' +
+            (img.isPrimary ? '' : '<button type="button" class="btn btn-light" title="Make primary" onclick="ecpImgMakePrimary(' + img.id + ')"><i class="fa fa-star"></i></button>') +
+            '<button type="button" class="btn btn-light text-danger" title="Delete" onclick="ecpImgDelete(' + img.id + ')"><i class="fa fa-times"></i></button>' +
           '</div>' +
-        '</div>' +
-        '<div class="col-md-1 d-flex align-items-end pb-1">' +
-          '<button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest(\'.ec-img-row\').remove()"><i class="fa fa-times"></i></button>' +
+          '<img src="' + img.imageUrl + '" alt="' + _esc(img.altText || '') + '" onclick="ecpImgPreview(\'' + img.imageUrl + '\')">' +
+          '<input type="text" class="ecp-img-alt-input" placeholder="Alt text…" value="' + _esc(img.altText || '') + '" onchange="ecpImgUpdateAlt(' + img.id + ', this.value)">' +
         '</div>';
-      document.getElementById('ecpImageRows').appendChild(row);
+      document.getElementById('ecpImgGallery').appendChild(col);
+    }
+
+    window.ecpImgPreview = function (url) {
+      document.getElementById('ecpLightboxImg').src = url;
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('ecpLightbox')).show();
     };
 
-    function _collectImages() {
-      return Array.from(document.querySelectorAll('.ec-img-row')).map(function (row) {
-        var i = row.dataset.idx;
-        return {
-          imageUrl:     document.getElementById('imgUrl_'     + i).value.trim(),
-          altText:      document.getElementById('imgAlt_'     + i).value.trim(),
-          displayOrder: parseInt(document.getElementById('imgOrder_' + i).value || '0'),
-          isPrimary:    document.getElementById('imgPrimary_' + i).checked,
-          active:       true
-        };
-      }).filter(function (img) { return img.imageUrl; });
+    window.ecpImgMakePrimary = function (imageId) {
+      secureFetch(_imgBase() + '/' + imageId, { method: 'PUT', body: JSON.stringify({ isPrimary: true }) })
+        .then(function (d) {
+          if (d.success) { _loadImageGallery(); }
+          else { Swal.fire('Error', d.message, 'error'); }
+        });
+    };
+
+    window.ecpImgUpdateAlt = function (imageId, altText) {
+      secureFetch(_imgBase() + '/' + imageId, { method: 'PUT', body: JSON.stringify({ altText: altText }) })
+        .then(function (d) { if (!d.success) Swal.fire('Error', d.message, 'error'); });
+    };
+
+    window.ecpImgDelete = function (imageId) {
+      Swal.fire({ title: 'Delete this image?', icon: 'warning', showCancelButton: true, confirmButtonText: 'Delete', confirmButtonColor: '#dc3545' })
+        .then(function (r) {
+          if (!r.isConfirmed) return;
+          secureFetch(_imgBase() + '/' + imageId, { method: 'DELETE' }).then(function (d) {
+            if (d.success) { _loadImageGallery(); }
+            else { Swal.fire('Error', d.message, 'error'); }
+          });
+        });
+    };
+
+    window.ecpAddImageByUrl = function () {
+      var url = document.getElementById('ecpImgUrlInput').value.trim();
+      var alt = document.getElementById('ecpImgUrlAlt').value.trim();
+      if (!url) { Swal.fire('Warning', 'Please enter an image URL.', 'warning'); return; }
+      if (!_currentProductId) { Swal.fire('Warning', 'Save the product first before adding images.', 'warning'); return; }
+      secureFetch(_imgBase() + '/by-url', { method: 'POST', body: JSON.stringify({ imageUrl: url, altText: alt }) })
+        .then(function (d) {
+          if (d.success) {
+            document.getElementById('ecpImgUrlInput').value = '';
+            document.getElementById('ecpImgUrlAlt').value = '';
+            _loadImageGallery();
+          } else { Swal.fire('Error', d.message, 'error'); }
+        });
+    };
+
+    function _uploadImageFile(file) {
+      if (!_currentProductId) { Swal.fire('Warning', 'Save the product first before uploading images.', 'warning'); return; }
+      var fd = new FormData();
+      fd.append('file', file);
+      fd.append('isPrimary', document.getElementById('ecpImgGallery').children.length === 0 ? 'true' : 'false');
+
+      var token  = document.querySelector('meta[name="_csrf"]')?.content;
+      var header = document.querySelector('meta[name="_csrf_header"]')?.content || 'X-CSRF-TOKEN';
+      var headers = {}; if (token) headers[header] = token;
+
+      // Placeholder uploading card for instant feedback
+      var col = document.createElement('div');
+      col.className = 'col-4 col-md-3';
+      col.innerHTML = '<div class="ecp-img-card is-uploading"><img src=""><div class="text-center small py-3"><span class="spinner-border spinner-border-sm"></span></div></div>';
+      document.getElementById('ecpImgGallery').appendChild(col);
+      document.getElementById('ecpImgEmptyState').classList.add('d-none');
+
+      fetch(_imgBase(), { method: 'POST', body: fd, headers: headers, credentials: 'same-origin' })
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+          col.remove();
+          if (d.success) { _loadImageGallery(); }
+          else { Swal.fire('Error', d.message || 'Upload failed.', 'error'); }
+        })
+        .catch(function () { col.remove(); Swal.fire('Error', 'Upload failed.', 'error'); });
+    }
+
+    function _initImgDropZone() {
+      var dz    = document.getElementById('ecpImgDropZone');
+      var input = document.getElementById('ecpImgFileInput');
+      dz.addEventListener('click', function () { input.click(); });
+      input.addEventListener('change', function () {
+        Array.from(input.files || []).forEach(_uploadImageFile);
+        input.value = '';
+      });
+      ['dragenter', 'dragover'].forEach(function (evt) {
+        dz.addEventListener(evt, function (e) { e.preventDefault(); dz.classList.add('dragover'); });
+      });
+      ['dragleave', 'drop'].forEach(function (evt) {
+        dz.addEventListener(evt, function (e) { e.preventDefault(); dz.classList.remove('dragover'); });
+      });
+      dz.addEventListener('drop', function (e) {
+        var files = Array.from((e.dataTransfer && e.dataTransfer.files) || []).filter(function (f) { return f.type.startsWith('image/'); });
+        files.forEach(_uploadImageFile);
+      });
     }
 
     // ── Variant rows ──────────────────────────────────────────────────────────
@@ -561,10 +739,28 @@
     // ── CRUD fns (global) ─────────────────────────────────────────────────────
     window.ecpOpenCreate = function () {
       _reset();
+      _setImgTabEnabled(null);
       document.getElementById('ecpModalTitle').innerHTML = '<i class="fa fa-plus me-1 text-success"></i> Add Product';
       document.getElementById('ecpBtnText').textContent  = 'Save';
       bootstrap.Modal.getOrCreateInstance(document.getElementById('ecpModal')).show();
     };
+
+    function _renderViewGallery(images) {
+      var gallery = document.getElementById('vw_imageGallery');
+      var empty   = document.getElementById('vw_imageEmptyState');
+      gallery.innerHTML = '';
+      empty.classList.toggle('d-none', images.length > 0);
+      images.forEach(function (img) {
+        var col = document.createElement('div');
+        col.className = 'col-4 col-md-2';
+        col.innerHTML =
+          '<div class="ecp-img-card" style="cursor:pointer" onclick="ecpImgPreview(\'' + img.imageUrl + '\')">' +
+            (img.isPrimary ? '<span class="badge bg-success ecp-img-badge">Primary</span>' : '') +
+            '<img src="' + img.imageUrl + '" alt="' + _esc(img.altText || '') + '" style="height:90px">' +
+          '</div>';
+        gallery.appendChild(col);
+      });
+    }
 
     window.ecpShow = function (id) {
       secureFetch(BASE + '/show/' + id).then(function (res) {
@@ -580,8 +776,8 @@
         _st('vw_seoTitle',     o.seoTitle);
         _st('vw_seoKeywords',  o.seoKeywords);
         _st('vw_seoDesc',      o.seoDescription);
-        _st('vw_imageCount',   (o.images   || []).length + ' image(s)');
         _st('vw_variantCount', (o.variants || []).length + ' variant(s)');
+        _renderViewGallery(o.images || []);
         _st('vw_createdAt',    o.createdAt);
         _st('vw_createdBy',    o.createdBy);
         _st('vw_updatedBy',    o.updatedBy);
@@ -629,8 +825,9 @@
           $(document.getElementById('ecpItemId')).trigger('change');
           $(document.getElementById('ecpCategoryId')).trigger('change');
         }
-        // Images
-        (o.images || []).forEach(function (img) { ecpAddImageRow(img); });
+        // Images — enable upload now that we have a saved productId, load existing gallery
+        _setImgTabEnabled(o.id);
+        _loadImageGallery();
         // Variants
         (o.variants || []).forEach(function (v) { ecpAddVariantRow(v); });
         // Attributes — load schema then populate values
@@ -669,6 +866,8 @@
       var bt = document.getElementById('ecpBtnText');
       hsDisableButton(sb, sp, bt);
 
+      var wasCreate = !document.getElementById('ecpId').value;
+
       secureFetch(BASE + '/save', {
         method: 'POST',
         body: JSON.stringify({
@@ -695,15 +894,33 @@
           recommended:          document.getElementById('ecpRecommended').checked,
           published:            document.getElementById('ecpPublished').checked,
           active:               document.getElementById('ecpActive').checked,
-          images:               _collectImages(),
           variants:             _collectVariants(),
           attrValues:           _collectAttrValues()
+          // NOTE: images intentionally omitted — image upload/edit/delete now
+          // goes through the dedicated /ecommerce/products/{id}/images/** endpoints
+          // in real time, not through this bulk save payload.
         })
       }).then(function (d) {
         if (d.success) {
-          Swal.fire({ icon: 'success', title: 'Saved!', text: d.message, timer: 1600, showConfirmButton: false });
-          bootstrap.Modal.getOrCreateInstance(document.getElementById('ecpModal')).hide();
-          dt.ajax.reload(null, false);
+          var savedId = d.obj && d.obj.id ? d.obj.id : null;
+
+          if (wasCreate && savedId) {
+            // Brand-new product: keep the modal open, unlock image upload,
+            // jump to the Images tab so the admin can upload right away.
+            document.getElementById('ecpId').value = savedId;
+            _setImgTabEnabled(savedId);
+            _loadImageGallery();
+            document.getElementById('ecpModalTitle').innerHTML = '<i class="fa fa-pencil me-1 text-warning"></i> Edit Product';
+            document.getElementById('ecpBtnText').textContent  = 'Update';
+            Swal.fire({ icon: 'success', title: 'Product created!', text: 'Now you can upload images below.', timer: 1800, showConfirmButton: false });
+            var imagesTabLink = document.querySelector('#ecpTabs a[href="#etab4"]');
+            if (imagesTabLink) bootstrap.Tab.getOrCreateInstance(imagesTabLink).show();
+            dt.ajax.reload(null, false);
+          } else {
+            Swal.fire({ icon: 'success', title: 'Saved!', text: d.message, timer: 1600, showConfirmButton: false });
+            bootstrap.Modal.getOrCreateInstance(document.getElementById('ecpModal')).hide();
+            dt.ajax.reload(null, false);
+          }
         } else {
           Swal.fire('Error', d.message, 'error');
         }
@@ -721,11 +938,14 @@
       document.getElementById('ecpActive').checked = true;
       ['ecpPublished','ecpFeatured','ecpBestSeller','ecpTrending','ecpNewArrival','ecpRecommended']
         .forEach(function (id) { document.getElementById(id).checked = false; });
-      document.getElementById('ecpImageRows').innerHTML   = '';
+      document.getElementById('ecpImgGallery').innerHTML  = '';
+      document.getElementById('ecpImgUrlInput').value     = '';
+      document.getElementById('ecpImgUrlAlt').value       = '';
       document.getElementById('ecpVariantRows').innerHTML = '';
       document.getElementById('ecpAttrRows').innerHTML    = '<div class="alert alert-secondary py-2 small"><i class="fa fa-info-circle me-1"></i> Select an EC Category to load attribute fields.</div>';
       document.getElementById('ecpSlug').dataset.manualEdit = '';
-      _imgIdx = 0; _varIdx = 0; _attrSchema = [];
+      _varIdx = 0; _attrSchema = [];
+      _setImgTabEnabled(null);
       // Reset Select2
       if (window.$ && $.fn.select2) {
         $(document.getElementById('ecpItemId')).val(null).trigger('change');

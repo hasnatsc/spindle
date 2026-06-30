@@ -3,9 +3,9 @@ package com.asg.spindleserp.ecommerce.payment.service;
 
 import com.asg.spindleserp.common.dto.DataTableResponse;
 import com.asg.spindleserp.common.util.CommonUtils;
-import com.asg.spindleserp.ecommerce.dto.EcPaymentDTO;
-import com.asg.spindleserp.ecommerce.payment.EcPayment;
-import com.asg.spindleserp.ecommerce.repository.EcPaymentRepository;
+import com.asg.spindleserp.ecommerce.payment.dto.EcPaymentDTO;
+import com.asg.spindleserp.ecommerce.payment.entity.EcPayment;
+import com.asg.spindleserp.ecommerce.payment.repository.EcPaymentRepository;
 import com.asg.spindleserp.security.auth.ContextProvider;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

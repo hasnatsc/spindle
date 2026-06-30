@@ -65,7 +65,7 @@ public class EcCartServiceImpl implements EcCartService {
                 TO_CHAR(ca.created_at, 'DD-Mon-YYYY HH24:MI') AS created_at,
                 '<div class="btn-group">'
                     || '<a href="javascript:;" onclick="eccartShow('    || ca.id || ')" class="btn btn-white btn-sm"><i class="fas fa-eye text-success"></i></a>'
-                    || CASE WHEN ca.cart_status = ''ACTIVE''
+                    || CASE WHEN ca.cart_status = 'ACTIVE'
                         THEN '<a href="javascript:;" onclick="eccartAbandon(' || ca.id || ')" class="btn btn-white btn-sm" title="Mark Abandoned"><i class="fas fa-ban text-warning"></i></a>'
                         ELSE '' END
                     || '<a href="javascript:;" onclick="eccartDelete('  || ca.id || ')" class="btn btn-white btn-sm"><i class="fa-regular fa-trash-can text-danger"></i></a>'

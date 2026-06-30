@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<!-- ecommerce/ec-refund-index.html  JS fns: ecrefShow/ecrefDelete/ecrefOpenCreate -->
+<html th:replace="~{layout/base :: layout('EC Refunds', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
+<section>
+  <ol class="breadcrumb float-xl-end">
+    <li class="breadcrumb-item"><a th:href="@{/dashboard}">Home</a></li>
+    <li class="breadcrumb-item">eCommerce</li><li class="breadcrumb-item active">Refunds</li>
+  </ol>
+  <h1 class="page-header">Refunds <small>refund disbursement management</small></h1>
+  <div class="panel panel-inverse">
+    <div class="panel-heading">
+      <div class="panel-title"><a href="javascript:;" onclick="ecrefOpenCreate()"><span class="badge btn btn-outline-success"><i class="fa fa-plus me-1"></i> Issue Refund</span></a></div>
+      <div class="panel-heading-btn">
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-default" data-toggle="panel-expand"><i class="fa fa-expand"></i></a>
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-success" data-toggle="panel-reload"><i class="fa fa-redo"></i></a>
+      </div>
+    </div>
+    <div class="panel-body">
+      <table id="ecrefTable" width="100%" class="table table-striped table-bordered align-middle">
+        <thead><tr>
+          <th width="1%">SL</th><th>Refund No</th><th>Return No</th><th>Order No</th>
+          <th>Customer</th><th>Method</th><th class="text-end">Refund Amt</th>
+          <th>Transaction Ref</th><th>Refund Date</th><th>Created</th>
+          <th class="text-center" width="8%">Actions</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <!-- CREATE MODAL -->
+    <div tabindex="-1" id="ecrefModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+          <div class="modal-header"><h5 class="modal-title"><i class="fa fa-money-bill-wave me-1 text-success"></i> Issue Refund</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+          <form id="ecrefForm" novalidate>
+            <div class="modal-body">
+              <div class="row g-2">
+                <div class="col-md-6 view-group">
+                  <select id="ecrefReturnId" class="form-select hs_span_view hsSelectTwo" required data-placeholder="— Search Return No —"></select>
+                  <label class="input-label">Return <span class="text-danger">*</span></label>
+                </div>
+                <div class="col-md-3 view-group">
+                  <select id="ecrefMethod" class="form-select hs_span_view" required><option value="">— Select —</option></select>
+                  <label class="input-label">Refund Method <span class="text-danger">*</span></label>
+                </div>
+                <div class="col-md-3 view-group"><input id="ecrefDate" type="datetime-local" class="form-control hs_span_view"><label class="input-label">Refund Date</label></div>
+                <div class="col-md-4 view-group"><input id="ecrefAmount" type="number" step="0.01" min="0" class="form-control hs_span_view" required placeholder="0.00"><label class="input-label">Refund Amount (৳) <span class="text-danger">*</span></label></div>
+                <div class="col-md-4 view-group"><input id="ecrefTxRef" type="text" class="form-control hs_span_view" maxlength="150" placeholder="TXN123456"><label class="input-label">Transaction Reference</label></div>
+                <div class="col-md-4 view-group"><input id="ecrefRemarks" type="text" class="form-control hs_span_view" maxlength="500" placeholder="Remarks…"><label class="input-label">Remarks</label></div>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-success" type="submit" id="ecrefSubmitBtn"><span class="spinner-border spinner-border-sm me-2 d-none" id="ecrefSpinner"></span><span id="ecrefBtnText">Issue Refund</span></button>
+              <button type="button" class="btn btn-white" data-bs-dismiss="modal">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script th:inline="none">
+  (function(){
+    'use strict';
+    const BASE='/ecommerce/refunds'; var dt;
+    document.addEventListener('DOMContentLoaded',function(){
+      dt=$('#ecrefTable').DataTable({processing:true,serverSide:true,responsive:true,pageLength:25,
+        ajax:{url:BASE+'/list',type:'GET'},
+        columns:[{data:'sl',orderable:false,width:'40px'},{data:'refund_no'},{data:'return_no'},{data:'order_no'},
+          {data:'customer_name',defaultContent:'—'},{data:'refund_method'},{data:'refund_amount',className:'text-end'},
+          {data:'transaction_reference',defaultContent:'—'},{data:'refund_date',defaultContent:'—'},
+          {data:'created_at',defaultContent:'—'},{data:'actions',orderable:false,className:'text-center'}],
+        language:{emptyTable:'No refunds found.'}});
+      document.getElementById('ecrefForm').addEventListener('submit',_onSubmit);
+      secureFetch(BASE+'/methods').then(function(methods){var sel=document.getElementById('ecrefMethod');sel.innerHTML='<option value="">— Select —</option>';methods.forEach(function(m){var o=document.createElement('option');o.value=m;o.textContent=m;sel.appendChild(o);});});
+      if(window.$&&$.fn.select2){$('#ecrefReturnId').select2({dropdownParent:$('#ecrefModal'),placeholder:'— Search Return —',allowClear:true,minimumInputLength:2,ajax:{url:'/ecommerce/returns/search-select',dataType:'json',delay:300,data:function(p){return{q:p.term||''};},processResults:function(d){return{results:(d||[]).map(function(r){return{id:r.id,text:r.returnNo||r.text};})};}}});}
+    });
+    window.ecrefOpenCreate=function(){document.getElementById('ecrefForm').reset();bootstrap.Modal.getOrCreateInstance(document.getElementById('ecrefModal')).show();};
+    window.ecrefShow=function(id){secureFetch(BASE+'/show/'+id).then(function(res){if(!res.success){Swal.fire('Error',res.message,'error');return;}var o=res.obj.defaultData;
+      Swal.fire({title:o.refundNo,html:'Return: '+o.returnNo+'<br>Method: '+o.refundMethod+'<br>Amount: ৳'+o.refundAmount+'<br>Ref: '+(o.transactionReference||'—')});});};
+    window.ecrefDelete=function(id){hsConfirmDelete(BASE+'/delete/'+id,dt);};
+    function _onSubmit(e){e.preventDefault();var sb=document.getElementById('ecrefSubmitBtn'),sp=document.getElementById('ecrefSpinner'),bt=document.getElementById('ecrefBtnText');hsDisableButton(sb,sp,bt);
+      secureFetch(BASE+'/save',{method:'POST',body:JSON.stringify({
+        returnId:document.getElementById('ecrefReturnId').value||null,
+        refundMethod:document.getElementById('ecrefMethod').value,
+        refundDate:document.getElementById('ecrefDate').value||null,
+        refundAmount:document.getElementById('ecrefAmount').value||null,
+        transactionReference:document.getElementById('ecrefTxRef').value||null,
+        remarks:document.getElementById('ecrefRemarks').value||null
+      })}).then(function(d){if(d.success){Swal.fire({icon:'success',title:'Issued!',text:d.message,timer:1600,showConfirmButton:false});bootstrap.Modal.getOrCreateInstance(document.getElementById('ecrefModal')).hide();dt.ajax.reload(null,false);}
+        else{Swal.fire('Error',d.message,'error');}}).catch(function(err){Swal.fire('Error',err.message||'Failed.','error');}).finally(function(){hsEnableButton(sb,sp,bt);});
+    }
+  })();
+  </script>
+</section>
+</html>

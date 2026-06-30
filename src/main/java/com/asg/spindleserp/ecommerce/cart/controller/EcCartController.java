@@ -11,7 +11,7 @@ import java.util.*;
 @Controller @RequestMapping("/ecommerce/carts") @RequiredArgsConstructor
 public class EcCartController {
     private final EcCartService cartService;
-    @GetMapping public String index(Model m){m.addAttribute("activePage","ec-carts");return "ecommerce/ec-cart-index";}
+    @GetMapping public String index(Model m){m.addAttribute("activePage","ec-carts");return "ecommerce/cart/ec-cart-index";}
     @GetMapping("/list") @ResponseBody
     public DataTableResponse list(@RequestParam(defaultValue="1") int draw,@RequestParam(defaultValue="0") int start,
             @RequestParam(defaultValue="10") int length,@RequestParam(value="search[value]",defaultValue="") String search){
