@@ -72,6 +72,7 @@
       <div class="modal-content">
         <div class="modal-header">
           <h5 class="modal-title" id="visaModalTitle"><i class="fa fa-passport me-1 text-success"></i> New Visa Application</h5>
+          <button type="button" class="btn btn-sm btn-outline-secondary d-none me-2" id="visaDocBtn" title="Visa Documents"><i class="fa fa-paperclip"></i> Documents</button>
           <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
         </div>
         <form id="visaForm" novalidate>
@@ -221,6 +222,7 @@
 
     window.visaOpenCreate = function () {
       _resetForm(); _loadServiceLines(); _loadVisaTypes();
+      document.getElementById('visaDocBtn').classList.add('d-none');
       document.getElementById('visaModalTitle').innerHTML = '<i class="fa fa-plus me-1 text-success"></i> New Visa Application';
       document.getElementById('visaBtnText').textContent = 'Save';
       bootstrap.Modal.getOrCreateInstance(document.getElementById('visaModal')).show();
@@ -257,6 +259,9 @@
         document.getElementById('visaStatus').value = o.status || 'PENDING';
         document.getElementById('visaRemarks').value = o.remarks || '';
         (o.documents || []).forEach(function (d) { visaAddDoc(d); });
+        var docBtn = document.getElementById('visaDocBtn');
+        docBtn.classList.remove('d-none');
+        docBtn.onclick = function () { trvOpenDocuments('VISA_APPLICATION', o.id, (o.passengerName || 'Application') + ' — ' + (o.visaTypeDisplay || '')); };
         document.getElementById('visaModalTitle').innerHTML = '<i class="fa fa-pencil me-1 text-warning"></i> Edit Visa Application';
         document.getElementById('visaBtnText').textContent = 'Update';
         bootstrap.Modal.getOrCreateInstance(document.getElementById('visaModal')).show();
@@ -345,5 +350,6 @@
     function _vtReset() { document.getElementById('vtForm').reset(); document.getElementById('vtId').value = ''; }
   })();
   </script>
+  <div th:replace="~{travel/trv-documents-fragment :: modal}"></div>
 </section>
 </html>

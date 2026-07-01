@@ -146,7 +146,7 @@
                   <table class="table table-sm table-bordered">
                     <thead class="table-light"><tr>
                       <th width="8%">Title</th><th width="16%">First Name</th><th width="16%">Last Name</th>
-                      <th>Type</th><th>Passport No</th><th>Nationality</th><th>Lead</th><th></th>
+                      <th>Type</th><th>Passport No</th><th>Nationality</th><th>Lead</th><th></th><th></th>
                     </tr></thead>
                     <tbody id="bkgPaxBody"></tbody>
                   </table>
@@ -299,6 +299,9 @@
         + '<td><input type="text" class="form-control form-control-sm" data-field="passportNumber" value="' + (data ? data.passportNumber || '' : '') + '"></td>'
         + '<td><input type="text" class="form-control form-control-sm" data-field="nationality" value="' + (data ? data.nationality || '' : '') + '"></td>'
         + '<td class="text-center"><input type="checkbox" data-field="isLeadPassenger"' + (data && data.isLeadPassenger ? ' checked' : '') + '></td>'
+        + '<td>' + (data && data.id
+            ? '<button type="button" class="btn btn-sm btn-outline-secondary" title="Documents" onclick="trvOpenDocuments(\'PASSENGER\',' + data.id + ',\'' + ((data.firstName || '') + ' ' + (data.lastName || '')).replace(/'/g, "\\'") + '\')"><i class="fa fa-paperclip"></i></button>'
+            : '<span class="text-muted small">save first</span>') + '</td>'
         + '<td><button type="button" class="btn btn-sm btn-outline-danger" onclick="bkgRemovePax(' + n + ')"><i class="fa fa-times"></i></button></td>'
         + '</tr>';
       document.getElementById('bkgPaxBody').insertAdjacentHTML('beforeend', html);
@@ -441,5 +444,6 @@
     function _vf(label, value) { return '<div class="col-md-4 view-group"><label class="view-label">' + label + '</label><span class="form-control hs_span_show">' + (value != null ? value : '—') + '</span></div>'; }
   })();
   </script>
+  <div th:replace="~{travel/trv-documents-fragment :: modal}"></div>
 </section>
 </html>
