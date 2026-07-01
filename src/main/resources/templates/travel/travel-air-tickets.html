@@ -44,6 +44,7 @@
         <div class="modal-content">
           <div class="modal-header">
             <h5 class="modal-title" id="atModalTitle"><i class="fa fa-plane-departure me-1 text-success"></i> New Air Ticket</h5>
+            <button type="button" class="btn btn-sm btn-outline-secondary d-none me-2" id="atDocBtn" title="Ticket Documents"><i class="fa fa-paperclip"></i> Documents</button>
             <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
           </div>
           <form id="atForm" novalidate>
@@ -248,6 +249,7 @@
 
     window.atOpenCreate = function () {
       _resetForm();
+      document.getElementById('atDocBtn').classList.add('d-none');
       _loadServiceLines(); _loadAirlines(); _loadAirports(); _loadCabinClasses();
       document.getElementById('atModalTitle').innerHTML = '<i class="fa fa-plus me-1 text-success"></i> New Air Ticket';
       document.getElementById('atBtnText').textContent = 'Save';
@@ -287,6 +289,9 @@
         document.getElementById('atTotalAmount').value = o.totalAmount || 0;
         document.getElementById('atSupplierReference').value = o.supplierReference || '';
         setTimeout(function () { (o.passengerTickets || []).forEach(function (p) { atAddPaxTicket(p); }); }, 350);
+        var docBtn = document.getElementById('atDocBtn');
+        docBtn.classList.remove('d-none');
+        docBtn.onclick = function () { trvOpenDocuments('AIR_TICKET', o.id, 'PNR ' + (o.pnr || o.id)); };
         document.getElementById('atModalTitle').innerHTML = '<i class="fa fa-pencil me-1 text-warning"></i> Edit Air Ticket';
         document.getElementById('atBtnText').textContent = 'Update';
         bootstrap.Modal.getOrCreateInstance(document.getElementById('atModal')).show();
@@ -348,5 +353,6 @@
     function _vf(label, value) { return '<div class="col-md-4 view-group"><label class="view-label">' + label + '</label><span class="form-control hs_span_show">' + (value != null ? value : '—') + '</span></div>'; }
   })();
   </script>
+  <div th:replace="~{travel/trv-documents-fragment :: modal}"></div>
 </section>
 </html>

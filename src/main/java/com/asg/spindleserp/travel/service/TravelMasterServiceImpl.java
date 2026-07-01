@@ -91,18 +91,18 @@ public class TravelMasterServiceImpl implements TravelMasterService {
         Long orgId = SecurityHelper.requireOrgId();
         String like = "%" + (search == null ? "" : search.trim()) + "%";
         return jdbcTemplate.queryForList("""
-SELECT h.id,
-       ROW_NUMBER() OVER (ORDER BY h.id DESC)                           AS sl,
-       h.hotel_code, h.hotel_name, h.city, h.country, h.star_rating,
-       COALESCE(c.category_name, '—')                                   AS category_name,
-       h.contact_person, h.contact_phone, h.is_active,
-       (SELECT COUNT(*) FROM trv_room_types rt WHERE rt.hotel_id = h.id) AS room_type_count,
-       CASE WHEN h.is_active THEN '<span class="badge bg-success">Active</span>'
-            ELSE '<span class="badge bg-secondary">Inactive</span>' END  AS status_badge,
-       '<div class="btn-group">'
-           || '<a href="javascript:;" onclick="htlEdit('   || h.id || ')" class="btn btn-white btn-sm" title="Edit"><i class="fa-regular fa-pen-to-square text-warning"></i></a>'
-           || '<a href="javascript:;" onclick="htlRooms('  || h.id || ','' || replace(h.hotel_name,'','') || '')" class="btn btn-white btn-sm" title="Room Types"><i class="fas fa-bed text-info"></i></a>'
-           || '<a href="javascript:;" onclick="htlDelete(' || h.id || ')" class="btn btn-white btn-sm" title="Delete"><i class="fa-regular fa-trash-can text-danger"></i></a>'
+            SELECT h.id,
+                   ROW_NUMBER() OVER (ORDER BY h.id DESC)                           AS sl,
+                   h.hotel_code, h.hotel_name, h.city, h.country, h.star_rating,
+                   COALESCE(c.category_name, '—')                                   AS category_name,
+                   h.contact_person, h.contact_phone, h.is_active,
+                   (SELECT COUNT(*) FROM trv_room_types rt WHERE rt.hotel_id = h.id) AS room_type_count,
+                   CASE WHEN h.is_active THEN '<span class="badge bg-success">Active</span>'
+                        ELSE '<span class="badge bg-secondary">Inactive</span>' END  AS status_badge,
+                   '<div class="btn-group">'
+                     || '<a href="javascript:;" onclick="htlEdit('   || h.id || ')" class="btn btn-white btn-sm" title="Edit"><i class="fa-regular fa-pen-to-square text-warning"></i></a>'
+                     || '<a href="javascript:;" onclick="htlRooms('  || h.id || ',\\'' || replace(h.hotel_name,'''','') || '\\')" class="btn btn-white btn-sm" title="Room Types"><i class="fas fa-bed text-info"></i></a>'
+                     || '<a href="javascript:;" onclick="htlDelete(' || h.id || ')" class="btn btn-white btn-sm" title="Delete"><i class="fa-regular fa-trash-can text-danger"></i></a>'
                      || '</div>'                                                    AS actions
             FROM   trv_hotels h
             LEFT   JOIN trv_hotel_categories c ON c.id = h.category_id

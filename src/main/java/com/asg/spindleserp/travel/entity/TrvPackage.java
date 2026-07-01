@@ -52,6 +52,7 @@ public class TrvPackage extends BaseEntity implements Serializable {
     @Column(name = "is_active", nullable = false)
     private Boolean isActive = true;
 
+
     @Builder.Default
     @OneToMany(mappedBy = "packageEntity", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private List<TrvPackageItineraryDay> itineraryDays = new ArrayList<>();

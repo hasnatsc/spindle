@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<!--
+  travel/trv-documents-fragment.html
+
+  Reusable "Documents" modal — upload/list/download/delete file attachments
+  against ANY travel entity (passenger, air ticket, visa application, etc.)
+  via the generic /travel/documents/* endpoints.
+
+  Usage from any page:
+    1. Include once per page:
+       <div th:replace="~{travel/trv-documents-fragment :: modal}"></div>
+    2. Open it from a button:
+       <a href="javascript:;" onclick="trvOpenDocuments('PASSENGER', 42, 'John Doe — Passenger')">
+         <i class="fa fa-paperclip"></i>
+       </a>
+    3. Optionally pass an allowed document-type list (defaults to all):
+       trvOpenDocuments('AIR_TICKET', 17, 'PNR ABC123', ['TICKET','INVOICE','OTHER'])
+-->
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+
+<div th:fragment="modal">
+  <div tabindex="-1" id="trvDocModal" class="modal fade">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title"><i class="fa fa-paperclip me-1 text-primary"></i> Documents — <span id="trvDocLabel"></span></h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-2 align-items-end mb-3">
+            <div class="col-md-3">
+              <label class="form-label form-label-sm mb-1">Type</label>
+              <select id="trvDocType" class="form-select form-select-sm">
+                <option value="PASSPORT">Passport</option>
+                <option value="VISA">Visa</option>
+                <option value="TICKET">Ticket</option>
+                <option value="PHOTO">Photo</option>
+                <option value="INVOICE">Invoice</option>
+                <option value="CONFIRMATION">Confirmation</option>
+                <option value="RECEIPT">Receipt</option>
+                <option value="OTHER" selected>Other</option>
+              </select>
+            </div>
+            <div class="col-md-5">
+              <label class="form-label form-label-sm mb-1">Remarks (optional)</label>
+              <input id="trvDocRemarks" type="text" class="form-control form-control-sm" placeholder="e.g. front page, valid till 2030">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label form-label-sm mb-1">File <small class="text-muted">(PDF/JPG/PNG/DOC, max 15MB)</small></label>
+              <input id="trvDocFile" type="file" class="form-control form-control-sm" accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx">
+            </div>
+          </div>
+          <button type="button" class="btn btn-sm btn-primary mb-3" id="trvDocUploadBtn" onclick="_trvDocUpload()">
+            <span class="spinner-border spinner-border-sm me-2 d-none" id="trvDocSpinner"></span>
+            <i class="fa fa-upload me-1"></i> Upload
+          </button>
+
+          <table class="table table-sm table-bordered">
+            <thead class="table-light"><tr>
+              <th>File</th><th>Type</th><th>Size</th><th>Uploaded</th><th class="text-center" width="15%">Actions</th>
+            </tr></thead>
+            <tbody id="trvDocBody"></tbody>
+          </table>
+        </div>
+        <div class="modal-footer"><button type="button" class="btn btn-white" data-bs-dismiss="modal">Close</button></div>
+      </div>
+    </div>
+  </div>
+
+  <script th:inline="none">
+  (function () {
+    'use strict';
+    var _entityType = null, _entityId = null;
+
+    window.trvOpenDocuments = function (entityType, entityId, label) {
+      _entityType = entityType; _entityId = entityId;
+      document.getElementById('trvDocLabel').textContent = label || (entityType + ' #' + entityId);
+      document.getElementById('trvDocFile').value = '';
+      document.getElementById('trvDocRemarks').value = '';
+      _trvDocReload();
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('trvDocModal')).show();
+    };
+
+    function _trvDocReload() {
+      secureFetch('/travel/documents/list?entityType=' + _entityType + '&entityId=' + _entityId).then(function (res) {
+        var body = document.getElementById('trvDocBody'); body.innerHTML = '';
+        if (!res.success) { body.innerHTML = '<tr><td colspan="5" class="text-center text-danger py-3">' + res.message + '</td></tr>'; return; }
+        (res.data || []).forEach(function (d) {
+          body.insertAdjacentHTML('beforeend',
+            '<tr><td><i class="fa fa-file me-1 text-muted"></i>' + d.originalFileName + (d.remarks ? '<br><small class="text-muted">' + d.remarks + '</small>' : '') + '</td>'
+            + '<td><span class="badge bg-secondary">' + d.documentType + '</span></td>'
+            + '<td>' + _trvFormatSize(d.fileSizeBytes) + '</td>'
+            + '<td>' + (d.uploadedBy || '—') + '<br><small class="text-muted">' + (d.uploadedAt ? d.uploadedAt.substring(0, 16).replace('T', ' ') : '') + '</small></td>'
+            + '<td class="text-center">'
+              + '<a href="' + d.downloadUrl + '" class="btn btn-white btn-sm" title="Download"><i class="fa fa-download text-primary"></i></a>'
+              + '<a href="javascript:;" onclick="_trvDocDelete(' + d.id + ')" class="btn btn-white btn-sm" title="Delete"><i class="fa-regular fa-trash-can text-danger"></i></a>'
+            + '</td></tr>');
+        });
+        if (!(res.data || []).length) body.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-3">No documents uploaded yet.</td></tr>';
+      });
+    }
+
+    function _trvDocUpload() {
+      var fileInput = document.getElementById('trvDocFile');
+      if (!fileInput.files.length) { Swal.fire('Pick a file', 'Choose a file before uploading.', 'warning'); return; }
+
+      var sb = document.getElementById('trvDocUploadBtn'), sp = document.getElementById('trvDocSpinner');
+      sb.disabled = true; sp.classList.remove('d-none');
+
+      var formData = new FormData();
+      formData.append('entityType', _entityType);
+      formData.append('entityId', _entityId);
+      formData.append('documentType', document.getElementById('trvDocType').value);
+      formData.append('remarks', document.getElementById('trvDocRemarks').value || '');
+      formData.append('file', fileInput.files[0]);
+
+      // NOTE: secureFetch() must NOT JSON.stringify or force a Content-Type
+      // header when body is already a FormData instance — the browser needs
+      // to set "multipart/form-data; boundary=..." itself. This matches the
+      // conditional pattern most secureFetch() implementations already use
+      // (skip JSON handling when `options.body instanceof FormData`). If your
+      // secureFetch always stringifies, add that one-line FormData check to it
+      // — every other page in this codebase can keep using it unchanged.
+      secureFetch('/travel/documents/upload', { method: 'POST', body: formData })
+        .then(function (d) {
+          if (d.success) {
+            Swal.fire({ icon: 'success', timer: 1400, showConfirmButton: false, title: d.message });
+            fileInput.value = ''; document.getElementById('trvDocRemarks').value = '';
+            _trvDocReload();
+          } else { Swal.fire('Error', d.message, 'error'); }
+        })
+        .catch(function (err) { Swal.fire('Error', err.message || 'Upload failed.', 'error'); })
+        .finally(function () { sb.disabled = false; sp.classList.add('d-none'); });
+    }
+    window._trvDocUpload = _trvDocUpload;
+
+    window._trvDocDelete = function (id) {
+      Swal.fire({ title: 'Delete this document?', icon: 'warning', showCancelButton: true, confirmButtonColor: '#dc3545' }).then(function (r) {
+        if (!r.isConfirmed) return;
+        secureFetch('/travel/documents/delete/' + id, { method: 'DELETE' }).then(function (d) {
+          if (d.success) _trvDocReload(); else Swal.fire('Error', d.message, 'error'); });
+      });
+    };
+
+    function _trvFormatSize(bytes) {
+      if (!bytes) return '—';
+      if (bytes < 1024) return bytes + ' B';
+      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+      return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    }
+  })();
+  </script>
+</div>
+
+</body>
+</html>
