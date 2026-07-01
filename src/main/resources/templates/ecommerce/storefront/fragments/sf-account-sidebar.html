@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<!-- storefront/fragments/sf-account-sidebar.html -->
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+<div th:fragment="sidebar(active)" class="sf-portal-side">
+  <nav class="sf-portal-nav">
+    <a href="/account/dashboard" th:classappend="${active == 'dashboard'} ? 'active'"><i class="fa-solid fa-house"></i> Dashboard</a>
+    <a href="/account/orders" th:classappend="${active == 'orders'} ? 'active'"><i class="fa-solid fa-box"></i> Order History</a>
+    <a href="/account/profile" th:classappend="${active == 'profile'} ? 'active'"><i class="fa-regular fa-user"></i> Profile</a>
+    <a href="/cart"><i class="fa-solid fa-bag-shopping"></i> Cart</a>
+    <form action="/account/logout" method="post" style="margin:0">
+      <button type="submit" style="border:none;background:none;width:100%;text-align:left" class="danger">
+        <a class="danger" style="cursor:pointer"><i class="fa-solid fa-arrow-right-from-bracket"></i> Sign Out</a>
+      </button>
+    </form>
+  </nav>
+</div>
+</body>
+</html>

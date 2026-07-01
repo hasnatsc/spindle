@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<!-- storefront/sf-home.html  GET / -->
+<html th:replace="~{ecommerce/storefront/layout/sf-base :: layout('Home', ~{::main})}" xmlns:th="http://www.thymeleaf.org">
+<main>
+
+  <!-- ════════════════════ HERO ════════════════════ -->
+  <section class="sf-hero">
+    <div class="container">
+      <span class="sf-hero-eyebrow">Spring/Summer Collection — Fresh off the loom</span>
+      <h1>Cloth that's<br>cut to last.</h1>
+      <p>Garments and fabric direct from our Narayanganj mills — no middlemen, no markup games. Just honest cotton, finished right.</p>
+      <a href="/shop" class="sf-btn sf-btn--primary">Shop the Collection <i class="fa fa-arrow-right"></i></a>
+    </div>
+  </section>
+
+  <div class="sf-selvage" aria-hidden="true"><span th:each="i : ${#numbers.sequence(1, 60)}"></span></div>
+
+  <!-- ════════════════════ CATEGORY CHIPS ════════════════════ -->
+  <section class="sf-section pb-0">
+    <div class="container">
+      <div class="sf-chip-row">
+        <a th:each="cat : ${categories}" th:href="@{'/category/' + ${cat.slug}}" class="sf-chip" th:text="${cat.categoryName}">Category</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ════════════════════ FEATURED ════════════════════ -->
+  <section class="sf-section">
+    <div class="container">
+      <div class="sf-section-head">
+        <h2>Featured Pieces</h2>
+        <a href="/shop?sort=featured">View all <i class="fa fa-arrow-right ms-1"></i></a>
+      </div>
+      <div class="sf-product-grid">
+        <div th:each="p : ${featured}" th:replace="~{ecommerce/storefront/fragments/sf-product-card :: card(${p})}"></div>
+        <div th:if="${featured == null or featured.isEmpty()}" class="sf-empty-state" style="grid-column: 1/-1;">
+          <i class="fa-regular fa-image"></i>
+          <p>No featured products yet. Check back soon.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="sf-selvage" aria-hidden="true"><span th:each="i : ${#numbers.sequence(1, 60)}"></span></div>
+
+  <!-- ════════════════════ NEW ARRIVALS ════════════════════ -->
+  <section class="sf-section">
+    <div class="container">
+      <div class="sf-section-head">
+        <h2>Just Arrived</h2>
+        <a href="/shop?sort=newest">View all <i class="fa fa-arrow-right ms-1"></i></a>
+      </div>
+      <div class="sf-product-grid">
+        <div th:each="p : ${newArrivals}" th:replace="~{ecommerce/storefront/fragments/sf-product-card :: card(${p})}"></div>
+      </div>
+    </div>
+  </section>
+
+</main>
+</html>

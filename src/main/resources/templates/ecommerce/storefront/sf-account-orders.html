@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<!-- storefront/sf-account-orders.html  GET /account/orders -->
+<html th:replace="~{ecommerce/storefront/layout/sf-base :: layout('Order History', ~{::main})}" xmlns:th="http://www.thymeleaf.org">
+<main>
+  <section class="sf-portal">
+    <div class="container">
+      <div class="row g-4">
+        <div class="col-lg-3">
+          <div th:replace="~{ecommerce/storefront/fragments/sf-account-sidebar :: sidebar('orders')}"></div>
+        </div>
+        <div class="col-lg-9">
+          <h1 class="mb-4">Order History</h1>
+
+          <div th:if="${orders == null or orders.isEmpty()}" class="sf-empty-state">
+            <i class="fa-solid fa-box"></i>
+            <p>You haven't placed any orders yet.</p>
+            <a href="/shop" class="sf-btn sf-btn--primary mt-2">Start Shopping</a>
+          </div>
+
+          <div th:unless="${orders == null or orders.isEmpty()}">
+            <div class="sf-order-row" th:each="o : ${orders}">
+              <div>
+                <div class="sf-order-no" th:text="${o.orderNo}">EC-ORDER-25-000001</div>
+                <div class="sf-order-date" th:text="${#temporals.format(o.orderDate, 'dd MMM yyyy, h:mm a')}">01 Jan 2026</div>
+              </div>
+              <div style="font-family:var(--font-mono);font-weight:600" th:text="'৳' + ${#numbers.formatDecimal(o.grandTotal, 0, 'COMMA', 0, 'POINT')}">৳1,800</div>
+              <span class="sf-status-pill"
+                    th:classappend="${o.orderStatus.name() == 'COMPLETED'} ? 'completed' : (${o.orderStatus.name() == 'CANCELLED'} ? 'cancelled' : '')"
+                    th:text="${o.orderStatus}">PENDING</span>
+              <a th:href="@{'/account/orders/' + ${o.orderNo}}" class="sf-btn sf-btn--outline sf-btn--sm">View Details</a>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+</html>

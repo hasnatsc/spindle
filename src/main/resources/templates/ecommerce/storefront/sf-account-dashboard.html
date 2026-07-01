@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<!-- storefront/sf-account-dashboard.html  GET /account/dashboard -->
+<html th:replace="~{ecommerce/storefront/layout/sf-base :: layout('My Account', ~{::main})}" xmlns:th="http://www.thymeleaf.org">
+<main>
+  <section class="sf-portal">
+    <div class="container">
+      <div class="row g-4">
+        <div class="col-lg-3">
+          <div th:replace="~{ecommerce/storefront/fragments/sf-account-sidebar :: sidebar('dashboard')}"></div>
+        </div>
+        <div class="col-lg-9">
+          <h1 class="mb-1">Hi, <span th:text="${customer.firstName}">Customer</span></h1>
+          <p style="color:var(--grey);font-size:0.9rem;margin-bottom:28px">Here's a quick look at your account.</p>
+
+          <div class="sf-kpi-row">
+            <div class="sf-kpi">
+              <div class="sf-kpi-label">Total Orders</div>
+              <div class="sf-kpi-value" th:text="${totalOrders ?: 0}">0</div>
+            </div>
+            <div class="sf-kpi">
+              <div class="sf-kpi-label">Total Spent</div>
+              <div class="sf-kpi-value" th:text="'৳' + ${#numbers.formatDecimal(totalPurchase ?: 0, 0, 'COMMA', 0, 'POINT')}">৳0</div>
+            </div>
+            <div class="sf-kpi">
+              <div class="sf-kpi-label">Reward Points</div>
+              <div class="sf-kpi-value" th:text="${rewardPoints ?: 0}">0</div>
+            </div>
+          </div>
+
+          <div class="d-flex justify-content-between align-items-baseline mb-3">
+            <h5 class="mb-0">Recent Orders</h5>
+            <a href="/account/orders" style="font-family:var(--font-mono);font-size:0.8rem;color:var(--sage)">View all <i class="fa fa-arrow-right ms-1"></i></a>
+          </div>
+
+          <div th:if="${recentOrders == null or recentOrders.isEmpty()}" class="sf-empty-state">
+            <i class="fa-solid fa-box"></i>
+            <p>No orders yet.</p>
+            <a href="/shop" class="sf-btn sf-btn--primary mt-2">Start Shopping</a>
+          </div>
+
+          <div th:unless="${recentOrders == null or recentOrders.isEmpty()}">
+            <div class="sf-order-row" th:each="o : ${recentOrders}">
+              <div>
+                <div class="sf-order-no" th:text="${o.orderNo}">EC-ORDER-25-000001</div>
+                <div class="sf-order-date" th:text="${#temporals.format(o.orderDate, 'dd MMM yyyy')}">01 Jan 2026</div>
+              </div>
+              <span class="sf-status-pill"
+                    th:classappend="${o.orderStatus.name() == 'COMPLETED'} ? 'completed' : (${o.orderStatus.name() == 'CANCELLED'} ? 'cancelled' : '')"
+                    th:text="${o.orderStatus}">PENDING</span>
+              <a th:href="@{'/account/orders/' + ${o.orderNo}}" style="font-family:var(--font-mono);font-size:0.8rem">Details</a>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+</html>

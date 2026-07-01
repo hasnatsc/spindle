@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<!-- storefront/sf-account-order-detail.html  GET /account/orders/{orderNo} -->
+<html th:replace="~{ecommerce/storefront/layout/sf-base :: layout('Order Details', ~{::main})}" xmlns:th="http://www.thymeleaf.org">
+<main>
+  <section class="sf-portal">
+    <div class="container">
+      <div class="row g-4">
+        <div class="col-lg-3">
+          <div th:replace="~{ecommerce/storefront/fragments/sf-account-sidebar :: sidebar('orders')}"></div>
+        </div>
+        <div class="col-lg-9">
+
+          <div th:if="${notFound}" class="sf-empty-state">
+            <i class="fa-solid fa-circle-exclamation"></i>
+            <p>We couldn't find that order, or it doesn't belong to your account.</p>
+            <a href="/account/orders" class="sf-btn sf-btn--primary mt-2">Back to Order History</a>
+          </div>
+
+          <div th:unless="${notFound}">
+            <div class="d-flex justify-content-between align-items-start mb-1 flex-wrap gap-2">
+              <h1 th:text="'Order ' + ${order.orderNo}">Order EC-ORDER-25-000001</h1>
+              <span class="sf-status-pill"
+                    th:classappend="${order.orderStatus.name() == 'COMPLETED'} ? 'completed' : (${order.orderStatus.name() == 'CANCELLED'} ? 'cancelled' : '')"
+                    th:text="${order.orderStatus}" style="font-size:0.78rem;padding:6px 14px">PENDING</span>
+            </div>
+            <p style="color:var(--grey);font-size:0.88rem;margin-bottom:28px" th:text="'Placed on ' + ${#temporals.format(order.orderDate, 'dd MMMM yyyy, h:mm a')}">Placed on 01 Jan 2026</p>
+
+            <div style="background:var(--white);border:1px solid var(--linen);border-radius:6px;padding:20px;margin-bottom:24px">
+              <h6 style="font-family:var(--font-mono);font-size:0.75rem;text-transform:uppercase;color:var(--sage);margin-bottom:14px">Items</h6>
+              <div class="sf-cart-line" th:each="item : ${order.orderItems}" style="border-bottom:1px solid var(--linen)">
+                <div class="sf-cart-line-info">
+                  <div class="sf-cart-line-title" th:text="${item.product != null ? item.product.productTitle : item.item.itemName}">Product</div>
+                  <div class="sf-cart-line-variant" th:if="${item.variant != null}" th:text="${item.variant.variantName}">Variant</div>
+                  <div class="sf-cart-line-price" th:text="${item.quantity} + ' × ৳' + ${#numbers.formatDecimal(item.unitPrice, 0, 'COMMA', 0, 'POINT')}">2 × ৳600</div>
+                </div>
+                <div style="font-family:var(--font-mono);font-weight:600" th:text="'৳' + ${#numbers.formatDecimal(item.lineTotal, 0, 'COMMA', 0, 'POINT')}">৳1,200</div>
+              </div>
+            </div>
+
+            <div class="row g-4">
+              <div class="col-md-6">
+                <div style="background:var(--white);border:1px solid var(--linen);border-radius:6px;padding:20px">
+                  <h6 style="font-family:var(--font-mono);font-size:0.75rem;text-transform:uppercase;color:var(--sage);margin-bottom:14px">Order Summary</h6>
+                  <div class="sf-summary-row"><span>Subtotal</span><span th:text="'৳' + ${#numbers.formatDecimal(order.subtotal, 0, 'COMMA', 0, 'POINT')}">৳1,800</span></div>
+                  <div class="sf-summary-row"><span>Shipping</span><span th:text="'৳' + ${#numbers.formatDecimal(order.shippingCharge, 0, 'COMMA', 0, 'POINT')}">৳80</span></div>
+                  <div class="sf-summary-row" th:if="${order.discountAmount != null and order.discountAmount.signum() > 0}"><span>Discount</span><span th:text="'-৳' + ${#numbers.formatDecimal(order.discountAmount, 0, 'COMMA', 0, 'POINT')}">-৳100</span></div>
+                  <div class="sf-summary-row total"><span>Total</span><span th:text="'৳' + ${#numbers.formatDecimal(order.grandTotal, 0, 'COMMA', 0, 'POINT')}">৳1,780</span></div>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div style="background:var(--white);border:1px solid var(--linen);border-radius:6px;padding:20px">
+                  <h6 style="font-family:var(--font-mono);font-size:0.75rem;text-transform:uppercase;color:var(--sage);margin-bottom:14px">Status</h6>
+                  <div class="sf-summary-row"><span>Payment</span><span th:text="${order.paymentStatus}">PENDING</span></div>
+                  <div class="sf-summary-row"><span>Shipping</span><span th:text="${order.shippingStatus}">PENDING</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+</html>

@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<!-- storefront/fragments/sf-product-card.html — reusable product card -->
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+<div th:fragment="card(p)" class="sf-card">
+  <a th:href="@{'/product/' + ${p.slug}}">
+    <div class="sf-card-img-wrap">
+      <img th:if="${p.primaryImageUrl}" th:src="${p.primaryImageUrl}" th:alt="${p.productTitle}" loading="lazy">
+      <img th:unless="${p.primaryImageUrl}" src="https://placehold.co/500x650/E8E1D3/8A8275?text=ASG" th:alt="${p.productTitle}" loading="lazy">
+      <span th:if="${p.discountPercent != null and p.discountPercent > 0}" class="sf-card-badge sf-card-badge--sale" th:text="'-' + ${p.discountPercent} + '%'">-20%</span>
+      <span th:if="${p.discountPercent == null and p.newArrival}" class="sf-card-badge">New</span>
+    </div>
+  </a>
+  <button class="sf-card-quickadd" th:attr="data-product-id=${p.id}" data-sf-add-to-cart title="Quick add to cart">
+    <i class="fa-solid fa-bag-shopping" style="font-size:0.85rem"></i>
+  </button>
+  <div class="sf-card-body">
+    <div class="sf-card-cat" th:text="${p.categoryName}">Category</div>
+    <a th:href="@{'/product/' + ${p.slug}}"><div class="sf-card-title" th:text="${p.productTitle}">Product Title</div></a>
+    <div class="sf-card-price">
+      <span class="now" th:text="'৳' + ${#numbers.formatDecimal(p.sellingPrice, 0, 'COMMA', 0, 'POINT')}">৳1,200</span>
+      <span th:if="${p.comparePrice != null and p.comparePrice > p.sellingPrice}" class="compare" th:text="'৳' + ${#numbers.formatDecimal(p.comparePrice, 0, 'COMMA', 0, 'POINT')}">৳1,500</span>
+    </div>
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<!--
+  ecommerce/storefront/layout/sf-base.html
+  Storefront layout shell — NOT Color Admin. Fresh theme for ASG Group's
+  direct-to-consumer storefront.
+
+  DESIGN TOKENS
+  Color:  --ink #1B1F1C (near-black, green cast) · --cotton #F7F3EC (warm bg)
+          --rust #C44536 (price/CTA accent, used sparingly) · --sage #5C7A6E
+          (secondary accent) · --linen #E8E1D3 (card/divider bg) · --grey #8A8275
+  Type:   Display = Fraunces (headings) · Body = Inter (UI/price/buttons)
+          Utility = JetBrains Mono (SKU/price-in-table/stock counts)
+  Signature: woven "selvage" divider between sections + pinking-shears
+             clipped top edge on product cards — both literal references
+             to garment cutting/finishing, the subject's own vernacular.
+-->
+<html xmlns:th="http://www.thymeleaf.org" xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout">
+<head>
+<th:block th:fragment="head(title)">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title th:text="${title} ? ${title} + ' — ASG Group' : 'ASG Group'">ASG Group</title>
+  <meta name="_csrf" th:content="${_csrf?.token}">
+  <meta name="_csrf_header" th:content="${_csrf?.headerName}">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300..900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="stylesheet" th:href="@{/ecommerce/storefront/css/storefront.css}">
+</th:block>
+</head>
+<body>
+
+<th:block th:fragment="layout(title, content)">
+<!--<head th:replace="~{::head(${title})}"></head>-->
+<body class="sf-body">
+
+  <!-- ════════════════════ ANNOUNCEMENT BAR ════════════════════ -->
+  <div class="sf-announce">
+    <span>Free shipping on orders over ৳2,000 · Made in Bangladesh, worn everywhere</span>
+  </div>
+
+  <!-- ════════════════════ HEADER ════════════════════ -->
+  <header class="sf-header">
+    <div class="container">
+      <div class="sf-header-row">
+        <a href="/" class="sf-logo">ASG<span>.</span></a>
+
+        <form action="/shop" method="get" class="sf-search d-none d-md-flex">
+          <input type="search" name="q" placeholder="Search fabric, fit, or item code…" autocomplete="off">
+          <button type="submit"><i class="fa fa-search"></i></button>
+        </form>
+
+        <nav class="sf-header-actions">
+          <a href="/account/dashboard" class="sf-icon-btn" title="Account" sec:authorize="false">
+            <i class="fa-regular fa-user"></i>
+          </a>
+          <a href="/account/dashboard" class="sf-icon-btn" title="My Account">
+            <i class="fa-regular fa-user"></i>
+          </a>
+          <a href="/cart" class="sf-icon-btn sf-cart-btn" title="Cart">
+            <i class="fa-solid fa-bag-shopping"></i>
+            <span class="sf-cart-count" id="sfCartCount">0</span>
+          </a>
+        </nav>
+      </div>
+
+      <nav class="sf-nav d-none d-lg-flex">
+        <a href="/shop">All Products</a>
+        <a href="/category/mens-wear">Men's</a>
+        <a href="/category/womens-wear">Women's</a>
+        <a href="/category/fabric-by-yard">Fabric by the Yard</a>
+        <a href="/shop?sort=newest">New Arrivals</a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- ════════════════════ MAIN ════════════════════ -->
+<!--  <main th:replace="${content}"></main>-->
+
+  <!-- ════════════════════ SELVAGE DIVIDER ════════════════════ -->
+  <div class="sf-selvage" aria-hidden="true">
+    <span th:each="i : ${#numbers.sequence(1, 60)}"></span>
+  </div>
+
+  <!-- ════════════════════ FOOTER ════════════════════ -->
+  <footer class="sf-footer">
+    <div class="container">
+      <div class="row g-4">
+        <div class="col-md-4">
+          <div class="sf-logo sf-logo--footer">ASG<span>.</span></div>
+          <p class="sf-footer-tag">Woven in Narayanganj. Cut, sewn, and finished by hand since day one.</p>
+        </div>
+        <div class="col-md-2 col-6">
+          <h6>Shop</h6>
+          <a href="/shop">All Products</a>
+          <a href="/shop?sort=best_seller">Best Sellers</a>
+          <a href="/shop?sort=newest">New Arrivals</a>
+        </div>
+        <div class="col-md-2 col-6">
+          <h6>Account</h6>
+          <a href="/account/dashboard">My Account</a>
+          <a href="/account/orders">Order History</a>
+          <a href="/cart">Cart</a>
+        </div>
+        <div class="col-md-4">
+          <h6>Stay in the loop</h6>
+          <form class="sf-newsletter">
+            <input type="email" placeholder="you@example.com">
+            <button type="submit"><i class="fa fa-arrow-right"></i></button>
+          </form>
+        </div>
+      </div>
+      <div class="sf-footer-bottom">
+        <span>&copy; <span th:text="${#calendars.format(#calendars.createNow(),'yyyy')}">2026</span> ASG Group. All rights reserved.</span>
+        <span class="sf-footer-bottom-meta">৳ BDT · Dhaka, Bangladesh</span>
+      </div>
+    </div>
+  </footer>
+
+  <!-- ════════════════════ TOAST ════════════════════ -->
+  <div id="sfToast" class="sf-toast"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script th:src="@{ecommerce/storefront/js/storefront.js}"></script>
+</body>
+</th:block>
+</body>
+</html>

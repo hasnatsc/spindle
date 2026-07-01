@@ -16,4 +16,5 @@ public interface EcCustomerRepository extends JpaRepository<EcCustomer, Long> {
     List<EcCustomer> findByOrganizationIdAndDeletedFalse(Long orgId);
     List<EcCustomer> findByOrganizationIdAndActiveTrueAndDeletedFalse(Long orgId);
     Optional<EcCustomer> findByOrganizationIdAndPhone(Long orgId, String phone);
+    Optional<EcCustomer> findByOrganizationIdAndEmail(Long orgId, String email);
 }

@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<!-- storefront/sf-shop.html  GET /shop, /category/{slug} -->
+<html th:replace="~{ecommerce/storefront/layout/sf-base :: layout('Shop', ~{::main})}" xmlns:th="http://www.thymeleaf.org">
+<main>
+  <section class="sf-section">
+    <div class="container">
+
+      <h1 class="mb-1" th:text="${currentCategory != null ? currentCategory.categoryName : (query != null and !query.isEmpty() ? 'Results for &quot;' + query + '&quot;' : 'All Products')}">All Products</h1>
+      <p th:if="${currentCategory != null and currentCategory.shortDescription != null}" class="text-muted mb-4" style="color:var(--grey)" th:text="${currentCategory.shortDescription}"></p>
+
+      <div class="sf-chip-row mb-4">
+        <a href="/shop" class="sf-chip" th:classappend="${selectedCategory == null} ? 'active'">All</a>
+        <a th:each="cat : ${categories}" th:href="@{'/category/' + ${cat.slug}}"
+           class="sf-chip" th:classappend="${currentCategory != null and currentCategory.slug == cat.slug} ? 'active'"
+           th:text="${cat.categoryName}">Category</a>
+      </div>
+
+      <div class="sf-shop-toolbar">
+        <span class="sf-results-count" th:text="${result.total} + ' item' + (${result.total} == 1 ? '' : 's')">24 items</span>
+        <form action="/shop" method="get" class="d-flex gap-2">
+          <input type="hidden" name="category" th:if="${selectedCategory}" th:value="${selectedCategory}">
+          <input type="hidden" name="q" th:if="${query}" th:value="${query}">
+          <select name="sort" onchange="this.form.submit()">
+            <option value="featured" th:selected="${sort == null or sort == 'featured'}">Featured</option>
+            <option value="newest" th:selected="${sort == 'newest'}">Newest</option>
+            <option value="best_seller" th:selected="${sort == 'best_seller'}">Best Selling</option>
+            <option value="price_asc" th:selected="${sort == 'price_asc'}">Price: Low to High</option>
+            <option value="price_desc" th:selected="${sort == 'price_desc'}">Price: High to Low</option>
+          </select>
+        </form>
+      </div>
+
+      <div class="sf-product-grid">
+        <div th:each="p : ${result.items}" th:replace="~{ecommerce/storefront/fragments/sf-product-card :: card(${p})}"></div>
+      </div>
+
+      <div th:if="${result.items.isEmpty()}" class="sf-empty-state">
+        <i class="fa-solid fa-shirt"></i>
+        <p>No products match your search.<br>Try a different category or search term.</p>
+        <a href="/shop" class="sf-btn sf-btn--outline mt-2">Browse all products</a>
+      </div>
+
+      <!-- Pagination -->
+      <div class="sf-pagination" th:if="${result.totalPages != null and result.totalPages > 1}">
+        <a th:each="pg : ${#numbers.sequence(1, result.totalPages)}"
+           th:href="@{/shop(category=${selectedCategory}, q=${query}, sort=${sort}, page=${pg})}"
+           th:class="${pg == result.page} ? 'active' : ''"
+           th:text="${pg}">1</a>
+      </div>
+
+    </div>
+  </section>
+</main>
+</html>

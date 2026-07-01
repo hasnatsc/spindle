@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<!-- storefront/sf-register.html  GET /account/register -->
+<html th:replace="~{ecommerce/storefront/layout/sf-base :: layout('Create Account', ~{::main})}" xmlns:th="http://www.thymeleaf.org">
+<main>
+  <div class="sf-auth-wrap">
+    <div class="sf-auth-card">
+      <h2 class="mb-1">Create your account</h2>
+      <p style="color:var(--grey);font-size:0.9rem;margin-bottom:24px">Track orders, save addresses, check out in seconds.</p>
+
+      <form id="sfRegisterForm">
+        <div class="row g-2">
+          <div class="col-6 sf-field">
+            <label>First Name</label>
+            <input type="text" id="sfFirstName" placeholder="Rahim" required autofocus>
+          </div>
+          <div class="col-6 sf-field">
+            <label>Last Name</label>
+            <input type="text" id="sfLastName" placeholder="Ahmed">
+          </div>
+        </div>
+        <div class="sf-field">
+          <label>Phone Number</label>
+          <input type="text" id="sfPhone" placeholder="01XXXXXXXXX" required>
+        </div>
+        <div class="sf-field">
+          <label>Email <span style="color:var(--grey);font-weight:400">(optional)</span></label>
+          <input type="email" id="sfEmail" placeholder="you@example.com">
+        </div>
+        <div class="sf-field">
+          <label>Password</label>
+          <input type="password" id="sfRegPassword" placeholder="At least 6 characters" required minlength="6">
+          <div class="sf-field-error" id="sfRegisterError"></div>
+        </div>
+        <button type="submit" class="sf-btn sf-btn--primary sf-btn--block" id="sfRegisterBtn">Create Account</button>
+      </form>
+
+      <div class="sf-auth-switch">
+        Already have an account? <a th:href="@{/account/login(redirect=${redirectUrl})}">Sign in</a>
+      </div>
+    </div>
+  </div>
+
+  <script th:inline="none">
+    var sfRedirectUrl = /*[[${redirectUrl}]]*/ '/account/dashboard';
+    document.getElementById('sfRegisterForm').addEventListener('submit', function (e) {
+      e.preventDefault();
+      var btn = document.getElementById('sfRegisterBtn');
+      var errEl = document.getElementById('sfRegisterError');
+      errEl.textContent = '';
+      btn.disabled = true; btn.textContent = 'Creating account…';
+      sfFetch('/account/register', {
+        method: 'POST',
+        body: JSON.stringify({
+          firstName: document.getElementById('sfFirstName').value,
+          lastName: document.getElementById('sfLastName').value,
+          phone: document.getElementById('sfPhone').value,
+          email: document.getElementById('sfEmail').value,
+          password: document.getElementById('sfRegPassword').value
+        })
+      }).then(function (d) {
+        if (d.success) { window.location.href = sfRedirectUrl; }
+        else { errEl.textContent = d.message; btn.disabled = false; btn.textContent = 'Create Account'; }
+      }).catch(function () { errEl.textContent = 'Something went wrong. Please try again.'; btn.disabled = false; btn.textContent = 'Create Account'; });
+    });
+  </script>
+</main>
+</html>

@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<!-- storefront/sf-product-detail.html  GET /product/{slug} -->
+<html th:replace="~{ecommerce/storefront/layout/sf-base :: layout(${product.productTitle}, ~{::main})}" xmlns:th="http://www.thymeleaf.org">
+<main>
+  <section class="sf-pd">
+    <div class="container">
+
+      <div class="d-flex gap-1 mb-4" style="font-family:var(--font-mono);font-size:0.78rem;color:var(--grey)">
+        <a href="/" style="color:var(--grey)">Home</a> /
+        <a th:if="${product.categorySlug}" th:href="@{'/category/' + ${product.categorySlug}}" style="color:var(--grey)" th:text="${product.categoryName}">Category</a> /
+        <span style="color:var(--ink)" th:text="${product.productTitle}">Product</span>
+      </div>
+
+      <div class="row g-5">
+        <!-- Gallery -->
+        <div class="col-lg-6">
+          <div class="sf-pd-gallery-main">
+            <img id="sfMainImg"
+                 th:src="${product.imageUrls != null and !product.imageUrls.isEmpty() ? product.imageUrls[0] : 'https://placehold.co/700x800/E8E1D3/8A8275?text=ASG'}"
+                 th:alt="${product.productTitle}">
+          </div>
+          <div class="sf-pd-thumbs" th:if="${product.imageUrls != null and product.imageUrls.size() > 1}">
+            <img th:each="img, iter : ${product.imageUrls}" th:src="${img}" th:alt="${product.productTitle}"
+                 th:classappend="${iter.index == 0} ? 'active'" onclick="sfSwapImg(this)">
+          </div>
+        </div>
+
+        <!-- Info -->
+        <div class="col-lg-6">
+          <div class="sf-pd-cat" th:text="${product.categoryName}">Category</div>
+          <h1 class="sf-pd-title" th:text="${product.productTitle}">Product Title</h1>
+
+          <div class="sf-pd-price">
+            ৳<span th:text="${#numbers.formatDecimal(product.sellingPrice, 0, 'COMMA', 0, 'POINT')}">1,200</span>
+            <span th:if="${product.discountPercent != null and product.discountPercent > 0}" class="compare"
+                  th:text="'৳' + ${#numbers.formatDecimal(product.comparePrice, 0, 'COMMA', 0, 'POINT')}">৳1,500</span>
+          </div>
+          <div class="sf-pd-meta">
+            SKU: <span th:text="${product.sku ?: product.itemCode}">ASG-0001</span>
+            <span th:if="${product.brandName}"> · <span th:text="${product.brandName}">Brand</span></span>
+          </div>
+
+          <div class="sf-pd-stock">
+            <span class="dot"></span> In stock — ready to ship
+          </div>
+
+          <!-- Variants -->
+          <div th:if="${product.variants != null and !product.variants.isEmpty()}">
+            <label style="font-size:0.85rem;font-weight:600;display:block;margin-bottom:8px">Select Variant</label>
+            <div class="sf-variant-row" id="sfVariantRow">
+              <span th:each="v, iter : ${product.variants}" class="sf-variant-chip"
+                    th:classappend="${iter.index == 0} ? 'active'"
+                    th:attr="data-variant-id=${v.id}"
+                    th:text="${v.variantName}" onclick="sfSelectVariant(this)">Variant</span>
+            </div>
+          </div>
+
+          <p class="sf-pd-desc" th:if="${product.shortDescription}" th:text="${product.shortDescription}">Short description.</p>
+
+          <!-- Qty + Add to cart -->
+          <div class="d-flex align-items-end gap-3 flex-wrap">
+            <div class="sf-qty-stepper" id="sfQtyStepper">
+              <button type="button" class="sf-qty-minus">−</button>
+              <input type="number" id="sfQtyInput" value="1" min="1">
+              <button type="button" class="sf-qty-plus">+</button>
+            </div>
+            <button class="sf-btn sf-btn--accent" id="sfAddToCartBtn" style="flex:1;min-width:200px" onclick="sfAddProductToCart()">
+              <i class="fa-solid fa-bag-shopping"></i> Add to Cart
+            </button>
+          </div>
+          <div class="sf-pd-actions">
+            <a href="/cart" class="sf-btn sf-btn--outline sf-btn--block">View Cart &amp; Checkout</a>
+          </div>
+
+          <!-- Accordion -->
+          <div class="mt-4">
+            <div class="sf-accordion-item open">
+              <div class="sf-accordion-head">Description <i class="fa fa-chevron-down"></i></div>
+              <div class="sf-accordion-body" th:utext="${product.description}">Full description here.</div>
+            </div>
+            <div class="sf-accordion-item" th:if="${product.attributes != null and !product.attributes.isEmpty()}">
+              <div class="sf-accordion-head">Specifications <i class="fa fa-chevron-down"></i></div>
+              <div class="sf-accordion-body">
+                <table style="width:100%">
+                  <tr th:each="a : ${product.attributes}">
+                    <td style="padding:4px 0;color:var(--ink);font-weight:500;width:40%" th:text="${a.attributeLabel}">Material</td>
+                    <td style="padding:4px 0" th:text="${a.value}">100% Cotton</td>
+                  </tr>
+                </table>
+              </div>
+            </div>
+            <div class="sf-accordion-item">
+              <div class="sf-accordion-head">Shipping &amp; Returns <i class="fa fa-chevron-down"></i></div>
+              <div class="sf-accordion-body">Free shipping on orders over ৳2,000. Standard delivery 3–5 business days across Bangladesh. Returns accepted within 7 days of delivery for unused items in original packaging.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="sf-selvage" aria-hidden="true"><span th:each="i : ${#numbers.sequence(1, 60)}"></span></div>
+
+  <!-- Related -->
+  <section class="sf-section" th:if="${product.relatedProducts != null and !product.relatedProducts.isEmpty()}">
+    <div class="container">
+      <div class="sf-section-head"><h2>You Might Also Like</h2></div>
+      <div class="sf-product-grid">
+        <div th:each="p : ${product.relatedProducts}" th:replace="~{ecommerce/storefront/fragments/sf-product-card :: card(${p})}"></div>
+      </div>
+    </div>
+  </section>
+
+  <script th:inline="none">
+    var sfProductId = /*[[${product.id}]]*/ 0;
+    var sfSelectedVariantId = document.querySelector('#sfVariantRow .sf-variant-chip.active')
+        ? document.querySelector('#sfVariantRow .sf-variant-chip.active').dataset.variantId : null;
+
+    function sfSwapImg(thumb) {
+      document.getElementById('sfMainImg').src = thumb.src;
+      document.querySelectorAll('.sf-pd-thumbs img').forEach(function (i) { i.classList.remove('active'); });
+      thumb.classList.add('active');
+    }
+    function sfSelectVariant(chip) {
+      document.querySelectorAll('.sf-variant-chip').forEach(function (c) { c.classList.remove('active'); });
+      chip.classList.add('active');
+      sfSelectedVariantId = chip.dataset.variantId;
+    }
+    function sfAddProductToCart() {
+      var qty = parseInt(document.getElementById('sfQtyInput').value || '1');
+      sfAddToCart(sfProductId, sfSelectedVariantId, qty, document.getElementById('sfAddToCartBtn'));
+    }
+    document.addEventListener('DOMContentLoaded', function () {
+      sfQtyStepper(document.getElementById('sfQtyStepper'));
+    });
+  </script>
+</main>
+</html>
