@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<!--
+  ecommerce/ec-dashboard.html   GET /ecommerce/dashboard
+  Summary JSON: GET /ecommerce/dashboard/summary
+  Charts: Chart.js  |  Currency: ৳ Taka (Cr/L/K abbreviations)
+  Pattern: matches crm-module-dashboard.html exactly
+           — widget widget-stats, panel panel-inverse, IIFE JS, secureFetch
+-->
+<html th:replace="~{layout/base :: layout('eCommerce Dashboard', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
+<section>
+
+  <!-- ── HEADER + NAV ─────────────────────────────────────────────────── -->
+  <div class="d-flex align-items-start mb-3 flex-wrap gap-2">
+    <div>
+      <ol class="breadcrumb mb-1">
+        <li class="breadcrumb-item"><a th:href="@{/dashboard}">Home</a></li>
+        <li class="breadcrumb-item">eCommerce</li>
+        <li class="breadcrumb-item active">Dashboard</li>
+      </ol>
+      <h1 class="page-header mb-0"><i class="fa fa-store me-2 text-theme"></i>eCommerce Dashboard</h1>
+    </div>
+    <div class="ms-auto d-flex gap-1 flex-wrap">
+      <a th:href="@{/ecommerce/products}"  class="btn btn-sm btn-outline-theme"><i class="fa fa-shirt me-1"></i>Products</a>
+      <a th:href="@{/ecommerce/orders}"    class="btn btn-sm btn-outline-theme"><i class="fa fa-receipt me-1"></i>Orders</a>
+      <a th:href="@{/ecommerce/customers}" class="btn btn-sm btn-outline-theme"><i class="fa fa-users me-1"></i>Customers</a>
+      <a th:href="@{/ecommerce/returns}"   class="btn btn-sm btn-outline-theme"><i class="fa fa-rotate-left me-1"></i>Returns</a>
+      <a th:href="@{/ecommerce/reviews}"   class="btn btn-sm btn-outline-theme"><i class="fa fa-star me-1"></i>Reviews</a>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════════════
+       ROW 1  —  Monetary KPI cards
+  ════════════════════════════════════════════════════════════════════ -->
+  <div class="row mb-3">
+    <div class="col-xl-3 col-md-6 mb-3">
+      <div class="widget widget-stats bg-green">
+        <div class="stats-icon"><i class="fa fa-taka-sign"></i></div>
+        <div class="stats-info"><h4>REVENUE TODAY</h4><p id="kpi_revenueToday">—</p></div>
+        <div class="stats-link"><a th:href="@{/ecommerce/orders}">View Orders <i class="fa fa-arrow-alt-circle-right"></i></a></div>
+      </div>
+    </div>
+    <div class="col-xl-3 col-md-6 mb-3">
+      <div class="widget widget-stats bg-blue">
+        <div class="stats-icon"><i class="fa fa-chart-line"></i></div>
+        <div class="stats-info"><h4>REVENUE MTD</h4><p id="kpi_revenueMtd">—</p></div>
+        <div class="stats-link"><a th:href="@{/ecommerce/orders}">Month-to-Date <i class="fa fa-arrow-alt-circle-right"></i></a></div>
+      </div>
+    </div>
+    <div class="col-xl-3 col-md-6 mb-3">
+      <div class="widget widget-stats bg-orange">
+        <div class="stats-icon"><i class="fa fa-receipt"></i></div>
+        <div class="stats-info"><h4>ORDERS TODAY</h4><p id="kpi_ordersToday">—</p></div>
+        <div class="stats-link"><a th:href="@{/ecommerce/orders}">View All <i class="fa fa-arrow-alt-circle-right"></i></a></div>
+      </div>
+    </div>
+    <div class="col-xl-3 col-md-6 mb-3">
+      <div class="widget widget-stats bg-teal">
+        <div class="stats-icon"><i class="fa fa-shopping-basket"></i></div>
+        <div class="stats-info"><h4>AVG ORDER VALUE</h4><p id="kpi_avgOrderValue">—</p></div>
+        <div class="stats-link"><a th:href="@{/ecommerce/orders}">MTD Average <i class="fa fa-arrow-alt-circle-right"></i></a></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════════════
+       ROW 2  —  Order status + Customer + Product counts
+  ════════════════════════════════════════════════════════════════════ -->
+  <div class="row mb-3">
+    <div class="col-xl-2 col-md-4 col-6 mb-3">
+      <div class="widget widget-stats bg-yellow">
+        <div class="stats-icon"><i class="fa fa-clock"></i></div>
+        <div class="stats-info"><h4>PENDING</h4><p id="kpi_ordersPending">—</p></div>
+        <div class="stats-link"><a th:href="@{/ecommerce/orders}">View <i class="fa fa-arrow-alt-circle-right"></i></a></div>
+      </div>
+    </div>
+    <div class="col-xl-2 col-md-4 col-6 mb-3">
+      <div class="widget widget-stats bg-purple">
+        <div class="stats-icon"><i class="fa fa-cogs"></i></div>
+        <div class="stats-info"><h4>PROCESSING</h4><p id="kpi_ordersProcessing">—</p></div>
+        <div class="stats-link"><a th:href="@{/ecommerce/orders}">View <i class="fa fa-arrow-alt-circle-right"></i></a></div>
+      </div>
+    </div>
+    <div class="col-xl-2 col-md-4 col-6 mb-3">
+      <div class="widget widget-stats bg-green" style="opacity:.85">
+        <div class="stats-icon"><i class="fa fa-check-circle"></i></div>
+        <div class="stats-info"><h4>COMPLETED</h4><p id="kpi_ordersCompleted">—</p></div>
+        <div class="stats-link"><a th:href="@{/ecommerce/orders}">View <i class="fa fa-arrow-alt-circle-right"></i></a></div>
+      </div>
+    </div>
+    <div class="col-xl-2 col-md-4 col-6 mb-3">
+      <div class="widget widget-stats bg-dark">
+        <div class="stats-icon"><i class="fa fa-users"></i></div>
+        <div class="stats-info"><h4>ACTIVE CUSTOMERS</h4><p id="kpi_activeCustomers">—</p></div>
+        <div class="stats-link"><a th:href="@{/ecommerce/customers}">View <i class="fa fa-arrow-alt-circle-right"></i></a></div>
+      </div>
+    </div>
+    <div class="col-xl-2 col-md-4 col-6 mb-3">
+      <div class="widget widget-stats bg-indigo">
+        <div class="stats-icon"><i class="fa fa-user-plus"></i></div>
+        <div class="stats-info"><h4>NEW CUST. MTD</h4><p id="kpi_newCustomersMtd">—</p></div>
+        <div class="stats-link"><a th:href="@{/ecommerce/customers}">View <i class="fa fa-arrow-alt-circle-right"></i></a></div>
+      </div>
+    </div>
+    <div class="col-xl-2 col-md-4 col-6 mb-3">
+      <div class="widget widget-stats bg-blue" style="opacity:.85">
+        <div class="stats-icon"><i class="fa fa-store"></i></div>
+        <div class="stats-info"><h4>LIVE PRODUCTS</h4><p id="kpi_publishedProducts">—</p></div>
+        <div class="stats-link"><a th:href="@{/ecommerce/products}">View <i class="fa fa-arrow-alt-circle-right"></i></a></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════════════
+       ROW 3  —  Exception / Action-required alerts (hidden if none)
+  ════════════════════════════════════════════════════════════════════ -->
+  <div id="exceptionRow" class="row mb-3" style="display:none"></div>
+
+  <!-- ════════════════════════════════════════════════════════════════════
+       ROW 4  —  12-month Revenue Trend (line, dual-axis) + Order Status Doughnut
+  ════════════════════════════════════════════════════════════════════ -->
+  <div class="row mb-3">
+    <div class="col-xl-8 mb-3">
+      <div class="panel panel-inverse">
+        <div class="panel-heading">
+          <h4 class="panel-title"><i class="fa fa-chart-line me-2"></i>Revenue Trend — Last 12 Months</h4>
+          <div class="panel-heading-btn">
+            <a href="javascript:;" class="btn btn-xs btn-icon btn-default" data-toggle="panel-collapse"><i class="fa fa-minus"></i></a>
+          </div>
+        </div>
+        <div class="panel-body">
+          <div style="position:relative;height:260px"><canvas id="chartRevenue"></canvas></div>
+        </div>
+      </div>
+    </div>
+    <div class="col-xl-4 mb-3">
+      <div class="panel panel-inverse">
+        <div class="panel-heading">
+          <h4 class="panel-title"><i class="fa fa-chart-pie me-2"></i>Order Status Mix</h4>
+          <div class="panel-heading-btn">
+            <a href="javascript:;" class="btn btn-xs btn-icon btn-default" data-toggle="panel-collapse"><i class="fa fa-minus"></i></a>
+          </div>
+        </div>
+        <div class="panel-body">
+          <div style="position:relative;height:260px"><canvas id="chartOrderStatus"></canvas></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════════════
+       ROW 5  —  Top Products Bar + Category Doughnut
+  ════════════════════════════════════════════════════════════════════ -->
+  <div class="row mb-3">
+    <div class="col-xl-8 mb-3">
+      <div class="panel panel-inverse">
+        <div class="panel-heading">
+          <h4 class="panel-title"><i class="fa fa-trophy me-2"></i>Top Products by Revenue (MTD)</h4>
+          <div class="panel-heading-btn">
+            <a href="javascript:;" class="btn btn-xs btn-icon btn-default" data-toggle="panel-collapse"><i class="fa fa-minus"></i></a>
+          </div>
+        </div>
+        <div class="panel-body">
+          <div style="position:relative;height:280px"><canvas id="chartTopProducts"></canvas></div>
+        </div>
+      </div>
+    </div>
+    <div class="col-xl-4 mb-3">
+      <div class="panel panel-inverse">
+        <div class="panel-heading">
+          <h4 class="panel-title"><i class="fa fa-tags me-2"></i>Revenue by Category (MTD)</h4>
+          <div class="panel-heading-btn">
+            <a href="javascript:;" class="btn btn-xs btn-icon btn-default" data-toggle="panel-collapse"><i class="fa fa-minus"></i></a>
+          </div>
+        </div>
+        <div class="panel-body">
+          <div style="position:relative;height:280px"><canvas id="chartCategory"></canvas></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════════════
+       ROW 6  —  Payment Methods Doughnut + Top Customers Table
+  ════════════════════════════════════════════════════════════════════ -->
+  <div class="row mb-3">
+    <div class="col-xl-4 mb-3">
+      <div class="panel panel-inverse">
+        <div class="panel-heading">
+          <h4 class="panel-title"><i class="fa fa-credit-card me-2"></i>Payment Methods (MTD)</h4>
+          <div class="panel-heading-btn">
+            <a href="javascript:;" class="btn btn-xs btn-icon btn-default" data-toggle="panel-collapse"><i class="fa fa-minus"></i></a>
+          </div>
+        </div>
+        <div class="panel-body">
+          <div style="position:relative;height:240px"><canvas id="chartPayment"></canvas></div>
+        </div>
+      </div>
+    </div>
+    <div class="col-xl-8 mb-3">
+      <div class="panel panel-inverse">
+        <div class="panel-heading">
+          <h4 class="panel-title"><i class="fa fa-crown me-2"></i>Top Customers — Lifetime Value</h4>
+          <div class="panel-heading-btn">
+            <a href="javascript:;" class="btn btn-xs btn-icon btn-default" data-toggle="panel-collapse"><i class="fa fa-minus"></i></a>
+          </div>
+        </div>
+        <div class="panel-body p-0">
+          <div class="table-responsive">
+            <table class="table table-sm table-striped align-middle mb-0">
+              <thead class="table-dark"><tr>
+                <th width="3%">#</th><th>Customer</th><th>Phone</th>
+                <th class="text-center">Orders</th><th class="text-end">Lifetime Spent</th>
+              </tr></thead>
+              <tbody id="topCustomersTbody">
+                <tr><td colspan="5" class="text-center text-muted py-3">
+                  <span class="spinner-border spinner-border-sm me-2"></span>Loading…
+                </td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════════════
+       ROW 7  —  Recent Orders Table
+  ════════════════════════════════════════════════════════════════════ -->
+  <div class="panel panel-inverse mb-3">
+    <div class="panel-heading">
+      <h4 class="panel-title"><i class="fa fa-list-alt me-2"></i>Recent Orders</h4>
+      <div class="panel-heading-btn">
+        <a href="javascript:;" class="btn btn-xs btn-icon btn-default" data-toggle="panel-collapse"><i class="fa fa-minus"></i></a>
+        <a th:href="@{/ecommerce/orders}" class="btn btn-xs btn-outline-theme ms-2">View All <i class="fa fa-arrow-right ms-1"></i></a>
+      </div>
+    </div>
+    <div class="panel-body p-0">
+      <div class="table-responsive">
+        <table class="table table-sm table-striped table-bordered align-middle mb-0">
+          <thead class="table-dark"><tr>
+            <th>Order No</th><th>Customer</th><th>Phone</th>
+            <th class="text-end">Amount</th>
+            <th class="text-center">Order</th>
+            <th class="text-center">Payment</th>
+            <th class="text-center">Shipping</th>
+            <th>Date</th>
+          </tr></thead>
+          <tbody id="recentOrdersTbody">
+            <tr><td colspan="8" class="text-center text-muted py-3">
+              <span class="spinner-border spinner-border-sm me-2"></span>Loading…
+            </td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════════════
+       JAVASCRIPT  —  IIFE, matches CRM dashboard pattern exactly
+  ════════════════════════════════════════════════════════════════════ -->
+  <script th:inline="none">
+  (function () {
+    'use strict';
+
+    // ── Constants ────────────────────────────────────────────────────────
+    var SUMMARY_URL = '/ecommerce/dashboard/summary';
+    var PALETTE = [
+      '#2196F3','#4CAF50','#FF9800','#9C27B0','#F44336',
+      '#00BCD4','#795548','#E91E63','#3F51B5','#009688'
+    ];
+    var STATUS_COLORS = {
+      PENDING:    '#ffc107', CONFIRMED:  '#2196F3', PROCESSING: '#9C27B0',
+      SHIPPED:    '#00BCD4', DELIVERED:  '#4CAF50', COMPLETED:  '#388E3C',
+      CANCELLED:  '#F44336', RETURNED:   '#795548', REFUNDED:   '#E91E63'
+    };
+    var EXCEPTION_CFG = [
+      { key: 'stalePendingOrders',  label: 'Stale Pending Orders (>24h)', color: 'bg-warning',  icon: 'fa fa-clock',           href: '/ecommerce/orders' },
+      { key: 'unpaidOrders',        label: 'Unpaid Orders',               color: 'bg-danger',   icon: 'fa fa-money-bill-wave', href: '/ecommerce/orders' },
+      { key: 'unshippedConfirmed',  label: 'Unshipped (Confirmed)',        color: 'bg-orange',   icon: 'fa fa-truck',           href: '/ecommerce/orders' },
+      { key: 'pendingReturns',      label: 'Pending Return Requests',     color: 'bg-red',      icon: 'fa fa-rotate-left',     href: '/ecommerce/returns' },
+      { key: 'pendingReviews',      label: 'Reviews to Moderate',         color: 'bg-purple',   icon: 'fa fa-star-half-alt',   href: '/ecommerce/reviews' },
+      { key: 'abandonedCarts',      label: 'Abandoned Carts (>2h)',        color: 'bg-grey',     icon: 'fa fa-shopping-cart',   href: '/ecommerce/carts' },
+      { key: 'expiringSoonCoupons', label: 'Coupons Expiring in 3 Days',  color: 'bg-yellow',   icon: 'fa fa-tag',             href: '/ecommerce/coupons' }
+    ];
+
+    // ── Chart refs ───────────────────────────────────────────────────────
+    var cRevenue = null, cStatus = null, cTopProd = null,
+        cCategory = null, cPayment = null;
+
+    function _destroy(c) { if (c) { try { c.destroy(); } catch (_) {} } }
+
+    // ── Currency formatters (Cr / L / K — matches project convention) ────
+    function _fmt(n) {
+      n = parseFloat(n) || 0;
+      if (n >= 10000000) return '৳' + (n / 10000000).toFixed(2) + ' Cr';
+      if (n >= 100000)   return '৳' + (n / 100000).toFixed(2)   + ' L';
+      if (n >= 1000)     return '৳' + (n / 1000).toFixed(1)     + 'K';
+      return '৳' + n.toLocaleString('en-BD', {minimumFractionDigits: 0});
+    }
+    function _fmtFull(n) {
+      n = parseFloat(n) || 0;
+      return '৳' + n.toLocaleString('en-BD', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    }
+    function _num(n) { return parseInt(n) || 0; }
+    function _esc(s) {
+      return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    // ── KPI card helper ───────────────────────────────────────────────────
+    function _kpi(id, val) { var e = document.getElementById(id); if (e) e.textContent = val; }
+
+    // ── Status badge helpers ──────────────────────────────────────────────
+    function _statusBadge(s) {
+      var map = {
+        PENDING:    'badge bg-warning text-dark', CONFIRMED:  'badge bg-primary',
+        PROCESSING: 'badge bg-purple',            SHIPPED:    'badge bg-info',
+        DELIVERED:  'badge bg-success',           COMPLETED:  'badge bg-success',
+        CANCELLED:  'badge bg-danger',            RETURNED:   'badge bg-secondary',
+        REFUNDED:   'badge bg-pink'
+      };
+      return '<span class="' + (map[s] || 'badge bg-secondary') + '">' + _esc(s || '—') + '</span>';
+    }
+    function _payBadge(s) {
+      if (!s) return '<span class="badge bg-secondary">—</span>';
+      var cls = (s === 'SUCCESS' || s === 'PAID') ? 'badge bg-success'
+              : (s === 'PENDING' ? 'badge bg-warning text-dark' : 'badge bg-danger');
+      return '<span class="' + cls + '">' + _esc(s) + '</span>';
+    }
+    function _shipBadge(s) {
+      if (!s) return '<span class="badge bg-secondary">—</span>';
+      var cls = s === 'DELIVERED' ? 'badge bg-success'
+              : s === 'SHIPPED'   ? 'badge bg-info'
+              : s === 'PENDING'   ? 'badge bg-warning text-dark' : 'badge bg-secondary';
+      return '<span class="' + cls + '">' + _esc(s) + '</span>';
+    }
+
+    // ── Exception alert row ───────────────────────────────────────────────
+    function _renderExceptions(ex) {
+      var row = document.getElementById('exceptionRow');
+      var alerts = EXCEPTION_CFG.filter(function (cfg) { return _num(ex[cfg.key]) > 0; });
+      if (!alerts.length) { row.style.display = 'none'; return; }
+      row.style.removeProperty('display');
+      row.innerHTML = alerts.map(function (cfg) {
+        return '<div class="col-xl-3 col-md-6 mb-3">' +
+          '<div class="widget widget-stats ' + cfg.color + '">' +
+          '<div class="stats-icon"><i class="' + cfg.icon + '"></i></div>' +
+          '<div class="stats-info"><h4>' + cfg.label.toUpperCase() + '</h4>' +
+          '<p>' + _num(ex[cfg.key]) + '</p></div>' +
+          '<div class="stats-link"><a href="' + cfg.href + '">Take Action <i class="fa fa-arrow-alt-circle-right"></i></a></div>' +
+          '</div></div>';
+      }).join('');
+    }
+
+    // ── Chart: 12-month Revenue + Orders (dual-axis line) ────────────────
+    function _renderRevenue(data) {
+      _destroy(cRevenue);
+      cRevenue = new Chart(document.getElementById('chartRevenue'), {
+        type: 'line',
+        data: {
+          labels: data.map(function (r) { return r.month; }),
+          datasets: [
+            {
+              label: 'Revenue (৳)', yAxisID: 'yRev',
+              data: data.map(function (r) { return parseFloat(r.revenue) || 0; }),
+              borderColor: '#2196F3', backgroundColor: 'rgba(33,150,243,0.10)',
+              tension: 0.35, fill: true, pointRadius: 3
+            },
+            {
+              label: 'Orders', yAxisID: 'yOrd',
+              data: data.map(function (r) { return parseInt(r.order_count) || 0; }),
+              borderColor: '#FF9800', backgroundColor: 'transparent',
+              tension: 0.35, fill: false, borderDash: [5, 3], pointRadius: 3
+            }
+          ]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          plugins: { legend: { position: 'top', labels: { font: { size: 11 } } } },
+          scales: {
+            yRev: { type: 'linear', position: 'left',  beginAtZero: true,
+              ticks: { callback: function (v) { return _fmt(v); }, font: { size: 10 } } },
+            yOrd: { type: 'linear', position: 'right', beginAtZero: true,
+              grid: { drawOnChartArea: false },
+              ticks: { precision: 0, font: { size: 10 } } }
+          }
+        }
+      });
+    }
+
+    // ── Chart: Order Status doughnut ──────────────────────────────────────
+    function _renderOrderStatus(data) {
+      _destroy(cStatus);
+      cStatus = new Chart(document.getElementById('chartOrderStatus'), {
+        type: 'doughnut',
+        data: {
+          labels: data.map(function (r) { return r.order_status; }),
+          datasets: [{
+            data: data.map(function (r) { return parseInt(r.cnt) || 0; }),
+            backgroundColor: data.map(function (r) { return STATUS_COLORS[r.order_status] || '#9E9E9E'; }),
+            borderWidth: 2
+          }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false, cutout: '52%',
+          plugins: { legend: { position: 'bottom', labels: { font: { size: 10 }, boxWidth: 12 } } }
+        }
+      });
+    }
+
+    // ── Chart: Top Products horizontal bar ───────────────────────────────
+    function _renderTopProducts(data) {
+      _destroy(cTopProd);
+      cTopProd = new Chart(document.getElementById('chartTopProducts'), {
+        type: 'bar',
+        data: {
+          labels: data.map(function (r) {
+            var t = String(r.product_title || '');
+            return t.length > 28 ? t.substring(0, 27) + '…' : t;
+          }),
+          datasets: [{
+            label: 'MTD Revenue (৳)',
+            data: data.map(function (r) { return parseFloat(r.revenue) || 0; }),
+            backgroundColor: PALETTE.slice(0, data.length), borderRadius: 4
+          }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false, indexAxis: 'y',
+          plugins: { legend: { display: false } },
+          scales: { x: { beginAtZero: true,
+            ticks: { callback: function (v) { return _fmt(v); }, font: { size: 10 } } } }
+        }
+      });
+    }
+
+    // ── Chart: Category Revenue doughnut ─────────────────────────────────
+    function _renderCategory(data) {
+      _destroy(cCategory);
+      cCategory = new Chart(document.getElementById('chartCategory'), {
+        type: 'doughnut',
+        data: {
+          labels: data.map(function (r) { return r.category_name; }),
+          datasets: [{
+            data: data.map(function (r) { return parseFloat(r.revenue) || 0; }),
+            backgroundColor: PALETTE.slice(0, data.length), borderWidth: 2
+          }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false, cutout: '48%',
+          plugins: {
+            legend: { position: 'bottom', labels: { font: { size: 10 }, boxWidth: 12 } },
+            tooltip: { callbacks: { label: function (ctx) { return ctx.label + ': ' + _fmt(ctx.raw); } } }
+          }
+        }
+      });
+    }
+
+    // ── Chart: Payment Method doughnut ────────────────────────────────────
+    function _renderPayment(data) {
+      _destroy(cPayment);
+      cPayment = new Chart(document.getElementById('chartPayment'), {
+        type: 'doughnut',
+        data: {
+          labels: data.map(function (r) { return r.payment_method; }),
+          datasets: [{
+            data: data.map(function (r) { return parseFloat(r.total_paid) || 0; }),
+            backgroundColor: PALETTE.slice(0, data.length), borderWidth: 2
+          }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false, cutout: '50%',
+          plugins: {
+            legend: { position: 'bottom', labels: { font: { size: 10 }, boxWidth: 12 } },
+            tooltip: { callbacks: { label: function (ctx) { return ctx.label + ': ' + _fmt(ctx.raw); } } }
+          }
+        }
+      });
+    }
+
+    // ── Table: Top Customers ──────────────────────────────────────────────
+    function _renderTopCustomers(data) {
+      var tbody = document.getElementById('topCustomersTbody');
+      if (!data || !data.length) {
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-3">No customer data yet.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = data.map(function (r, i) {
+        return '<tr>' +
+          '<td class="text-muted small">' + (i + 1) + '</td>' +
+          '<td><strong>' + _esc(r.customer_name) + '</strong></td>' +
+          '<td class="small text-muted">' + _esc(r.phone || '—') + '</td>' +
+          '<td class="text-center">' + _num(r.total_orders) + '</td>' +
+          '<td class="text-end font-monospace fw-bold text-success">' + _fmtFull(r.total_spent) + '</td>' +
+          '</tr>';
+      }).join('');
+    }
+
+    // ── Table: Recent Orders ──────────────────────────────────────────────
+    function _renderRecentOrders(data) {
+      var tbody = document.getElementById('recentOrdersTbody');
+      if (!data || !data.length) {
+        tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-3">No recent orders.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = data.map(function (r) {
+        return '<tr>' +
+          '<td><a href="/ecommerce/orders" class="fw-bold text-primary">' + _esc(r.order_no || '—') + '</a></td>' +
+          '<td>' + _esc(r.customer_name || 'Guest') + '</td>' +
+          '<td class="small text-muted">' + _esc(r.phone || '—') + '</td>' +
+          '<td class="text-end font-monospace fw-bold">' + _esc(r.grand_total || '—') + '</td>' +
+          '<td class="text-center">' + _statusBadge(r.order_status)  + '</td>' +
+          '<td class="text-center">' + _payBadge(r.payment_status)   + '</td>' +
+          '<td class="text-center">' + _shipBadge(r.shipping_status) + '</td>' +
+          '<td class="small text-muted">' + _esc(r.order_date || '—') + '</td>' +
+          '</tr>';
+      }).join('');
+    }
+
+    // ── Main load ─────────────────────────────────────────────────────────
+    document.addEventListener('DOMContentLoaded', function () {
+      secureFetch(SUMMARY_URL).then(function (d) {
+        var kpi = d.kpi || {};
+        var ex  = d.exceptions || {};
+
+        // Monetary KPIs
+        _kpi('kpi_revenueToday',     _fmt(kpi.revenueToday));
+        _kpi('kpi_revenueMtd',       _fmt(kpi.revenueMtd));
+        _kpi('kpi_ordersToday',      _num(kpi.ordersToday));
+        _kpi('kpi_avgOrderValue',    _fmt(kpi.avgOrderValue));
+
+        // Count KPIs
+        _kpi('kpi_ordersPending',    _num(kpi.ordersPending));
+        _kpi('kpi_ordersProcessing', _num(kpi.ordersProcessing));
+        _kpi('kpi_ordersCompleted',  _num(kpi.ordersCompleted));
+        _kpi('kpi_activeCustomers',  _num(kpi.activeCustomers));
+        _kpi('kpi_newCustomersMtd',  _num(kpi.newCustomersMtd));
+        _kpi('kpi_publishedProducts',_num(kpi.publishedProducts));
+
+        // Exception alerts (shown only when counts > 0)
+        _renderExceptions(ex);
+
+        // Charts
+        _renderRevenue(d.revenueChart  || []);
+        _renderOrderStatus(d.orderStatus || []);
+        _renderTopProducts(d.topProducts || []);
+        _renderCategory(d.categoryRevenue || []);
+        _renderPayment(d.paymentMethod || []);
+
+        // Tables
+        _renderTopCustomers(d.topCustomers || []);
+        _renderRecentOrders(d.recentOrders || []);
+
+      }).catch(function (err) {
+        console.error('eCommerce dashboard error:', err);
+        Swal.fire({
+          icon: 'error', title: 'Dashboard Error',
+          text: 'Failed to load dashboard data. Please refresh the page.',
+          timer: 4000, showConfirmButton: false
+        });
+      });
+    });
+
+  })();
+  </script>
+</section>
+</html>

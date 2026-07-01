@@ -34,7 +34,7 @@
 <body>
 
 <th:block th:fragment="layout(title, content)">
-<!--<head th:replace="~{::head(${title})}"></head>-->
+<head th:replace="~{::head(${title})}"></head>
 <body class="sf-body">
 
   <!-- ════════════════════ ANNOUNCEMENT BAR ════════════════════ -->
@@ -78,7 +78,7 @@
   </header>
 
   <!-- ════════════════════ MAIN ════════════════════ -->
-<!--  <main th:replace="${content}"></main>-->
+  <main th:replace="${content}"></main>
 
   <!-- ════════════════════ SELVAGE DIVIDER ════════════════════ -->
   <div class="sf-selvage" aria-hidden="true">
