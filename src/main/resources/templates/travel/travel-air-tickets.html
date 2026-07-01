@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<!--
+  travel/travel-air-tickets.html    GET /travel/air-tickets
+  JS prefix: at*
+-->
+<html th:replace="~{layout/base :: layout('Air Tickets', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
+<section>
+
+  <ol class="breadcrumb float-xl-end">
+    <li class="breadcrumb-item"><a th:href="@{/dashboard}">Home</a></li>
+    <li class="breadcrumb-item">Travel</li>
+    <li class="breadcrumb-item active">Air Tickets</li>
+  </ol>
+  <h1 class="page-header">Air Tickets <small>fulfillment for AIR service lines</small></h1>
+
+  <div class="d-flex gap-2 mb-3 flex-wrap">
+    <a th:href="@{/travel/bookings}"       class="btn btn-sm btn-outline-primary"><i class="fa fa-ticket-alt me-1"></i> Bookings</a>
+    <a th:href="@{/travel/hotel-bookings}" class="btn btn-sm btn-outline-primary"><i class="fa fa-bed me-1"></i> Hotel Bookings</a>
+    <a th:href="@{/travel/air-tickets}"    class="btn btn-sm btn-primary"><i class="fa fa-plane-departure me-1"></i> Air Tickets</a>
+    <a th:href="@{/travel/tours}"          class="btn btn-sm btn-outline-primary"><i class="fa fa-route me-1"></i> Tours</a>
+  </div>
+
+  <div class="panel panel-inverse">
+    <div class="panel-heading">
+      <div class="panel-title">
+        <a href="javascript:;" onclick="atOpenCreate()"><span class="badge btn btn-outline-success"><i class="fa fa-plus me-1"></i> New Air Ticket</span></a>
+      </div>
+    </div>
+    <div class="panel-body">
+      <input type="text" id="atSearch" class="form-control mb-3" placeholder="Search booking no, PNR, airline…" oninput="atReload()">
+      <table class="table table-striped table-bordered align-middle">
+        <thead><tr>
+          <th width="1%">SL</th><th>Booking</th><th>PNR</th><th>Airline</th><th>Route</th>
+          <th>Departs</th><th class="text-end">Total</th><th class="text-center">Pax</th>
+          <th class="text-center">Status</th><th class="text-center" width="16%">Actions</th>
+        </tr></thead>
+        <tbody id="atBody"></tbody>
+      </table>
+    </div>
+
+    <!-- AIR TICKET MODAL -->
+    <div tabindex="-1" id="atModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="atModalTitle"><i class="fa fa-plane-departure me-1 text-success"></i> New Air Ticket</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <form id="atForm" novalidate>
+            <div class="modal-body">
+              <div class="hs-box">
+                <input type="hidden" id="atId">
+                <div class="row g-2 mb-3">
+                  <div class="col-12 view-group">
+                    <select id="atServiceLineId" class="form-select hs_span_view"></select>
+                    <label class="input-label">Booking Service Line <span class="text-danger">*</span></label>
+                  </div>
+                  <div class="col-md-4 view-group">
+                    <select id="atAirlineId" class="form-select hs_span_view"></select>
+                    <label class="input-label">Airline</label>
+                  </div>
+                  <div class="col-md-4 view-group">
+                    <input id="atPnr" type="text" class="form-control hs_span_view" maxlength="20">
+                    <label class="input-label">PNR</label>
+                  </div>
+                  <div class="col-md-4 view-group">
+                    <select id="atCabinClassId" class="form-select hs_span_view"></select>
+                    <label class="input-label">Cabin Class</label>
+                  </div>
+                  <div class="col-md-6 view-group">
+                    <select id="atOriginAirportId" class="form-select hs_span_view"></select>
+                    <label class="input-label">Origin Airport</label>
+                  </div>
+                  <div class="col-md-6 view-group">
+                    <select id="atDestinationAirportId" class="form-select hs_span_view"></select>
+                    <label class="input-label">Destination Airport</label>
+                  </div>
+                  <div class="col-md-3 view-group">
+                    <input id="atDepartureDate" type="date" class="form-control hs_span_view">
+                    <label class="input-label">Departure Date</label>
+                  </div>
+                  <div class="col-md-3 view-group">
+                    <input id="atDepartureTime" type="time" class="form-control hs_span_view">
+                    <label class="input-label">Departure Time</label>
+                  </div>
+                  <div class="col-md-3 view-group">
+                    <input id="atArrivalDate" type="date" class="form-control hs_span_view">
+                    <label class="input-label">Arrival Date</label>
+                  </div>
+                  <div class="col-md-3 view-group">
+                    <input id="atArrivalTime" type="time" class="form-control hs_span_view">
+                    <label class="input-label">Arrival Time</label>
+                  </div>
+                  <div class="col-md-3 view-group">
+                    <input id="atFareAmount" type="number" step="0.01" class="form-control hs_span_view" value="0" oninput="atRecalcTotal()">
+                    <label class="input-label">Fare</label>
+                  </div>
+                  <div class="col-md-3 view-group">
+                    <input id="atTaxAmount" type="number" step="0.01" class="form-control hs_span_view" value="0" oninput="atRecalcTotal()">
+                    <label class="input-label">Tax</label>
+                  </div>
+                  <div class="col-md-3 view-group">
+                    <input id="atTotalAmount" type="number" step="0.01" class="form-control hs_span_view bg-light" readonly>
+                    <label class="input-label">Total</label>
+                  </div>
+                  <div class="col-md-3 view-group">
+                    <input id="atSupplierReference" type="text" class="form-control hs_span_view" maxlength="100">
+                    <label class="input-label">Supplier Ref</label>
+                  </div>
+                </div>
+
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                  <strong>Passenger Tickets</strong>
+                  <button type="button" class="btn btn-sm btn-outline-primary" onclick="atAddPaxTicket()"><i class="fa fa-plus me-1"></i> Add Passenger</button>
+                </div>
+                <div class="table-responsive">
+                  <table class="table table-sm table-bordered">
+                    <thead class="table-light"><tr>
+                      <th width="30%">Passenger</th><th>Ticket No</th><th>Seat</th><th>Baggage</th><th></th>
+                    </tr></thead>
+                    <tbody id="atPaxBody"></tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-success" type="submit" id="atSubmitBtn">
+                <span class="spinner-border spinner-border-sm me-2 d-none" id="atSpinner"></span>
+                <span id="atBtnText">Save</span>
+              </button>
+              <button type="button" class="btn btn-white" data-bs-dismiss="modal">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- VIEW MODAL -->
+    <div tabindex="-1" id="atViewModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+          <div class="modal-header"><h5 class="modal-title">Air Ticket Details</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+          <div class="modal-body" id="atViewBody"></div>
+          <div class="modal-footer"><button type="button" class="btn btn-white" data-bs-dismiss="modal">Close</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script th:inline="none">
+  (function () {
+    'use strict';
+    const BASE = '/travel/air-tickets';
+    var _paxTicketCount = 0;
+
+    document.addEventListener('DOMContentLoaded', function () {
+      document.getElementById('atForm').addEventListener('submit', _onSubmit);
+      atReload();
+    });
+
+    window.atReload = function () {
+      var search = document.getElementById('atSearch').value || '';
+      secureFetch(BASE + '/list?search=' + encodeURIComponent(search)).then(function (res) {
+        var body = document.getElementById('atBody'); body.innerHTML = '';
+        (res.data || []).forEach(function (r) {
+          body.insertAdjacentHTML('beforeend',
+            '<tr><td>' + r.sl + '</td><td>' + r.booking_no + '</td><td>' + r.pnr + '</td><td>' + r.airline_name + '</td>'
+            + '<td>' + r.route + '</td><td>' + r.departure_date + '</td><td class="text-end">' + parseFloat(r.total_amount || 0).toFixed(2) + '</td>'
+            + '<td class="text-center">' + r.pax_count + '</td><td class="text-center">' + r.status_badge + '</td>'
+            + '<td class="text-center">' + r.actions + '</td></tr>');
+        });
+        if (!(res.data || []).length) body.innerHTML = '<tr><td colspan="10" class="text-center text-muted py-3">No air tickets found.</td></tr>';
+      });
+    };
+
+    function _loadServiceLines(preId) {
+      secureFetch('/travel/service-lines/search?serviceType=AIR').then(function (res) {
+        var sel = document.getElementById('atServiceLineId');
+        sel.innerHTML = '<option value="">— Select Service Line —</option>';
+        (res.items || []).forEach(function (i) { sel.insertAdjacentHTML('beforeend', '<option value="' + i.id + '">' + i.text + '</option>'); });
+        if (preId) { sel.value = preId; _loadPassengersForLine(preId); }
+      });
+      sel_change_binding();
+    }
+    function sel_change_binding() {
+      document.getElementById('atServiceLineId').onchange = function () { _loadPassengersForLine(this.value); };
+    }
+
+    var _linePassengers = [];
+    function _loadPassengersForLine(serviceLineId) {
+      if (!serviceLineId) { _linePassengers = []; return; }
+      secureFetch('/travel/service-lines/' + serviceLineId + '/passengers').then(function (res) {
+        _linePassengers = res.items || [];
+      });
+    }
+
+    function _loadAirlines(preId) {
+      secureFetch('/travel/masters/airlines/list').then(function (res) {
+        var sel = document.getElementById('atAirlineId');
+        sel.innerHTML = '<option value="">— Select Airline —</option>';
+        (res.data || []).forEach(function (a) { sel.insertAdjacentHTML('beforeend', '<option value="' + a.id + '">' + a.airline_code + ' — ' + a.airline_name + '</option>'); });
+        if (preId) sel.value = preId;
+      });
+    }
+
+    function _loadAirports(preOriginId, preDestId) {
+      secureFetch('/travel/masters/airports/list').then(function (res) {
+        ['atOriginAirportId', 'atDestinationAirportId'].forEach(function (elId) {
+          var sel = document.getElementById(elId);
+          sel.innerHTML = '<option value="">— Select Airport —</option>';
+          (res.data || []).forEach(function (a) { sel.insertAdjacentHTML('beforeend', '<option value="' + a.id + '">' + a.airport_code + ' — ' + a.airport_name + '</option>'); });
+        });
+        if (preOriginId) document.getElementById('atOriginAirportId').value = preOriginId;
+        if (preDestId) document.getElementById('atDestinationAirportId').value = preDestId;
+      });
+    }
+
+    function _loadCabinClasses(preId) {
+      secureFetch('/travel/masters/cabin-classes/list').then(function (res) {
+        var sel = document.getElementById('atCabinClassId');
+        sel.innerHTML = '<option value="">— Select Class —</option>';
+        (res.data || []).forEach(function (c) { sel.insertAdjacentHTML('beforeend', '<option value="' + c.id + '">' + c.class_name + '</option>'); });
+        if (preId) sel.value = preId;
+      });
+    }
+
+    window.atRecalcTotal = function () {
+      var fare = parseFloat(document.getElementById('atFareAmount').value) || 0;
+      var tax = parseFloat(document.getElementById('atTaxAmount').value) || 0;
+      document.getElementById('atTotalAmount').value = (fare + tax).toFixed(2);
+    };
+
+    window.atAddPaxTicket = function (data) {
+      _paxTicketCount++; var n = _paxTicketCount;
+      var options = '<option value="">— Select Passenger —</option>' + _linePassengers.map(function (p) {
+        return '<option value="' + p.id + '"' + (data && data.passengerId == p.id ? ' selected' : '') + '>' + p.text + '</option>';
+      }).join('');
+      var html = '<tr id="atPax_' + n + '">'
+        + '<td><select class="form-select form-select-sm" data-field="passengerId">' + options + '</select></td>'
+        + '<td><input type="text" class="form-control form-control-sm" data-field="ticketNumber" value="' + (data ? data.ticketNumber || '' : '') + '"></td>'
+        + '<td><input type="text" class="form-control form-control-sm" data-field="seatNumber" value="' + (data ? data.seatNumber || '' : '') + '"></td>'
+        + '<td><input type="text" class="form-control form-control-sm" data-field="baggageAllowance" value="' + (data ? data.baggageAllowance || '' : '') + '" placeholder="e.g. 30kg"></td>'
+        + '<td><button type="button" class="btn btn-sm btn-outline-danger" onclick="atRemovePaxTicket(' + n + ')"><i class="fa fa-times"></i></button></td>'
+        + '</tr>';
+      document.getElementById('atPaxBody').insertAdjacentHTML('beforeend', html);
+    };
+    window.atRemovePaxTicket = function (n) { var r = document.getElementById('atPax_' + n); if (r) r.remove(); };
+
+    window.atOpenCreate = function () {
+      _resetForm();
+      _loadServiceLines(); _loadAirlines(); _loadAirports(); _loadCabinClasses();
+      document.getElementById('atModalTitle').innerHTML = '<i class="fa fa-plus me-1 text-success"></i> New Air Ticket';
+      document.getElementById('atBtnText').textContent = 'Save';
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('atModal')).show();
+    };
+
+    window.atShow = function (id) {
+      secureFetch(BASE + '/show/' + id).then(function (res) {
+        if (!res.success) { Swal.fire('Error', res.message, 'error'); return; }
+        var o = res.obj.defaultData;
+        var html = '<div class="row g-2">'
+          + _vf('PNR', o.pnr || '—') + _vf('Departs', (o.departureDate || '—') + ' ' + (o.departureTime || '')) + _vf('Total', parseFloat(o.totalAmount || 0).toFixed(2))
+          + '</div><table class="table table-sm table-bordered mt-3"><thead class="table-light"><tr><th>Passenger</th><th>Ticket No</th><th>Seat</th></tr></thead><tbody>';
+        (o.passengerTickets || []).forEach(function (p) { html += '<tr><td>' + (p.passengerName || '—') + '</td><td>' + (p.ticketNumber || '—') + '</td><td>' + (p.seatNumber || '—') + '</td></tr>'; });
+        html += '</tbody></table>';
+        document.getElementById('atViewBody').innerHTML = html;
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('atViewModal')).show();
+      });
+    };
+
+    window.atEdit = function (id) {
+      secureFetch(BASE + '/show/' + id).then(function (res) {
+        if (!res.success) { Swal.fire('Error', res.message, 'error'); return; }
+        var o = res.obj.defaultData; _resetForm();
+        document.getElementById('atId').value = o.id;
+        _loadServiceLines(o.bookingServiceId);
+        _loadAirlines(o.airlineId);
+        _loadAirports(o.originAirportId, o.destinationAirportId);
+        _loadCabinClasses(o.cabinClassId);
+        document.getElementById('atPnr').value = o.pnr || '';
+        document.getElementById('atDepartureDate').value = o.departureDate || '';
+        document.getElementById('atDepartureTime').value = o.departureTime || '';
+        document.getElementById('atArrivalDate').value = o.arrivalDate || '';
+        document.getElementById('atArrivalTime').value = o.arrivalTime || '';
+        document.getElementById('atFareAmount').value = o.fareAmount || 0;
+        document.getElementById('atTaxAmount').value = o.taxAmount || 0;
+        document.getElementById('atTotalAmount').value = o.totalAmount || 0;
+        document.getElementById('atSupplierReference').value = o.supplierReference || '';
+        setTimeout(function () { (o.passengerTickets || []).forEach(function (p) { atAddPaxTicket(p); }); }, 350);
+        document.getElementById('atModalTitle').innerHTML = '<i class="fa fa-pencil me-1 text-warning"></i> Edit Air Ticket';
+        document.getElementById('atBtnText').textContent = 'Update';
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('atModal')).show();
+      });
+    };
+
+    window.atDelete = function (id) {
+      Swal.fire({ title: 'Delete air ticket?', icon: 'warning', showCancelButton: true, confirmButtonColor: '#dc3545' }).then(function (r) {
+        if (!r.isConfirmed) return;
+        secureFetch(BASE + '/delete/' + id, { method: 'DELETE' }).then(function (d) {
+          if (d.success) atReload(); else Swal.fire('Error', d.message, 'error'); });
+      });
+    };
+
+    function _onSubmit(e) {
+      e.preventDefault();
+      var sb = document.getElementById('atSubmitBtn'), sp = document.getElementById('atSpinner'), bt = document.getElementById('atBtnText');
+      hsDisableButton(sb, sp, bt);
+      var passengerTickets = [];
+      document.querySelectorAll('#atPaxBody tr').forEach(function (tr) {
+        var passengerId = tr.querySelector('[data-field="passengerId"]').value;
+        if (!passengerId) return;
+        passengerTickets.push({
+          passengerId: passengerId,
+          ticketNumber: tr.querySelector('[data-field="ticketNumber"]').value || null,
+          seatNumber: tr.querySelector('[data-field="seatNumber"]').value || null,
+          baggageAllowance: tr.querySelector('[data-field="baggageAllowance"]').value || null
+        });
+      });
+      secureFetch(BASE + '/save', { method: 'POST', body: JSON.stringify({
+        id: document.getElementById('atId').value || null,
+        bookingServiceId: document.getElementById('atServiceLineId').value || null,
+        airlineId: document.getElementById('atAirlineId').value || null,
+        cabinClassId: document.getElementById('atCabinClassId').value || null,
+        originAirportId: document.getElementById('atOriginAirportId').value || null,
+        destinationAirportId: document.getElementById('atDestinationAirportId').value || null,
+        pnr: document.getElementById('atPnr').value || null,
+        departureDate: document.getElementById('atDepartureDate').value || null,
+        departureTime: document.getElementById('atDepartureTime').value || null,
+        arrivalDate: document.getElementById('atArrivalDate').value || null,
+        arrivalTime: document.getElementById('atArrivalTime').value || null,
+        fareAmount: parseFloat(document.getElementById('atFareAmount').value) || 0,
+        taxAmount: parseFloat(document.getElementById('atTaxAmount').value) || 0,
+        totalAmount: parseFloat(document.getElementById('atTotalAmount').value) || 0,
+        supplierReference: document.getElementById('atSupplierReference').value || null,
+        passengerTickets: passengerTickets
+      }) }).then(function (d) {
+        if (d.success) { Swal.fire({ icon: 'success', timer: 1400, showConfirmButton: false, title: d.message }); bootstrap.Modal.getOrCreateInstance(document.getElementById('atModal')).hide(); atReload(); }
+        else { Swal.fire('Error', d.message, 'error'); }
+      }).finally(function () { hsEnableButton(sb, sp, bt); });
+    }
+
+    function _resetForm() {
+      document.getElementById('atForm').reset();
+      document.getElementById('atId').value = '';
+      document.getElementById('atPaxBody').innerHTML = '';
+      _paxTicketCount = 0;
+    }
+    function _vf(label, value) { return '<div class="col-md-4 view-group"><label class="view-label">' + label + '</label><span class="form-control hs_span_show">' + (value != null ? value : '—') + '</span></div>'; }
+  })();
+  </script>
+</section>
+</html>

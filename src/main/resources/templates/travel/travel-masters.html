@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<!--
+  travel/travel-masters.html    GET /travel/masters
+  Tabs: hotel categories, meal plans, airlines, airports, cabin classes
+  JS prefixes: hcat*, mp*, al*, ap*, cc*
+-->
+<html th:replace="~{layout/base :: layout('Travel Master Data', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
+<section>
+
+  <ol class="breadcrumb float-xl-end">
+    <li class="breadcrumb-item"><a th:href="@{/dashboard}">Home</a></li>
+    <li class="breadcrumb-item">Travel</li>
+    <li class="breadcrumb-item active">Master Data</li>
+  </ol>
+  <h1 class="page-header">Travel Master Data <small>categories, meal plans, airlines, airports, cabin classes</small></h1>
+
+  <div class="d-flex gap-2 mb-3 flex-wrap">
+    <a th:href="@{/travel/dashboard}" class="btn btn-sm btn-outline-primary"><i class="fa fa-tachometer-alt me-1"></i> Dashboard</a>
+    <a th:href="@{/travel/hotels}"    class="btn btn-sm btn-outline-primary"><i class="fa fa-hotel me-1"></i> Hotels</a>
+    <a th:href="@{/travel/masters}"   class="btn btn-sm btn-primary"><i class="fa fa-database me-1"></i> Master Data</a>
+    <a th:href="@{/travel/settings}"  class="btn btn-sm btn-outline-secondary"><i class="fa fa-cog me-1"></i> Settings</a>
+    <a th:href="@{/travel/tours}"     class="btn btn-sm btn-outline-primary"><i class="fa fa-route me-1"></i> Tours</a>
+  </div>
+
+  <div class="panel panel-inverse">
+    <div class="panel-heading">
+      <ul class="nav nav-tabs panel-tab" role="tablist">
+        <li class="nav-item"><a href="#tabHotelCat" data-bs-toggle="tab" class="nav-link active">Hotel Categories</a></li>
+        <li class="nav-item"><a href="#tabMealPlan" data-bs-toggle="tab" class="nav-link">Meal Plans</a></li>
+        <li class="nav-item"><a href="#tabAirline" data-bs-toggle="tab" class="nav-link">Airlines</a></li>
+        <li class="nav-item"><a href="#tabAirport" data-bs-toggle="tab" class="nav-link">Airports</a></li>
+        <li class="nav-item"><a href="#tabCabinClass" data-bs-toggle="tab" class="nav-link">Cabin Classes</a></li>
+      </ul>
+    </div>
+    <div class="panel-body">
+      <div class="tab-content">
+
+        <!-- HOTEL CATEGORIES -->
+        <div class="tab-pane fade show active" id="tabHotelCat">
+          <form id="hcatForm" class="row g-2 mb-3" onsubmit="return false;">
+            <input type="hidden" id="hcatId">
+            <div class="col-md-4"><input id="hcatName" class="form-control form-control-sm" placeholder="Category name"></div>
+            <div class="col-md-5"><input id="hcatDesc" class="form-control form-control-sm" placeholder="Description"></div>
+            <div class="col-md-3"><button class="btn btn-sm btn-primary w-100" onclick="hcatSave()"><i class="fa fa-plus me-1"></i> Add / Update</button></div>
+          </form>
+          <table class="table table-sm table-bordered"><thead class="table-light"><tr><th>SL</th><th>Name</th><th>Description</th><th></th></tr></thead>
+            <tbody id="hcatBody"></tbody></table>
+        </div>
+
+        <!-- MEAL PLANS -->
+        <div class="tab-pane fade" id="tabMealPlan">
+          <form id="mpForm" class="row g-2 mb-3" onsubmit="return false;">
+            <input type="hidden" id="mpId">
+            <div class="col-md-2"><input id="mpCode" class="form-control form-control-sm" placeholder="Code (e.g. BB)"></div>
+            <div class="col-md-4"><input id="mpName" class="form-control form-control-sm" placeholder="Name"></div>
+            <div class="col-md-3"><input id="mpDesc" class="form-control form-control-sm" placeholder="Description"></div>
+            <div class="col-md-3"><button class="btn btn-sm btn-primary w-100" onclick="mpSave()"><i class="fa fa-plus me-1"></i> Add / Update</button></div>
+          </form>
+          <table class="table table-sm table-bordered"><thead class="table-light"><tr><th>SL</th><th>Code</th><th>Name</th><th>Description</th><th></th></tr></thead>
+            <tbody id="mpBody"></tbody></table>
+        </div>
+
+        <!-- AIRLINES -->
+        <div class="tab-pane fade" id="tabAirline">
+          <form id="alForm" class="row g-2 mb-3" onsubmit="return false;">
+            <input type="hidden" id="alId">
+            <div class="col-md-2"><input id="alCode" class="form-control form-control-sm" placeholder="IATA Code"></div>
+            <div class="col-md-6"><input id="alName" class="form-control form-control-sm" placeholder="Airline name"></div>
+            <div class="col-md-4"><button class="btn btn-sm btn-primary w-100" onclick="alSave()"><i class="fa fa-plus me-1"></i> Add / Update</button></div>
+          </form>
+          <table class="table table-sm table-bordered"><thead class="table-light"><tr><th>SL</th><th>Code</th><th>Name</th><th class="text-center">Active</th><th></th></tr></thead>
+            <tbody id="alBody"></tbody></table>
+        </div>
+
+        <!-- AIRPORTS -->
+        <div class="tab-pane fade" id="tabAirport">
+          <form id="apForm" class="row g-2 mb-3" onsubmit="return false;">
+            <input type="hidden" id="apId">
+            <div class="col-md-2"><input id="apCode" class="form-control form-control-sm" placeholder="IATA Code"></div>
+            <div class="col-md-4"><input id="apName" class="form-control form-control-sm" placeholder="Airport name"></div>
+            <div class="col-md-2"><input id="apCity" class="form-control form-control-sm" placeholder="City"></div>
+            <div class="col-md-2"><input id="apCountry" class="form-control form-control-sm" placeholder="Country"></div>
+            <div class="col-md-2"><button class="btn btn-sm btn-primary w-100" onclick="apSave()"><i class="fa fa-plus me-1"></i> Save</button></div>
+          </form>
+          <table class="table table-sm table-bordered"><thead class="table-light"><tr><th>SL</th><th>Code</th><th>Name</th><th>City</th><th>Country</th><th></th></tr></thead>
+            <tbody id="apBody"></tbody></table>
+        </div>
+
+        <!-- CABIN CLASSES -->
+        <div class="tab-pane fade" id="tabCabinClass">
+          <form id="ccForm" class="row g-2 mb-3" onsubmit="return false;">
+            <input type="hidden" id="ccId">
+            <div class="col-md-3"><input id="ccCode" class="form-control form-control-sm" placeholder="Code (e.g. Y)"></div>
+            <div class="col-md-5"><input id="ccName" class="form-control form-control-sm" placeholder="Class name"></div>
+            <div class="col-md-4"><button class="btn btn-sm btn-primary w-100" onclick="ccSave()"><i class="fa fa-plus me-1"></i> Add / Update</button></div>
+          </form>
+          <table class="table table-sm table-bordered"><thead class="table-light"><tr><th>SL</th><th>Code</th><th>Name</th><th></th></tr></thead>
+            <tbody id="ccBody"></tbody></table>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <script th:inline="none">
+  (function () {
+    'use strict';
+    const BASE = '/travel/masters';
+
+    document.addEventListener('DOMContentLoaded', function () {
+      hcatReload(); mpReload(); alReload(); apReload(); ccReload();
+    });
+
+    // ── HOTEL CATEGORIES ──────────────────────────────────────────────────────
+    function hcatReload() {
+      secureFetch(BASE + '/hotel-categories/list').then(function (res) {
+        var body = document.getElementById('hcatBody'); body.innerHTML = '';
+        (res.data || []).forEach(function (r) { body.insertAdjacentHTML('beforeend', '<tr><td>' + r.sl + '</td><td>' + r.category_name + '</td><td>' + r.description + '</td><td>' + r.actions + '</td></tr>'); });
+        if (!(res.data || []).length) body.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-2">No categories yet.</td></tr>';
+      });
+    }
+    window.hcatSave = function () {
+      secureFetch(BASE + '/hotel-categories/save', { method: 'POST', body: JSON.stringify({
+        id: document.getElementById('hcatId').value || null,
+        categoryName: document.getElementById('hcatName').value,
+        description: document.getElementById('hcatDesc').value || null
+      }) }).then(function (d) { if (d.success) { _hcatReset(); hcatReload(); } else Swal.fire('Error', d.message, 'error'); });
+    };
+    window.hcatEdit = function (id) {
+      secureFetch(BASE + '/hotel-categories/list').then(function (res) {
+        var f = (res.data || []).find(function (r) { return r.id == id; }); if (!f) return;
+        document.getElementById('hcatId').value = f.id; document.getElementById('hcatName').value = f.category_name;
+        document.getElementById('hcatDesc').value = f.description === '—' ? '' : f.description;
+      });
+    };
+    window.hcatDelete = function (id) { secureFetch(BASE + '/hotel-categories/delete/' + id, { method: 'DELETE' }).then(function (d) { if (d.success) hcatReload(); else Swal.fire('Error', d.message, 'error'); }); };
+    function _hcatReset() { document.getElementById('hcatForm').reset(); document.getElementById('hcatId').value = ''; }
+
+    // ── MEAL PLANS ────────────────────────────────────────────────────────────
+    function mpReload() {
+      secureFetch(BASE + '/meal-plans/list').then(function (res) {
+        var body = document.getElementById('mpBody'); body.innerHTML = '';
+        (res.data || []).forEach(function (r) { body.insertAdjacentHTML('beforeend', '<tr><td>' + r.sl + '</td><td>' + r.plan_code + '</td><td>' + r.plan_name + '</td><td>' + r.description + '</td><td>' + r.actions + '</td></tr>'); });
+        if (!(res.data || []).length) body.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-2">No meal plans yet.</td></tr>';
+      });
+    }
+    window.mpSave = function () {
+      secureFetch(BASE + '/meal-plans/save', { method: 'POST', body: JSON.stringify({
+        id: document.getElementById('mpId').value || null,
+        planCode: document.getElementById('mpCode').value,
+        planName: document.getElementById('mpName').value,
+        description: document.getElementById('mpDesc').value || null
+      }) }).then(function (d) { if (d.success) { _mpReset(); mpReload(); } else Swal.fire('Error', d.message, 'error'); });
+    };
+    window.mpEdit = function (id) {
+      secureFetch(BASE + '/meal-plans/list').then(function (res) {
+        var f = (res.data || []).find(function (r) { return r.id == id; }); if (!f) return;
+        document.getElementById('mpId').value = f.id; document.getElementById('mpCode').value = f.plan_code;
+        document.getElementById('mpName').value = f.plan_name; document.getElementById('mpDesc').value = f.description === '—' ? '' : f.description;
+      });
+    };
+    window.mpDelete = function (id) { secureFetch(BASE + '/meal-plans/delete/' + id, { method: 'DELETE' }).then(function (d) { if (d.success) mpReload(); else Swal.fire('Error', d.message, 'error'); }); };
+    function _mpReset() { document.getElementById('mpForm').reset(); document.getElementById('mpId').value = ''; }
+
+    // ── AIRLINES ──────────────────────────────────────────────────────────────
+    function alReload() {
+      secureFetch(BASE + '/airlines/list').then(function (res) {
+        var body = document.getElementById('alBody'); body.innerHTML = '';
+        (res.data || []).forEach(function (r) { body.insertAdjacentHTML('beforeend', '<tr><td>' + r.sl + '</td><td>' + r.airline_code + '</td><td>' + r.airline_name + '</td><td class="text-center">' + (r.is_active ? '<span class="badge bg-success">Yes</span>' : '<span class="badge bg-secondary">No</span>') + '</td><td>' + r.actions + '</td></tr>'); });
+        if (!(res.data || []).length) body.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-2">No airlines yet.</td></tr>';
+      });
+    }
+    window.alSave = function () {
+      secureFetch(BASE + '/airlines/save', { method: 'POST', body: JSON.stringify({
+        id: document.getElementById('alId').value || null,
+        airlineCode: document.getElementById('alCode').value,
+        airlineName: document.getElementById('alName').value,
+        isActive: true
+      }) }).then(function (d) { if (d.success) { _alReset(); alReload(); } else Swal.fire('Error', d.message, 'error'); });
+    };
+    window.alEdit = function (id) {
+      secureFetch(BASE + '/airlines/list').then(function (res) {
+        var f = (res.data || []).find(function (r) { return r.id == id; }); if (!f) return;
+        document.getElementById('alId').value = f.id; document.getElementById('alCode').value = f.airline_code; document.getElementById('alName').value = f.airline_name;
+      });
+    };
+    window.alDelete = function (id) { secureFetch(BASE + '/airlines/delete/' + id, { method: 'DELETE' }).then(function (d) { if (d.success) alReload(); else Swal.fire('Error', d.message, 'error'); }); };
+    function _alReset() { document.getElementById('alForm').reset(); document.getElementById('alId').value = ''; }
+
+    // ── AIRPORTS ──────────────────────────────────────────────────────────────
+    function apReload() {
+      secureFetch(BASE + '/airports/list').then(function (res) {
+        var body = document.getElementById('apBody'); body.innerHTML = '';
+        (res.data || []).forEach(function (r) { body.insertAdjacentHTML('beforeend', '<tr><td>' + r.sl + '</td><td>' + r.airport_code + '</td><td>' + r.airport_name + '</td><td>' + r.city + '</td><td>' + r.country + '</td><td>' + r.actions + '</td></tr>'); });
+        if (!(res.data || []).length) body.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-2">No airports yet.</td></tr>';
+      });
+    }
+    window.apSave = function () {
+      secureFetch(BASE + '/airports/save', { method: 'POST', body: JSON.stringify({
+        id: document.getElementById('apId').value || null,
+        airportCode: document.getElementById('apCode').value,
+        airportName: document.getElementById('apName').value,
+        city: document.getElementById('apCity').value || null,
+        country: document.getElementById('apCountry').value || null
+      }) }).then(function (d) { if (d.success) { _apReset(); apReload(); } else Swal.fire('Error', d.message, 'error'); });
+    };
+    window.apEdit = function (id) {
+      secureFetch(BASE + '/airports/list').then(function (res) {
+        var f = (res.data || []).find(function (r) { return r.id == id; }); if (!f) return;
+        document.getElementById('apId').value = f.id; document.getElementById('apCode').value = f.airport_code;
+        document.getElementById('apName').value = f.airport_name; document.getElementById('apCity').value = f.city === '—' ? '' : f.city;
+        document.getElementById('apCountry').value = f.country === '—' ? '' : f.country;
+      });
+    };
+    window.apDelete = function (id) { secureFetch(BASE + '/airports/delete/' + id, { method: 'DELETE' }).then(function (d) { if (d.success) apReload(); else Swal.fire('Error', d.message, 'error'); }); };
+    function _apReset() { document.getElementById('apForm').reset(); document.getElementById('apId').value = ''; }
+
+    // ── CABIN CLASSES ─────────────────────────────────────────────────────────
+    function ccReload() {
+      secureFetch(BASE + '/cabin-classes/list').then(function (res) {
+        var body = document.getElementById('ccBody'); body.innerHTML = '';
+        (res.data || []).forEach(function (r) { body.insertAdjacentHTML('beforeend', '<tr><td>' + r.sl + '</td><td>' + r.class_code + '</td><td>' + r.class_name + '</td><td>' + r.actions + '</td></tr>'); });
+        if (!(res.data || []).length) body.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-2">No cabin classes yet.</td></tr>';
+      });
+    }
+    window.ccSave = function () {
+      secureFetch(BASE + '/cabin-classes/save', { method: 'POST', body: JSON.stringify({
+        id: document.getElementById('ccId').value || null,
+        classCode: document.getElementById('ccCode').value,
+        className: document.getElementById('ccName').value
+      }) }).then(function (d) { if (d.success) { _ccReset(); ccReload(); } else Swal.fire('Error', d.message, 'error'); });
+    };
+    window.ccEdit = function (id) {
+      secureFetch(BASE + '/cabin-classes/list').then(function (res) {
+        var f = (res.data || []).find(function (r) { return r.id == id; }); if (!f) return;
+        document.getElementById('ccId').value = f.id; document.getElementById('ccCode').value = f.class_code; document.getElementById('ccName').value = f.class_name;
+      });
+    };
+    window.ccDelete = function (id) { secureFetch(BASE + '/cabin-classes/delete/' + id, { method: 'DELETE' }).then(function (d) { if (d.success) ccReload(); else Swal.fire('Error', d.message, 'error'); }); };
+    function _ccReset() { document.getElementById('ccForm').reset(); document.getElementById('ccId').value = ''; }
+  })();
+  </script>
+</section>
+</html>

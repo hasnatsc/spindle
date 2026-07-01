@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<!--
+  travel/travel-settings.html    GET /travel/settings
+  Singleton-per-org GL defaults, mirrors ec_gl_account_defaults settings page.
+-->
+<html th:replace="~{layout/base :: layout('Travel Settings', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
+<section>
+
+  <ol class="breadcrumb float-xl-end">
+    <li class="breadcrumb-item"><a th:href="@{/dashboard}">Home</a></li>
+    <li class="breadcrumb-item">Travel</li>
+    <li class="breadcrumb-item active">Settings</li>
+  </ol>
+  <h1 class="page-header">Travel Settings <small>GL account defaults for the booking → accounting bridge</small></h1>
+
+  <div class="d-flex gap-2 mb-3 flex-wrap">
+    <a th:href="@{/travel/dashboard}" class="btn btn-sm btn-outline-primary"><i class="fa fa-tachometer-alt me-1"></i> Dashboard</a>
+    <a th:href="@{/travel/masters}"   class="btn btn-sm btn-outline-secondary"><i class="fa fa-database me-1"></i> Master Data</a>
+    <a th:href="@{/travel/settings}"  class="btn btn-sm btn-primary"><i class="fa fa-cog me-1"></i> Settings</a>
+    <a th:href="@{/travel/packages}"  class="btn btn-sm btn-outline-primary"><i class="fa fa-suitcase-rolling me-1"></i> Packages</a>
+  </div>
+
+  <div class="row">
+    <div class="col-xl-8">
+      <div class="panel panel-inverse">
+        <div class="panel-heading">
+          <h4 class="panel-title"><i class="fa fa-sitemap me-2"></i>GL Account Defaults</h4>
+        </div>
+        <div class="panel-body">
+          <div class="alert alert-info py-2">
+            <i class="fas fa-circle-info me-1"></i>
+            When a booking is confirmed, Spindle looks up <strong>Travel Revenue Account</strong> here first.
+            If it's not set, it falls back to any active REVENUE account whose code starts with
+            <code>TRAVEL</code>, then to any active REVENUE account. Confirming a booking will fail if none exist.
+          </div>
+          <form id="gldForm" novalidate>
+            <input type="hidden" id="gldId">
+            <div class="row g-3">
+              <div class="col-12 view-group">
+                <select id="gldRevenueId" class="form-select hs_span_view"></select>
+                <label class="input-label">Travel Revenue Account</label>
+              </div>
+              <div class="col-12 view-group">
+                <select id="gldArId" class="form-select hs_span_view"></select>
+                <label class="input-label">Accounts Receivable Control Account <small class="text-muted">(informational — actual AR account comes from each customer's linked main account)</small></label>
+              </div>
+              <div class="col-12 view-group">
+                <select id="gldCosId" class="form-select hs_span_view"></select>
+                <label class="input-label">Cost of Service Account</label>
+              </div>
+              <div class="col-12 view-group">
+                <select id="gldPayableId" class="form-select hs_span_view"></select>
+                <label class="input-label">Default Supplier Payable Account</label>
+              </div>
+            </div>
+            <div class="mt-3">
+              <button class="btn btn-success" type="submit" id="gldSubmitBtn">
+                <span class="spinner-border spinner-border-sm me-2 d-none" id="gldSpinner"></span>
+                <span id="gldBtnText">Save Defaults</span>
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script th:inline="none">
+  (function () {
+    'use strict';
+    const BASE = '/travel/settings';
+    const COA_URL = '/accounts/chart-of-accounts/search';
+
+    document.addEventListener('DOMContentLoaded', function () {
+      document.getElementById('gldForm').addEventListener('submit', _onSubmit);
+      _load();
+    });
+
+    function _initAccountS2(elId, preId, preText) {
+      var $el = $('#' + elId);
+      if ($el.hasClass('select2-hidden-accessible')) $el.select2('destroy');
+      $el.select2({
+        width: '100%', placeholder: '— Select Account —', allowClear: true, minimumInputLength: 0,
+        ajax: { url: COA_URL, dataType: 'json', delay: 250,
+          data: function (p) { return { search: p.term || '', page: p.page || 1 }; },
+          processResults: function (data, p) { p.page = p.page || 1; return { results: (data.items || []).map(function (i) { return { id: i.id, text: i.text }; }), pagination: { more: data.hasMore || false } }; },
+          cache: true }
+      });
+      if (preId) $el.append(new Option(preText || '', preId, true, true)).trigger('change');
+    }
+
+    function _load() {
+      secureFetch(BASE + '/defaults').then(function (res) {
+        if (!res.success) { Swal.fire('Error', res.message, 'error'); return; }
+        var o = res.obj.defaultData;
+        document.getElementById('gldId').value = o.id || '';
+        _initAccountS2('gldRevenueId', o.travelRevenueAccountId, o.travelRevenueAccountDisplay);
+        _initAccountS2('gldArId', o.accountsReceivableId, o.accountsReceivableDisplay);
+        _initAccountS2('gldCosId', o.costOfServiceAccountId, o.costOfServiceAccountDisplay);
+        _initAccountS2('gldPayableId', o.supplierPayableDefaultId, o.supplierPayableDefaultDisplay);
+      });
+    }
+
+    function _onSubmit(e) {
+      e.preventDefault();
+      var sb = document.getElementById('gldSubmitBtn'), sp = document.getElementById('gldSpinner'), bt = document.getElementById('gldBtnText');
+      hsDisableButton(sb, sp, bt);
+      secureFetch(BASE + '/defaults', { method: 'POST', body: JSON.stringify({
+        id: document.getElementById('gldId').value || null,
+        travelRevenueAccountId: $('#gldRevenueId').val() || null,
+        accountsReceivableId: $('#gldArId').val() || null,
+        costOfServiceAccountId: $('#gldCosId').val() || null,
+        supplierPayableDefaultId: $('#gldPayableId').val() || null
+      }) }).then(function (d) {
+        if (d.success) { Swal.fire({ icon: 'success', timer: 1600, showConfirmButton: false, title: d.message }); }
+        else { Swal.fire('Error', d.message, 'error'); }
+      }).finally(function () { hsEnableButton(sb, sp, bt); });
+    }
+  })();
+  </script>
+</section>
+</html>

@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<!--
+  travel/travel-dashboard.html    GET /travel/dashboard
+-->
+<html th:replace="~{layout/base :: layout('Travel Dashboard', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
+<section>
+
+  <ol class="breadcrumb float-xl-end">
+    <li class="breadcrumb-item"><a th:href="@{/dashboard}">Home</a></li>
+    <li class="breadcrumb-item">Travel</li>
+    <li class="breadcrumb-item active">Dashboard</li>
+  </ol>
+  <h1 class="page-header">Travel Dashboard <small>bookings, revenue &amp; upcoming departures</small></h1>
+
+  <div class="d-flex gap-2 mb-3 flex-wrap">
+    <a th:href="@{/travel/dashboard}"      class="btn btn-sm btn-primary"><i class="fa fa-tachometer-alt me-1"></i> Dashboard</a>
+    <a th:href="@{/travel/bookings}"       class="btn btn-sm btn-outline-primary"><i class="fa fa-ticket-alt me-1"></i> Bookings</a>
+    <a th:href="@{/travel/hotels}"         class="btn btn-sm btn-outline-primary"><i class="fa fa-hotel me-1"></i> Hotels</a>
+    <a th:href="@{/travel/hotel-bookings}" class="btn btn-sm btn-outline-primary"><i class="fa fa-bed me-1"></i> Hotel Bookings</a>
+    <a th:href="@{/travel/air-tickets}"    class="btn btn-sm btn-outline-primary"><i class="fa fa-plane-departure me-1"></i> Air Tickets</a>
+    <a th:href="@{/travel/supplier-costs}" class="btn btn-sm btn-outline-primary"><i class="fa fa-file-invoice-dollar me-1"></i> Supplier Costs</a>
+    <a th:href="@{/travel/packages}"       class="btn btn-sm btn-outline-primary"><i class="fa fa-suitcase-rolling me-1"></i> Packages</a>
+    <a th:href="@{/travel/tours}"          class="btn btn-sm btn-outline-primary"><i class="fa fa-route me-1"></i> Tours</a>
+    <a th:href="@{/travel/visa-applications}" class="btn btn-sm btn-outline-primary"><i class="fa fa-passport me-1"></i> Visa</a>
+    <a th:href="@{/travel/masters}"        class="btn btn-sm btn-outline-secondary"><i class="fa fa-database me-1"></i> Master Data</a>
+    <a th:href="@{/travel/settings}"       class="btn btn-sm btn-outline-secondary"><i class="fa fa-cog me-1"></i> Settings</a>
+  </div>
+
+  <!-- KPI CARDS -->
+  <div class="row">
+    <div class="col-xl-3 col-md-6">
+      <div class="widget widget-stats bg-primary">
+        <div class="stats-icon"><i class="fa fa-hourglass-half"></i></div>
+        <div class="stats-info"><h4>DRAFT BOOKINGS</h4><p id="kpiDraft">0</p></div>
+        <div class="stats-link"><a href="/travel/bookings">View Bookings <i class="fa fa-arrow-alt-circle-right"></i></a></div>
+      </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+      <div class="widget widget-stats bg-success">
+        <div class="stats-icon"><i class="fa fa-check-circle"></i></div>
+        <div class="stats-info"><h4>ACTIVE BOOKINGS</h4><p id="kpiActive">0</p></div>
+        <div class="stats-link"><a href="/travel/bookings">View Bookings <i class="fa fa-arrow-alt-circle-right"></i></a></div>
+      </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+      <div class="widget widget-stats bg-warning">
+        <div class="stats-icon"><i class="fa fa-coins"></i></div>
+        <div class="stats-info"><h4>TOTAL REVENUE</h4><p id="kpiRevenue">৳0</p></div>
+        <div class="stats-link"><a href="/travel/bookings">View Bookings <i class="fa fa-arrow-alt-circle-right"></i></a></div>
+      </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+      <div class="widget widget-stats bg-danger">
+        <div class="stats-icon"><i class="fa fa-exclamation-circle"></i></div>
+        <div class="stats-info"><h4>TOTAL DUE</h4><p id="kpiDue">৳0</p></div>
+        <div class="stats-link"><a href="/accounts/receipt-vouchers">Collect Payments <i class="fa fa-arrow-alt-circle-right"></i></a></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col-xl-7">
+      <div class="panel panel-inverse">
+        <div class="panel-heading"><h4 class="panel-title"><i class="fa fa-plane-departure me-2"></i>Upcoming Departures</h4></div>
+        <div class="panel-body p-0">
+          <table class="table table-striped mb-0">
+            <thead><tr><th>Booking No</th><th>Customer</th><th>Departs</th><th class="text-center">Status</th></tr></thead>
+            <tbody id="upcomingBody"><tr><td colspan="4" class="text-center text-muted py-3">Loading…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <div class="col-xl-5">
+      <div class="panel panel-inverse">
+        <div class="panel-heading"><h4 class="panel-title"><i class="fa fa-user-tie me-2"></i>Top Sales Agents</h4></div>
+        <div class="panel-body p-0">
+          <table class="table table-striped mb-0">
+            <thead><tr><th>Agent</th><th class="text-center">Bookings</th><th class="text-end">Sales</th></tr></thead>
+            <tbody id="agentsBody"><tr><td colspan="3" class="text-center text-muted py-3">Loading…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script th:inline="none">
+  (function () {
+    'use strict';
+    document.addEventListener('DOMContentLoaded', function () {
+      secureFetch('/travel/dashboard/summary').then(function (res) {
+        if (!res.success) return;
+        var d = res.data, c = d.counts || {};
+        document.getElementById('kpiDraft').textContent    = c.draft_count || 0;
+        document.getElementById('kpiActive').textContent   = c.active_count || 0;
+        document.getElementById('kpiRevenue').textContent  = '৳' + parseFloat(c.total_revenue || 0).toLocaleString();
+        document.getElementById('kpiDue').textContent      = '৳' + parseFloat(c.total_due || 0).toLocaleString();
+
+        var upBody = document.getElementById('upcomingBody'); upBody.innerHTML = '';
+        (d.upcomingDepartures || []).forEach(function (r) {
+          upBody.insertAdjacentHTML('beforeend',
+            '<tr><td><strong>' + (r.booking_no || '—') + '</strong></td><td>' + (r.customer_name || '—') + '</td>'
+            + '<td>' + (r.travel_start_date || '—') + '</td><td class="text-center">' + (r.status || '—') + '</td></tr>');
+        });
+        if (!(d.upcomingDepartures || []).length) upBody.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-3">No upcoming departures.</td></tr>';
+
+        var agBody = document.getElementById('agentsBody'); agBody.innerHTML = '';
+        (d.topAgents || []).forEach(function (r) {
+          agBody.insertAdjacentHTML('beforeend',
+            '<tr><td>' + (r.agent_name || '—') + '</td><td class="text-center">' + (r.booking_count || 0) + '</td>'
+            + '<td class="text-end">৳' + parseFloat(r.total_sales || 0).toLocaleString() + '</td></tr>');
+        });
+        if (!(d.topAgents || []).length) agBody.innerHTML = '<tr><td colspan="3" class="text-center text-muted py-3">No data yet.</td></tr>';
+      });
+    });
+  })();
+  </script>
+</section>
+</html>

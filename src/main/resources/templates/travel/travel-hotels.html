@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<!--
+  travel/travel-hotels.html    GET /travel/hotels
+  JS prefix: htl* (hotel), rt* (room type)
+-->
+<html th:replace="~{layout/base :: layout('Hotels', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
+<section>
+
+  <ol class="breadcrumb float-xl-end">
+    <li class="breadcrumb-item"><a th:href="@{/dashboard}">Home</a></li>
+    <li class="breadcrumb-item">Travel</li>
+    <li class="breadcrumb-item active">Hotels</li>
+  </ol>
+  <h1 class="page-header">Hotels <small>partner hotel directory &amp; room types</small></h1>
+
+  <div class="d-flex gap-2 mb-3 flex-wrap">
+    <a th:href="@{/travel/dashboard}" class="btn btn-sm btn-outline-primary"><i class="fa fa-tachometer-alt me-1"></i> Dashboard</a>
+    <a th:href="@{/travel/hotels}"    class="btn btn-sm btn-primary"><i class="fa fa-hotel me-1"></i> Hotels</a>
+    <a th:href="@{/travel/masters}"   class="btn btn-sm btn-outline-secondary"><i class="fa fa-database me-1"></i> Master Data</a>
+    <a th:href="@{/travel/packages}"  class="btn btn-sm btn-outline-primary"><i class="fa fa-suitcase-rolling me-1"></i> Packages</a>
+  </div>
+
+  <div class="panel panel-inverse">
+    <div class="panel-heading">
+      <div class="panel-title">
+        <a href="javascript:;" onclick="htlOpenCreate()"><span class="badge btn btn-outline-success"><i class="fa fa-plus me-1"></i> New Hotel</span></a>
+      </div>
+      <div class="panel-heading-btn">
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-success" onclick="htlReload()"><i class="fa fa-redo"></i></a>
+      </div>
+    </div>
+    <div class="panel-body">
+      <input type="text" id="htlSearch" class="form-control mb-3" placeholder="Search hotel name, code or city…" oninput="htlReload()">
+      <table id="htlTable" width="100%" class="table table-striped table-bordered align-middle">
+        <thead><tr>
+          <th width="1%">SL</th><th>Code</th><th>Name</th><th>City</th><th>Category</th>
+          <th class="text-center">Stars</th><th>Contact</th><th class="text-center">Status</th>
+          <th class="text-center" width="14%">Actions</th>
+        </tr></thead>
+        <tbody id="htlBody"></tbody>
+      </table>
+    </div>
+
+    <!-- HOTEL MODAL -->
+    <div tabindex="-1" id="htlModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="htlModalTitle"><i class="fa fa-hotel me-1 text-success"></i> New Hotel</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <form id="htlForm" novalidate>
+            <div class="modal-body">
+              <div class="hs-box">
+                <input type="hidden" id="htlId">
+                <div class="row g-2">
+                  <div class="col-md-4 view-group">
+                    <input id="htlCode" type="text" class="form-control hs_span_view" required maxlength="30">
+                    <label class="input-label">Hotel Code <span class="text-danger">*</span></label>
+                  </div>
+                  <div class="col-md-8 view-group">
+                    <input id="htlName" type="text" class="form-control hs_span_view" required maxlength="200">
+                    <label class="input-label">Hotel Name <span class="text-danger">*</span></label>
+                  </div>
+                  <div class="col-md-4 view-group">
+                    <input id="htlCity" type="text" class="form-control hs_span_view" maxlength="100">
+                    <label class="input-label">City</label>
+                  </div>
+                  <div class="col-md-4 view-group">
+                    <input id="htlCountry" type="text" class="form-control hs_span_view" maxlength="100">
+                    <label class="input-label">Country</label>
+                  </div>
+                  <div class="col-md-4 view-group">
+                    <input id="htlStarRating" type="number" min="1" max="7" class="form-control hs_span_view">
+                    <label class="input-label">Star Rating</label>
+                  </div>
+                  <div class="col-12 view-group">
+                    <input id="htlAddress" type="text" class="form-control hs_span_view" maxlength="500">
+                    <label class="input-label">Address</label>
+                  </div>
+                  <div class="col-md-4 view-group">
+                    <select id="htlCategoryId" class="form-select hs_span_view"><option value="">— Select —</option></select>
+                    <label class="input-label">Category</label>
+                  </div>
+                  <div class="col-md-4 view-group">
+                    <input id="htlContactPerson" type="text" class="form-control hs_span_view" maxlength="150">
+                    <label class="input-label">Contact Person</label>
+                  </div>
+                  <div class="col-md-4 view-group">
+                    <input id="htlContactPhone" type="text" class="form-control hs_span_view" maxlength="30">
+                    <label class="input-label">Contact Phone</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-success" type="submit" id="htlSubmitBtn">
+                <span class="spinner-border spinner-border-sm me-2 d-none" id="htlSpinner"></span>
+                <span id="htlBtnText">Save</span>
+              </button>
+              <button type="button" class="btn btn-white" data-bs-dismiss="modal">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- ROOM TYPES MODAL -->
+    <div tabindex="-1" id="rtModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title"><i class="fa fa-bed me-1 text-info"></i> Room Types — <span id="rtHotelName"></span></h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <input type="hidden" id="rtHotelId">
+            <form id="rtQuickForm" class="row g-2 mb-3" onsubmit="return false;">
+              <input type="hidden" id="rtId">
+              <div class="col-md-4"><input id="rtName" class="form-control form-control-sm" placeholder="Room type name"></div>
+              <div class="col-md-2"><input id="rtOccupancy" type="number" class="form-control form-control-sm" placeholder="Max occ."></div>
+              <div class="col-md-3"><input id="rtPrice" type="number" step="0.01" class="form-control form-control-sm" placeholder="Base price"></div>
+              <div class="col-md-3"><button class="btn btn-sm btn-primary w-100" onclick="rtSave()"><i class="fa fa-plus me-1"></i> Add / Update</button></div>
+            </form>
+            <table class="table table-sm table-bordered">
+              <thead class="table-light"><tr><th>SL</th><th>Room Type</th><th>Max Occ.</th><th>Base Price</th><th class="text-center">Status</th><th></th></tr></thead>
+              <tbody id="rtBody"></tbody>
+            </table>
+          </div>
+          <div class="modal-footer"><button type="button" class="btn btn-white" data-bs-dismiss="modal">Close</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script th:inline="none">
+  (function () {
+    'use strict';
+    const BASE = '/travel/hotels';
+
+    document.addEventListener('DOMContentLoaded', function () {
+      document.getElementById('htlForm').addEventListener('submit', _onSubmit);
+      _loadCategories();
+      htlReload();
+    });
+
+    window.htlReload = function () {
+      var search = document.getElementById('htlSearch').value || '';
+      secureFetch(BASE + '/list?search=' + encodeURIComponent(search)).then(function (res) {
+        var body = document.getElementById('htlBody'); body.innerHTML = '';
+        (res.data || []).forEach(function (h) {
+          body.insertAdjacentHTML('beforeend',
+            '<tr><td>' + h.sl + '</td><td>' + h.hotel_code + '</td><td>' + h.hotel_name + '</td>'
+            + '<td>' + (h.city || '—') + '</td><td>' + h.category_name + '</td>'
+            + '<td class="text-center">' + (h.star_rating || '—') + '</td>'
+            + '<td>' + (h.contact_person || '—') + '</td>'
+            + '<td class="text-center">' + h.status_badge + '</td><td class="text-center">' + h.actions + '</td></tr>');
+        });
+        if (!(res.data || []).length) body.innerHTML = '<tr><td colspan="9" class="text-center text-muted py-3">No hotels found.</td></tr>';
+      });
+    };
+
+    function _loadCategories() {
+      secureFetch('/travel/masters/hotel-categories/list').then(function (res) {
+        var sel = document.getElementById('htlCategoryId');
+        (res.data || []).forEach(function (c) { sel.insertAdjacentHTML('beforeend', '<option value="' + c.id + '">' + c.category_name + '</option>'); });
+      });
+    }
+
+    window.htlOpenCreate = function () {
+      _resetForm();
+      document.getElementById('htlModalTitle').innerHTML = '<i class="fa fa-plus me-1 text-success"></i> New Hotel';
+      document.getElementById('htlBtnText').textContent = 'Save';
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('htlModal')).show();
+    };
+
+    window.htlEdit = function (id) {
+      secureFetch(BASE + '/show/' + id).then(function (res) {
+        if (!res.success) { Swal.fire('Error', res.message, 'error'); return; }
+        var o = res.obj.defaultData; _resetForm();
+        document.getElementById('htlId').value = o.id;
+        document.getElementById('htlCode').value = o.hotelCode || '';
+        document.getElementById('htlName').value = o.hotelName || '';
+        document.getElementById('htlCity').value = o.city || '';
+        document.getElementById('htlCountry').value = o.country || '';
+        document.getElementById('htlStarRating').value = o.starRating || '';
+        document.getElementById('htlAddress').value = o.address || '';
+        document.getElementById('htlCategoryId').value = o.categoryId || '';
+        document.getElementById('htlContactPerson').value = o.contactPerson || '';
+        document.getElementById('htlContactPhone').value = o.contactPhone || '';
+        document.getElementById('htlModalTitle').innerHTML = '<i class="fa fa-pencil me-1 text-warning"></i> Edit Hotel';
+        document.getElementById('htlBtnText').textContent = 'Update';
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('htlModal')).show();
+      });
+    };
+
+    window.htlDelete = function (id) {
+      Swal.fire({ title: 'Delete hotel?', icon: 'warning', showCancelButton: true, confirmButtonColor: '#dc3545' }).then(function (r) {
+        if (!r.isConfirmed) return;
+        secureFetch(BASE + '/delete/' + id, { method: 'DELETE' }).then(function (d) {
+          if (d.success) { Swal.fire({ icon: 'success', timer: 1200, showConfirmButton: false, title: 'Deleted' }); htlReload(); }
+          else { Swal.fire('Error', d.message, 'error'); } });
+      });
+    };
+
+    function _onSubmit(e) {
+      e.preventDefault();
+      var sb = document.getElementById('htlSubmitBtn'), sp = document.getElementById('htlSpinner'), bt = document.getElementById('htlBtnText');
+      hsDisableButton(sb, sp, bt);
+      secureFetch(BASE + '/save', { method: 'POST', body: JSON.stringify({
+        id: document.getElementById('htlId').value || null,
+        hotelCode: document.getElementById('htlCode').value,
+        hotelName: document.getElementById('htlName').value,
+        city: document.getElementById('htlCity').value || null,
+        country: document.getElementById('htlCountry').value || null,
+        starRating: parseInt(document.getElementById('htlStarRating').value) || null,
+        address: document.getElementById('htlAddress').value || null,
+        categoryId: document.getElementById('htlCategoryId').value || null,
+        contactPerson: document.getElementById('htlContactPerson').value || null,
+        contactPhone: document.getElementById('htlContactPhone').value || null,
+        isActive: true
+      }) }).then(function (d) {
+        if (d.success) { Swal.fire({ icon: 'success', timer: 1400, showConfirmButton: false, title: d.message }); bootstrap.Modal.getOrCreateInstance(document.getElementById('htlModal')).hide(); htlReload(); }
+        else { Swal.fire('Error', d.message, 'error'); }
+      }).finally(function () { hsEnableButton(sb, sp, bt); });
+    }
+
+    function _resetForm() { document.getElementById('htlForm').reset(); document.getElementById('htlId').value = ''; }
+
+    // ── ROOM TYPES ────────────────────────────────────────────────────────────
+    window.htlRooms = function (hotelId, hotelName) {
+      document.getElementById('rtHotelId').value = hotelId;
+      document.getElementById('rtHotelName').textContent = hotelName;
+      _rtReset();
+      rtReload();
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('rtModal')).show();
+    };
+
+    function rtReload() {
+      var hotelId = document.getElementById('rtHotelId').value;
+      secureFetch('/travel/hotels/room-types/list?hotelId=' + hotelId).then(function (res) {
+        var body = document.getElementById('rtBody'); body.innerHTML = '';
+        (res.data || []).forEach(function (r) {
+          body.insertAdjacentHTML('beforeend',
+            '<tr><td>' + r.sl + '</td><td>' + r.room_type_name + '</td><td>' + (r.max_occupancy || '—') + '</td>'
+            + '<td>' + parseFloat(r.base_price || 0).toFixed(2) + '</td>'
+            + '<td class="text-center">' + (r.is_active ? '<span class="badge bg-success">Active</span>' : '<span class="badge bg-secondary">Inactive</span>') + '</td>'
+            + '<td>' + r.actions + '</td></tr>');
+        });
+        if (!(res.data || []).length) body.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-3">No room types yet.</td></tr>';
+      });
+    }
+
+    window.rtSave = function () {
+      var hotelId = document.getElementById('rtHotelId').value;
+      secureFetch('/travel/hotels/room-types/save', { method: 'POST', body: JSON.stringify({
+        id: document.getElementById('rtId').value || null,
+        hotelId: hotelId,
+        roomTypeName: document.getElementById('rtName').value,
+        maxOccupancy: parseInt(document.getElementById('rtOccupancy').value) || null,
+        basePrice: parseFloat(document.getElementById('rtPrice').value) || 0,
+        isActive: true
+      }) }).then(function (d) {
+        if (d.success) { _rtReset(); rtReload(); } else { Swal.fire('Error', d.message, 'error'); }
+      });
+    };
+
+    window.rtEdit = function (id) {
+      // room type rows are small — refetch the list and find it client-side
+      var hotelId = document.getElementById('rtHotelId').value;
+      secureFetch('/travel/hotels/room-types/list?hotelId=' + hotelId).then(function (res) {
+        var found = (res.data || []).find(function (r) { return r.id == id; });
+        if (!found) return;
+        document.getElementById('rtId').value = found.id;
+        document.getElementById('rtName').value = found.room_type_name;
+        document.getElementById('rtOccupancy').value = found.max_occupancy || '';
+        document.getElementById('rtPrice').value = found.base_price || '';
+      });
+    };
+
+    window.rtDelete = function (id) {
+      Swal.fire({ title: 'Delete room type?', icon: 'warning', showCancelButton: true, confirmButtonColor: '#dc3545' }).then(function (r) {
+        if (!r.isConfirmed) return;
+        secureFetch('/travel/hotels/room-types/delete/' + id, { method: 'DELETE' }).then(function (d) {
+          if (d.success) rtReload(); else Swal.fire('Error', d.message, 'error'); });
+      });
+    };
+
+    function _rtReset() {
+      document.getElementById('rtId').value = '';
+      document.getElementById('rtName').value = '';
+      document.getElementById('rtOccupancy').value = '';
+      document.getElementById('rtPrice').value = '';
+    }
+  })();
+  </script>
+</section>
+</html>

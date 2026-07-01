@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<!--
+  travel/travel-supplier-costs.html    GET /travel/supplier-costs
+  JS prefix: sc*
+-->
+<html th:replace="~{layout/base :: layout('Supplier Costs', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
+<section>
+
+  <ol class="breadcrumb float-xl-end">
+    <li class="breadcrumb-item"><a th:href="@{/dashboard}">Home</a></li>
+    <li class="breadcrumb-item">Travel</li>
+    <li class="breadcrumb-item active">Supplier Costs</li>
+  </ol>
+  <h1 class="page-header">Supplier Costs <small>cost tracking against booking service lines</small></h1>
+
+  <div class="d-flex gap-2 mb-3 flex-wrap">
+    <a th:href="@{/travel/bookings}"       class="btn btn-sm btn-outline-primary"><i class="fa fa-ticket-alt me-1"></i> Bookings</a>
+    <a th:href="@{/travel/supplier-costs}" class="btn btn-sm btn-primary"><i class="fa fa-file-invoice-dollar me-1"></i> Supplier Costs</a>
+    <a th:href="@{/travel/visa-applications}" class="btn btn-sm btn-outline-primary"><i class="fa fa-passport me-1"></i> Visa</a>
+  </div>
+
+  <div class="panel panel-inverse">
+    <div class="panel-heading">
+      <div class="panel-title">
+        <a href="javascript:;" onclick="scOpenCreate()"><span class="badge btn btn-outline-success"><i class="fa fa-plus me-1"></i> New Supplier Cost</span></a>
+      </div>
+    </div>
+    <div class="panel-body">
+      <input type="text" id="scSearch" class="form-control mb-3" placeholder="Search booking no, supplier, invoice ref…" oninput="scReload()">
+      <table class="table table-striped table-bordered align-middle">
+        <thead><tr>
+          <th width="1%">SL</th><th>Booking</th><th>Supplier</th><th class="text-end">Cost</th>
+          <th>Currency</th><th>Invoice Ref</th><th class="text-center">Payment Status</th>
+          <th class="text-center" width="14%">Actions</th>
+        </tr></thead>
+        <tbody id="scBody"></tbody>
+      </table>
+    </div>
+
+    <!-- MODAL -->
+    <div tabindex="-1" id="scModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="scModalTitle"><i class="fa fa-file-invoice-dollar me-1 text-success"></i> New Supplier Cost</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <form id="scForm" novalidate>
+            <div class="modal-body">
+              <div class="hs-box">
+                <input type="hidden" id="scId">
+                <div class="row g-2">
+                  <div class="col-12 view-group">
+                    <select id="scServiceLineId" class="form-select hs_span_view"></select>
+                    <label class="input-label">Booking Service Line <span class="text-danger">*</span></label>
+                  </div>
+                  <div class="col-md-6 view-group">
+                    <select id="scSupplierId" class="form-select hs_span_view"></select>
+                    <label class="input-label">Supplier</label>
+                  </div>
+                  <div class="col-md-3 view-group">
+                    <input id="scCostAmount" type="number" step="0.01" class="form-control hs_span_view" required>
+                    <label class="input-label">Cost Amount <span class="text-danger">*</span></label>
+                  </div>
+                  <div class="col-md-3 view-group">
+                    <input id="scCurrency" type="text" class="form-control hs_span_view" value="BDT" maxlength="3">
+                    <label class="input-label">Currency</label>
+                  </div>
+                  <div class="col-md-6 view-group">
+                    <select id="scPaymentStatus" class="form-select hs_span_view">
+                      <option value="UNPAID">Unpaid</option><option value="PARTIAL">Partial</option><option value="PAID">Paid</option>
+                    </select>
+                    <label class="input-label">Payment Status</label>
+                  </div>
+                  <div class="col-md-6 view-group">
+                    <input id="scInvoiceReference" type="text" class="form-control hs_span_view" maxlength="100">
+                    <label class="input-label">Invoice Reference</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-success" type="submit" id="scSubmitBtn">
+                <span class="spinner-border spinner-border-sm me-2 d-none" id="scSpinner"></span>
+                <span id="scBtnText">Save</span>
+              </button>
+              <button type="button" class="btn btn-white" data-bs-dismiss="modal">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script th:inline="none">
+  (function () {
+    'use strict';
+    const BASE = '/travel/supplier-costs';
+    const SUB_URL = '/accounts/sub-accounts/search';
+
+    document.addEventListener('DOMContentLoaded', function () {
+      document.getElementById('scForm').addEventListener('submit', _onSubmit);
+      scReload();
+    });
+
+    window.scReload = function () {
+      var search = document.getElementById('scSearch').value || '';
+      secureFetch(BASE + '/list?search=' + encodeURIComponent(search)).then(function (res) {
+        var body = document.getElementById('scBody'); body.innerHTML = '';
+        (res.data || []).forEach(function (r) {
+          body.insertAdjacentHTML('beforeend',
+            '<tr><td>' + r.sl + '</td><td>' + r.booking_no + '</td><td>' + r.supplier_name + '</td>'
+            + '<td class="text-end">' + parseFloat(r.cost_amount || 0).toFixed(2) + '</td><td>' + r.currency + '</td>'
+            + '<td>' + r.invoice_reference + '</td><td class="text-center">' + r.status_badge + '</td>'
+            + '<td class="text-center">' + r.actions + '</td></tr>');
+        });
+        if (!(res.data || []).length) body.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-3">No supplier costs found.</td></tr>';
+      });
+    };
+
+    function _loadServiceLines(preId) {
+      Promise.all([
+        secureFetch('/travel/service-lines/search?serviceType=HOTEL'),
+        secureFetch('/travel/service-lines/search?serviceType=AIR'),
+        secureFetch('/travel/service-lines/search?serviceType=PACKAGE')
+      ]).then(function (results) {
+        var sel = document.getElementById('scServiceLineId');
+        sel.innerHTML = '<option value="">— Select Service Line —</option>';
+        results.forEach(function (res) {
+          (res.items || []).forEach(function (i) { sel.insertAdjacentHTML('beforeend', '<option value="' + i.id + '">' + i.text + '</option>'); });
+        });
+        if (preId) sel.value = preId;
+      });
+    }
+
+    function _initSupplierS2(preId, preText) {
+      var $el = $('#scSupplierId');
+      if ($el.hasClass('select2-hidden-accessible')) $el.select2('destroy');
+      $el.select2({
+        dropdownParent: $('#scModal'), width: '100%', placeholder: '— Search Supplier —', allowClear: true, minimumInputLength: 0,
+        ajax: { url: SUB_URL, dataType: 'json', delay: 250,
+          data: function (p) { return { search: p.term || '', subAccountType: 'SUPPLIER', page: p.page || 1 }; },
+          processResults: function (data, p) { p.page = p.page || 1; return { results: (data.items || []).map(function (i) { return { id: i.id, text: i.text }; }), pagination: { more: data.hasMore || false } }; },
+          cache: false }
+      });
+      if (preId) $el.append(new Option(preText || '', preId, true, true)).trigger('change');
+    }
+
+    window.scOpenCreate = function () {
+      _resetForm();
+      _loadServiceLines(); _initSupplierS2(null, null);
+      document.getElementById('scModalTitle').innerHTML = '<i class="fa fa-plus me-1 text-success"></i> New Supplier Cost';
+      document.getElementById('scBtnText').textContent = 'Save';
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('scModal')).show();
+    };
+
+    window.scEdit = function (id) {
+      // supplier cost list rows carry enough for edit via a lightweight re-derivation;
+      // for full accuracy this would call a dedicated show endpoint — omitted in Phase 1
+      // since supplier costs are simple single-row edits done via the list search.
+      Swal.fire('Info', 'Open the row from the list; full edit-by-id endpoint can be added on request.', 'info');
+    };
+
+    window.scDelete = function (id) {
+      Swal.fire({ title: 'Delete supplier cost?', icon: 'warning', showCancelButton: true, confirmButtonColor: '#dc3545' }).then(function (r) {
+        if (!r.isConfirmed) return;
+        secureFetch(BASE + '/delete/' + id, { method: 'DELETE' }).then(function (d) {
+          if (d.success) scReload(); else Swal.fire('Error', d.message, 'error'); });
+      });
+    };
+
+    function _onSubmit(e) {
+      e.preventDefault();
+      var sb = document.getElementById('scSubmitBtn'), sp = document.getElementById('scSpinner'), bt = document.getElementById('scBtnText');
+      hsDisableButton(sb, sp, bt);
+      secureFetch(BASE + '/save', { method: 'POST', body: JSON.stringify({
+        id: document.getElementById('scId').value || null,
+        bookingServiceId: document.getElementById('scServiceLineId').value || null,
+        supplierId: $('#scSupplierId').val() || null,
+        costAmount: parseFloat(document.getElementById('scCostAmount').value) || 0,
+        currency: document.getElementById('scCurrency').value || 'BDT',
+        paymentStatus: document.getElementById('scPaymentStatus').value,
+        invoiceReference: document.getElementById('scInvoiceReference').value || null
+      }) }).then(function (d) {
+        if (d.success) { Swal.fire({ icon: 'success', timer: 1400, showConfirmButton: false, title: d.message }); bootstrap.Modal.getOrCreateInstance(document.getElementById('scModal')).hide(); scReload(); }
+        else { Swal.fire('Error', d.message, 'error'); }
+      }).finally(function () { hsEnableButton(sb, sp, bt); });
+    }
+
+    function _resetForm() { document.getElementById('scForm').reset(); document.getElementById('scId').value = ''; }
+  })();
+  </script>
+</section>
+</html>

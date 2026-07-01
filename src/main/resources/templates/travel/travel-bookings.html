@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<!--
+  travel/travel-bookings.html    GET /travel/bookings
+  JS prefix: bkg*
+  Booking → Receipt Voucher bridge: createReceiptFromBooking(id)
+-->
+<html th:replace="~{layout/base :: layout('Bookings', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
+<section>
+
+  <ol class="breadcrumb float-xl-end">
+    <li class="breadcrumb-item"><a th:href="@{/dashboard}">Home</a></li>
+    <li class="breadcrumb-item">Travel</li>
+    <li class="breadcrumb-item active">Bookings</li>
+  </ol>
+  <h1 class="page-header">Bookings <small>packages, hotels &amp; flights sold to customers</small></h1>
+
+  <div class="d-flex gap-2 mb-3 flex-wrap">
+    <a th:href="@{/travel/dashboard}"      class="btn btn-sm btn-outline-primary"><i class="fa fa-tachometer-alt me-1"></i> Dashboard</a>
+    <a th:href="@{/travel/bookings}"       class="btn btn-sm btn-primary"><i class="fa fa-ticket-alt me-1"></i> Bookings</a>
+    <a th:href="@{/travel/hotel-bookings}" class="btn btn-sm btn-outline-primary"><i class="fa fa-bed me-1"></i> Hotel Bookings</a>
+    <a th:href="@{/travel/air-tickets}"    class="btn btn-sm btn-outline-primary"><i class="fa fa-plane-departure me-1"></i> Air Tickets</a>
+    <a th:href="@{/travel/packages}"       class="btn btn-sm btn-outline-primary"><i class="fa fa-suitcase-rolling me-1"></i> Packages</a>
+    <a th:href="@{/travel/tours}"          class="btn btn-sm btn-outline-primary"><i class="fa fa-route me-1"></i> Tours</a>
+    <a th:href="@{/travel/visa-applications}" class="btn btn-sm btn-outline-primary"><i class="fa fa-passport me-1"></i> Visa</a>
+  </div>
+
+  <div class="panel panel-inverse">
+    <div class="panel-heading">
+      <div class="panel-title d-flex gap-2 align-items-center flex-wrap">
+        <a href="javascript:;" onclick="bkgOpenCreate()">
+          <span class="badge btn btn-outline-success"><i class="fa fa-plus me-1"></i> New Booking</span>
+        </a>
+        <select id="bkgStatusFilter" class="form-select form-select-sm" style="width:170px" onchange="_bkgReload()">
+          <option value="">All Status</option>
+          <option value="DRAFT">Draft</option>
+          <option value="CONFIRMED">Confirmed</option>
+          <option value="PARTIALLY_PAID">Partially Paid</option>
+          <option value="PAID">Paid</option>
+          <option value="CANCELLED">Cancelled</option>
+          <option value="COMPLETED">Completed</option>
+        </select>
+      </div>
+      <div class="panel-heading-btn">
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-default" data-toggle="panel-expand"><i class="fa fa-expand"></i></a>
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-success" data-toggle="panel-reload"><i class="fa fa-redo"></i></a>
+      </div>
+    </div>
+    <div class="panel-body">
+      <table id="bkgTable" width="100%" class="table table-striped table-bordered align-middle">
+        <thead><tr>
+          <th width="1%">SL</th><th>Booking No</th><th>Type</th><th>Date</th><th>Departs</th>
+          <th>Customer</th><th>Agent</th><th class="text-center">Pax</th>
+          <th class="text-end">Total</th><th class="text-end">Due</th>
+          <th class="text-center">Status</th><th class="text-center" width="18%">Actions</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <!-- BOOKING MODAL -->
+    <div tabindex="-1" id="bkgModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="bkgModalTitle"><i class="fa fa-ticket-alt me-1 text-success"></i> New Booking</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <form id="bkgForm" novalidate>
+            <div class="modal-body">
+              <div class="hs-box">
+                <input type="hidden" id="bkgId">
+                <div class="row g-2 mb-3">
+                  <div class="col-md-3 view-group">
+                    <input id="bkgNo" type="text" class="form-control hs_span_view bg-light" readonly placeholder="Auto-generated">
+                    <label class="input-label">Booking No</label>
+                  </div>
+                  <div class="col-md-3 view-group">
+                    <select id="bkgType" class="form-select hs_span_view" required>
+                      <option value="PACKAGE">Package</option>
+                      <option value="HOTEL">Hotel</option>
+                      <option value="AIR">Air</option>
+                      <option value="COMBINED">Combined</option>
+                    </select>
+                    <label class="input-label">Booking Type <span class="text-danger">*</span></label>
+                  </div>
+                  <div class="col-md-3 view-group">
+                    <input id="bkgDate" type="date" class="form-control hs_span_view" required>
+                    <label class="input-label">Booking Date <span class="text-danger">*</span></label>
+                  </div>
+                  <div class="col-md-3 view-group">
+                    <input id="bkgTravelStart" type="date" class="form-control hs_span_view">
+                    <label class="input-label">Travel Start</label>
+                  </div>
+                  <div class="col-md-3 view-group">
+                    <input id="bkgTravelEnd" type="date" class="form-control hs_span_view">
+                    <label class="input-label">Travel End</label>
+                  </div>
+
+                  <div class="col-md-4 view-group">
+                    <select id="bkgCustomerId" class="form-select hs_span_view"></select>
+                    <label class="input-label">Customer <span class="text-danger">*</span></label>
+                  </div>
+                  <div class="col-md-4 view-group">
+                    <select id="bkgAgentId" class="form-select hs_span_view"></select>
+                    <label class="input-label">Sales Agent</label>
+                  </div>
+                  <div class="col-md-2 view-group">
+                    <input id="bkgDiscount" type="number" step="0.01" class="form-control hs_span_view text-end" value="0" oninput="bkgRecalcTotal()">
+                    <label class="input-label">Discount</label>
+                  </div>
+                  <div class="col-12 view-group">
+                    <textarea id="bkgRemarks" class="form-control hs_span_view" rows="1"></textarea>
+                    <label class="input-label">Remarks</label>
+                  </div>
+                </div>
+
+                <!-- SERVICE LINES -->
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                  <strong>Service Lines</strong>
+                  <button type="button" class="btn btn-sm btn-outline-primary" onclick="bkgAddService()"><i class="fa fa-plus me-1"></i> Add Service</button>
+                </div>
+                <div class="table-responsive mb-3">
+                  <table class="table table-sm table-bordered">
+                    <thead class="table-light"><tr>
+                      <th width="12%">Type</th><th width="24%">Description</th>
+                      <th>Qty</th><th>Unit Cost</th><th>Unit Price</th><th>Tax</th><th>Amount</th><th></th>
+                    </tr></thead>
+                    <tbody id="bkgServiceBody"></tbody>
+                    <tfoot><tr class="fw-bold bg-light">
+                      <td colspan="6" class="text-end">Subtotal:</td>
+                      <td id="bkgSubtotal" class="text-end">0.00</td><td></td>
+                    </tr>
+                    <tr class="fw-bold bg-light">
+                      <td colspan="6" class="text-end">Total (after discount + tax):</td>
+                      <td id="bkgTotal" class="text-end">0.00</td><td></td>
+                    </tr></tfoot>
+                  </table>
+                </div>
+
+                <!-- PASSENGERS -->
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                  <strong>Passengers</strong>
+                  <button type="button" class="btn btn-sm btn-outline-primary" onclick="bkgAddPassenger()"><i class="fa fa-user-plus me-1"></i> Add Passenger</button>
+                </div>
+                <div class="table-responsive">
+                  <table class="table table-sm table-bordered">
+                    <thead class="table-light"><tr>
+                      <th width="8%">Title</th><th width="16%">First Name</th><th width="16%">Last Name</th>
+                      <th>Type</th><th>Passport No</th><th>Nationality</th><th>Lead</th><th></th>
+                    </tr></thead>
+                    <tbody id="bkgPaxBody"></tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-success" type="submit" id="bkgSubmitBtn">
+                <span class="spinner-border spinner-border-sm me-2 d-none" id="bkgSpinner"></span>
+                <span id="bkgBtnText">Save Draft</span>
+              </button>
+              <button type="button" class="btn btn-white" data-bs-dismiss="modal">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- VIEW MODAL -->
+    <div tabindex="-1" id="bkgViewModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header"><h5 class="modal-title"><i class="fa fa-ticket-alt me-1 text-primary"></i> Booking Details</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+          <div class="modal-body" id="bkgViewBody"></div>
+          <div class="modal-footer"><button type="button" class="btn btn-white" data-bs-dismiss="modal">Close</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script th:inline="none">
+  (function () {
+    'use strict';
+    const BASE = '/travel/bookings';
+    const SUB_URL = '/accounts/sub-accounts/search';
+    const USER_URL = '/users/search';
+    var dt, _svcCount = 0, _paxCount = 0;
+
+    document.addEventListener('DOMContentLoaded', function () {
+      dt = $('#bkgTable').DataTable({
+        processing: true, serverSide: false, responsive: true, pageLength: 25,
+        ajax: { url: BASE + '/list', type: 'GET', data: function (d) { d.status = document.getElementById('bkgStatusFilter').value || ''; } },
+        columns: [
+          { data: 'sl', orderable: false, width: '40px' },
+          { data: 'booking_no' }, { data: 'booking_type' },
+          { data: 'booking_date' }, { data: 'travel_start_date', defaultContent: '—' },
+          { data: 'customer_name', defaultContent: '—' }, { data: 'sales_agent', defaultContent: '—' },
+          { data: 'passenger_count', className: 'text-center' },
+          { data: 'total_amount', className: 'text-end', render: function (d) { return parseFloat(d || 0).toFixed(2); } },
+          { data: 'due_amount', className: 'text-end', render: function (d) { return parseFloat(d || 0).toFixed(2); } },
+          { data: 'status_badge', orderable: false, className: 'text-center' },
+          { data: 'actions', orderable: false, className: 'text-center' }
+        ],
+        language: { emptyTable: 'No bookings.', processing: '<span class="spinner-border spinner-border-sm me-2"></span> Loading…' }
+      });
+      document.getElementById('bkgForm').addEventListener('submit', _onSubmit);
+      document.getElementById('bkgDate').value = new Date().toISOString().substring(0, 10);
+      _initCustomerS2(null, null);
+      _initAgentS2(null, null);
+    });
+
+    window._bkgReload = function () { dt.ajax.reload(); };
+
+    function _initCustomerS2(preId, preText) {
+      var $el = $('#bkgCustomerId');
+      if ($el.hasClass('select2-hidden-accessible')) $el.select2('destroy');
+      $el.select2({
+        dropdownParent: $('#bkgModal'), width: '100%', placeholder: '— Search Customer —', allowClear: true, minimumInputLength: 0,
+        ajax: { url: SUB_URL, dataType: 'json', delay: 250,
+          data: function (p) { return { search: p.term || '', subAccountType: 'CUSTOMER', page: p.page || 1 }; },
+          processResults: function (data, p) { p.page = p.page || 1; return { results: (data.items || []).map(function (i) { return { id: i.id, text: i.text }; }), pagination: { more: data.hasMore || false } }; },
+          cache: false }
+      });
+      if (preId) $el.append(new Option(preText || '', preId, true, true)).trigger('change');
+    }
+
+    function _initAgentS2(preId, preText) {
+      var $el = $('#bkgAgentId');
+      if ($el.hasClass('select2-hidden-accessible')) $el.select2('destroy');
+      $el.select2({
+        dropdownParent: $('#bkgModal'), width: '100%', placeholder: '— Assign Agent —', allowClear: true, minimumInputLength: 0,
+        ajax: { url: USER_URL, dataType: 'json', delay: 250,
+          data: function (p) { return { search: p.term || '', page: p.page || 1 }; },
+          processResults: function (data, p) { p.page = p.page || 1; return { results: (data.items || []).map(function (i) { return { id: i.id, text: i.text }; }), pagination: { more: data.hasMore || false } }; },
+          cache: true }
+      });
+      if (preId) $el.append(new Option(preText || '', preId, true, true)).trigger('change');
+    }
+
+    window.bkgOpenCreate = function () {
+      _resetForm();
+      document.getElementById('bkgModalTitle').innerHTML = '<i class="fa fa-plus me-1 text-success"></i> New Booking';
+      document.getElementById('bkgBtnText').textContent = 'Save Draft';
+      bkgAddService(); bkgAddPassenger();
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('bkgModal')).show();
+    };
+
+    // ── SERVICE LINES ─────────────────────────────────────────────────────────
+    window.bkgAddService = function (data) {
+      _svcCount++; var n = _svcCount;
+      var html = '<tr id="bkgSvc_' + n + '">'
+        + '<td><select class="form-select form-select-sm" data-field="serviceType">'
+          + '<option value="HOTEL"' + (data && data.serviceType === 'HOTEL' ? ' selected' : '') + '>Hotel</option>'
+          + '<option value="AIR"' + (data && data.serviceType === 'AIR' ? ' selected' : '') + '>Air</option>'
+          + '<option value="PACKAGE"' + (data && data.serviceType === 'PACKAGE' ? ' selected' : '') + '>Package</option>'
+          + '<option value="TOUR"' + (data && data.serviceType === 'TOUR' ? ' selected' : '') + '>Tour</option>'
+          + '<option value="VISA"' + (data && data.serviceType === 'VISA' ? ' selected' : '') + '>Visa</option>'
+          + '</select></td>'
+        + '<td><input type="text" class="form-control form-control-sm" data-field="description" value="' + (data ? (data.description || '') : '') + '"></td>'
+        + '<td><input type="number" step="0.001" class="form-control form-control-sm text-end" data-field="quantity" value="' + (data ? data.quantity || 1 : 1) + '" oninput="bkgCalcService(this.closest(\'tr\'))"></td>'
+        + '<td><input type="number" step="0.01" class="form-control form-control-sm text-end" data-field="unitCost" value="' + (data ? data.unitCost || 0 : 0) + '"></td>'
+        + '<td><input type="number" step="0.01" class="form-control form-control-sm text-end" data-field="unitPrice" value="' + (data ? data.unitPrice || 0 : 0) + '" oninput="bkgCalcService(this.closest(\'tr\'))"></td>'
+        + '<td><input type="number" step="0.01" class="form-control form-control-sm text-end" data-field="taxAmount" value="' + (data ? data.taxAmount || 0 : 0) + '" oninput="bkgCalcService(this.closest(\'tr\'))"></td>'
+        + '<td><input type="text" class="form-control form-control-sm text-end bg-light" data-field="lineTotal" readonly value="' + (data ? data.lineTotal || '0.00' : '0.00') + '"></td>'
+        + '<td><button type="button" class="btn btn-sm btn-outline-danger" onclick="bkgRemoveService(' + n + ')"><i class="fa fa-times"></i></button></td>'
+        + '</tr>';
+      document.getElementById('bkgServiceBody').insertAdjacentHTML('beforeend', html);
+    };
+    window.bkgRemoveService = function (n) { var r = document.getElementById('bkgSvc_' + n); if (r) r.remove(); bkgRecalcTotal(); };
+    window.bkgCalcService = function (tr) {
+      var q = parseFloat(tr.querySelector('[data-field="quantity"]').value) || 0;
+      var p = parseFloat(tr.querySelector('[data-field="unitPrice"]').value) || 0;
+      var t = parseFloat(tr.querySelector('[data-field="taxAmount"]').value) || 0;
+      tr.querySelector('[data-field="lineTotal"]').value = (q * p).toFixed(2);
+      bkgRecalcTotal();
+    };
+    window.bkgRecalcTotal = function () {
+      var subtotal = 0, tax = 0;
+      document.querySelectorAll('#bkgServiceBody tr').forEach(function (tr) {
+        subtotal += parseFloat(tr.querySelector('[data-field="lineTotal"]').value) || 0;
+        tax += parseFloat(tr.querySelector('[data-field="taxAmount"]').value) || 0;
+      });
+      var discount = parseFloat(document.getElementById('bkgDiscount').value) || 0;
+      document.getElementById('bkgSubtotal').textContent = subtotal.toFixed(2);
+      document.getElementById('bkgTotal').textContent = (subtotal - discount + tax).toFixed(2);
+    };
+
+    // ── PASSENGERS ────────────────────────────────────────────────────────────
+    window.bkgAddPassenger = function (data) {
+      _paxCount++; var n = _paxCount;
+      var html = '<tr id="bkgPax_' + n + '">'
+        + '<td><input type="text" class="form-control form-control-sm" data-field="title" value="' + (data ? data.title || '' : '') + '" placeholder="Mr/Mrs"></td>'
+        + '<td><input type="text" class="form-control form-control-sm" data-field="firstName" value="' + (data ? data.firstName || '' : '') + '" required></td>'
+        + '<td><input type="text" class="form-control form-control-sm" data-field="lastName" value="' + (data ? data.lastName || '' : '') + '"></td>'
+        + '<td><select class="form-select form-select-sm" data-field="passengerType">'
+          + '<option value="ADULT"' + (!data || data.passengerType === 'ADULT' ? ' selected' : '') + '>Adult</option>'
+          + '<option value="CHILD"' + (data && data.passengerType === 'CHILD' ? ' selected' : '') + '>Child</option>'
+          + '<option value="INFANT"' + (data && data.passengerType === 'INFANT' ? ' selected' : '') + '>Infant</option>'
+          + '</select></td>'
+        + '<td><input type="text" class="form-control form-control-sm" data-field="passportNumber" value="' + (data ? data.passportNumber || '' : '') + '"></td>'
+        + '<td><input type="text" class="form-control form-control-sm" data-field="nationality" value="' + (data ? data.nationality || '' : '') + '"></td>'
+        + '<td class="text-center"><input type="checkbox" data-field="isLeadPassenger"' + (data && data.isLeadPassenger ? ' checked' : '') + '></td>'
+        + '<td><button type="button" class="btn btn-sm btn-outline-danger" onclick="bkgRemovePax(' + n + ')"><i class="fa fa-times"></i></button></td>'
+        + '</tr>';
+      document.getElementById('bkgPaxBody').insertAdjacentHTML('beforeend', html);
+    };
+    window.bkgRemovePax = function (n) { var r = document.getElementById('bkgPax_' + n); if (r) r.remove(); };
+
+    window.bkgShow = function (id) {
+      secureFetch(BASE + '/show/' + id).then(function (res) {
+        if (!res.success) { Swal.fire('Error', res.message, 'error'); return; }
+        var o = res.obj.defaultData;
+        var html = '<div class="hs-box"><div class="row g-2">'
+          + _vf('Booking No', o.bookingNo) + _vf('Type', o.bookingType) + _vf('Status', o.status)
+          + _vf('Customer', o.partyDisplay || '—') + _vf('Booking Date', o.bookingDate)
+          + _vf('Travel', (o.travelStartDate || '—') + ' to ' + (o.travelEndDate || '—'))
+          + _vf('Total', parseFloat(o.totalAmount || 0).toFixed(2)) + _vf('Due', parseFloat(o.dueAmount || 0).toFixed(2))
+          + '</div><h6 class="mt-3">Services</h6><table class="table table-sm table-bordered"><thead class="table-light"><tr>'
+          + '<th>Type</th><th>Description</th><th class="text-end">Qty</th><th class="text-end">Price</th><th class="text-end">Amount</th></tr></thead><tbody>';
+        (o.services || []).forEach(function (s) { html += '<tr><td>' + s.serviceType + '</td><td>' + (s.description || '—') + '</td><td class="text-end">' + s.quantity + '</td><td class="text-end">' + parseFloat(s.unitPrice || 0).toFixed(2) + '</td><td class="text-end">' + parseFloat(s.lineTotal || 0).toFixed(2) + '</td></tr>'; });
+        html += '</tbody></table><h6 class="mt-3">Passengers</h6><table class="table table-sm table-bordered"><thead class="table-light"><tr><th>Name</th><th>Type</th><th>Passport</th></tr></thead><tbody>';
+        (o.passengers || []).forEach(function (p) { html += '<tr><td>' + (p.title || '') + ' ' + p.firstName + ' ' + (p.lastName || '') + (p.isLeadPassenger ? ' <span class="badge bg-primary">Lead</span>' : '') + '</td><td>' + p.passengerType + '</td><td>' + (p.passportNumber || '—') + '</td></tr>'; });
+        html += '</tbody></table></div>';
+        document.getElementById('bkgViewBody').innerHTML = html;
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('bkgViewModal')).show();
+      });
+    };
+
+    window.bkgEdit = function (id) {
+      secureFetch(BASE + '/show/' + id).then(function (res) {
+        if (!res.success) { Swal.fire('Error', res.message, 'error'); return; }
+        var o = res.obj.defaultData; _resetForm();
+        document.getElementById('bkgId').value = o.id;
+        document.getElementById('bkgNo').value = o.bookingNo || '';
+        document.getElementById('bkgType').value = o.bookingType || 'PACKAGE';
+        document.getElementById('bkgDate').value = o.bookingDate || '';
+        document.getElementById('bkgTravelStart').value = o.travelStartDate || '';
+        document.getElementById('bkgTravelEnd').value = o.travelEndDate || '';
+        document.getElementById('bkgDiscount').value = o.discountAmount || 0;
+        document.getElementById('bkgRemarks').value = o.remarks || '';
+        _initCustomerS2(o.partyId, o.partyDisplay);
+        _initAgentS2(o.salesAgentId, o.salesAgentDisplay);
+        (o.services || []).forEach(function (s) { bkgAddService(s); });
+        (o.passengers || []).forEach(function (p) { bkgAddPassenger(p); });
+        bkgRecalcTotal();
+        document.getElementById('bkgModalTitle').innerHTML = '<i class="fa fa-pencil me-1 text-warning"></i> Edit Booking';
+        document.getElementById('bkgBtnText').textContent = 'Update';
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('bkgModal')).show();
+      });
+    };
+
+    window.bkgConfirm = function (id) {
+      Swal.fire({ title: 'Confirm Booking?', text: 'This posts a Sales Voucher to accounts and cannot be edited afterward.', icon: 'warning', showCancelButton: true, confirmButtonText: 'Yes, Confirm', confirmButtonColor: '#0d6efd' })
+        .then(function (r) { if (!r.isConfirmed) return;
+          secureFetch(BASE + '/confirm/' + id, { method: 'POST' }).then(function (d) {
+            if (d.success) { Swal.fire({ icon: 'success', title: 'Confirmed!', text: d.message, timer: 1800, showConfirmButton: false }); dt.ajax.reload(null, false); }
+            else { Swal.fire('Error', d.message, 'error'); } }); });
+    };
+
+    window.bkgCancel = function (id) {
+      Swal.fire({ title: 'Cancel Booking?', icon: 'warning', showCancelButton: true, confirmButtonColor: '#dc3545', confirmButtonText: 'Cancel Booking' })
+        .then(function (r) { if (!r.isConfirmed) return;
+          secureFetch(BASE + '/cancel/' + id, { method: 'POST' }).then(function (d) {
+            if (d.success) { Swal.fire({ icon: 'success', timer: 1400, title: 'Cancelled', text: d.message, showConfirmButton: false }); dt.ajax.reload(null, false); }
+            else { Swal.fire('Error', d.message, 'error'); } }); });
+    };
+
+    window.bkgDelete = function (id) { hsConfirmDelete(BASE + '/delete/' + id, dt); };
+
+    window.createReceiptFromBooking = function (bookingId) {
+      secureFetch(BASE + '/receipt-prefill?bookingId=' + bookingId).then(function (res) {
+        if (!res.success) { Swal.fire('Error', res.message, 'error'); return; }
+        sessionStorage.setItem('rvPrefill', JSON.stringify(res.obj.defaultData));
+        window.location.href = res.redirectTo;
+      });
+    };
+
+    function _onSubmit(e) {
+      e.preventDefault();
+      var sb = document.getElementById('bkgSubmitBtn'), sp = document.getElementById('bkgSpinner'), bt = document.getElementById('bkgBtnText'), fm = document.getElementById('bkgForm');
+      hsDisableButton(sb, sp, bt);
+
+      var services = [];
+      document.querySelectorAll('#bkgServiceBody tr').forEach(function (tr) {
+        services.push({
+          serviceType: tr.querySelector('[data-field="serviceType"]').value,
+          description: tr.querySelector('[data-field="description"]').value || null,
+          quantity: parseFloat(tr.querySelector('[data-field="quantity"]').value) || 1,
+          unitCost: parseFloat(tr.querySelector('[data-field="unitCost"]').value) || 0,
+          unitPrice: parseFloat(tr.querySelector('[data-field="unitPrice"]').value) || 0,
+          taxAmount: parseFloat(tr.querySelector('[data-field="taxAmount"]').value) || 0,
+          lineTotal: parseFloat(tr.querySelector('[data-field="lineTotal"]').value) || 0
+        });
+      });
+      var passengers = [];
+      document.querySelectorAll('#bkgPaxBody tr').forEach(function (tr) {
+        var firstName = tr.querySelector('[data-field="firstName"]').value;
+        if (!firstName) return;
+        passengers.push({
+          title: tr.querySelector('[data-field="title"]').value || null,
+          firstName: firstName,
+          lastName: tr.querySelector('[data-field="lastName"]').value || null,
+          passengerType: tr.querySelector('[data-field="passengerType"]').value,
+          passportNumber: tr.querySelector('[data-field="passportNumber"]').value || null,
+          nationality: tr.querySelector('[data-field="nationality"]').value || null,
+          isLeadPassenger: tr.querySelector('[data-field="isLeadPassenger"]').checked
+        });
+      });
+
+      secureFetch(BASE + '/save', { method: 'POST', body: JSON.stringify({
+        id: document.getElementById('bkgId').value || null,
+        bookingType: document.getElementById('bkgType').value,
+        bookingDate: document.getElementById('bkgDate').value,
+        travelStartDate: document.getElementById('bkgTravelStart').value || null,
+        travelEndDate: document.getElementById('bkgTravelEnd').value || null,
+        discountAmount: parseFloat(document.getElementById('bkgDiscount').value) || 0,
+        remarks: document.getElementById('bkgRemarks').value || null,
+        partyId: $('#bkgCustomerId').val() || null,
+        salesAgentId: $('#bkgAgentId').val() || null,
+        services: services,
+        passengers: passengers
+      }) }).then(function (d) {
+        if (d.success) { document.getElementById('bkgId').value = d.id || ''; hsAfterSaveMessages(d.success, d.message, fm, dt); bootstrap.Modal.getOrCreateInstance(document.getElementById('bkgModal')).hide(); }
+        else { Swal.fire('Error', d.message, 'error'); }
+      }).catch(function (err) { Swal.fire('Error', err.message || 'Request failed.', 'error'); })
+        .finally(function () { hsEnableButton(sb, sp, bt); });
+    }
+
+    function _resetForm() {
+      document.getElementById('bkgForm').reset();
+      document.getElementById('bkgId').value = '';
+      document.getElementById('bkgServiceBody').innerHTML = '';
+      document.getElementById('bkgPaxBody').innerHTML = '';
+      document.getElementById('bkgSubtotal').textContent = '0.00';
+      document.getElementById('bkgTotal').textContent = '0.00';
+      _svcCount = 0; _paxCount = 0;
+      document.getElementById('bkgDate').value = new Date().toISOString().substring(0, 10);
+      _initCustomerS2(null, null);
+      _initAgentS2(null, null);
+    }
+
+    function _vf(label, value) { return '<div class="col-md-4 view-group"><label class="view-label">' + label + '</label><span class="form-control hs_span_show">' + (value != null ? value : '—') + '</span></div>'; }
+  })();
+  </script>
+</section>
+</html>

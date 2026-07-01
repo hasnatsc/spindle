@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<!--
+  travel/travel-hotel-bookings.html    GET /travel/hotel-bookings
+  JS prefix: hb*
+-->
+<html th:replace="~{layout/base :: layout('Hotel Bookings', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
+<section>
+
+  <ol class="breadcrumb float-xl-end">
+    <li class="breadcrumb-item"><a th:href="@{/dashboard}">Home</a></li>
+    <li class="breadcrumb-item">Travel</li>
+    <li class="breadcrumb-item active">Hotel Bookings</li>
+  </ol>
+  <h1 class="page-header">Hotel Bookings <small>fulfillment for HOTEL service lines</small></h1>
+
+  <div class="d-flex gap-2 mb-3 flex-wrap">
+    <a th:href="@{/travel/bookings}"       class="btn btn-sm btn-outline-primary"><i class="fa fa-ticket-alt me-1"></i> Bookings</a>
+    <a th:href="@{/travel/hotel-bookings}" class="btn btn-sm btn-primary"><i class="fa fa-bed me-1"></i> Hotel Bookings</a>
+    <a th:href="@{/travel/air-tickets}"    class="btn btn-sm btn-outline-primary"><i class="fa fa-plane-departure me-1"></i> Air Tickets</a>
+    <a th:href="@{/travel/packages}"       class="btn btn-sm btn-outline-primary"><i class="fa fa-suitcase-rolling me-1"></i> Packages</a>
+  </div>
+
+  <div class="panel panel-inverse">
+    <div class="panel-heading">
+      <div class="panel-title">
+        <a href="javascript:;" onclick="hbOpenCreate()"><span class="badge btn btn-outline-success"><i class="fa fa-plus me-1"></i> New Hotel Booking</span></a>
+      </div>
+    </div>
+    <div class="panel-body">
+      <input type="text" id="hbSearch" class="form-control mb-3" placeholder="Search booking no, hotel, confirmation…" oninput="hbReload()">
+      <table class="table table-striped table-bordered align-middle">
+        <thead><tr>
+          <th width="1%">SL</th><th>Booking</th><th>Check-in</th><th>Check-out</th><th>Nights</th>
+          <th>Hotel</th><th>Room Type</th><th class="text-center">Rooms</th>
+          <th class="text-end">Total</th><th>Confirmation#</th>
+          <th class="text-center">Status</th><th class="text-center" width="16%">Actions</th>
+        </tr></thead>
+        <tbody id="hbBody"></tbody>
+      </table>
+    </div>
+
+    <!-- HOTEL BOOKING MODAL -->
+    <div tabindex="-1" id="hbModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="hbModalTitle"><i class="fa fa-bed me-1 text-success"></i> New Hotel Booking</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <form id="hbForm" novalidate>
+            <div class="modal-body">
+              <div class="hs-box">
+                <input type="hidden" id="hbId">
+                <div class="row g-2">
+                  <div class="col-12 view-group">
+                    <select id="hbServiceLineId" class="form-select hs_span_view"></select>
+                    <label class="input-label">Booking Service Line <span class="text-danger">*</span></label>
+                  </div>
+                  <div class="col-md-6 view-group">
+                    <select id="hbHotelId" class="form-select hs_span_view"></select>
+                    <label class="input-label">Hotel <span class="text-danger">*</span></label>
+                  </div>
+                  <div class="col-md-6 view-group">
+                    <select id="hbRoomTypeId" class="form-select hs_span_view"><option value="">— Select Hotel First —</option></select>
+                    <label class="input-label">Room Type</label>
+                  </div>
+                  <div class="col-md-6 view-group">
+                    <select id="hbMealPlanId" class="form-select hs_span_view"><option value="">— None —</option></select>
+                    <label class="input-label">Meal Plan</label>
+                  </div>
+                  <div class="col-md-3 view-group">
+                    <input id="hbCheckIn" type="date" class="form-control hs_span_view" required>
+                    <label class="input-label">Check-in <span class="text-danger">*</span></label>
+                  </div>
+                  <div class="col-md-3 view-group">
+                    <input id="hbCheckOut" type="date" class="form-control hs_span_view" required>
+                    <label class="input-label">Check-out <span class="text-danger">*</span></label>
+                  </div>
+                  <div class="col-md-4 view-group">
+                    <input id="hbRooms" type="number" min="1" class="form-control hs_span_view" value="1">
+                    <label class="input-label">Rooms</label>
+                  </div>
+                  <div class="col-md-4 view-group">
+                    <input id="hbAdults" type="number" min="1" class="form-control hs_span_view" value="1">
+                    <label class="input-label">Adults</label>
+                  </div>
+                  <div class="col-md-4 view-group">
+                    <input id="hbChildren" type="number" min="0" class="form-control hs_span_view" value="0">
+                    <label class="input-label">Children</label>
+                  </div>
+                  <div class="col-md-6 view-group">
+                    <input id="hbRatePerNight" type="number" step="0.01" class="form-control hs_span_view">
+                    <label class="input-label">Rate / Night</label>
+                  </div>
+                  <div class="col-md-6 view-group">
+                    <input id="hbTotalAmount" type="number" step="0.01" class="form-control hs_span_view">
+                    <label class="input-label">Total Amount</label>
+                  </div>
+                  <div class="col-md-6 view-group">
+                    <input id="hbConfirmationNumber" type="text" class="form-control hs_span_view" maxlength="100">
+                    <label class="input-label">Confirmation Number</label>
+                  </div>
+                  <div class="col-md-6 view-group">
+                    <input id="hbSupplierReference" type="text" class="form-control hs_span_view" maxlength="100">
+                    <label class="input-label">Supplier Reference</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-success" type="submit" id="hbSubmitBtn">
+                <span class="spinner-border spinner-border-sm me-2 d-none" id="hbSpinner"></span>
+                <span id="hbBtnText">Save</span>
+              </button>
+              <button type="button" class="btn btn-white" data-bs-dismiss="modal">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- VIEW MODAL -->
+    <div tabindex="-1" id="hbViewModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+          <div class="modal-header"><h5 class="modal-title">Hotel Booking Details</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+          <div class="modal-body" id="hbViewBody"></div>
+          <div class="modal-footer"><button type="button" class="btn btn-white" data-bs-dismiss="modal">Close</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script th:inline="none">
+  (function () {
+    'use strict';
+    const BASE = '/travel/hotel-bookings';
+
+    document.addEventListener('DOMContentLoaded', function () {
+      document.getElementById('hbForm').addEventListener('submit', _onSubmit);
+      document.getElementById('hbHotelId').addEventListener('change', function () { _loadRoomTypes(this.value); });
+      hbReload();
+    });
+
+    window.hbReload = function () {
+      var search = document.getElementById('hbSearch').value || '';
+      secureFetch(BASE + '/list?search=' + encodeURIComponent(search)).then(function (res) {
+        var body = document.getElementById('hbBody'); body.innerHTML = '';
+        (res.data || []).forEach(function (r) {
+          body.insertAdjacentHTML('beforeend',
+            '<tr><td>' + r.sl + '</td><td>' + r.booking_no + '</td><td>' + r.check_in_date + '</td><td>' + r.check_out_date + '</td>'
+            + '<td>' + r.nights + '</td><td>' + r.hotel_name + '</td><td>' + r.room_type_name + '</td>'
+            + '<td class="text-center">' + r.rooms_count + '</td><td class="text-end">' + parseFloat(r.total_amount || 0).toFixed(2) + '</td>'
+            + '<td>' + (r.confirmation_number || '—') + '</td><td class="text-center">' + r.status_badge + '</td>'
+            + '<td class="text-center">' + r.actions + '</td></tr>');
+        });
+        if (!(res.data || []).length) body.innerHTML = '<tr><td colspan="12" class="text-center text-muted py-3">No hotel bookings found.</td></tr>';
+      });
+    };
+
+    function _loadServiceLines(preId) {
+      secureFetch('/travel/service-lines/search?serviceType=HOTEL').then(function (res) {
+        var sel = document.getElementById('hbServiceLineId');
+        sel.innerHTML = '<option value="">— Select Service Line —</option>';
+        (res.items || []).forEach(function (i) { sel.insertAdjacentHTML('beforeend', '<option value="' + i.id + '">' + i.text + '</option>'); });
+        if (preId) sel.value = preId;
+      });
+    }
+
+    function _loadHotels(preId) {
+      secureFetch('/travel/hotels/search').then(function (res) {
+        var sel = document.getElementById('hbHotelId');
+        sel.innerHTML = '<option value="">— Select Hotel —</option>';
+        (res.items || []).forEach(function (i) { sel.insertAdjacentHTML('beforeend', '<option value="' + i.id + '">' + i.text + '</option>'); });
+        if (preId) { sel.value = preId; _loadRoomTypes(preId); }
+      });
+    }
+
+    function _loadRoomTypes(hotelId, preId) {
+      var sel = document.getElementById('hbRoomTypeId');
+      sel.innerHTML = '<option value="">— None —</option>';
+      if (!hotelId) return;
+      secureFetch('/travel/hotels/room-types/search?hotelId=' + hotelId).then(function (res) {
+        (res.items || []).forEach(function (i) { sel.insertAdjacentHTML('beforeend', '<option value="' + i.id + '">' + i.text + '</option>'); });
+        if (preId) sel.value = preId;
+      });
+    }
+
+    function _loadMealPlans(preId) {
+      secureFetch('/travel/masters/meal-plans/list').then(function (res) {
+        var sel = document.getElementById('hbMealPlanId');
+        sel.innerHTML = '<option value="">— None —</option>';
+        (res.data || []).forEach(function (m) { sel.insertAdjacentHTML('beforeend', '<option value="' + m.id + '">' + m.plan_name + '</option>'); });
+        if (preId) sel.value = preId;
+      });
+    }
+
+    window.hbOpenCreate = function () {
+      _resetForm();
+      _loadServiceLines(); _loadHotels(); _loadMealPlans();
+      document.getElementById('hbModalTitle').innerHTML = '<i class="fa fa-plus me-1 text-success"></i> New Hotel Booking';
+      document.getElementById('hbBtnText').textContent = 'Save';
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('hbModal')).show();
+    };
+
+    window.hbShow = function (id) {
+      secureFetch(BASE + '/show/' + id).then(function (res) {
+        if (!res.success) { Swal.fire('Error', res.message, 'error'); return; }
+        var o = res.obj.defaultData;
+        var html = '<div class="row g-2">'
+          + _vf('Check-in', o.checkInDate) + _vf('Check-out', o.checkOutDate) + _vf('Nights', o.nights)
+          + _vf('Rooms', o.roomsCount) + _vf('Adults', o.adults) + _vf('Children', o.children)
+          + _vf('Total', parseFloat(o.totalAmount || 0).toFixed(2)) + _vf('Confirmation#', o.confirmationNumber || '—')
+          + _vf('Status', o.status) + '</div>';
+        document.getElementById('hbViewBody').innerHTML = html;
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('hbViewModal')).show();
+      });
+    };
+
+    window.hbEdit = function (id) {
+      secureFetch(BASE + '/show/' + id).then(function (res) {
+        if (!res.success) { Swal.fire('Error', res.message, 'error'); return; }
+        var o = res.obj.defaultData; _resetForm();
+        document.getElementById('hbId').value = o.id;
+        _loadServiceLines(o.bookingServiceId);
+        _loadHotels(o.hotelId);
+        setTimeout(function () { _loadRoomTypes(o.hotelId, o.roomTypeId); }, 300);
+        _loadMealPlans(o.mealPlanId);
+        document.getElementById('hbCheckIn').value = o.checkInDate || '';
+        document.getElementById('hbCheckOut').value = o.checkOutDate || '';
+        document.getElementById('hbRooms').value = o.roomsCount || 1;
+        document.getElementById('hbAdults').value = o.adults || 1;
+        document.getElementById('hbChildren').value = o.children || 0;
+        document.getElementById('hbRatePerNight').value = o.ratePerNight || '';
+        document.getElementById('hbTotalAmount').value = o.totalAmount || '';
+        document.getElementById('hbConfirmationNumber').value = o.confirmationNumber || '';
+        document.getElementById('hbSupplierReference').value = o.supplierReference || '';
+        document.getElementById('hbModalTitle').innerHTML = '<i class="fa fa-pencil me-1 text-warning"></i> Edit Hotel Booking';
+        document.getElementById('hbBtnText').textContent = 'Update';
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('hbModal')).show();
+      });
+    };
+
+    window.hbConfirm = function (id) {
+      secureFetch(BASE + '/confirm/' + id, { method: 'POST' }).then(function (d) {
+        if (d.success) { Swal.fire({ icon: 'success', timer: 1400, showConfirmButton: false, title: d.message }); hbReload(); }
+        else { Swal.fire('Error', d.message, 'error'); } });
+    };
+
+    window.hbDelete = function (id) {
+      Swal.fire({ title: 'Delete hotel booking?', icon: 'warning', showCancelButton: true, confirmButtonColor: '#dc3545' }).then(function (r) {
+        if (!r.isConfirmed) return;
+        secureFetch(BASE + '/delete/' + id, { method: 'DELETE' }).then(function (d) {
+          if (d.success) hbReload(); else Swal.fire('Error', d.message, 'error'); });
+      });
+    };
+
+    function _onSubmit(e) {
+      e.preventDefault();
+      var sb = document.getElementById('hbSubmitBtn'), sp = document.getElementById('hbSpinner'), bt = document.getElementById('hbBtnText');
+      hsDisableButton(sb, sp, bt);
+      secureFetch(BASE + '/save', { method: 'POST', body: JSON.stringify({
+        id: document.getElementById('hbId').value || null,
+        bookingServiceId: document.getElementById('hbServiceLineId').value || null,
+        hotelId: document.getElementById('hbHotelId').value || null,
+        roomTypeId: document.getElementById('hbRoomTypeId').value || null,
+        mealPlanId: document.getElementById('hbMealPlanId').value || null,
+        checkInDate: document.getElementById('hbCheckIn').value,
+        checkOutDate: document.getElementById('hbCheckOut').value,
+        roomsCount: parseInt(document.getElementById('hbRooms').value) || 1,
+        adults: parseInt(document.getElementById('hbAdults').value) || 1,
+        children: parseInt(document.getElementById('hbChildren').value) || 0,
+        ratePerNight: parseFloat(document.getElementById('hbRatePerNight').value) || null,
+        totalAmount: parseFloat(document.getElementById('hbTotalAmount').value) || 0,
+        confirmationNumber: document.getElementById('hbConfirmationNumber').value || null,
+        supplierReference: document.getElementById('hbSupplierReference').value || null
+      }) }).then(function (d) {
+        if (d.success) { Swal.fire({ icon: 'success', timer: 1400, showConfirmButton: false, title: d.message }); bootstrap.Modal.getOrCreateInstance(document.getElementById('hbModal')).hide(); hbReload(); }
+        else { Swal.fire('Error', d.message, 'error'); }
+      }).finally(function () { hsEnableButton(sb, sp, bt); });
+    }
+
+    function _resetForm() { document.getElementById('hbForm').reset(); document.getElementById('hbId').value = ''; }
+    function _vf(label, value) { return '<div class="col-md-4 view-group"><label class="view-label">' + label + '</label><span class="form-control hs_span_show">' + (value != null ? value : '—') + '</span></div>'; }
+  })();
+  </script>
+</section>
+</html>

@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<!--
+  travel/travel-tours.html    GET /travel/tours
+  JS prefixes: tour* (tour), guide* (guide), tourbk* (tour booking)
+-->
+<html th:replace="~{layout/base :: layout('Tours', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
+<section>
+
+  <ol class="breadcrumb float-xl-end">
+    <li class="breadcrumb-item"><a th:href="@{/dashboard}">Home</a></li>
+    <li class="breadcrumb-item">Travel</li>
+    <li class="breadcrumb-item active">Tours</li>
+  </ol>
+  <h1 class="page-header">Tours <small>day-trips &amp; excursions, guides, and fulfillment bookings</small></h1>
+
+  <div class="d-flex gap-2 mb-3 flex-wrap">
+    <a th:href="@{/travel/packages}" class="btn btn-sm btn-outline-primary"><i class="fa fa-suitcase-rolling me-1"></i> Packages</a>
+    <a th:href="@{/travel/tours}"    class="btn btn-sm btn-primary"><i class="fa fa-route me-1"></i> Tours</a>
+    <a th:href="@{/travel/visa-applications}" class="btn btn-sm btn-outline-primary"><i class="fa fa-passport me-1"></i> Visa</a>
+  </div>
+
+  <div class="panel panel-inverse">
+    <div class="panel-heading">
+      <ul class="nav nav-tabs panel-tab" role="tablist">
+        <li class="nav-item"><a href="#tabTour" data-bs-toggle="tab" class="nav-link active">Tours</a></li>
+        <li class="nav-item"><a href="#tabGuide" data-bs-toggle="tab" class="nav-link">Guides</a></li>
+        <li class="nav-item"><a href="#tabTourBk" data-bs-toggle="tab" class="nav-link">Tour Bookings</a></li>
+      </ul>
+    </div>
+    <div class="panel-body">
+      <div class="tab-content">
+
+        <!-- TOURS TAB -->
+        <div class="tab-pane fade show active" id="tabTour">
+          <div class="d-flex justify-content-between mb-3">
+            <a href="javascript:;" onclick="tourOpenCreate()"><span class="badge btn btn-outline-success"><i class="fa fa-plus me-1"></i> New Tour</span></a>
+            <input type="text" id="tourSearch" class="form-control" style="max-width:300px" placeholder="Search…" oninput="tourReload()">
+          </div>
+          <table class="table table-striped table-bordered align-middle">
+            <thead><tr>
+              <th width="1%">SL</th><th>Code</th><th>Name</th><th>Destination</th>
+              <th class="text-center">Duration (hrs)</th><th class="text-end">Base Price</th>
+              <th class="text-center">Status</th><th class="text-center" width="14%">Actions</th>
+            </tr></thead>
+            <tbody id="tourBody"></tbody>
+          </table>
+        </div>
+
+        <!-- GUIDES TAB -->
+        <div class="tab-pane fade" id="tabGuide">
+          <form id="guideForm" class="row g-2 mb-3" onsubmit="return false;">
+            <input type="hidden" id="guideId">
+            <div class="col-md-3"><input id="guideName" class="form-control form-control-sm" placeholder="Guide name"></div>
+            <div class="col-md-2"><input id="guidePhone" class="form-control form-control-sm" placeholder="Phone"></div>
+            <div class="col-md-3"><input id="guideEmail" class="form-control form-control-sm" placeholder="Email"></div>
+            <div class="col-md-2"><input id="guideLanguages" class="form-control form-control-sm" placeholder="Languages"></div>
+            <div class="col-md-2"><button class="btn btn-sm btn-primary w-100" onclick="guideSave()"><i class="fa fa-plus me-1"></i> Add / Update</button></div>
+          </form>
+          <table class="table table-sm table-bordered">
+            <thead class="table-light"><tr><th>SL</th><th>Name</th><th>Phone</th><th>Languages</th><th class="text-center">Active</th><th></th></tr></thead>
+            <tbody id="guideBody"></tbody>
+          </table>
+        </div>
+
+        <!-- TOUR BOOKINGS TAB -->
+        <div class="tab-pane fade" id="tabTourBk">
+          <div class="d-flex justify-content-between mb-3">
+            <a href="javascript:;" onclick="tourbkOpenCreate()"><span class="badge btn btn-outline-success"><i class="fa fa-plus me-1"></i> New Tour Booking</span></a>
+            <input type="text" id="tourbkSearch" class="form-control" style="max-width:300px" placeholder="Search…" oninput="tourbkReload()">
+          </div>
+          <table class="table table-striped table-bordered align-middle">
+            <thead><tr>
+              <th width="1%">SL</th><th>Booking</th><th>Tour</th><th>Date</th><th class="text-center">Pax</th>
+              <th class="text-end">Total</th><th>Guide</th><th class="text-center">Status</th><th class="text-center" width="16%">Actions</th>
+            </tr></thead>
+            <tbody id="tourbkBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- TOUR MODAL -->
+    <div tabindex="-1" id="tourModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="tourModalTitle"><i class="fa fa-route me-1 text-success"></i> New Tour</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <form id="tourForm" novalidate>
+            <div class="modal-body">
+              <div class="hs-box">
+                <input type="hidden" id="tourId">
+                <div class="row g-2">
+                  <div class="col-md-4 view-group">
+                    <input id="tourCode" type="text" class="form-control hs_span_view" required maxlength="30">
+                    <label class="input-label">Tour Code <span class="text-danger">*</span></label>
+                  </div>
+                  <div class="col-md-8 view-group">
+                    <input id="tourName" type="text" class="form-control hs_span_view" required maxlength="200">
+                    <label class="input-label">Tour Name <span class="text-danger">*</span></label>
+                  </div>
+                  <div class="col-md-6 view-group">
+                    <input id="tourDestination" type="text" class="form-control hs_span_view" maxlength="150">
+                    <label class="input-label">Destination</label>
+                  </div>
+                  <div class="col-md-2 view-group">
+                    <input id="tourDurationHours" type="number" step="0.5" class="form-control hs_span_view">
+                    <label class="input-label">Duration (hrs)</label>
+                  </div>
+                  <div class="col-md-2 view-group">
+                    <input id="tourBasePrice" type="number" step="0.01" class="form-control hs_span_view">
+                    <label class="input-label">Base Price</label>
+                  </div>
+                  <div class="col-md-2 view-group">
+                    <input id="tourCurrency" type="text" class="form-control hs_span_view" value="BDT" maxlength="3">
+                    <label class="input-label">Currency</label>
+                  </div>
+                  <div class="col-12 view-group">
+                    <textarea id="tourDescription" class="form-control hs_span_view" rows="2"></textarea>
+                    <label class="input-label">Description</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-success" type="submit" id="tourSubmitBtn">
+                <span class="spinner-border spinner-border-sm me-2 d-none" id="tourSpinner"></span>
+                <span id="tourBtnText">Save</span>
+              </button>
+              <button type="button" class="btn btn-white" data-bs-dismiss="modal">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- TOUR BOOKING MODAL -->
+    <div tabindex="-1" id="tourbkModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="tourbkModalTitle"><i class="fa fa-route me-1 text-success"></i> New Tour Booking</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <form id="tourbkForm" novalidate>
+            <div class="modal-body">
+              <div class="hs-box">
+                <input type="hidden" id="tourbkId">
+                <div class="row g-2">
+                  <div class="col-12 view-group">
+                    <select id="tourbkServiceLineId" class="form-select hs_span_view"></select>
+                    <label class="input-label">Booking Service Line <span class="text-danger">*</span></label>
+                  </div>
+                  <div class="col-md-8 view-group">
+                    <select id="tourbkTourId" class="form-select hs_span_view"></select>
+                    <label class="input-label">Tour <span class="text-danger">*</span></label>
+                  </div>
+                  <div class="col-md-4 view-group">
+                    <select id="tourbkGuideId" class="form-select hs_span_view"><option value="">— None —</option></select>
+                    <label class="input-label">Guide</label>
+                  </div>
+                  <div class="col-md-4 view-group">
+                    <input id="tourbkDate" type="date" class="form-control hs_span_view">
+                    <label class="input-label">Tour Date</label>
+                  </div>
+                  <div class="col-md-4 view-group">
+                    <input id="tourbkPax" type="number" min="1" class="form-control hs_span_view" value="1">
+                    <label class="input-label">Pax Count</label>
+                  </div>
+                  <div class="col-md-4 view-group">
+                    <input id="tourbkTotal" type="number" step="0.01" class="form-control hs_span_view">
+                    <label class="input-label">Total Amount</label>
+                  </div>
+                  <div class="col-12 view-group">
+                    <input id="tourbkConfirmationNumber" type="text" class="form-control hs_span_view" maxlength="100">
+                    <label class="input-label">Confirmation Number</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-success" type="submit" id="tourbkSubmitBtn">
+                <span class="spinner-border spinner-border-sm me-2 d-none" id="tourbkSpinner"></span>
+                <span id="tourbkBtnText">Save</span>
+              </button>
+              <button type="button" class="btn btn-white" data-bs-dismiss="modal">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- VIEW MODAL (shared) -->
+    <div tabindex="-1" id="tourViewModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+          <div class="modal-header"><h5 class="modal-title">Details</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+          <div class="modal-body" id="tourViewBody"></div>
+          <div class="modal-footer"><button type="button" class="btn btn-white" data-bs-dismiss="modal">Close</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script th:inline="none">
+  (function () {
+    'use strict';
+    const TOUR_BASE = '/travel/tours';
+    const TOURBK_BASE = '/travel/tour-bookings';
+
+    document.addEventListener('DOMContentLoaded', function () {
+      document.getElementById('tourForm').addEventListener('submit', _onTourSubmit);
+      document.getElementById('tourbkForm').addEventListener('submit', _onTourbkSubmit);
+      tourReload(); guideReload(); tourbkReload();
+    });
+
+    // ── TOURS ─────────────────────────────────────────────────────────────────
+    window.tourReload = function () {
+      var search = document.getElementById('tourSearch').value || '';
+      secureFetch(TOUR_BASE + '/list?search=' + encodeURIComponent(search)).then(function (res) {
+        var body = document.getElementById('tourBody'); body.innerHTML = '';
+        (res.data || []).forEach(function (t) {
+          body.insertAdjacentHTML('beforeend',
+            '<tr><td>' + t.sl + '</td><td>' + t.tour_code + '</td><td>' + t.tour_name + '</td>'
+            + '<td>' + t.destination + '</td><td class="text-center">' + t.duration_hours + '</td>'
+            + '<td class="text-end">' + parseFloat(t.base_price || 0).toFixed(2) + '</td>'
+            + '<td class="text-center">' + t.status_badge + '</td><td class="text-center">' + t.actions + '</td></tr>');
+        });
+        if (!(res.data || []).length) body.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-3">No tours found.</td></tr>';
+      });
+    };
+
+    window.tourOpenCreate = function () {
+      _resetTourForm();
+      document.getElementById('tourModalTitle').innerHTML = '<i class="fa fa-plus me-1 text-success"></i> New Tour';
+      document.getElementById('tourBtnText').textContent = 'Save';
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('tourModal')).show();
+    };
+
+    window.tourEdit = function (id) {
+      secureFetch(TOUR_BASE + '/show/' + id).then(function (res) {
+        if (!res.success) { Swal.fire('Error', res.message, 'error'); return; }
+        var o = res.obj.defaultData; _resetTourForm();
+        document.getElementById('tourId').value = o.id;
+        document.getElementById('tourCode').value = o.tourCode || '';
+        document.getElementById('tourName').value = o.tourName || '';
+        document.getElementById('tourDestination').value = o.destination || '';
+        document.getElementById('tourDurationHours').value = o.durationHours || '';
+        document.getElementById('tourBasePrice').value = o.basePrice || '';
+        document.getElementById('tourCurrency').value = o.currency || 'BDT';
+        document.getElementById('tourDescription').value = o.description || '';
+        document.getElementById('tourModalTitle').innerHTML = '<i class="fa fa-pencil me-1 text-warning"></i> Edit Tour';
+        document.getElementById('tourBtnText').textContent = 'Update';
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('tourModal')).show();
+      });
+    };
+
+    window.tourDelete = function (id) {
+      Swal.fire({ title: 'Delete tour?', icon: 'warning', showCancelButton: true, confirmButtonColor: '#dc3545' }).then(function (r) {
+        if (!r.isConfirmed) return;
+        secureFetch(TOUR_BASE + '/delete/' + id, { method: 'DELETE' }).then(function (d) {
+          if (d.success) tourReload(); else Swal.fire('Error', d.message, 'error'); });
+      });
+    };
+
+    function _onTourSubmit(e) {
+      e.preventDefault();
+      var sb = document.getElementById('tourSubmitBtn'), sp = document.getElementById('tourSpinner'), bt = document.getElementById('tourBtnText');
+      hsDisableButton(sb, sp, bt);
+      secureFetch(TOUR_BASE + '/save', { method: 'POST', body: JSON.stringify({
+        id: document.getElementById('tourId').value || null,
+        tourCode: document.getElementById('tourCode').value,
+        tourName: document.getElementById('tourName').value,
+        destination: document.getElementById('tourDestination').value || null,
+        durationHours: parseFloat(document.getElementById('tourDurationHours').value) || null,
+        basePrice: parseFloat(document.getElementById('tourBasePrice').value) || 0,
+        currency: document.getElementById('tourCurrency').value || 'BDT',
+        description: document.getElementById('tourDescription').value || null,
+        isActive: true
+      }) }).then(function (d) {
+        if (d.success) { Swal.fire({ icon: 'success', timer: 1400, showConfirmButton: false, title: d.message }); bootstrap.Modal.getOrCreateInstance(document.getElementById('tourModal')).hide(); tourReload(); }
+        else { Swal.fire('Error', d.message, 'error'); }
+      }).finally(function () { hsEnableButton(sb, sp, bt); });
+    }
+
+    function _resetTourForm() { document.getElementById('tourForm').reset(); document.getElementById('tourId').value = ''; document.getElementById('tourCurrency').value = 'BDT'; }
+
+    // ── GUIDES ────────────────────────────────────────────────────────────────
+    function guideReload() {
+      secureFetch(TOUR_BASE + '/guides/list').then(function (res) {
+        var body = document.getElementById('guideBody'); body.innerHTML = '';
+        (res.data || []).forEach(function (g) {
+          body.insertAdjacentHTML('beforeend', '<tr><td>' + g.sl + '</td><td>' + g.guide_name + '</td><td>' + g.phone + '</td>'
+            + '<td>' + g.languages + '</td><td class="text-center">' + (g.is_active ? '<span class="badge bg-success">Yes</span>' : '<span class="badge bg-secondary">No</span>') + '</td><td>' + g.actions + '</td></tr>');
+        });
+        if (!(res.data || []).length) body.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-2">No guides yet.</td></tr>';
+      });
+    }
+    window.guideSave = function () {
+      secureFetch(TOUR_BASE + '/guides/save', { method: 'POST', body: JSON.stringify({
+        id: document.getElementById('guideId').value || null,
+        guideName: document.getElementById('guideName').value,
+        phone: document.getElementById('guidePhone').value || null,
+        email: document.getElementById('guideEmail').value || null,
+        languages: document.getElementById('guideLanguages').value || null,
+        isActive: true
+      }) }).then(function (d) { if (d.success) { _guideReset(); guideReload(); } else Swal.fire('Error', d.message, 'error'); });
+    };
+    window.guideEdit = function (id) {
+      secureFetch(TOUR_BASE + '/guides/list').then(function (res) {
+        var f = (res.data || []).find(function (g) { return g.id == id; }); if (!f) return;
+        document.getElementById('guideId').value = f.id; document.getElementById('guideName').value = f.guide_name;
+        document.getElementById('guidePhone').value = f.phone === '—' ? '' : f.phone;
+        document.getElementById('guideLanguages').value = f.languages === '—' ? '' : f.languages;
+      });
+    };
+    window.guideDelete = function (id) { secureFetch(TOUR_BASE + '/guides/delete/' + id, { method: 'DELETE' }).then(function (d) { if (d.success) guideReload(); else Swal.fire('Error', d.message, 'error'); }); };
+    function _guideReset() { document.getElementById('guideForm').reset(); document.getElementById('guideId').value = ''; }
+
+    // ── TOUR BOOKINGS ─────────────────────────────────────────────────────────
+    window.tourbkReload = function () {
+      var search = document.getElementById('tourbkSearch').value || '';
+      secureFetch(TOURBK_BASE + '/list?search=' + encodeURIComponent(search)).then(function (res) {
+        var body = document.getElementById('tourbkBody'); body.innerHTML = '';
+        (res.data || []).forEach(function (r) {
+          body.insertAdjacentHTML('beforeend',
+            '<tr><td>' + r.sl + '</td><td>' + r.booking_no + '</td><td>' + r.tour_name + '</td><td>' + r.tour_date + '</td>'
+            + '<td class="text-center">' + r.pax_count + '</td><td class="text-end">' + parseFloat(r.total_amount || 0).toFixed(2) + '</td>'
+            + '<td>' + r.guide_name + '</td><td class="text-center">' + r.status_badge + '</td>'
+            + '<td class="text-center">' + r.actions + '</td></tr>');
+        });
+        if (!(res.data || []).length) body.innerHTML = '<tr><td colspan="9" class="text-center text-muted py-3">No tour bookings found.</td></tr>';
+      });
+    };
+
+    function _loadTourServiceLines(preId) {
+      secureFetch('/travel/service-lines/search?serviceType=TOUR').then(function (res) {
+        var sel = document.getElementById('tourbkServiceLineId');
+        sel.innerHTML = '<option value="">— Select Service Line —</option>';
+        (res.items || []).forEach(function (i) { sel.insertAdjacentHTML('beforeend', '<option value="' + i.id + '">' + i.text + '</option>'); });
+        if (preId) sel.value = preId;
+      });
+    }
+    function _loadTours(preId) {
+      secureFetch(TOUR_BASE + '/search').then(function (res) {
+        var sel = document.getElementById('tourbkTourId');
+        sel.innerHTML = '<option value="">— Select Tour —</option>';
+        (res.items || []).forEach(function (i) { sel.insertAdjacentHTML('beforeend', '<option value="' + i.id + '">' + i.text + '</option>'); });
+        if (preId) sel.value = preId;
+      });
+    }
+    function _loadGuidesSelect(preId) {
+      secureFetch(TOUR_BASE + '/guides/search').then(function (res) {
+        var sel = document.getElementById('tourbkGuideId');
+        sel.innerHTML = '<option value="">— None —</option>';
+        (res.items || []).forEach(function (i) { sel.insertAdjacentHTML('beforeend', '<option value="' + i.id + '">' + i.text + '</option>'); });
+        if (preId) sel.value = preId;
+      });
+    }
+
+    window.tourbkOpenCreate = function () {
+      _resetTourbkForm(); _loadTourServiceLines(); _loadTours(); _loadGuidesSelect();
+      document.getElementById('tourbkModalTitle').innerHTML = '<i class="fa fa-plus me-1 text-success"></i> New Tour Booking';
+      document.getElementById('tourbkBtnText').textContent = 'Save';
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('tourbkModal')).show();
+    };
+
+    window.tourbkShow = function (id) {
+      secureFetch(TOURBK_BASE + '/show/' + id).then(function (res) {
+        if (!res.success) { Swal.fire('Error', res.message, 'error'); return; }
+        var o = res.obj.defaultData;
+        document.getElementById('tourViewBody').innerHTML = '<div class="row g-2">'
+          + _vf('Tour', o.tourDisplay || '—') + _vf('Date', o.tourDate || '—') + _vf('Pax', o.paxCount)
+          + _vf('Total', parseFloat(o.totalAmount || 0).toFixed(2)) + _vf('Guide', o.guideDisplay || '—')
+          + _vf('Status', o.status) + '</div>';
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('tourViewModal')).show();
+      });
+    };
+
+    window.tourbkEdit = function (id) {
+      secureFetch(TOURBK_BASE + '/show/' + id).then(function (res) {
+        if (!res.success) { Swal.fire('Error', res.message, 'error'); return; }
+        var o = res.obj.defaultData; _resetTourbkForm();
+        document.getElementById('tourbkId').value = o.id;
+        _loadTourServiceLines(o.bookingServiceId);
+        _loadTours(o.tourId);
+        _loadGuidesSelect(o.guideId);
+        document.getElementById('tourbkDate').value = o.tourDate || '';
+        document.getElementById('tourbkPax').value = o.paxCount || 1;
+        document.getElementById('tourbkTotal').value = o.totalAmount || '';
+        document.getElementById('tourbkConfirmationNumber').value = o.confirmationNumber || '';
+        document.getElementById('tourbkModalTitle').innerHTML = '<i class="fa fa-pencil me-1 text-warning"></i> Edit Tour Booking';
+        document.getElementById('tourbkBtnText').textContent = 'Update';
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('tourbkModal')).show();
+      });
+    };
+
+    window.tourbkConfirm = function (id) {
+      secureFetch(TOURBK_BASE + '/confirm/' + id, { method: 'POST' }).then(function (d) {
+        if (d.success) { Swal.fire({ icon: 'success', timer: 1400, showConfirmButton: false, title: d.message }); tourbkReload(); }
+        else { Swal.fire('Error', d.message, 'error'); } });
+    };
+
+    window.tourbkDelete = function (id) {
+      Swal.fire({ title: 'Delete tour booking?', icon: 'warning', showCancelButton: true, confirmButtonColor: '#dc3545' }).then(function (r) {
+        if (!r.isConfirmed) return;
+        secureFetch(TOURBK_BASE + '/delete/' + id, { method: 'DELETE' }).then(function (d) {
+          if (d.success) tourbkReload(); else Swal.fire('Error', d.message, 'error'); });
+      });
+    };
+
+    function _onTourbkSubmit(e) {
+      e.preventDefault();
+      var sb = document.getElementById('tourbkSubmitBtn'), sp = document.getElementById('tourbkSpinner'), bt = document.getElementById('tourbkBtnText');
+      hsDisableButton(sb, sp, bt);
+      secureFetch(TOURBK_BASE + '/save', { method: 'POST', body: JSON.stringify({
+        id: document.getElementById('tourbkId').value || null,
+        bookingServiceId: document.getElementById('tourbkServiceLineId').value || null,
+        tourId: document.getElementById('tourbkTourId').value || null,
+        guideId: document.getElementById('tourbkGuideId').value || null,
+        tourDate: document.getElementById('tourbkDate').value || null,
+        paxCount: parseInt(document.getElementById('tourbkPax').value) || 1,
+        totalAmount: parseFloat(document.getElementById('tourbkTotal').value) || 0,
+        confirmationNumber: document.getElementById('tourbkConfirmationNumber').value || null
+      }) }).then(function (d) {
+        if (d.success) { Swal.fire({ icon: 'success', timer: 1400, showConfirmButton: false, title: d.message }); bootstrap.Modal.getOrCreateInstance(document.getElementById('tourbkModal')).hide(); tourbkReload(); }
+        else { Swal.fire('Error', d.message, 'error'); }
+      }).finally(function () { hsEnableButton(sb, sp, bt); });
+    }
+
+    function _resetTourbkForm() { document.getElementById('tourbkForm').reset(); document.getElementById('tourbkId').value = ''; }
+    function _vf(label, value) { return '<div class="col-md-4 view-group"><label class="view-label">' + label + '</label><span class="form-control hs_span_show">' + (value != null ? value : '—') + '</span></div>'; }
+  })();
+  </script>
+</section>
+</html>

@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<!--
+  travel/travel-packages.html    GET /travel/packages
+  JS prefixes: pkg* (package), pkgbk* (package booking)
+-->
+<html th:replace="~{layout/base :: layout('Packages', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
+<section>
+
+  <ol class="breadcrumb float-xl-end">
+    <li class="breadcrumb-item"><a th:href="@{/dashboard}">Home</a></li>
+    <li class="breadcrumb-item">Travel</li>
+    <li class="breadcrumb-item active">Packages</li>
+  </ol>
+  <h1 class="page-header">Packages <small>bundled itineraries &amp; their fulfillment bookings</small></h1>
+
+  <div class="d-flex gap-2 mb-3 flex-wrap">
+    <a th:href="@{/travel/bookings}" class="btn btn-sm btn-outline-primary"><i class="fa fa-ticket-alt me-1"></i> Bookings</a>
+    <a th:href="@{/travel/packages}" class="btn btn-sm btn-primary"><i class="fa fa-suitcase-rolling me-1"></i> Packages</a>
+    <a th:href="@{/travel/tours}"    class="btn btn-sm btn-outline-primary"><i class="fa fa-route me-1"></i> Tours</a>
+    <a th:href="@{/travel/visa-applications}" class="btn btn-sm btn-outline-primary"><i class="fa fa-passport me-1"></i> Visa</a>
+  </div>
+
+  <div class="panel panel-inverse">
+    <div class="panel-heading">
+      <ul class="nav nav-tabs panel-tab" role="tablist">
+        <li class="nav-item"><a href="#tabPkg" data-bs-toggle="tab" class="nav-link active">Packages</a></li>
+        <li class="nav-item"><a href="#tabPkgBk" data-bs-toggle="tab" class="nav-link">Package Bookings</a></li>
+      </ul>
+    </div>
+    <div class="panel-body">
+      <div class="tab-content">
+
+        <!-- PACKAGES TAB -->
+        <div class="tab-pane fade show active" id="tabPkg">
+          <div class="d-flex justify-content-between mb-3">
+            <a href="javascript:;" onclick="pkgOpenCreate()"><span class="badge btn btn-outline-success"><i class="fa fa-plus me-1"></i> New Package</span></a>
+            <input type="text" id="pkgSearch" class="form-control" style="max-width:300px" placeholder="Search…" oninput="pkgReload()">
+          </div>
+          <table class="table table-striped table-bordered align-middle">
+            <thead><tr>
+              <th width="1%">SL</th><th>Code</th><th>Name</th><th>Destination</th><th>Category</th>
+              <th class="text-center">Duration</th><th class="text-end">Base Price</th>
+              <th class="text-center">Status</th><th class="text-center" width="14%">Actions</th>
+            </tr></thead>
+            <tbody id="pkgBody"></tbody>
+          </table>
+        </div>
+
+        <!-- PACKAGE BOOKINGS TAB -->
+        <div class="tab-pane fade" id="tabPkgBk">
+          <div class="d-flex justify-content-between mb-3">
+            <a href="javascript:;" onclick="pkgbkOpenCreate()"><span class="badge btn btn-outline-success"><i class="fa fa-plus me-1"></i> New Package Booking</span></a>
+            <input type="text" id="pkgbkSearch" class="form-control" style="max-width:300px" placeholder="Search…" oninput="pkgbkReload()">
+          </div>
+          <table class="table table-striped table-bordered align-middle">
+            <thead><tr>
+              <th width="1%">SL</th><th>Booking</th><th>Package</th><th>Travel Date</th>
+              <th class="text-center">Pax</th><th class="text-end">Total</th><th>Confirmation#</th>
+              <th class="text-center">Status</th><th class="text-center" width="16%">Actions</th>
+            </tr></thead>
+            <tbody id="pkgbkBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- PACKAGE MODAL -->
+    <div tabindex="-1" id="pkgModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="pkgModalTitle"><i class="fa fa-suitcase-rolling me-1 text-success"></i> New Package</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <form id="pkgForm" novalidate>
+            <div class="modal-body">
+              <div class="hs-box">
+                <input type="hidden" id="pkgId">
+                <div class="row g-2 mb-3">
+                  <div class="col-md-3 view-group">
+                    <input id="pkgCode" type="text" class="form-control hs_span_view" required maxlength="30">
+                    <label class="input-label">Package Code <span class="text-danger">*</span></label>
+                  </div>
+                  <div class="col-md-5 view-group">
+                    <input id="pkgName" type="text" class="form-control hs_span_view" required maxlength="200">
+                    <label class="input-label">Package Name <span class="text-danger">*</span></label>
+                  </div>
+                  <div class="col-md-4 view-group">
+                    <input id="pkgDestination" type="text" class="form-control hs_span_view" maxlength="150">
+                    <label class="input-label">Destination</label>
+                  </div>
+                  <div class="col-md-3 view-group">
+                    <input id="pkgCategory" type="text" class="form-control hs_span_view" maxlength="50" placeholder="e.g. Honeymoon">
+                    <label class="input-label">Category</label>
+                  </div>
+                  <div class="col-md-2 view-group">
+                    <input id="pkgDurationDays" type="number" min="1" class="form-control hs_span_view">
+                    <label class="input-label">Days</label>
+                  </div>
+                  <div class="col-md-2 view-group">
+                    <input id="pkgDurationNights" type="number" min="0" class="form-control hs_span_view">
+                    <label class="input-label">Nights</label>
+                  </div>
+                  <div class="col-md-3 view-group">
+                    <input id="pkgBasePrice" type="number" step="0.01" class="form-control hs_span_view">
+                    <label class="input-label">Base Price</label>
+                  </div>
+                  <div class="col-md-2 view-group">
+                    <input id="pkgCurrency" type="text" class="form-control hs_span_view" value="BDT" maxlength="3">
+                    <label class="input-label">Currency</label>
+                  </div>
+                  <div class="col-12 view-group">
+                    <textarea id="pkgDescription" class="form-control hs_span_view" rows="2"></textarea>
+                    <label class="input-label">Description</label>
+                  </div>
+                </div>
+
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                  <strong>Itinerary (Day-by-Day)</strong>
+                  <button type="button" class="btn btn-sm btn-outline-primary" onclick="pkgAddDay()"><i class="fa fa-plus me-1"></i> Add Day</button>
+                </div>
+                <table class="table table-sm table-bordered mb-3">
+                  <thead class="table-light"><tr><th width="8%">Day</th><th width="25%">Title</th><th>Description</th><th></th></tr></thead>
+                  <tbody id="pkgDayBody"></tbody>
+                </table>
+
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                  <strong>Inclusions / Exclusions</strong>
+                  <button type="button" class="btn btn-sm btn-outline-primary" onclick="pkgAddInclusion()"><i class="fa fa-plus me-1"></i> Add Line</button>
+                </div>
+                <table class="table table-sm table-bordered">
+                  <thead class="table-light"><tr><th width="15%">Type</th><th>Description</th><th></th></tr></thead>
+                  <tbody id="pkgInclBody"></tbody>
+                </table>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-success" type="submit" id="pkgSubmitBtn">
+                <span class="spinner-border spinner-border-sm me-2 d-none" id="pkgSpinner"></span>
+                <span id="pkgBtnText">Save</span>
+              </button>
+              <button type="button" class="btn btn-white" data-bs-dismiss="modal">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- PACKAGE VIEW MODAL -->
+    <div tabindex="-1" id="pkgViewModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+          <div class="modal-header"><h5 class="modal-title">Package Details</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+          <div class="modal-body" id="pkgViewBody"></div>
+          <div class="modal-footer"><button type="button" class="btn btn-white" data-bs-dismiss="modal">Close</button></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PACKAGE BOOKING MODAL -->
+    <div tabindex="-1" id="pkgbkModal" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="pkgbkModalTitle"><i class="fa fa-suitcase-rolling me-1 text-success"></i> New Package Booking</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <form id="pkgbkForm" novalidate>
+            <div class="modal-body">
+              <div class="hs-box">
+                <input type="hidden" id="pkgbkId">
+                <div class="row g-2">
+                  <div class="col-12 view-group">
+                    <select id="pkgbkServiceLineId" class="form-select hs_span_view"></select>
+                    <label class="input-label">Booking Service Line <span class="text-danger">*</span></label>
+                  </div>
+                  <div class="col-12 view-group">
+                    <select id="pkgbkPackageId" class="form-select hs_span_view"></select>
+                    <label class="input-label">Package <span class="text-danger">*</span></label>
+                  </div>
+                  <div class="col-md-4 view-group">
+                    <input id="pkgbkTravelDate" type="date" class="form-control hs_span_view">
+                    <label class="input-label">Travel Date</label>
+                  </div>
+                  <div class="col-md-4 view-group">
+                    <input id="pkgbkPax" type="number" min="1" class="form-control hs_span_view" value="1">
+                    <label class="input-label">Pax Count</label>
+                  </div>
+                  <div class="col-md-4 view-group">
+                    <input id="pkgbkTotal" type="number" step="0.01" class="form-control hs_span_view">
+                    <label class="input-label">Total Amount</label>
+                  </div>
+                  <div class="col-md-6 view-group">
+                    <input id="pkgbkConfirmationNumber" type="text" class="form-control hs_span_view" maxlength="100">
+                    <label class="input-label">Confirmation Number</label>
+                  </div>
+                  <div class="col-md-6 view-group">
+                    <input id="pkgbkSupplierReference" type="text" class="form-control hs_span_view" maxlength="100">
+                    <label class="input-label">Supplier Reference</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-success" type="submit" id="pkgbkSubmitBtn">
+                <span class="spinner-border spinner-border-sm me-2 d-none" id="pkgbkSpinner"></span>
+                <span id="pkgbkBtnText">Save</span>
+              </button>
+              <button type="button" class="btn btn-white" data-bs-dismiss="modal">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script th:inline="none">
+  (function () {
+    'use strict';
+    const PKG_BASE = '/travel/packages';
+    const PKGBK_BASE = '/travel/package-bookings';
+    var _dayCount = 0, _inclCount = 0;
+
+    document.addEventListener('DOMContentLoaded', function () {
+      document.getElementById('pkgForm').addEventListener('submit', _onPkgSubmit);
+      document.getElementById('pkgbkForm').addEventListener('submit', _onPkgbkSubmit);
+      pkgReload(); pkgbkReload();
+    });
+
+    // ── PACKAGES ──────────────────────────────────────────────────────────────
+    window.pkgReload = function () {
+      var search = document.getElementById('pkgSearch').value || '';
+      secureFetch(PKG_BASE + '/list?search=' + encodeURIComponent(search)).then(function (res) {
+        var body = document.getElementById('pkgBody'); body.innerHTML = '';
+        (res.data || []).forEach(function (p) {
+          body.insertAdjacentHTML('beforeend',
+            '<tr><td>' + p.sl + '</td><td>' + p.package_code + '</td><td>' + p.package_name + '</td>'
+            + '<td>' + p.destination + '</td><td>' + p.category + '</td><td class="text-center">' + p.duration + '</td>'
+            + '<td class="text-end">' + parseFloat(p.base_price || 0).toFixed(2) + '</td>'
+            + '<td class="text-center">' + p.status_badge + '</td><td class="text-center">' + p.actions + '</td></tr>');
+        });
+        if (!(res.data || []).length) body.innerHTML = '<tr><td colspan="9" class="text-center text-muted py-3">No packages found.</td></tr>';
+      });
+    };
+
+    window.pkgAddDay = function (data) {
+      _dayCount++; var n = _dayCount;
+      var html = '<tr id="pkgDay_' + n + '">'
+        + '<td><input type="number" class="form-control form-control-sm" data-field="dayNumber" value="' + (data ? data.dayNumber : _dayCount) + '"></td>'
+        + '<td><input type="text" class="form-control form-control-sm" data-field="title" value="' + (data ? data.title || '' : '') + '"></td>'
+        + '<td><input type="text" class="form-control form-control-sm" data-field="description" value="' + (data ? data.description || '' : '') + '"></td>'
+        + '<td><button type="button" class="btn btn-sm btn-outline-danger" onclick="pkgRemoveDay(' + n + ')"><i class="fa fa-times"></i></button></td></tr>';
+      document.getElementById('pkgDayBody').insertAdjacentHTML('beforeend', html);
+    };
+    window.pkgRemoveDay = function (n) { var r = document.getElementById('pkgDay_' + n); if (r) r.remove(); };
+
+    window.pkgAddInclusion = function (data) {
+      _inclCount++; var n = _inclCount;
+      var html = '<tr id="pkgIncl_' + n + '">'
+        + '<td><select class="form-select form-select-sm" data-field="inclusionType">'
+          + '<option value="INCLUDED"' + (!data || data.inclusionType === 'INCLUDED' ? ' selected' : '') + '>Included</option>'
+          + '<option value="EXCLUDED"' + (data && data.inclusionType === 'EXCLUDED' ? ' selected' : '') + '>Excluded</option>'
+          + '</select></td>'
+        + '<td><input type="text" class="form-control form-control-sm" data-field="description" value="' + (data ? data.description || '' : '') + '"></td>'
+        + '<td><button type="button" class="btn btn-sm btn-outline-danger" onclick="pkgRemoveInclusion(' + n + ')"><i class="fa fa-times"></i></button></td></tr>';
+      document.getElementById('pkgInclBody').insertAdjacentHTML('beforeend', html);
+    };
+    window.pkgRemoveInclusion = function (n) { var r = document.getElementById('pkgIncl_' + n); if (r) r.remove(); };
+
+    window.pkgOpenCreate = function () {
+      _resetPkgForm();
+      document.getElementById('pkgModalTitle').innerHTML = '<i class="fa fa-plus me-1 text-success"></i> New Package';
+      document.getElementById('pkgBtnText').textContent = 'Save';
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('pkgModal')).show();
+    };
+
+    window.pkgShow = function (id) {
+      secureFetch(PKG_BASE + '/show/' + id).then(function (res) {
+        if (!res.success) { Swal.fire('Error', res.message, 'error'); return; }
+        var o = res.obj.defaultData;
+        var html = '<div class="row g-2 mb-3">'
+          + _vf('Code', o.packageCode) + _vf('Name', o.packageName) + _vf('Destination', o.destination || '—')
+          + _vf('Duration', (o.durationDays || '—') + 'D/' + (o.durationNights || '—') + 'N')
+          + _vf('Base Price', parseFloat(o.basePrice || 0).toFixed(2)) + '</div>'
+          + '<h6>Itinerary</h6><ul class="list-group mb-3">';
+        (o.itineraryDays || []).forEach(function (d) { html += '<li class="list-group-item"><strong>Day ' + d.dayNumber + ':</strong> ' + (d.title || '') + '<br><small class="text-muted">' + (d.description || '') + '</small></li>'; });
+        html += '</ul><h6>Inclusions</h6><ul class="list-group">';
+        (o.inclusions || []).forEach(function (i) { html += '<li class="list-group-item">' + (i.inclusionType === 'INCLUDED' ? '<span class="badge bg-success me-2">Included</span>' : '<span class="badge bg-danger me-2">Excluded</span>') + i.description + '</li>'; });
+        html += '</ul>';
+        document.getElementById('pkgViewBody').innerHTML = html;
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('pkgViewModal')).show();
+      });
+    };
+
+    window.pkgEdit = function (id) {
+      secureFetch(PKG_BASE + '/show/' + id).then(function (res) {
+        if (!res.success) { Swal.fire('Error', res.message, 'error'); return; }
+        var o = res.obj.defaultData; _resetPkgForm();
+        document.getElementById('pkgId').value = o.id;
+        document.getElementById('pkgCode').value = o.packageCode || '';
+        document.getElementById('pkgName').value = o.packageName || '';
+        document.getElementById('pkgDestination').value = o.destination || '';
+        document.getElementById('pkgCategory').value = o.category || '';
+        document.getElementById('pkgDurationDays').value = o.durationDays || '';
+        document.getElementById('pkgDurationNights').value = o.durationNights || '';
+        document.getElementById('pkgBasePrice').value = o.basePrice || '';
+        document.getElementById('pkgCurrency').value = o.currency || 'BDT';
+        document.getElementById('pkgDescription').value = o.description || '';
+        (o.itineraryDays || []).forEach(function (d) { pkgAddDay(d); });
+        (o.inclusions || []).forEach(function (i) { pkgAddInclusion(i); });
+        document.getElementById('pkgModalTitle').innerHTML = '<i class="fa fa-pencil me-1 text-warning"></i> Edit Package';
+        document.getElementById('pkgBtnText').textContent = 'Update';
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('pkgModal')).show();
+      });
+    };
+
+    window.pkgDelete = function (id) {
+      Swal.fire({ title: 'Delete package?', icon: 'warning', showCancelButton: true, confirmButtonColor: '#dc3545' }).then(function (r) {
+        if (!r.isConfirmed) return;
+        secureFetch(PKG_BASE + '/delete/' + id, { method: 'DELETE' }).then(function (d) {
+          if (d.success) pkgReload(); else Swal.fire('Error', d.message, 'error'); });
+      });
+    };
+
+    function _onPkgSubmit(e) {
+      e.preventDefault();
+      var sb = document.getElementById('pkgSubmitBtn'), sp = document.getElementById('pkgSpinner'), bt = document.getElementById('pkgBtnText');
+      hsDisableButton(sb, sp, bt);
+      var itineraryDays = [];
+      document.querySelectorAll('#pkgDayBody tr').forEach(function (tr) {
+        itineraryDays.push({
+          dayNumber: parseInt(tr.querySelector('[data-field="dayNumber"]').value) || 1,
+          title: tr.querySelector('[data-field="title"]').value || null,
+          description: tr.querySelector('[data-field="description"]').value || null
+        });
+      });
+      var inclusions = [];
+      document.querySelectorAll('#pkgInclBody tr').forEach(function (tr) {
+        var desc = tr.querySelector('[data-field="description"]').value;
+        if (!desc) return;
+        inclusions.push({ inclusionType: tr.querySelector('[data-field="inclusionType"]').value, description: desc });
+      });
+      secureFetch(PKG_BASE + '/save', { method: 'POST', body: JSON.stringify({
+        id: document.getElementById('pkgId').value || null,
+        packageCode: document.getElementById('pkgCode').value,
+        packageName: document.getElementById('pkgName').value,
+        destination: document.getElementById('pkgDestination').value || null,
+        category: document.getElementById('pkgCategory').value || null,
+        durationDays: parseInt(document.getElementById('pkgDurationDays').value) || null,
+        durationNights: parseInt(document.getElementById('pkgDurationNights').value) || null,
+        basePrice: parseFloat(document.getElementById('pkgBasePrice').value) || 0,
+        currency: document.getElementById('pkgCurrency').value || 'BDT',
+        description: document.getElementById('pkgDescription').value || null,
+        isActive: true,
+        itineraryDays: itineraryDays,
+        inclusions: inclusions
+      }) }).then(function (d) {
+        if (d.success) { Swal.fire({ icon: 'success', timer: 1400, showConfirmButton: false, title: d.message }); bootstrap.Modal.getOrCreateInstance(document.getElementById('pkgModal')).hide(); pkgReload(); }
+        else { Swal.fire('Error', d.message, 'error'); }
+      }).finally(function () { hsEnableButton(sb, sp, bt); });
+    }
+
+    function _resetPkgForm() {
+      document.getElementById('pkgForm').reset();
+      document.getElementById('pkgId').value = '';
+      document.getElementById('pkgDayBody').innerHTML = '';
+      document.getElementById('pkgInclBody').innerHTML = '';
+      document.getElementById('pkgCurrency').value = 'BDT';
+      _dayCount = 0; _inclCount = 0;
+    }
+
+    // ── PACKAGE BOOKINGS ──────────────────────────────────────────────────────
+    window.pkgbkReload = function () {
+      var search = document.getElementById('pkgbkSearch').value || '';
+      secureFetch(PKGBK_BASE + '/list?search=' + encodeURIComponent(search)).then(function (res) {
+        var body = document.getElementById('pkgbkBody'); body.innerHTML = '';
+        (res.data || []).forEach(function (r) {
+          body.insertAdjacentHTML('beforeend',
+            '<tr><td>' + r.sl + '</td><td>' + r.booking_no + '</td><td>' + r.package_name + '</td>'
+            + '<td>' + r.travel_date + '</td><td class="text-center">' + r.pax_count + '</td>'
+            + '<td class="text-end">' + parseFloat(r.total_amount || 0).toFixed(2) + '</td>'
+            + '<td>' + r.confirmation_number + '</td><td class="text-center">' + r.status_badge + '</td>'
+            + '<td class="text-center">' + r.actions + '</td></tr>');
+        });
+        if (!(res.data || []).length) body.innerHTML = '<tr><td colspan="9" class="text-center text-muted py-3">No package bookings found.</td></tr>';
+      });
+    };
+
+    function _loadPkgServiceLines(preId) {
+      secureFetch('/travel/service-lines/search?serviceType=PACKAGE').then(function (res) {
+        var sel = document.getElementById('pkgbkServiceLineId');
+        sel.innerHTML = '<option value="">— Select Service Line —</option>';
+        (res.items || []).forEach(function (i) { sel.insertAdjacentHTML('beforeend', '<option value="' + i.id + '">' + i.text + '</option>'); });
+        if (preId) sel.value = preId;
+      });
+    }
+    function _loadPackages(preId) {
+      secureFetch(PKG_BASE + '/search').then(function (res) {
+        var sel = document.getElementById('pkgbkPackageId');
+        sel.innerHTML = '<option value="">— Select Package —</option>';
+        (res.items || []).forEach(function (i) { sel.insertAdjacentHTML('beforeend', '<option value="' + i.id + '">' + i.text + '</option>'); });
+        if (preId) sel.value = preId;
+      });
+    }
+
+    window.pkgbkOpenCreate = function () {
+      _resetPkgbkForm(); _loadPkgServiceLines(); _loadPackages();
+      document.getElementById('pkgbkModalTitle').innerHTML = '<i class="fa fa-plus me-1 text-success"></i> New Package Booking';
+      document.getElementById('pkgbkBtnText').textContent = 'Save';
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('pkgbkModal')).show();
+    };
+
+    window.pkgbkShow = function (id) {
+      secureFetch(PKGBK_BASE + '/show/' + id).then(function (res) {
+        if (!res.success) { Swal.fire('Error', res.message, 'error'); return; }
+        var o = res.obj.defaultData;
+        document.getElementById('pkgViewBody').innerHTML = '<div class="row g-2">'
+          + _vf('Package', o.packageDisplay || '—') + _vf('Travel Date', o.travelDate || '—')
+          + _vf('Pax', o.paxCount) + _vf('Total', parseFloat(o.totalAmount || 0).toFixed(2))
+          + _vf('Confirmation#', o.confirmationNumber || '—') + _vf('Status', o.status) + '</div>';
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('pkgViewModal')).show();
+      });
+    };
+
+    window.pkgbkEdit = function (id) {
+      secureFetch(PKGBK_BASE + '/show/' + id).then(function (res) {
+        if (!res.success) { Swal.fire('Error', res.message, 'error'); return; }
+        var o = res.obj.defaultData; _resetPkgbkForm();
+        document.getElementById('pkgbkId').value = o.id;
+        _loadPkgServiceLines(o.bookingServiceId);
+        _loadPackages(o.packageId);
+        document.getElementById('pkgbkTravelDate').value = o.travelDate || '';
+        document.getElementById('pkgbkPax').value = o.paxCount || 1;
+        document.getElementById('pkgbkTotal').value = o.totalAmount || '';
+        document.getElementById('pkgbkConfirmationNumber').value = o.confirmationNumber || '';
+        document.getElementById('pkgbkSupplierReference').value = o.supplierReference || '';
+        document.getElementById('pkgbkModalTitle').innerHTML = '<i class="fa fa-pencil me-1 text-warning"></i> Edit Package Booking';
+        document.getElementById('pkgbkBtnText').textContent = 'Update';
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('pkgbkModal')).show();
+      });
+    };
+
+    window.pkgbkConfirm = function (id) {
+      secureFetch(PKGBK_BASE + '/confirm/' + id, { method: 'POST' }).then(function (d) {
+        if (d.success) { Swal.fire({ icon: 'success', timer: 1400, showConfirmButton: false, title: d.message }); pkgbkReload(); }
+        else { Swal.fire('Error', d.message, 'error'); } });
+    };
+
+    window.pkgbkDelete = function (id) {
+      Swal.fire({ title: 'Delete package booking?', icon: 'warning', showCancelButton: true, confirmButtonColor: '#dc3545' }).then(function (r) {
+        if (!r.isConfirmed) return;
+        secureFetch(PKGBK_BASE + '/delete/' + id, { method: 'DELETE' }).then(function (d) {
+          if (d.success) pkgbkReload(); else Swal.fire('Error', d.message, 'error'); });
+      });
+    };
+
+    function _onPkgbkSubmit(e) {
+      e.preventDefault();
+      var sb = document.getElementById('pkgbkSubmitBtn'), sp = document.getElementById('pkgbkSpinner'), bt = document.getElementById('pkgbkBtnText');
+      hsDisableButton(sb, sp, bt);
+      secureFetch(PKGBK_BASE + '/save', { method: 'POST', body: JSON.stringify({
+        id: document.getElementById('pkgbkId').value || null,
+        bookingServiceId: document.getElementById('pkgbkServiceLineId').value || null,
+        packageId: document.getElementById('pkgbkPackageId').value || null,
+        travelDate: document.getElementById('pkgbkTravelDate').value || null,
+        paxCount: parseInt(document.getElementById('pkgbkPax').value) || 1,
+        totalAmount: parseFloat(document.getElementById('pkgbkTotal').value) || 0,
+        confirmationNumber: document.getElementById('pkgbkConfirmationNumber').value || null,
+        supplierReference: document.getElementById('pkgbkSupplierReference').value || null
+      }) }).then(function (d) {
+        if (d.success) { Swal.fire({ icon: 'success', timer: 1400, showConfirmButton: false, title: d.message }); bootstrap.Modal.getOrCreateInstance(document.getElementById('pkgbkModal')).hide(); pkgbkReload(); }
+        else { Swal.fire('Error', d.message, 'error'); }
+      }).finally(function () { hsEnableButton(sb, sp, bt); });
+    }
+
+    function _resetPkgbkForm() { document.getElementById('pkgbkForm').reset(); document.getElementById('pkgbkId').value = ''; }
+    function _vf(label, value) { return '<div class="col-md-4 view-group"><label class="view-label">' + label + '</label><span class="form-control hs_span_show">' + (value != null ? value : '—') + '</span></div>'; }
+  })();
+  </script>
+</section>
+</html>
