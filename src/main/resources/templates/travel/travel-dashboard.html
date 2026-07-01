@@ -1,6 +1,14 @@
 <!DOCTYPE html>
 <!--
   travel/travel-dashboard.html    GET /travel/dashboard
+
+  Data: GET /travel/dashboard/summary → { success, data: {
+    counts, revenueTrend, statusBreakdown, typeBreakdown, topDestinations,
+    upcomingDepartures, topAgents, flags[] } }
+
+  flags[] follows the same severity concept as the admin command-center:
+  severity ∈ critical | warning | info | good — { severity, icon, label,
+  value, sub, url }
 -->
 <html th:replace="~{layout/base :: layout('Travel Dashboard', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
 <section>
@@ -10,7 +18,7 @@
     <li class="breadcrumb-item">Travel</li>
     <li class="breadcrumb-item active">Dashboard</li>
   </ol>
-  <h1 class="page-header">Travel Dashboard <small>bookings, revenue &amp; upcoming departures</small></h1>
+  <h1 class="page-header">Travel Dashboard <small>bookings, revenue, and what needs attention today</small></h1>
 
   <div class="d-flex gap-2 mb-3 flex-wrap">
     <a th:href="@{/travel/dashboard}"      class="btn btn-sm btn-primary"><i class="fa fa-tachometer-alt me-1"></i> Dashboard</a>
@@ -58,6 +66,60 @@
     </div>
   </div>
 
+  <!-- FLAGS — needs attention today -->
+  <div class="panel panel-inverse">
+    <div class="panel-heading">
+      <h4 class="panel-title"><i class="fa fa-flag me-2"></i>Needs Attention</h4>
+      <div class="panel-heading-btn">
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-success" onclick="_loadDashboard()"><i class="fa fa-redo"></i></a>
+      </div>
+    </div>
+    <div class="panel-body">
+      <div class="row g-3" id="flagGrid">
+        <div class="col-12 text-center text-muted py-3">Loading…</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CHARTS -->
+  <div class="row">
+    <div class="col-xl-7">
+      <div class="panel panel-inverse">
+        <div class="panel-heading"><h4 class="panel-title"><i class="fa fa-chart-line me-2"></i>Revenue Trend (6 months)</h4></div>
+        <div class="panel-body">
+          <div style="position:relative; height:280px;"><canvas id="revenueChart"></canvas></div>
+        </div>
+      </div>
+    </div>
+    <div class="col-xl-5">
+      <div class="panel panel-inverse">
+        <div class="panel-heading"><h4 class="panel-title"><i class="fa fa-chart-pie me-2"></i>Bookings by Status</h4></div>
+        <div class="panel-body">
+          <div style="position:relative; height:280px;"><canvas id="statusChart"></canvas></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col-xl-6">
+      <div class="panel panel-inverse">
+        <div class="panel-heading"><h4 class="panel-title"><i class="fa fa-layer-group me-2"></i>Revenue by Booking Type</h4></div>
+        <div class="panel-body">
+          <div style="position:relative; height:250px;"><canvas id="typeChart"></canvas></div>
+        </div>
+      </div>
+    </div>
+    <div class="col-xl-6">
+      <div class="panel panel-inverse">
+        <div class="panel-heading"><h4 class="panel-title"><i class="fa fa-map-location-dot me-2"></i>Top Destinations</h4></div>
+        <div class="panel-body">
+          <div style="position:relative; height:250px;"><canvas id="destinationChart"></canvas></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="row">
     <div class="col-xl-7">
       <div class="panel panel-inverse">
@@ -83,35 +145,136 @@
     </div>
   </div>
 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
   <script th:inline="none">
   (function () {
     'use strict';
+
+    var SEV_STYLE = {
+      critical: { border: '#f43f5e', bg: 'rgba(244,63,94,.08)',  icon: 'fa-triangle-exclamation', text: '#f43f5e' },
+      warning:  { border: '#f59e0b', bg: 'rgba(245,158,11,.08)', icon: 'fa-circle-exclamation',   text: '#f59e0b' },
+      info:     { border: '#2563eb', bg: 'rgba(37,99,235,.08)',  icon: 'fa-circle-info',          text: '#2563eb' },
+      good:     { border: '#10b981', bg: 'rgba(16,185,129,.08)', icon: 'fa-circle-check',         text: '#10b981' }
+    };
+
+    var revenueChart, statusChart, typeChart, destinationChart;
+
     document.addEventListener('DOMContentLoaded', function () {
-      secureFetch('/travel/dashboard/summary').then(function (res) {
-        if (!res.success) return;
-        var d = res.data, c = d.counts || {};
-        document.getElementById('kpiDraft').textContent    = c.draft_count || 0;
-        document.getElementById('kpiActive').textContent   = c.active_count || 0;
-        document.getElementById('kpiRevenue').textContent  = '৳' + parseFloat(c.total_revenue || 0).toLocaleString();
-        document.getElementById('kpiDue').textContent      = '৳' + parseFloat(c.total_due || 0).toLocaleString();
-
-        var upBody = document.getElementById('upcomingBody'); upBody.innerHTML = '';
-        (d.upcomingDepartures || []).forEach(function (r) {
-          upBody.insertAdjacentHTML('beforeend',
-            '<tr><td><strong>' + (r.booking_no || '—') + '</strong></td><td>' + (r.customer_name || '—') + '</td>'
-            + '<td>' + (r.travel_start_date || '—') + '</td><td class="text-center">' + (r.status || '—') + '</td></tr>');
-        });
-        if (!(d.upcomingDepartures || []).length) upBody.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-3">No upcoming departures.</td></tr>';
-
-        var agBody = document.getElementById('agentsBody'); agBody.innerHTML = '';
-        (d.topAgents || []).forEach(function (r) {
-          agBody.insertAdjacentHTML('beforeend',
-            '<tr><td>' + (r.agent_name || '—') + '</td><td class="text-center">' + (r.booking_count || 0) + '</td>'
-            + '<td class="text-end">৳' + parseFloat(r.total_sales || 0).toLocaleString() + '</td></tr>');
-        });
-        if (!(d.topAgents || []).length) agBody.innerHTML = '<tr><td colspan="3" class="text-center text-muted py-3">No data yet.</td></tr>';
-      });
+      window._loadDashboard();
     });
+
+    window._loadDashboard = function () {
+      secureFetch('/travel/dashboard/summary').then(function (res) {
+        if (!res.success) { Swal.fire('Error', res.message || 'Could not load dashboard.', 'error'); return; }
+        var d = res.data;
+        _renderKpis(d.counts || {});
+        _renderFlags(d.flags || []);
+        _renderRevenueChart(d.revenueTrend || []);
+        _renderStatusChart(d.statusBreakdown || []);
+        _renderTypeChart(d.typeBreakdown || []);
+        _renderDestinationChart(d.topDestinations || []);
+        _renderUpcoming(d.upcomingDepartures || []);
+        _renderAgents(d.topAgents || []);
+      });
+    };
+
+    function _renderKpis(c) {
+      document.getElementById('kpiDraft').textContent    = c.draft_count || 0;
+      document.getElementById('kpiActive').textContent   = c.active_count || 0;
+      document.getElementById('kpiRevenue').textContent  = '৳' + parseFloat(c.total_revenue || 0).toLocaleString();
+      document.getElementById('kpiDue').textContent      = '৳' + parseFloat(c.total_due || 0).toLocaleString();
+    }
+
+    function _renderFlags(flags) {
+      var host = document.getElementById('flagGrid');
+      if (!flags.length) { host.innerHTML = '<div class="col-12 text-center text-muted py-3">Nothing flagged — all clear.</div>'; return; }
+      host.innerHTML = flags.map(function (f) {
+        var s = SEV_STYLE[f.severity] || SEV_STYLE.info;
+        return '<div class="col-xl-3 col-md-6">'
+          + '<a href="' + (f.url || '#') + '" class="d-block text-decoration-none" style="color:inherit;">'
+          + '<div class="p-3 rounded" style="border-left:4px solid ' + s.border + '; background:' + s.bg + ';">'
+          + '<div class="d-flex align-items-center gap-2 mb-1">'
+          + '<i class="fa ' + (f.icon || s.icon) + '" style="color:' + s.text + ';"></i>'
+          + '<span class="fw-bold" style="font-size:.85rem;">' + f.label + '</span>'
+          + '</div>'
+          + '<div class="fs-3 fw-bold" style="color:' + s.text + ';">' + f.value + '</div>'
+          + '<div class="text-muted small">' + (f.sub || '') + '</div>'
+          + '</div></a></div>';
+      }).join('');
+    }
+
+    function _renderRevenueChart(rows) {
+      var labels = rows.map(function (r) { return r.month_label; });
+      var revenue = rows.map(function (r) { return parseFloat(r.revenue || 0); });
+      var ctx = document.getElementById('revenueChart').getContext('2d');
+      if (revenueChart) revenueChart.destroy();
+      revenueChart = new Chart(ctx, {
+        type: 'bar',
+        data: { labels: labels, datasets: [{ label: 'Revenue (৳)', data: revenue, backgroundColor: '#2563eb', borderRadius: 4 }] },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+          scales: { y: { beginAtZero: true, ticks: { callback: function (v) { return '৳' + v.toLocaleString(); } } } } }
+      });
+    }
+
+    function _renderStatusChart(rows) {
+      var colors = { DRAFT: '#94a3b8', CONFIRMED: '#10b981', PARTIALLY_PAID: '#f59e0b', PAID: '#2563eb', CANCELLED: '#f43f5e', COMPLETED: '#1e293b' };
+      var labels = rows.map(function (r) { return r.status; });
+      var counts = rows.map(function (r) { return parseInt(r.booking_count || 0); });
+      var bg = rows.map(function (r) { return colors[r.status] || '#94a3b8'; });
+      var ctx = document.getElementById('statusChart').getContext('2d');
+      if (statusChart) statusChart.destroy();
+      statusChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: { labels: labels, datasets: [{ data: counts, backgroundColor: bg }] },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } } } }
+      });
+    }
+
+    function _renderTypeChart(rows) {
+      var labels = rows.map(function (r) { return r.booking_type; });
+      var revenue = rows.map(function (r) { return parseFloat(r.revenue || 0); });
+      var ctx = document.getElementById('typeChart').getContext('2d');
+      if (typeChart) typeChart.destroy();
+      typeChart = new Chart(ctx, {
+        type: 'bar',
+        data: { labels: labels, datasets: [{ label: 'Revenue (৳)', data: revenue, backgroundColor: '#7c3aed', borderRadius: 4 }] },
+        options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+          scales: { x: { beginAtZero: true, ticks: { callback: function (v) { return '৳' + v.toLocaleString(); } } } } }
+      });
+    }
+
+    function _renderDestinationChart(rows) {
+      var labels = rows.map(function (r) { return r.destination; });
+      var counts = rows.map(function (r) { return parseInt(r.booking_count || 0); });
+      var ctx = document.getElementById('destinationChart').getContext('2d');
+      if (destinationChart) destinationChart.destroy();
+      destinationChart = new Chart(ctx, {
+        type: 'bar',
+        data: { labels: labels, datasets: [{ label: 'Bookings', data: counts, backgroundColor: '#06b6d4', borderRadius: 4 }] },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+          scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } }
+      });
+    }
+
+    function _renderUpcoming(rows) {
+      var body = document.getElementById('upcomingBody'); body.innerHTML = '';
+      rows.forEach(function (r) {
+        body.insertAdjacentHTML('beforeend',
+          '<tr><td><strong>' + (r.booking_no || '—') + '</strong></td><td>' + (r.customer_name || '—') + '</td>'
+          + '<td>' + (r.travel_start_date || '—') + '</td><td class="text-center">' + (r.status || '—') + '</td></tr>');
+      });
+      if (!rows.length) body.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-3">No upcoming departures.</td></tr>';
+    }
+
+    function _renderAgents(rows) {
+      var body = document.getElementById('agentsBody'); body.innerHTML = '';
+      rows.forEach(function (r) {
+        body.insertAdjacentHTML('beforeend',
+          '<tr><td>' + (r.agent_name || '—') + '</td><td class="text-center">' + (r.booking_count || 0) + '</td>'
+          + '<td class="text-end">৳' + parseFloat(r.total_sales || 0).toLocaleString() + '</td></tr>');
+      });
+      if (!rows.length) body.innerHTML = '<tr><td colspan="3" class="text-center text-muted py-3">No data yet.</td></tr>';
+    }
   })();
   </script>
 </section>

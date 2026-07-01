@@ -272,7 +272,7 @@ public class TravelBookingServiceImpl implements TravelBookingService {
 
         JournalEntryMaster jem = jemRepo
             .findByOrganizationIdAndReferenceNoAndVoucherType(
-                    ContextProvider.getOrganizationId(), booking.getBookingNo(), VoucherType.SALES_VOUCHER)
+                ContextProvider.getOrganizationId(), booking.getBookingNo(), VoucherType.SALES_VOUCHER)
             .orElseThrow(() -> new IllegalStateException(
                 "No accounting voucher found for booking " + booking.getBookingNo() +
                 ". Please confirm the booking again to regenerate the accounting entry."));
@@ -377,6 +377,14 @@ public class TravelBookingServiceImpl implements TravelBookingService {
     // =========================================================================
     // DASHBOARD SUMMARY
     // =========================================================================
+    //
+    // Verified against the live schema (organization_id is present directly
+    // on trv_hotel_bookings, trv_air_tickets, trv_supplier_costs,
+    // trv_visa_applications, trv_tour_bookings, trv_package_bookings,
+    // trv_passengers, trv_room_types, trv_hotel_categories — inherited from
+    // BaseEntity and auto-populated on persist — so these queries filter
+    // directly rather than joining through trv_booking_services/trv_bookings
+    // purely for org scoping.
 
     @Override
     @Transactional(readOnly = true)
@@ -384,18 +392,75 @@ public class TravelBookingServiceImpl implements TravelBookingService {
         Long orgId = SecurityHelper.requireOrgId();
         Map<String, Object> result = new LinkedHashMap<>();
 
+        // ── Headline counts ───────────────────────────────────────────────────
         Map<String, Object> counts = jdbcTemplate.queryForMap("""
             SELECT
                 COUNT(*) FILTER (WHERE status = 'DRAFT')                                  AS draft_count,
                 COUNT(*) FILTER (WHERE status = 'CONFIRMED')                               AS confirmed_count,
                 COUNT(*) FILTER (WHERE status IN ('CONFIRMED','PARTIALLY_PAID','PAID'))    AS active_count,
                 COUNT(*) FILTER (WHERE status = 'CANCELLED')                               AS cancelled_count,
+                COUNT(*) FILTER (WHERE status = 'COMPLETED')                               AS completed_count,
                 COALESCE(SUM(total_amount) FILTER (WHERE status <> 'CANCELLED'), 0)        AS total_revenue,
-                COALESCE(SUM(due_amount)   FILTER (WHERE status <> 'CANCELLED'), 0)        AS total_due
+                COALESCE(SUM(paid_amount)  FILTER (WHERE status <> 'CANCELLED'), 0)        AS total_collected,
+                COALESCE(SUM(due_amount)   FILTER (WHERE status <> 'CANCELLED'), 0)        AS total_due,
+                COUNT(*) FILTER (WHERE booking_date >= date_trunc('month', CURRENT_DATE))  AS bookings_this_month
             FROM trv_bookings WHERE organization_id = ?
             """, orgId);
         result.put("counts", counts);
 
+        // ── Revenue trend, last 6 months ──────────────────────────────────────
+        List<Map<String, Object>> revenueTrend = jdbcTemplate.queryForList("""
+            SELECT TO_CHAR(month_start, 'Mon YYYY') AS month_label,
+                   COALESCE(SUM(b.total_amount), 0) AS revenue,
+                   COUNT(b.id)                      AS booking_count
+            FROM   GENERATE_SERIES(
+                       date_trunc('month', CURRENT_DATE) - INTERVAL '5 months',
+                       date_trunc('month', CURRENT_DATE), INTERVAL '1 month'
+                   ) AS month_start
+            LEFT   JOIN trv_bookings b
+                   ON  date_trunc('month', b.booking_date) = month_start
+                   AND b.organization_id = ? AND b.status <> 'CANCELLED'
+            GROUP  BY month_start ORDER BY month_start
+            """, orgId);
+        result.put("revenueTrend", revenueTrend);
+
+        // ── Status breakdown (donut) ───────────────────────────────────────────
+        List<Map<String, Object>> statusBreakdown = jdbcTemplate.queryForList("""
+            SELECT status, COUNT(*) AS booking_count
+            FROM   trv_bookings WHERE organization_id = ?
+            GROUP  BY status ORDER BY booking_count DESC
+            """, orgId);
+        result.put("statusBreakdown", statusBreakdown);
+
+        // ── Booking type breakdown ─────────────────────────────────────────────
+        List<Map<String, Object>> typeBreakdown = jdbcTemplate.queryForList("""
+            SELECT booking_type, COUNT(*) AS booking_count,
+                   COALESCE(SUM(total_amount), 0) AS revenue
+            FROM   trv_bookings WHERE organization_id = ? AND status <> 'CANCELLED'
+            GROUP  BY booking_type ORDER BY revenue DESC
+            """, orgId);
+        result.put("typeBreakdown", typeBreakdown);
+
+        // ── Top destinations — union across hotel / tour / package bookings ───
+        List<Map<String, Object>> topDestinations = jdbcTemplate.queryForList("""
+            SELECT destination, SUM(cnt) AS booking_count FROM (
+                SELECT COALESCE(h.city, 'Unknown')  AS destination, COUNT(*) AS cnt
+                FROM   trv_hotel_bookings hb JOIN trv_hotels h ON h.id = hb.hotel_id
+                WHERE  hb.organization_id = ? GROUP BY h.city
+                UNION ALL
+                SELECT COALESCE(t.destination, 'Unknown') AS destination, COUNT(*) AS cnt
+                FROM   trv_tour_bookings tb JOIN trv_tours t ON t.id = tb.tour_id
+                WHERE  tb.organization_id = ? GROUP BY t.destination
+                UNION ALL
+                SELECT COALESCE(p.destination, 'Unknown') AS destination, COUNT(*) AS cnt
+                FROM   trv_package_bookings pb JOIN trv_packages p ON p.id = pb.package_id
+                WHERE  pb.organization_id = ? GROUP BY p.destination
+            ) combined
+            GROUP BY destination ORDER BY booking_count DESC LIMIT 6
+            """, orgId, orgId, orgId);
+        result.put("topDestinations", topDestinations);
+
+        // ── Upcoming departures ────────────────────────────────────────────────
         List<Map<String, Object>> upcoming = jdbcTemplate.queryForList("""
             SELECT b.booking_no, b.travel_start_date,
                    COALESCE(s.sub_account_name, '—') AS customer_name, b.status
@@ -407,6 +472,7 @@ public class TravelBookingServiceImpl implements TravelBookingService {
             """, orgId);
         result.put("upcomingDepartures", upcoming);
 
+        // ── Top sales agents ────────────────────────────────────────────────────
         List<Map<String, Object>> topAgents = jdbcTemplate.queryForList("""
             SELECT COALESCE(u.full_name, u.username, 'Unassigned') AS agent_name,
                    COUNT(*) AS booking_count, COALESCE(SUM(b.total_amount),0) AS total_sales
@@ -417,7 +483,114 @@ public class TravelBookingServiceImpl implements TravelBookingService {
             """, orgId);
         result.put("topAgents", topAgents);
 
+        // ── Flags — actionable items needing attention, severity-ranked ────────
+        result.put("flags", buildDashboardFlags(orgId));
+
         return result;
+    }
+
+    /**
+     * Travel-specific "needs attention" flags, same concept as the admin
+     * command-center flag cards: severity ∈ critical | warning | info.
+     */
+    private List<Map<String, Object>> buildDashboardFlags(Long orgId) {
+        List<Map<String, Object>> flags = new ArrayList<>();
+
+        // Passports expiring within 6 months, for passengers on active bookings
+        Long expiringPassports = jdbcTemplate.queryForObject("""
+            SELECT COUNT(DISTINCT p.id)
+            FROM   trv_passengers p
+            JOIN   trv_bookings b ON b.id = p.booking_id
+            WHERE  b.organization_id = ? AND b.status IN ('CONFIRMED','PARTIALLY_PAID','PAID')
+              AND  p.passport_expiry IS NOT NULL
+              AND  p.passport_expiry BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '180 days'
+            """, Long.class, orgId);
+        flags.add(flag("critical", "fa-passport", "Passports Expiring Soon",
+            expiringPassports, "within 6 months, on active bookings", "/travel/bookings"));
+
+        // Visa applications close to their expected date but not yet approved/collected
+        Long visaAtRisk = jdbcTemplate.queryForObject("""
+            SELECT COUNT(*) FROM trv_visa_applications
+            WHERE  organization_id = ? AND status NOT IN ('APPROVED','COLLECTED','REJECTED')
+              AND  expected_date IS NOT NULL AND expected_date <= CURRENT_DATE + INTERVAL '3 days'
+            """, Long.class, orgId);
+        flags.add(flag("critical", "fa-clock", "Visa At Risk",
+            visaAtRisk, "expected within 3 days, not yet approved", "/travel/visa-applications"));
+
+        // Confirmed bookings departing within 7 days with an AIR line but no ticket issued
+        Long unissuedTickets = jdbcTemplate.queryForObject("""
+            SELECT COUNT(DISTINCT bs.id)
+            FROM   trv_booking_services bs
+            JOIN   trv_bookings b ON b.id = bs.booking_id
+            WHERE  b.organization_id = ? AND bs.service_type = 'AIR'
+              AND  b.status IN ('CONFIRMED','PARTIALLY_PAID','PAID')
+              AND  b.travel_start_date BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '7 days'
+              AND  NOT EXISTS (SELECT 1 FROM trv_air_tickets at WHERE at.booking_service_id = bs.id)
+            """, Long.class, orgId);
+        flags.add(flag("critical", "fa-plane-slash", "Air Tickets Not Issued",
+            unissuedTickets, "departing within 7 days", "/travel/air-tickets"));
+
+        // Hotel bookings still PENDING with check-in within 7 days
+        Long pendingHotels = jdbcTemplate.queryForObject("""
+            SELECT COUNT(*) FROM trv_hotel_bookings
+            WHERE  organization_id = ? AND status = 'PENDING'
+              AND  check_in_date BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '7 days'
+            """, Long.class, orgId);
+        flags.add(flag("warning", "fa-bed", "Hotel Bookings Unconfirmed",
+            pendingHotels, "check-in within 7 days", "/travel/hotel-bookings"));
+
+        // Unpaid supplier costs
+        Map<String, Object> unpaidSuppliers = jdbcTemplate.queryForMap("""
+            SELECT COUNT(*) AS cnt, COALESCE(SUM(cost_amount), 0) AS total
+            FROM   trv_supplier_costs
+            WHERE  organization_id = ? AND payment_status = 'UNPAID'
+            """, orgId);
+        flags.add(flag("warning", "fa-file-invoice-dollar", "Unpaid Supplier Costs",
+            unpaidSuppliers.get("cnt"),
+            "৳" + unpaidSuppliers.get("total") + " outstanding", "/travel/supplier-costs"));
+
+        // Overdue receivables — travel already started but balance still due
+        Long overdueReceivables = jdbcTemplate.queryForObject("""
+            SELECT COUNT(*) FROM trv_bookings
+            WHERE  organization_id = ? AND status IN ('CONFIRMED','PARTIALLY_PAID')
+              AND  due_amount > 0 AND travel_start_date IS NOT NULL AND travel_start_date < CURRENT_DATE
+            """, Long.class, orgId);
+        flags.add(flag("warning", "fa-money-bill-wave", "Overdue Receivables",
+            overdueReceivables, "travel started, balance still due", "/travel/bookings"));
+
+        // Draft bookings with imminent travel dates — at risk of falling through
+        Long staleDrafts = jdbcTemplate.queryForObject("""
+            SELECT COUNT(*) FROM trv_bookings
+            WHERE  organization_id = ? AND status = 'DRAFT'
+              AND  travel_start_date IS NOT NULL
+              AND  travel_start_date BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '5 days'
+            """, Long.class, orgId);
+        flags.add(flag("warning", "fa-hourglass-half", "Unconfirmed Drafts, Travel Imminent",
+            staleDrafts, "travel within 5 days, still DRAFT", "/travel/bookings"));
+
+        // Good news — active tours/packages this month, as a positive signal
+        Long activeThisMonth = jdbcTemplate.queryForObject("""
+            SELECT COUNT(*) FROM trv_bookings
+            WHERE  organization_id = ? AND status IN ('CONFIRMED','PARTIALLY_PAID','PAID')
+              AND  travel_start_date >= date_trunc('month', CURRENT_DATE)
+              AND  travel_start_date <  date_trunc('month', CURRENT_DATE) + INTERVAL '1 month'
+            """, Long.class, orgId);
+        flags.add(flag("good", "fa-plane-departure", "Departures This Month",
+            activeThisMonth, "confirmed and on schedule", "/travel/dashboard"));
+
+        return flags;
+    }
+
+    private Map<String, Object> flag(String severity, String icon, String label,
+                                      Object value, String sub, String url) {
+        Map<String, Object> f = new LinkedHashMap<>();
+        f.put("severity", severity);
+        f.put("icon", icon);
+        f.put("label", label);
+        f.put("value", value);
+        f.put("sub", sub);
+        f.put("url", url);
+        return f;
     }
 
     // =========================================================================
@@ -524,6 +697,7 @@ public class TravelBookingServiceImpl implements TravelBookingService {
         e.setLeadId(dto.getLeadId());
         e.setOpportunityId(dto.getOpportunityId());
         e.setSalesAgentId(dto.getSalesAgentId());
+//        if (e.getOrganizationId() == null) e.setOrganizationId(orgId);
 
         String user = SecurityHelper.currentUsername().orElse("system");
         if (e.getCreatedBy() == null) e.setCreatedBy(user);
