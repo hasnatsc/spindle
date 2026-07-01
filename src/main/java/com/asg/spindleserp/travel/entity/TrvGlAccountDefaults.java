@@ -1,6 +1,6 @@
 package com.asg.spindleserp.travel.entity;
 
-import com.asg.spindleserp.common.entity.BaseEntity;
+import com.asg.spindleserp.BaseEntity;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -15,8 +15,9 @@ import lombok.*;
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class TrvGlAccountDefaults extends BaseEntity {
 
-    @Column(name = "organization_id", nullable = false)
-    private Long organizationId;
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
     @Column(name = "accounts_receivable_id")
     private Long accountsReceivableId;

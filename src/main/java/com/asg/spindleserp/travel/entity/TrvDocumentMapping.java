@@ -10,6 +10,10 @@ import lombok.*;
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class TrvDocumentMapping extends BaseEntity {
 
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
     @Builder.Default
     @Column(name = "auto_create", nullable = false)
     private Boolean autoCreate = false;
@@ -19,9 +23,6 @@ public class TrvDocumentMapping extends BaseEntity {
 
     @Column(name = "erp_document_type", length = 50)
     private String erpDocumentType;
-
-    @Column(name = "organization_id", nullable = false)
-    private Long organizationId;
 
     @Column(name = "debit_account_id")
     private Long debitAccountId;

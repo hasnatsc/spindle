@@ -31,7 +31,7 @@ public class TravelSettingsServiceImpl implements TravelSettingsService {
     public TrvGlAccountDefaultsDTO saveDefaults(TrvGlAccountDefaultsDTO dto) {
         Long orgId = SecurityHelper.requireOrgId();
         TrvGlAccountDefaults e = repo.findByOrganizationId(orgId)
-            .orElse(TrvGlAccountDefaults.builder().organizationId(orgId).build());
+            .orElse(TrvGlAccountDefaults.builder().build());
         e.setAccountsReceivableId(dto.getAccountsReceivableId());
         e.setTravelRevenueAccountId(dto.getTravelRevenueAccountId());
         e.setCostOfServiceAccountId(dto.getCostOfServiceAccountId());
@@ -41,7 +41,7 @@ public class TravelSettingsServiceImpl implements TravelSettingsService {
 
     private TrvGlAccountDefaultsDTO toDTO(TrvGlAccountDefaults e) {
         TrvGlAccountDefaultsDTO dto = TrvGlAccountDefaultsDTO.builder()
-            .id(e.getId()).organizationId(e.getOrganizationId())
+            .id(e.getId())
             .accountsReceivableId(e.getAccountsReceivableId())
             .travelRevenueAccountId(e.getTravelRevenueAccountId())
             .costOfServiceAccountId(e.getCostOfServiceAccountId())

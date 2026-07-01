@@ -12,6 +12,7 @@ import com.asg.spindleserp.common.dto.DataTableResponse;
 import com.asg.spindleserp.common.enums.VoucherType;
 import com.asg.spindleserp.common.util.CommonUtils;
 import com.asg.spindleserp.organization.repository.OrganizationRepository;
+import com.asg.spindleserp.security.auth.ContextProvider;
 import com.asg.spindleserp.security.auth.SecurityHelper;
 import com.asg.spindleserp.setup.service.DocumentSequenceService;
 import com.asg.spindleserp.travel.dto.TrvBookingDTO;
@@ -73,7 +74,6 @@ public class TravelBookingServiceImpl implements TravelBookingService {
         } else {
             entity = TrvBooking.builder()
                 .status(TrvBooking.Status.DRAFT)
-                .organizationId(orgId)
                 .build();
         }
 
@@ -105,7 +105,7 @@ public class TravelBookingServiceImpl implements TravelBookingService {
         if (booking.getTotalAmount() == null || booking.getTotalAmount().compareTo(BigDecimal.ZERO) == 0)
             throw new IllegalStateException("Booking total amount cannot be zero.");
 
-        Long orgId  = booking.getOrganizationId();
+        Long orgId  = ContextProvider.getOrganizationId();
         String user = SecurityHelper.currentUsername().orElse("system");
         String year = String.valueOf(LocalDate.now().getYear()).substring(2);
 
@@ -159,7 +159,7 @@ public class TravelBookingServiceImpl implements TravelBookingService {
         drLine.setEntryType(JournalEntryLine.EntryType.DEBIT);
         drLine.setAmount(booking.getTotalAmount());
         drLine.setNarration("AR: " + customerSub.getSubAccountCode() + " — " + customerSub.getSubAccountName());
-        drLine.setOrganization(orgRepo.getReferenceById(orgId));
+//        drLine.setOrganization(orgRepo.getReferenceById(orgId));
         drLine.setTaxLine(false);
 
         JournalEntryLine crLine = new JournalEntryLine();
@@ -169,7 +169,7 @@ public class TravelBookingServiceImpl implements TravelBookingService {
         crLine.setEntryType(JournalEntryLine.EntryType.CREDIT);
         crLine.setAmount(booking.getTotalAmount());
         crLine.setNarration("Travel Revenue: " + booking.getBookingNo());
-        crLine.setOrganization(orgRepo.getReferenceById(orgId));
+//        crLine.setOrganization(orgRepo.getReferenceById(orgId));
         crLine.setTaxLine(false);
 
         jem.getLines().add(drLine);
@@ -272,7 +272,7 @@ public class TravelBookingServiceImpl implements TravelBookingService {
 
         JournalEntryMaster jem = jemRepo
             .findByOrganizationIdAndReferenceNoAndVoucherType(
-                booking.getOrganizationId(), booking.getBookingNo(), VoucherType.SALES_VOUCHER)
+                booking.getOrganization().getId(), booking.getBookingNo(), VoucherType.SALES_VOUCHER)
             .orElseThrow(() -> new IllegalStateException(
                 "No accounting voucher found for booking " + booking.getBookingNo() +
                 ". Please confirm the booking again to regenerate the accounting entry."));
@@ -524,7 +524,7 @@ public class TravelBookingServiceImpl implements TravelBookingService {
         e.setLeadId(dto.getLeadId());
         e.setOpportunityId(dto.getOpportunityId());
         e.setSalesAgentId(dto.getSalesAgentId());
-        if (e.getOrganizationId() == null) e.setOrganizationId(orgId);
+//        if (e.getOrganizationId() == null) e.setOrganizationId(orgId);
 
         String user = SecurityHelper.currentUsername().orElse("system");
         if (e.getCreatedBy() == null) e.setCreatedBy(user);

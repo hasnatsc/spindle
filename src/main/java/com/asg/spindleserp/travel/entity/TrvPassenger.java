@@ -1,6 +1,6 @@
 package com.asg.spindleserp.travel.entity;
 
-import com.asg.spindleserp.common.entity.BaseEntity;
+import com.asg.spindleserp.BaseEntity;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -15,6 +15,10 @@ public class TrvPassenger extends BaseEntity implements Serializable {
     public enum Gender { MALE, FEMALE, OTHER }
 
     public enum PassengerType { ADULT, CHILD, INFANT }
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
     @Column(name = "title", length = 10)
     private String title;

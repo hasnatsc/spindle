@@ -1,6 +1,6 @@
 package com.asg.spindleserp.travel.entity;
 
-import com.asg.spindleserp.common.entity.BaseEntity;
+import com.asg.spindleserp.BaseEntity;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -9,6 +9,10 @@ import lombok.*;
         name = "uq_trv_hotel_org_code", columnNames = {"organization_id", "hotel_code"}))
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class TrvHotel extends BaseEntity {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
     @Column(name = "hotel_code", nullable = false, length = 30)
     private String hotelCode;
@@ -40,10 +44,6 @@ public class TrvHotel extends BaseEntity {
     @Builder.Default
     @Column(name = "is_active", nullable = false)
     private Boolean isActive = true;
-
-    /** Soft FK — resolved server-side, never trusted from client. */
-    @Column(name = "organization_id", nullable = false)
-    private Long organizationId;
 
     /** Soft FK to trv_hotel_categories — same-module reference kept plain to avoid lazy-init issues. */
     @Column(name = "category_id")

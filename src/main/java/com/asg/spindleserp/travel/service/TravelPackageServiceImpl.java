@@ -33,7 +33,7 @@ public class TravelPackageServiceImpl implements TravelPackageService {
     public TrvPackageDTO savePackage(TrvPackageDTO dto) {
         TrvPackage e = dto.getId() != null
             ? packageRepo.findById(dto.getId()).orElseThrow(() -> new IllegalArgumentException("Package #" + dto.getId() + " not found."))
-            : TrvPackage.builder().organizationId(SecurityHelper.requireOrgId()).build();
+            : TrvPackage.builder().build();
 
         e.setPackageCode(dto.getPackageCode());
         e.setPackageName(dto.getPackageName());

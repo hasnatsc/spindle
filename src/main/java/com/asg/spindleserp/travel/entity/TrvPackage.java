@@ -1,6 +1,6 @@
 package com.asg.spindleserp.travel.entity;
 
-import com.asg.spindleserp.common.entity.BaseEntity;
+import com.asg.spindleserp.BaseEntity;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -14,6 +14,10 @@ import java.util.List;
         name = "uq_trv_pkg_org_code", columnNames = {"organization_id", "package_code"}))
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class TrvPackage extends BaseEntity implements Serializable {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
     @Column(name = "package_code", nullable = false, length = 30)
     private String packageCode;
@@ -47,9 +51,6 @@ public class TrvPackage extends BaseEntity implements Serializable {
     @Builder.Default
     @Column(name = "is_active", nullable = false)
     private Boolean isActive = true;
-
-    @Column(name = "organization_id", nullable = false)
-    private Long organizationId;
 
     @Builder.Default
     @OneToMany(mappedBy = "packageEntity", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)

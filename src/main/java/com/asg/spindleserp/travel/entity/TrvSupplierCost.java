@@ -1,6 +1,6 @@
 package com.asg.spindleserp.travel.entity;
 
-import com.asg.spindleserp.common.entity.BaseEntity;
+import com.asg.spindleserp.BaseEntity;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -13,6 +13,10 @@ import java.math.BigDecimal;
 public class TrvSupplierCost extends BaseEntity implements Serializable {
 
     public enum PaymentStatus { UNPAID, PARTIAL, PAID }
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
     @Builder.Default
     @Column(name = "cost_amount", nullable = false, precision = 18, scale = 2)

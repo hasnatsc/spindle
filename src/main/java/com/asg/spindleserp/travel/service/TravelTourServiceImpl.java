@@ -36,7 +36,7 @@ public class TravelTourServiceImpl implements TravelTourService {
     public TrvTourDTO saveTour(TrvTourDTO dto) {
         TrvTour e = dto.getId() != null
             ? tourRepo.findById(dto.getId()).orElseThrow(() -> new IllegalArgumentException("Tour #" + dto.getId() + " not found."))
-            : TrvTour.builder().organizationId(SecurityHelper.requireOrgId()).build();
+            : TrvTour.builder().build();
 
         e.setTourCode(dto.getTourCode());
         e.setTourName(dto.getTourName());

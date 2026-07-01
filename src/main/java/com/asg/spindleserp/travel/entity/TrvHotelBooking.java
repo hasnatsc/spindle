@@ -1,6 +1,6 @@
 package com.asg.spindleserp.travel.entity;
 
-import com.asg.spindleserp.common.entity.BaseEntity;
+import com.asg.spindleserp.BaseEntity;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -14,6 +14,10 @@ import java.time.LocalDate;
 public class TrvHotelBooking extends BaseEntity implements Serializable {
 
     public enum Status { PENDING, CONFIRMED, CANCELLED, COMPLETED }
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
     @Column(name = "check_in_date", nullable = false)
     private LocalDate checkInDate;

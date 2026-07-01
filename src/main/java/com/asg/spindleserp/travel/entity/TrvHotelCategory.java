@@ -1,6 +1,6 @@
 package com.asg.spindleserp.travel.entity;
 
-import com.asg.spindleserp.common.entity.BaseEntity;
+import com.asg.spindleserp.BaseEntity;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -8,6 +8,10 @@ import lombok.*;
 @Table(name = "trv_hotel_categories")
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class TrvHotelCategory extends BaseEntity {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
     @Column(name = "category_name", nullable = false, length = 100)
     private String categoryName;

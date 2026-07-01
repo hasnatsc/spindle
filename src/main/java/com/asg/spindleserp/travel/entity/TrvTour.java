@@ -1,6 +1,6 @@
 package com.asg.spindleserp.travel.entity;
 
-import com.asg.spindleserp.common.entity.BaseEntity;
+import com.asg.spindleserp.BaseEntity;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -12,6 +12,10 @@ import java.math.BigDecimal;
         name = "uq_trv_tour_org_code", columnNames = {"organization_id", "tour_code"}))
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class TrvTour extends BaseEntity implements Serializable {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
     @Column(name = "tour_code", nullable = false, length = 30)
     private String tourCode;
@@ -39,7 +43,4 @@ public class TrvTour extends BaseEntity implements Serializable {
     @Builder.Default
     @Column(name = "is_active", nullable = false)
     private Boolean isActive = true;
-
-    @Column(name = "organization_id", nullable = false)
-    private Long organizationId;
 }

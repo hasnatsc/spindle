@@ -86,10 +86,6 @@ public class TrvBooking extends BaseEntity implements Serializable {
     @Column(name = "remarks", length = 1000)
     private String remarks;
 
-    /** organizationId is EAGER-safe here because it's a plain Long, not a lazy proxy. */
-    @Column(name = "organization_id", nullable = false)
-    private Long organizationId;
-
     /** Soft FK → acc_chart_of_accounts_sub (CUSTOMER sub-type). */
     @Column(name = "party_id")
     private Long partyId;

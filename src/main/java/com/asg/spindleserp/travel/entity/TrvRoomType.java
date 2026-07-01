@@ -1,6 +1,6 @@
 package com.asg.spindleserp.travel.entity;
 
-import com.asg.spindleserp.common.entity.BaseEntity;
+import com.asg.spindleserp.BaseEntity;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -10,6 +10,10 @@ import java.math.BigDecimal;
 @Table(name = "trv_room_types")
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class TrvRoomType extends BaseEntity {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
     @Column(name = "room_type_name", nullable = false, length = 150)
     private String roomTypeName;
