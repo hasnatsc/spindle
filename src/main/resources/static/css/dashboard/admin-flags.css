@@ -79,3 +79,9 @@
 .dir-link .path{font-family:"IBM Plex Mono",monospace;font-size:.62rem;color:var(--text2);opacity:.6;}
 .dir-link.dir-hide{display:none;}
 .dir-group.dir-hide{display:none;}
+
+/* ══ ADDED — focus, empty state, filtered grid ══════════════════════════ */
+.flag-card:focus-visible{transform:translateY(-1px);border-color:var(--fc-color,var(--accent));}
+.flag-empty{grid-column:1/-1;text-align:center;padding:26px 14px;color:var(--text2);font-size:.78rem;
+            background:var(--surface);border:1px dashed var(--border);border-radius:var(--radius);}
+.flag-empty i{display:block;font-size:20px;margin-bottom:6px;opacity:.6;}

@@ -7,14 +7,51 @@
    switch, settings drawer, and the CSRF-aware fetch helpers.
 
    Exposes on window.SpindleDash:
-     apiFetch(url)          — GET  JSON with CSRF header
-     postJson(url, body)    — POST JSON with CSRF header
-     MENU_TREE              — the sec_menus-derived navigation tree
-   Page scripts (e.g. admin-flags.js) load AFTER this file and consume
-   the namespace. Load order is guaranteed by layout/dashboard-base.html.
+     apiFetch(url)            — GET  JSON with CSRF header
+     postJson(url, body)      — POST JSON with CSRF header
+     esc(s)                   — HTML-escape (MANDATORY before innerHTML)
+     escAttr(s)               — attribute-safe escape
+     debounce(fn, ms)         — trailing-edge debounce
+     fmtTaka(n)               — ৳ Crore/Lac/K abbreviation
+     MENU_TREE                — the sec_menus-derived navigation tree
+     onSettingsSaved(fn)      — subscribe to settings-save events
+
+   SECURITY: every server-sourced string rendered via innerHTML MUST go
+   through esc()/escAttr(). Dynamic click targets use event delegation
+   with data-href — NEVER string-interpolated inline onclick handlers.
+
+   Load order guaranteed by layout/dashboard-base.html:
+     bootstrap.bundle → dashboard-core.js → page's pageJs slot
    ═══════════════════════════════════════════════════════════════════════ */
 (function(){
 'use strict';
+
+/* ════════════════════════════════════════════════════════════════════
+   HELPERS — escaping, debounce, formatting
+   ════════════════════════════════════════════════════════════════════ */
+var ESC_MAP = {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'};
+function esc(s){
+  if(s === null || s === undefined) return '';
+  return String(s).replace(/[&<>"']/g, function(c){ return ESC_MAP[c]; });
+}
+function escAttr(s){ return esc(s); }
+function debounce(fn, ms){
+  var t;
+  return function(){
+    var args = arguments, ctx = this;
+    clearTimeout(t);
+    t = setTimeout(function(){ fn.apply(ctx, args); }, ms || 200);
+  };
+}
+/* Bangladesh Taka abbreviation — 1,00,00,000 = 1 Cr, 1,00,000 = 1 Lac */
+function fmtTaka(n){
+  if(n === null || n === undefined || isNaN(n)) return '—';
+  var abs = Math.abs(n), sign = n < 0 ? '-' : '';
+  if(abs >= 1e7) return sign + '৳' + (abs/1e7).toFixed(2).replace(/\.00$/,'') + ' Cr';
+  if(abs >= 1e5) return sign + '৳' + (abs/1e5).toFixed(2).replace(/\.00$/,'') + ' Lac';
+  if(abs >= 1e3) return sign + '৳' + (abs/1e3).toFixed(1).replace(/\.0$/,'') + 'K';
+  return sign + '৳' + abs.toLocaleString('en-IN');
+}
 
 /* ════════════════════════════════════════════════════════════════════
    MENU TREE — verbatim from sec_menus seed script (menu_code/menu_url).
@@ -167,31 +204,44 @@ var MENU_TREE = [
 /* ════════════════════════════════════════════════════════════════════
    CSRF-AWARE FETCH HELPERS
    ════════════════════════════════════════════════════════════════════ */
-function apiFetch(url){
-  var headers = {'Accept':'application/json'};
+function csrfHeaders(extra){
+  var headers = extra || {};
   var csrfMeta = document.querySelector('meta[name="_csrf"]');
   var csrfHeaderMeta = document.querySelector('meta[name="_csrf_header"]');
-  if(csrfMeta && csrfHeaderMeta){ headers[csrfHeaderMeta.content] = csrfMeta.content; }
-  return fetch(url, {headers:headers, credentials:'same-origin'}).then(function(r){
-    if(!r.ok) throw new Error('HTTP '+r.status);
-    return r.json();
-  });
+  if(csrfMeta && csrfHeaderMeta && csrfMeta.content){ headers[csrfHeaderMeta.content] = csrfMeta.content; }
+  return headers;
+}
+function apiFetch(url){
+  return fetch(url, {headers: csrfHeaders({'Accept':'application/json'}), credentials:'same-origin'})
+    .then(function(r){
+      if(!r.ok) throw new Error('HTTP '+r.status);
+      return r.json();
+    });
 }
 function postJson(url, body){
-  var headers = {'Accept':'application/json','Content-Type':'application/json'};
-  var csrfMeta = document.querySelector('meta[name="_csrf"]');
-  var csrfHeaderMeta = document.querySelector('meta[name="_csrf_header"]');
-  if(csrfMeta && csrfHeaderMeta){ headers[csrfHeaderMeta.content] = csrfMeta.content; }
-  return fetch(url, {method:'POST', headers:headers, credentials:'same-origin', body:JSON.stringify(body)})
-    .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.json().catch(function(){return {};}); });
+  return fetch(url, {
+    method:'POST',
+    headers: csrfHeaders({'Accept':'application/json','Content-Type':'application/json'}),
+    credentials:'same-origin',
+    body: JSON.stringify(body || {})
+  }).then(function(r){
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    return r.json().catch(function(){ return {}; });
+  });
 }
 
 /* ════════════════════════════════════════════════════════════════════
    RENDER: Sidebar — Menu → Submenu → Item, 3 levels, with active state
-   detected against the current pathname. Matching branch auto-expands.
+   detected against the current pathname (boundary-safe prefix match).
+   Leaf navigation via event delegation on data-href — no inline JS with
+   interpolated strings.
    ════════════════════════════════════════════════════════════════════ */
 function currentPath(){
   return (window.location && window.location.pathname) || '';
+}
+function pathMatches(path, u){
+  /* exact, or prefix followed by '/' — '/users' must NOT match '/users-archive' */
+  return path === u || (u !== '/' && path.indexOf(u + '/') === 0);
 }
 function renderSidebarGroups(){
   var host = document.getElementById('sbModuleGroups');
@@ -208,36 +258,49 @@ function renderSidebarGroups(){
       var itemsHtml = '';
 
       g.items.forEach(function(it){
-        var isActive = path === it.u || (it.u !== '/' && path.indexOf(it.u) === 0);
+        var isActive = pathMatches(path, it.u);
         if(isActive){ subHasActive = true; modHasActive = true; }
-        itemsHtml += '<div class="sb-leaf-item nav-searchable'+(isActive?' active':'')+'" ' +
-                        'data-text="'+(it.n+' '+it.u+' '+mod.name+' '+g.name).toLowerCase()+'" ' +
-                        'onclick="location.href=\''+it.u+'\'">' +
-                        '<span class="lbl">'+it.n+'</span></div>';
+        itemsHtml += '<div class="sb-leaf-item nav-searchable'+(isActive?' active':'')+'" role="link" tabindex="0" ' +
+                        'data-href="'+escAttr(it.u)+'" ' +
+                        'data-text="'+escAttr((it.n+' '+it.u+' '+mod.name+' '+g.name).toLowerCase())+'">' +
+                        '<span class="lbl">'+esc(it.n)+'</span></div>';
       });
 
-      groupsHtml += '<div class="sb-subgroup-toggle'+(subHasActive?' open has-active':'')+'" ' +
-                       'onclick="toggleSbSubgroup(this)">' +
-                       '<span>'+g.name+'</span><i class="fa fa-chevron-right chev"></i></div>';
+      groupsHtml += '<div class="sb-subgroup-toggle'+(subHasActive?' open has-active':'')+'" role="button" tabindex="0" ' +
+                       'data-toggle="subgroup">' +
+                       '<span>'+esc(g.name)+'</span><i class="fa fa-chevron-right chev"></i></div>';
       groupsHtml += '<div class="sb-subgroup-body'+(subHasActive?' open':'')+'">'+itemsHtml+'</div>';
     });
 
-    html += '<div class="sb-group-toggle'+(modHasActive?' open has-active':'')+'" data-mod="'+mod.code+'" onclick="toggleSbGroup(this)">' +
-              '<span class="si"><span class="ic" style="color:'+mod.color+'"><i class="fa '+mod.icon+'"></i></span><span class="lbl">'+mod.name+'</span></span>' +
+    html += '<div class="sb-group-toggle'+(modHasActive?' open has-active':'')+'" data-mod="'+escAttr(mod.code)+'" role="button" tabindex="0" data-toggle="group">' +
+              '<span class="si"><span class="ic" style="color:'+escAttr(mod.color)+'"><i class="fa '+escAttr(mod.icon)+'"></i></span><span class="lbl">'+esc(mod.name)+'</span></span>' +
               '<i class="fa fa-chevron-right chev"></i></div>';
     html += '<div class="sb-group-body'+(modHasActive?' open':'')+'" id="sbGroup'+mi+'">'+groupsHtml+'</div>';
   });
   host.innerHTML = html;
 }
-window.toggleSbGroup = function(el){
-  el.classList.toggle('open');
-  el.nextElementSibling.classList.toggle('open');
-};
-window.toggleSbSubgroup = function(el){
-  el.classList.toggle('open');
-  el.nextElementSibling.classList.toggle('open');
-};
-function filterNav(q){
+/* Delegated sidebar interaction — click + Enter/Space keyboard support */
+function _sbActivate(el){
+  if(el.dataset.href){ location.href = el.dataset.href; return; }
+  if(el.dataset.toggle){
+    el.classList.toggle('open');
+    if(el.nextElementSibling) el.nextElementSibling.classList.toggle('open');
+  }
+}
+document.addEventListener('click', function(e){
+  var t = e.target.closest('#sbModuleGroups [data-href], #sbModuleGroups [data-toggle]');
+  if(t) _sbActivate(t);
+});
+document.addEventListener('keydown', function(e){
+  if(e.key !== 'Enter' && e.key !== ' ') return;
+  var t = e.target.closest && e.target.closest('#sbModuleGroups [data-href], #sbModuleGroups [data-toggle]');
+  if(t){ e.preventDefault(); _sbActivate(t); }
+});
+/* Backwards compatibility — kept for any legacy inline handlers */
+window.toggleSbGroup = function(el){ _sbActivate(el); };
+window.toggleSbSubgroup = function(el){ _sbActivate(el); };
+
+var filterNav = debounce(function(q){
   q = (q||'').toLowerCase().trim();
   var leaves = document.querySelectorAll('#sbModuleGroups .nav-searchable');
   leaves.forEach(function(leaf){
@@ -245,12 +308,12 @@ function filterNav(q){
     leaf.classList.toggle('sb-hidden', !match);
     if(match && q){
       var subBody = leaf.closest('.sb-subgroup-body');
-      if(subBody){ subBody.classList.add('open'); subBody.previousElementSibling.classList.add('open'); }
+      if(subBody){ subBody.classList.add('open'); if(subBody.previousElementSibling) subBody.previousElementSibling.classList.add('open'); }
       var modBody = leaf.closest('.sb-group-body');
-      if(modBody){ modBody.classList.add('open'); modBody.previousElementSibling.classList.add('open'); }
+      if(modBody){ modBody.classList.add('open'); if(modBody.previousElementSibling) modBody.previousElementSibling.classList.add('open'); }
     }
   });
-}
+}, 120);
 window.filterNav = filterNav;
 
 /* ════════════════════════════════════════════════════════════════════
@@ -261,9 +324,20 @@ function toggleTheme(){
   var next = html.getAttribute('data-theme')==='dark' ? 'light' : 'dark';
   html.setAttribute('data-theme', next);
   try{ localStorage.setItem('spindle-theme', next); }catch(e){}
+  /* keep settings-drawer switch in sync if drawer is open */
+  var sw = document.getElementById('swTheme');
+  if(sw) sw.classList.toggle('on', next==='dark');
 }
-function openSidebar(){ document.getElementById('sidebar').classList.add('open'); document.getElementById('overlay').classList.add('show'); }
-function closeSidebar(){ document.getElementById('sidebar').classList.remove('open'); document.getElementById('overlay').classList.remove('show'); }
+function openSidebar(){
+  var sb = document.getElementById('sidebar'), ov = document.getElementById('overlay');
+  if(sb) sb.classList.add('open');
+  if(ov) ov.classList.add('show');
+}
+function closeSidebar(){
+  var sb = document.getElementById('sidebar'), ov = document.getElementById('overlay');
+  if(sb) sb.classList.remove('open');
+  if(ov) ov.classList.remove('show');
+}
 window.toggleTheme = toggleTheme;
 window.openSidebar = openSidebar;
 window.closeSidebar = closeSidebar;
@@ -299,6 +373,7 @@ function applyContextToUI(ctx){
 function togglePanel(id, evt){
   if(evt) evt.stopPropagation();
   var panel = document.getElementById(id);
+  if(!panel) return;
   var wasOpen = panel.classList.contains('show');
   closeAllPanels();
   if(!wasOpen){
@@ -316,13 +391,19 @@ document.addEventListener('click', function(e){
   if(!e.target.closest('.tb-anchor')) closeAllPanels();
 });
 document.addEventListener('keydown', function(e){
-  if(e.key==='Escape'){ closeAllPanels(); closeSettings(); }
+  if(e.key==='Escape'){ closeAllPanels(); closeSettings(); closeSidebar(); }
+  /* '/' focuses the sidebar search unless already typing in a field */
+  if(e.key==='/' && !/^(INPUT|TEXTAREA|SELECT)$/.test((e.target.tagName||''))){
+    var s = document.getElementById('sbSearch');
+    if(s){ e.preventDefault(); s.focus(); }
+  }
 });
 
 /* ════════════════════════════════════════════════════════════════════
    NOTIFICATIONS — GET /api/notifications  (backed by ntf_notifications:
    id, category, notification_type, title, message, link, is_read,
    created_at). POST /api/notifications/mark-all-read to clear badges.
+   All server-sourced fields escaped before innerHTML.
    ════════════════════════════════════════════════════════════════════ */
 var DEMO_NOTIFS = [
   {id:1, category:'APPROVAL', type:'IN_APP', title:'PO-2026-00341 needs your approval', message:'Purchase Order for Ibrahim Group raw cotton lot exceeds threshold and is waiting at your level.', link:'/pending-approval', isRead:false, ago:'5 min ago'},
@@ -357,16 +438,20 @@ function renderNotifList(){
   if(!list.length){ host.innerHTML = '<div class="dd-empty"><i class="fa fa-inbox"></i><br>Nothing here</div>'; return; }
   host.innerHTML = list.map(function(n){
     var cfg = NOTIF_ICON[n.category] || NOTIF_ICON[n.type] || {ic:'fa-bell', color:'var(--accent)'};
-    return '<div class="notif-item'+(n.isRead?'':' unread')+'" onclick="openNotif('+n.id+')">' +
+    return '<div class="notif-item'+(n.isRead?'':' unread')+'" data-notif-id="'+escAttr(n.id)+'" role="button" tabindex="0">' +
              '<div class="notif-ic" style="--ni-color:'+cfg.color+'"><i class="fa '+cfg.ic+'"></i></div>' +
              '<div class="notif-body">' +
-               '<div class="notif-title">'+n.title+'</div>' +
-               '<div class="notif-msg">'+n.message+'</div>' +
-               '<div class="notif-time">'+n.ago+'</div>' +
+               '<div class="notif-title">'+esc(n.title)+'</div>' +
+               '<div class="notif-msg">'+esc(n.message)+'</div>' +
+               '<div class="notif-time">'+esc(n.ago)+'</div>' +
              '</div></div>';
   }).join('');
   updateNotifBadge();
 }
+document.addEventListener('click', function(e){
+  var item = e.target.closest('.notif-item[data-notif-id]');
+  if(item) window.openNotif(item.dataset.notifId);
+});
 function updateNotifBadge(){
   var unread = _notifCache.filter(function(n){ return !n.isRead; }).length;
   var badge = document.getElementById('tbAprBadge');
@@ -376,8 +461,12 @@ function updateNotifBadge(){
 }
 window.loadNotifications = loadNotifications;
 window.openNotif = function(id){
-  var n = _notifCache.find(function(x){ return x.id===id; });
-  if(n){ n.isRead = true; if(n.link) location.href = n.link; }
+  var n = _notifCache.find(function(x){ return String(x.id)===String(id); });
+  if(n){
+    n.isRead = true;
+    /* only same-origin relative links — never navigate to an absolute URL from a payload */
+    if(n.link && /^\/[^\/]/.test(n.link)) location.href = n.link;
+  }
 };
 window.filterNotifTab = function(el){
   document.querySelectorAll('.dd-tab').forEach(function(t){ t.classList.remove('active'); });
@@ -388,7 +477,8 @@ window.filterNotifTab = function(el){
 window.markAllNotifRead = function(){
   _notifCache.forEach(function(n){ n.isRead = true; });
   renderNotifList();
-  apiFetch('/api/notifications/mark-all-read').catch(function(){});
+  /* state change → POST (CSRF-protected), not GET */
+  postJson('/api/notifications/mark-all-read', {}).catch(function(){});
 };
 
 /* ════════════════════════════════════════════════════════════════════
@@ -415,7 +505,7 @@ function fillSelect(id, opts){
   if(!sel) return;
   if(!opts || !opts.length){ sel.innerHTML = '<option value="">— none assigned —</option>'; return; }
   sel.innerHTML = opts.map(function(o){
-    return '<option value="'+o.id+'"'+(o.current?' selected':'')+'>'+o.name+'</option>';
+    return '<option value="'+escAttr(o.id)+'"'+(o.current?' selected':'')+'>'+esc(o.name)+'</option>';
   }).join('');
 }
 function applyContextSwitch(){
@@ -438,17 +528,22 @@ function applyContextSwitch(){
 window.applyContextSwitch = applyContextSwitch;
 
 /* ════════════════════════════════════════════════════════════════════
-   SETTINGS DRAWER — maps to user_context.approval_* preference columns
+   SETTINGS DRAWER — maps to user_context.approval_* preference columns.
+   On save, dispatches 'spindle:settings-saved' so pages can react
+   (e.g. re-arm auto-refresh with the new interval).
    ════════════════════════════════════════════════════════════════════ */
 function openSettings(){
-  document.getElementById('settingsDrawer').classList.add('show');
-  document.getElementById('settingsScrim').classList.add('show');
-  if(!document.getElementById('settingsDrawer').dataset.loaded){
+  var drawer = document.getElementById('settingsDrawer');
+  var scrim = document.getElementById('settingsScrim');
+  if(!drawer) return;
+  drawer.classList.add('show');
+  if(scrim) scrim.classList.add('show');
+  if(!drawer.dataset.loaded){
     loadSettings();
-    document.getElementById('settingsDrawer').dataset.loaded = '1';
+    drawer.dataset.loaded = '1';
   }
   var themeSw = document.getElementById('swTheme');
-  themeSw.classList.toggle('on', document.documentElement.getAttribute('data-theme')==='dark');
+  if(themeSw) themeSw.classList.toggle('on', document.documentElement.getAttribute('data-theme')==='dark');
 }
 function closeSettings(){
   var drawer = document.getElementById('settingsDrawer');
@@ -473,11 +568,12 @@ function applySettingsToUI(s){
   setSwitch('swWhatsapp', s.approvalWhatsappEnabled);
   setSwitch('swSound', s.approvalSoundEnabled);
   setSwitch('swBadge', s.showApprovalBadge);
-  if(s.approvalDefaultView) document.getElementById('selDefaultView').value = s.approvalDefaultView;
-  if(s.approvalRefreshInterval!==undefined) document.getElementById('selRefreshInterval').value = String(s.approvalRefreshInterval);
-  if(s.approvalNotificationFrequency) document.getElementById('selNotifFreq').value = s.approvalNotificationFrequency;
+  var dv = document.getElementById('selDefaultView'); if(dv && s.approvalDefaultView) dv.value = s.approvalDefaultView;
+  var ri = document.getElementById('selRefreshInterval'); if(ri && s.approvalRefreshInterval!==undefined) ri.value = String(s.approvalRefreshInterval);
+  var nf = document.getElementById('selNotifFreq'); if(nf && s.approvalNotificationFrequency) nf.value = s.approvalNotificationFrequency;
+  try{ localStorage.setItem('spindle-refresh-sec', String(s.approvalRefreshInterval !== undefined ? s.approvalRefreshInterval : 180)); }catch(e){}
 }
-function setSwitch(id, on){ document.getElementById(id).classList.toggle('on', !!on); }
+function setSwitch(id, on){ var el = document.getElementById(id); if(el) el.classList.toggle('on', !!on); }
 function saveSettings(){
   var payload = {
     approvalDesktopNotification: document.getElementById('swDesktop').classList.contains('on'),
@@ -492,11 +588,25 @@ function saveSettings(){
   };
   var msg = document.getElementById('sdSaveMsg');
   postJson('/api/user-context/settings', payload).catch(function(){}).then(function(){
-    msg.classList.add('show');
-    setTimeout(function(){ msg.classList.remove('show'); }, 2200);
+    if(msg){
+      msg.classList.add('show');
+      setTimeout(function(){ msg.classList.remove('show'); }, 2200);
+    }
+    try{ localStorage.setItem('spindle-refresh-sec', String(payload.approvalRefreshInterval)); }catch(e){}
+    document.dispatchEvent(new CustomEvent('spindle:settings-saved', {detail: payload}));
   });
 }
 window.saveSettings = saveSettings;
+function onSettingsSaved(fn){
+  document.addEventListener('spindle:settings-saved', function(e){ fn(e.detail); });
+}
+function getRefreshSeconds(){
+  try{
+    var v = localStorage.getItem('spindle-refresh-sec');
+    if(v !== null && v !== '' && !isNaN(+v)) return +v;
+  }catch(e){}
+  return 180;
+}
 
 /* ════════════════════════════════════════════════════════════════════
    SHELL BOOT — theme restore, sidebar nav, user context.
@@ -516,7 +626,13 @@ document.addEventListener('DOMContentLoaded', function(){
 window.SpindleDash = {
   apiFetch: apiFetch,
   postJson: postJson,
-  MENU_TREE: MENU_TREE
+  esc: esc,
+  escAttr: escAttr,
+  debounce: debounce,
+  fmtTaka: fmtTaka,
+  MENU_TREE: MENU_TREE,
+  onSettingsSaved: onSettingsSaved,
+  getRefreshSeconds: getRefreshSeconds
 };
 
 })();

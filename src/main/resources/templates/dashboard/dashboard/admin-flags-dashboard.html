@@ -16,7 +16,13 @@
   DATA WIRING (unchanged)
     GET /dashboard/admin-flags   → flags[]
     GET /dashboard/erp-summary   → module KPI numbers
-    Falls back to demo data if either call fails, so the page always renders.
+    Falls back to demo data if either call fails — a dashed "demo data"
+    chip appears in the strip so the state is never ambiguous.
+
+  NEW IN THIS REVISION
+    • Severity chips are clickable filters (click again to clear)
+    • Skeleton loading state before first fetch (admin-flags.js)
+    • Auto-refresh honours the Settings drawer interval (0 = off)
 -->
 <html lang="en" xmlns:th="http://www.thymeleaf.org"
       th:replace="~{dashboard/layout/dashboard-base :: layout(
@@ -37,12 +43,18 @@
 </head>
 <body>
 
-<!-- ── Topbar strip slot — severity chips + refresh status ─────────── -->
-<div class="tb-strip" id="tbStrip" th:fragment="tbStrip">
-  <span class="strip-chip crit"><i class="fa fa-triangle-exclamation"></i> Critical: <b id="stripCrit">0</b></span>
-  <span class="strip-chip warn"><i class="fa fa-circle-exclamation"></i> Warning: <b id="stripWarn">0</b></span>
-  <span class="strip-chip"><i class="fa fa-circle-info"></i> Info: <b id="stripInfo">0</b></span>
-  <span class="strip-chip good"><i class="fa fa-circle-check"></i> Healthy: <b id="stripGood">0</b></span>
+<!-- ── Topbar strip slot — severity FILTER chips + refresh status ──── -->
+<div class="tb-strip" id="tbStrip" th:fragment="tbStrip" role="toolbar" aria-label="Flag severity filters">
+  <span class="strip-chip crit" data-sev="critical" role="button" tabindex="0" title="Filter critical flags"
+        onclick="filterFlagsBySev('critical')"><i class="fa fa-triangle-exclamation"></i> Critical: <b id="stripCrit">0</b></span>
+  <span class="strip-chip warn" data-sev="warning" role="button" tabindex="0" title="Filter warning flags"
+        onclick="filterFlagsBySev('warning')"><i class="fa fa-circle-exclamation"></i> Warning: <b id="stripWarn">0</b></span>
+  <span class="strip-chip" data-sev="info" role="button" tabindex="0" title="Filter info flags"
+        onclick="filterFlagsBySev('info')"><i class="fa fa-circle-info"></i> Info: <b id="stripInfo">0</b></span>
+  <span class="strip-chip good" data-sev="good" role="button" tabindex="0" title="Filter healthy flags"
+        onclick="filterFlagsBySev('good')"><i class="fa fa-circle-check"></i> Healthy: <b id="stripGood">0</b></span>
+  <span class="strip-chip demo" id="stripDemoBadge" style="display:none" title="API unavailable — showing demo placeholders">
+    <i class="fa fa-vial"></i> demo data</span>
   <button type="button" class="refresh-btn" onclick="_loadAll()"><i class="fa fa-rotate-right"></i> <span id="tbLastUpdated">Loading…</span></button>
 </div>
 
@@ -51,17 +63,18 @@
 
   <!-- ── SYSTEM FLAGS ─────────────────────────────────────────────── -->
   <div class="section-label sl-red"><i class="fa fa-flag"></i> System Flags — Needs Attention <span class="cnt" id="flagTotalCnt">—</span></div>
-  <div class="flag-grid" id="flagGrid"><!-- flag cards injected by admin-flags.js --></div>
+  <div class="flag-grid" id="flagGrid"><!-- skeletons, then flag cards, injected by admin-flags.js --></div>
   <div class="legend">
     <span class="li"><span class="dot" style="background:var(--red)"></span> Critical — act today</span>
     <span class="li"><span class="dot" style="background:var(--yellow)"></span> Warning — review this week</span>
     <span class="li"><span class="dot" style="background:#60a5fa"></span> Info — for awareness</span>
     <span class="li"><span class="dot" style="background:var(--green)"></span> Healthy — no action needed</span>
+    <span class="li" style="margin-left:auto;opacity:.75"><i class="fa fa-hand-pointer" style="font-size:10px"></i> Click a chip above to filter — click again to clear</span>
   </div>
 
   <!-- ── MODULE COMMAND CENTER ────────────────────────────────────── -->
   <div class="section-label sl-blue"><i class="fa fa-grip"></i> Module Command Center <span class="cnt">9 modules</span></div>
-  <div class="mod-grid" id="modGrid"><!-- module cards injected by admin-flags.js --></div>
+  <div class="mod-grid" id="modGrid"><!-- skeletons, then module cards, injected by admin-flags.js --></div>
 
   <!-- ── FULL NAVIGATION DIRECTORY ────────────────────────────────── -->
   <div class="section-label sl-purple"><i class="fa fa-sitemap"></i> Full Navigation Directory <span class="cnt" id="dirTotalCnt">—</span></div>
@@ -69,14 +82,15 @@
     <div class="dir-search">
       <div class="dir-search-wrap">
         <i class="fa fa-search"></i>
-        <input type="text" id="dirSearch" placeholder="Filter every screen by name, module or URL…" oninput="filterDirectory(this.value)"/>
+        <input type="text" id="dirSearch" placeholder="Filter every screen by name, module or URL…"
+               autocomplete="off" oninput="filterDirectory(this.value)"/>
       </div>
       <div class="dir-count" id="dirVisibleCnt"></div>
     </div>
     <div class="dir-grid" id="dirGrid"><!-- directory injected by admin-flags.js --></div>
   </div>
 
-  <div class="footnote" id="dashFootnote">Spindle ERP — ASG Software Solutions. Flags refresh every 3 minutes.</div>
+  <div class="footnote" id="dashFootnote">Spindle ERP — ASG Software Solutions. Auto-refresh follows your Settings preference (default 3 minutes); polling pauses while the tab is hidden.</div>
 
 </section>
 
