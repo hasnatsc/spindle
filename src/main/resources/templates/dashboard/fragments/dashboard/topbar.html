@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<!--
+  FILE: src/main/resources/templates/fragments/dashboard/topbar.html
+  Spindle ERP — Dashboard topbar fragment.
+
+  USAGE (done for you by layout/dashboard-base.html):
+    <header th:replace="~{fragments/dashboard/topbar
+              :: topbar(${titleAccent}, ${titleRest}, ${subtitle}, ${strip})}"></header>
+
+  PARAMS
+    titleAccent — first (accent-colored) word of the title, e.g. 'Admin'
+    titleRest   — rest of the title, e.g. 'Flags & Navigation'
+    subtitle    — small line under the title
+    strip       — optional fragment (~{::tbStrip}) rendered as the second
+                  topbar row; pass ~{} (or null) for pages without a strip.
+-->
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+
+<header class="topbar" th:fragment="topbar(titleAccent, titleRest, subtitle, strip)">
+  <div class="tb-top">
+    <div class="tb-left">
+      <button type="button" class="menu-btn" onclick="openSidebar()"><i class="fa fa-bars"></i></button>
+      <div>
+        <div class="tb-title"><span th:text="${titleAccent}">Admin</span> <th:block th:text="${titleRest}">Flags &amp; Navigation</th:block></div>
+        <div class="tb-sub" th:text="${subtitle}">Full system health at a glance — every module, one click away</div>
+      </div>
+    </div>
+    <div class="tb-right">
+      <span class="tb-date" id="tbDate"></span>
+      <div class="icon-btn" title="Refresh" onclick="window._loadAll &amp;&amp; _loadAll()"><i class="fa fa-rotate-right"></i></div>
+
+      <!-- ── Notifications ─────────────────────────────────────────── -->
+      <div class="tb-anchor">
+        <div class="icon-btn" title="Notifications" onclick="togglePanel('notifPanel',event)">
+          <i class="fa fa-bell"></i>
+          <span class="nb" id="tbAprBadge" style="display:none">0</span>
+        </div>
+        <div class="dd-panel" id="notifPanel">
+          <div class="dd-head">
+            <h6>Notifications</h6>
+            <span class="dd-action" onclick="markAllNotifRead()">Mark all read</span>
+          </div>
+          <div class="dd-tabs">
+            <span class="dd-tab active" data-filter="all" onclick="filterNotifTab(this)">All</span>
+            <span class="dd-tab" data-filter="unread" onclick="filterNotifTab(this)">Unread</span>
+            <span class="dd-tab" data-filter="APPROVAL" onclick="filterNotifTab(this)">Approvals</span>
+            <span class="dd-tab" data-filter="SYSTEM" onclick="filterNotifTab(this)">System</span>
+          </div>
+          <div class="dd-body" id="notifList"><div class="dd-empty">Loading…</div></div>
+          <div class="dd-foot"><a href="/my-approval-requests">View all notifications</a></div>
+        </div>
+      </div>
+
+      <!-- ── Settings ──────────────────────────────────────────────── -->
+      <div class="icon-btn" title="Settings" onclick="openSettings()"><i class="fa fa-gear"></i></div>
+
+      <div class="theme-toggle" onclick="toggleTheme()" title="Toggle theme"><div class="knob">🌙</div></div>
+
+      <!-- ── User / Context switch ─────────────────────────────────── -->
+      <div class="tb-anchor">
+        <div class="user-chip" onclick="togglePanel('userPanel',event)">
+          <div class="user-av" id="tbUserAv">A</div>
+          <div>
+            <div class="user-name" id="tbUserName">Admin</div>
+            <div class="user-role" id="tbUserRole">Org Admin</div>
+          </div>
+          <i class="fa fa-chevron-down" style="font-size:9px;color:var(--text2);margin-left:2px;"></i>
+        </div>
+        <div class="dd-panel user-panel" id="userPanel">
+          <div class="up-head">
+            <div class="up-av" id="upAv">A</div>
+            <div>
+              <div class="up-name" id="upName">Admin User</div>
+              <div class="up-email" id="upEmail">admin@spindleerp.com</div>
+              <span class="up-role-badge" id="upRole">Org Admin</span>
+            </div>
+          </div>
+
+          <div class="up-section-label"><i class="fa fa-right-left"></i> Switch Working Context</div>
+          <div class="up-field">
+            <label>Business Unit</label>
+            <select id="ctxBusinessUnit"><option>Loading…</option></select>
+          </div>
+          <div class="up-field">
+            <label>Warehouse</label>
+            <select id="ctxWarehouse"><option>Loading…</option></select>
+          </div>
+          <div class="up-field">
+            <label>Cost Center</label>
+            <select id="ctxCostCenter"><option>Loading…</option></select>
+          </div>
+          <div class="up-apply-row">
+            <button type="button" class="up-apply-btn" id="ctxApplyBtn" onclick="applyContextSwitch()">Save &amp; Apply</button>
+            <div class="up-apply-msg" id="ctxApplyMsg"><i class="fa fa-check"></i> Context updated</div>
+          </div>
+
+          <div class="up-links">
+            <div class="up-link" onclick="location.href='/users/profile'"><i class="fa fa-id-badge"></i> My Profile</div>
+            <div class="up-link" onclick="location.href='/my-approval-requests'"><i class="fa fa-check-square"></i> My Approval Requests</div>
+            <div class="up-link" onclick="location.href='/users/change-password'"><i class="fa fa-key"></i> Change Password</div>
+            <div class="up-link" onclick="openSettings();closeAllPanels();"><i class="fa fa-gear"></i> Settings</div>
+            <div class="up-link danger" onclick="location.href='/logout'"><i class="fa fa-right-from-bracket"></i> Logout</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Optional per-page strip (KPI chips, refresh status, …) -->
+  <th:block th:replace="${strip} ?: ~{}"/>
+</header>
+
+</body>
+</html>

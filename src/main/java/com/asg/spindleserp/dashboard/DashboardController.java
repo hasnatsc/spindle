@@ -50,7 +50,8 @@ public class DashboardController {
     /** Main landing page — full ERP summary for all permitted modules */
     @GetMapping("/dashboard")
     public String dashboard() {
-        return "dashboard/erp-main-dashboard";
+//        return "dashboard/erp-main-dashboard";
+        return "dashboard/dashboard/admin-flags-dashboard";
     }
 
     /**

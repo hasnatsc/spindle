@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<!--
+  FILE: src/main/resources/templates/layout/dashboard-base.html
+  Spindle ERP — Layout for the dashboard family (control tower, admin
+  flags, commercial tower, …). Mirrors the layout/base pattern used for
+  Color Admin pages, but for the dashboard shell design system.
+
+  FRAGMENT SIGNATURE
+    layout(pageTitle, titleAccent, titleRest, subtitle, activeDash,
+           content, strip, pageCss, pageJs)
+
+    pageTitle   — <title> text
+    titleAccent — accent-colored first word of the topbar title
+    titleRest   — rest of the topbar title
+    subtitle    — small line under the topbar title
+    activeDash  — sidebar dashboard key ('control-tower' | 'admin-flags'
+                  | 'commercial' | 'financial' | 'sales')
+    content     — ~{::section} from the page
+    strip       — ~{::tbStrip} optional second topbar row, or ~{}
+    pageCss     — ~{::pageCss} optional extra stylesheet links, or ~{}
+    pageJs      — ~{::pageJs} optional page script tags, or ~{}
+
+  PAGE USAGE
+    <html th:replace="~{layout/dashboard-base :: layout(
+            'Spindle ERP | My Page', 'My', 'Page Title', 'subtitle…',
+            'admin-flags', ~{::section}, ~{::tbStrip}, ~{::pageCss}, ~{::pageJs})}">
+
+  SCRIPT LOAD ORDER (guaranteed here)
+    bootstrap.bundle → dashboard-core.js → page's pageJs slot
+-->
+<html lang="en" data-theme="dark" xmlns:th="http://www.thymeleaf.org"
+      th:fragment="layout(pageTitle, titleAccent, titleRest, subtitle, activeDash, content, strip, pageCss, pageJs)">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="_csrf"        th:content="${_csrf != null} ? ${_csrf.token} : ''"/>
+  <meta name="_csrf_header" th:content="${_csrf != null} ? ${_csrf.headerName} : 'X-CSRF-TOKEN'"/>
+  <title th:text="${pageTitle}">Spindle ERP</title>
+
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=IBM+Plex+Sans:wght@300;400;500;600&amp;family=IBM+Plex+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/css/bootstrap.min.css"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"/>
+
+  <!-- Shared dashboard shell CSS -->
+  <link rel="stylesheet" th:href="@{/css/dashboard/dashboard-core.css}"/>
+
+  <!-- Per-page CSS slot -->
+  <th:block th:replace="${pageCss} ?: ~{}"/>
+
+  <!-- Early theme restore — prevents dark→light flash before JS boot -->
+  <script>
+    try{
+      var t = localStorage.getItem('spindle-theme');
+      if(t) document.documentElement.setAttribute('data-theme', t);
+    }catch(e){}
+  </script>
+</head>
+<body>
+  <div class="overlay" id="overlay" onclick="closeSidebar()"></div>
+
+  <!-- ══ SIDEBAR ═══════════════════════════════════════════════════════ -->
+  <aside th:replace="~{dashboard/fragments/dashboard/sidebar :: sidebar(${activeDash})}"></aside>
+
+  <!-- ══ TOPBAR ════════════════════════════════════════════════════════ -->
+  <header th:replace="~{dashboard/fragments/dashboard/topbar :: topbar(${titleAccent}, ${titleRest}, ${subtitle}, ${strip})}"></header>
+
+  <!-- ══ SETTINGS DRAWER ═══════════════════════════════════════════════ -->
+  <th:block th:replace="~{dashboard/fragments/dashboard/settings-drawer :: settingsDrawer}"/>
+
+  <!-- ══ MAIN — page section renders here ══════════════════════════════ -->
+  <main class="main">
+    <div class="content">
+      <th:block th:replace="${content}"/>
+    </div>
+  </main>
+
+  <!-- ══ SCRIPTS ═══════════════════════════════════════════════════════ -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
+  <script th:src="@{/js/dashboard/dashboard-core.js}"></script>
+
+  <!-- Per-page JS slot (loads after dashboard-core.js) -->
+  <th:block th:replace="${pageJs} ?: ~{}"/>
+</body>
+</html>

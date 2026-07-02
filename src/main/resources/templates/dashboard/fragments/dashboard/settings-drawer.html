@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<!--
+  FILE: src/main/resources/templates/fragments/dashboard/settings-drawer.html
+  Spindle ERP — Settings drawer fragment (off-canvas, right side).
+  Maps to user_context.approval_* preference columns; wired by
+  dashboard-core.js (openSettings / saveSettings / toggleSwitch).
+
+  USAGE (done for you by layout/dashboard-base.html):
+    <th:block th:replace="~{fragments/dashboard/settings-drawer :: settingsDrawer}"/>
+-->
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+
+<th:block th:fragment="settingsDrawer">
+<div class="settings-scrim" id="settingsScrim" onclick="closeSettings()"></div>
+<aside class="settings-drawer" id="settingsDrawer">
+  <div class="sd-head">
+    <h5><i class="fa fa-gear"></i> Settings</h5>
+    <button type="button" class="sd-close" onclick="closeSettings()">✕</button>
+  </div>
+  <div class="sd-body">
+    <div class="sd-section">
+      <div class="sd-section-title">Appearance</div>
+      <div class="sd-row">
+        <div><div class="lbl">Dark mode</div><div class="desc">Toggle the whole app theme</div></div>
+        <div class="sd-switch" id="swTheme" onclick="toggleSwitch(this);toggleTheme();"><div class="kb"></div></div>
+      </div>
+    </div>
+
+    <div class="sd-section">
+      <div class="sd-section-title">Approval Notification Preferences</div>
+      <div class="sd-row">
+        <div><div class="lbl">In-app / Desktop</div><div class="desc">Show approval badges &amp; toasts</div></div>
+        <div class="sd-switch on" id="swDesktop" onclick="toggleSwitch(this)"><div class="kb"></div></div>
+      </div>
+      <div class="sd-row">
+        <div><div class="lbl">Email</div><div class="desc">Send approval emails</div></div>
+        <div class="sd-switch on" id="swEmail" onclick="toggleSwitch(this)"><div class="kb"></div></div>
+      </div>
+      <div class="sd-row">
+        <div><div class="lbl">SMS</div><div class="desc">Text message alerts</div></div>
+        <div class="sd-switch" id="swSms" onclick="toggleSwitch(this)"><div class="kb"></div></div>
+      </div>
+      <div class="sd-row">
+        <div><div class="lbl">WhatsApp</div><div class="desc">WhatsApp approval alerts</div></div>
+        <div class="sd-switch" id="swWhatsapp" onclick="toggleSwitch(this)"><div class="kb"></div></div>
+      </div>
+      <div class="sd-row">
+        <div><div class="lbl">Sound</div><div class="desc">Play a sound on new approval</div></div>
+        <div class="sd-switch on" id="swSound" onclick="toggleSwitch(this)"><div class="kb"></div></div>
+      </div>
+      <div class="sd-row">
+        <div><div class="lbl">Show approval badge</div><div class="desc">Red counter on bell &amp; sidebar</div></div>
+        <div class="sd-switch on" id="swBadge" onclick="toggleSwitch(this)"><div class="kb"></div></div>
+      </div>
+    </div>
+
+    <div class="sd-section">
+      <div class="sd-section-title">Approval Panel Behaviour</div>
+      <label style="font-size:.72rem;color:var(--text2);font-weight:600;">Default view</label>
+      <select class="sd-select" id="selDefaultView">
+        <option value="LIST">List</option>
+        <option value="KANBAN">Kanban</option>
+        <option value="CALENDAR">Calendar</option>
+      </select>
+      <label style="font-size:.72rem;color:var(--text2);font-weight:600;margin-top:10px;display:block;">Auto-refresh interval</label>
+      <select class="sd-select" id="selRefreshInterval">
+        <option value="30">30 seconds</option>
+        <option value="60">1 minute</option>
+        <option value="180" selected>3 minutes</option>
+        <option value="300">5 minutes</option>
+        <option value="0">Off</option>
+      </select>
+      <label style="font-size:.72rem;color:var(--text2);font-weight:600;margin-top:10px;display:block;">Notification frequency</label>
+      <select class="sd-select" id="selNotifFreq">
+        <option value="INSTANT">Instant</option>
+        <option value="HOURLY">Hourly digest</option>
+        <option value="DAILY">Daily digest</option>
+      </select>
+    </div>
+  </div>
+  <div class="sd-foot">
+    <button type="button" class="sd-save-btn" onclick="saveSettings()"><i class="fa fa-floppy-disk"></i> Save Settings</button>
+    <div class="sd-save-msg" id="sdSaveMsg"><i class="fa fa-check"></i> Preferences saved</div>
+  </div>
+</aside>
+</th:block>
+
+</body>
+</html>

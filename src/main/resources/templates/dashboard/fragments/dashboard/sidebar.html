@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<!--
+  FILE: src/main/resources/templates/fragments/dashboard/sidebar.html
+  Spindle ERP — Dashboard sidebar fragment.
+
+  USAGE (done for you by layout/dashboard-base.html):
+    <aside th:replace="~{fragments/dashboard/sidebar :: sidebar(${activeDash})}"></aside>
+
+  PARAMS
+    activeDash — key of the dashboard link to mark active:
+                 'control-tower' | 'admin-flags' | 'commercial' | 'financial' | 'sales'
+                 Module/leaf active state is resolved automatically by
+                 dashboard-core.js against window.location.pathname.
+-->
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+
+<aside class="sidebar" id="sidebar" th:fragment="sidebar(activeDash)">
+  <div class="sb-logo">
+    <div class="sb-logo-icon">S</div>
+    <div class="sb-logo-text">SPINDLE ERP<em>Admin Flags Center</em><small>Every flag. Every screen.</small></div>
+    <button type="button" class="sb-close" onclick="closeSidebar()">✕</button>
+  </div>
+
+  <div class="sb-search">
+    <div class="sb-search-wrap">
+      <i class="fa fa-search"></i>
+      <input type="text" id="sbSearch" placeholder="Search 90+ screens…" oninput="filterNav(this.value)"/>
+    </div>
+  </div>
+
+  <nav class="sb-nav" id="sbNav">
+    <div class="sb-section-label">Dashboards</div>
+    <div class="sb-item" th:classappend="${activeDash == 'control-tower'} ? 'active'" onclick="location.href='/dashboard'">
+      <span class="si"><span class="ic"><i class="fa fa-house"></i></span><span class="lbl">ERP Control Tower</span></span>
+    </div>
+    <div class="sb-item" th:classappend="${activeDash == 'admin-flags'} ? 'active'" onclick="location.href='/dashboard/admin-flags'">
+      <span class="si"><span class="ic"><i class="fa fa-flag"></i></span><span class="lbl">Admin Flags Center</span></span>
+      <span class="bc" id="sbFlagBadge" style="display:none">0</span>
+    </div>
+    <div class="sb-item" th:classappend="${activeDash == 'commercial'} ? 'active'" onclick="location.href='/commercial/dashboard'">
+      <span class="si"><span class="ic"><i class="fa fa-ship"></i></span><span class="lbl">Commercial Tower</span></span>
+    </div>
+    <div class="sb-item" th:classappend="${activeDash == 'financial'} ? 'active'" onclick="location.href='/financial-analytics/dashboard'">
+      <span class="si"><span class="ic"><i class="fa fa-coins"></i></span><span class="lbl">Financial Dashboard</span></span>
+    </div>
+    <div class="sb-item" th:classappend="${activeDash == 'sales'} ? 'active'" onclick="location.href='/sales-analytics/dashboard'">
+      <span class="si"><span class="ic"><i class="fa fa-chart-line"></i></span><span class="lbl">Sales Dashboard</span></span>
+    </div>
+
+    <!-- Module nav groups render here from dashboard-core.js (MENU_TREE) -->
+    <div id="sbModuleGroups"></div>
+
+    <div class="sb-section-label">Actions</div>
+    <div class="sb-item" onclick="location.href='/pending-approval'">
+      <span class="si"><span class="ic"><i class="fa fa-hourglass-half"></i></span><span class="lbl">Pending Approval</span></span>
+      <span class="bc" id="sbApprovalBadge" style="display:none">0</span>
+    </div>
+    <div class="sb-item" onclick="location.href='/approval-panel'">
+      <span class="si"><span class="ic"><i class="fa fa-check-square"></i></span><span class="lbl">Approval Panel</span></span>
+    </div>
+    <div class="sb-item" onclick="location.href='/approval-configs'">
+      <span class="si"><span class="ic"><i class="fa fa-cogs"></i></span><span class="lbl">Approval Config</span></span>
+    </div>
+    <div class="sb-item" onclick="location.href='/users'">
+      <span class="si"><span class="ic"><i class="fa fa-user-shield"></i></span><span class="lbl">Users &amp; Roles</span></span>
+    </div>
+  </nav>
+
+  <div class="sb-user">
+    <div class="sb-user-av" id="sbUserAv">A</div>
+    <div>
+      <div class="sb-user-name" id="sbUserName">Admin</div>
+      <div class="sb-user-role" id="sbUserOrg">Organization</div>
+    </div>
+  </div>
+</aside>
+
+</body>
+</html>

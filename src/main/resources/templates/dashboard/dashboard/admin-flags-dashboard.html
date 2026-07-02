@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<!--
+  FILE: src/main/resources/templates/dashboard/admin-flags-dashboard.html
+  Spindle ERP — Admin Flags & Navigation Command Center (PAGE TEMPLATE)
+
+  Fully fragmented: this file now contains ONLY page content.
+    Layout / shell  → layout/dashboard-base.html
+    Sidebar         → fragments/dashboard/sidebar.html
+    Topbar          → fragments/dashboard/topbar.html
+    Settings drawer → fragments/dashboard/settings-drawer.html
+    Shell CSS       → static/css/dashboard/dashboard-core.css
+    Page CSS        → static/css/dashboard/admin-flags.css     (pageCss slot)
+    Shell JS        → static/js/dashboard/dashboard-core.js
+    Page JS         → static/js/dashboard/admin-flags.js       (pageJs slot)
+
+  DATA WIRING (unchanged)
+    GET /dashboard/admin-flags   → flags[]
+    GET /dashboard/erp-summary   → module KPI numbers
+    Falls back to demo data if either call fails, so the page always renders.
+-->
+<html lang="en" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{dashboard/layout/dashboard-base :: layout(
+            'Spindle ERP | Admin Flags &amp; Navigation',
+            'Admin',
+            'Flags &amp; Navigation',
+            'Full system health at a glance — every module, one click away',
+            'admin-flags',
+            ~{::section},
+            ~{::tbStrip},
+            ~{::pageCss},
+            ~{::pageJs})}">
+<head>
+  <!-- ── Page CSS slot ─────────────────────────────────────────────── -->
+  <th:block th:fragment="pageCss">
+    <link rel="stylesheet" th:href="@{/css/dashboard/admin-flags.css}"/>
+  </th:block>
+</head>
+<body>
+
+<!-- ── Topbar strip slot — severity chips + refresh status ─────────── -->
+<div class="tb-strip" id="tbStrip" th:fragment="tbStrip">
+  <span class="strip-chip crit"><i class="fa fa-triangle-exclamation"></i> Critical: <b id="stripCrit">0</b></span>
+  <span class="strip-chip warn"><i class="fa fa-circle-exclamation"></i> Warning: <b id="stripWarn">0</b></span>
+  <span class="strip-chip"><i class="fa fa-circle-info"></i> Info: <b id="stripInfo">0</b></span>
+  <span class="strip-chip good"><i class="fa fa-circle-check"></i> Healthy: <b id="stripGood">0</b></span>
+  <button type="button" class="refresh-btn" onclick="_loadAll()"><i class="fa fa-rotate-right"></i> <span id="tbLastUpdated">Loading…</span></button>
+</div>
+
+<!-- ── Page content — injected into layout's .main > .content ──────── -->
+<section>
+
+  <!-- ── SYSTEM FLAGS ─────────────────────────────────────────────── -->
+  <div class="section-label sl-red"><i class="fa fa-flag"></i> System Flags — Needs Attention <span class="cnt" id="flagTotalCnt">—</span></div>
+  <div class="flag-grid" id="flagGrid"><!-- flag cards injected by admin-flags.js --></div>
+  <div class="legend">
+    <span class="li"><span class="dot" style="background:var(--red)"></span> Critical — act today</span>
+    <span class="li"><span class="dot" style="background:var(--yellow)"></span> Warning — review this week</span>
+    <span class="li"><span class="dot" style="background:#60a5fa"></span> Info — for awareness</span>
+    <span class="li"><span class="dot" style="background:var(--green)"></span> Healthy — no action needed</span>
+  </div>
+
+  <!-- ── MODULE COMMAND CENTER ────────────────────────────────────── -->
+  <div class="section-label sl-blue"><i class="fa fa-grip"></i> Module Command Center <span class="cnt">9 modules</span></div>
+  <div class="mod-grid" id="modGrid"><!-- module cards injected by admin-flags.js --></div>
+
+  <!-- ── FULL NAVIGATION DIRECTORY ────────────────────────────────── -->
+  <div class="section-label sl-purple"><i class="fa fa-sitemap"></i> Full Navigation Directory <span class="cnt" id="dirTotalCnt">—</span></div>
+  <div class="dir-card">
+    <div class="dir-search">
+      <div class="dir-search-wrap">
+        <i class="fa fa-search"></i>
+        <input type="text" id="dirSearch" placeholder="Filter every screen by name, module or URL…" oninput="filterDirectory(this.value)"/>
+      </div>
+      <div class="dir-count" id="dirVisibleCnt"></div>
+    </div>
+    <div class="dir-grid" id="dirGrid"><!-- directory injected by admin-flags.js --></div>
+  </div>
+
+  <div class="footnote" id="dashFootnote">Spindle ERP — ASG Software Solutions. Flags refresh every 3 minutes.</div>
+
+</section>
+
+<!-- ── Page JS slot — loads after dashboard-core.js ─────────────────── -->
+<th:block th:fragment="pageJs">
+  <script th:src="@{/js/dashboard/admin-flags.js}"></script>
+</th:block>
+
+</body>
+</html>

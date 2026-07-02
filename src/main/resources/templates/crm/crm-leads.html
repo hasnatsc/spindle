@@ -1,8 +1,22 @@
 <!DOCTYPE html>
 <!--
-  crm/crm-leads.html    GET /crm/leads
+  crm/crm-leads.html    GET /crm/leads    FULL REPLACEMENT
   JS prefix: lead*
-  Status filter dropdown, Convert → Opportunity cascade
+
+  Converted to the new Travel-module design language:
+    • Module toolbar (btn-sm pill row) + KPI widget-stats cards, same as
+      travel-dashboard.html
+    • panel panel-inverse with New Lead / status filter / refresh in heading
+    • Select2 everywhere — AJAX for Assigned To (/users/search) and Converted
+      Customer (/accounts/sub-accounts/search), themed select2 on all static
+      selects including the status filter
+    • _esc() XSS escaping on every server-sourced string rendered via JS,
+      same as the hardened trv-documents-fragment
+    • FIX: DataTable now serverSide:true — CrmController.leadList expects
+      draw/start/length/search[value] (ROW_NUMBER OVER pattern); the old page
+      ran serverSide:false so paging/search were silently broken
+    • FIX: _onSubmit passed the WRONG form (leadActForm) to
+      hsAfterSaveMessages — now passes leadForm
 -->
 <html th:replace="~{layout/base :: layout('CRM Leads', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
 <section>
@@ -12,15 +26,49 @@
     <li class="breadcrumb-item">CRM</li>
     <li class="breadcrumb-item active">Leads</li>
   </ol>
-  <h1 class="page-header">Leads <small>track prospective customers</small></h1>
+  <h1 class="page-header">Leads <small>track prospective customers from first touch to conversion</small></h1>
 
+  <!-- MODULE TOOLBAR — same pattern as travel-dashboard -->
   <div class="d-flex gap-2 mb-3 flex-wrap">
-    <a th:href="@{/crm/dashboard}"    class="btn btn-outline-theme btn-sm me-1"><i class="fa fa-tachometer-alt me-1"></i> Dashboard</a>
+    <a th:href="@{/crm/dashboard}"     class="btn btn-sm btn-outline-primary"><i class="fa fa-tachometer-alt me-1"></i> Dashboard</a>
     <a th:href="@{/crm/leads}"         class="btn btn-sm btn-primary"><i class="fa fa-user-plus me-1"></i> Leads</a>
     <a th:href="@{/crm/opportunities}" class="btn btn-sm btn-outline-primary"><i class="fa fa-funnel-dollar me-1"></i> Opportunities</a>
     <a th:href="@{/crm/contacts}"      class="btn btn-sm btn-outline-primary"><i class="fa fa-address-book me-1"></i> Contacts</a>
     <a th:href="@{/crm/activities}"    class="btn btn-sm btn-outline-primary"><i class="fa fa-calendar-check me-1"></i> Activities</a>
     <a th:href="@{/crm/feedback}"      class="btn btn-sm btn-outline-warning"><i class="fa fa-star-half-alt me-1"></i> Feedback</a>
+  </div>
+
+  <!-- KPI CARDS — counts come from the existing /crm/leads/list endpoint
+       (recordsFiltered per status), so no new backend is required -->
+  <div class="row">
+    <div class="col-xl-3 col-md-6">
+      <div class="widget widget-stats bg-primary">
+        <div class="stats-icon"><i class="fa fa-user-plus"></i></div>
+        <div class="stats-info"><h4>NEW LEADS</h4><p id="kpiNew">0</p></div>
+        <div class="stats-link"><a href="javascript:;" onclick="_leadFilter('NEW')">View New <i class="fa fa-arrow-alt-circle-right"></i></a></div>
+      </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+      <div class="widget widget-stats bg-warning">
+        <div class="stats-icon"><i class="fa fa-phone-volume"></i></div>
+        <div class="stats-info"><h4>CONTACTED</h4><p id="kpiContacted">0</p></div>
+        <div class="stats-link"><a href="javascript:;" onclick="_leadFilter('CONTACTED')">View Contacted <i class="fa fa-arrow-alt-circle-right"></i></a></div>
+      </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+      <div class="widget widget-stats bg-success">
+        <div class="stats-icon"><i class="fa fa-badge-check fa-check-circle"></i></div>
+        <div class="stats-info"><h4>QUALIFIED</h4><p id="kpiQualified">0</p></div>
+        <div class="stats-link"><a href="javascript:;" onclick="_leadFilter('QUALIFIED')">View Qualified <i class="fa fa-arrow-alt-circle-right"></i></a></div>
+      </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+      <div class="widget widget-stats bg-dark">
+        <div class="stats-icon"><i class="fa fa-exchange-alt"></i></div>
+        <div class="stats-info"><h4>CONVERTED</h4><p id="kpiConverted">0</p></div>
+        <div class="stats-link"><a href="javascript:;" onclick="_leadFilter('CONVERTED')">View Converted <i class="fa fa-arrow-alt-circle-right"></i></a></div>
+      </div>
+    </div>
   </div>
 
   <div class="panel panel-inverse">
@@ -29,7 +77,7 @@
         <a href="javascript:;" onclick="leadOpenCreate()">
           <span class="badge btn btn-outline-success"><i class="fa fa-plus me-1"></i> New Lead</span>
         </a>
-        <select id="leadStatusFilter" class="form-select form-select-sm" style="width:160px" onchange="_leadReload()">
+        <select id="leadStatusFilter" class="form-select form-select-sm" style="width:170px">
           <option value="">All Status</option>
           <option value="NEW">New</option>
           <option value="CONTACTED">Contacted</option>
@@ -42,7 +90,7 @@
       </div>
       <div class="panel-heading-btn">
         <a href="javascript:;" class="btn btn-sm btn-icon btn-default" data-toggle="panel-expand"><i class="fa fa-expand"></i></a>
-        <a href="javascript:;" class="btn btn-sm btn-icon btn-success" data-toggle="panel-reload"><i class="fa fa-redo"></i></a>
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-success" onclick="_leadReload()"><i class="fa fa-redo"></i></a>
       </div>
     </div>
     <div class="panel-body">
@@ -139,13 +187,18 @@
                     <label class="input-label">Status</label>
                   </div>
                   <div class="col-md-3 view-group">
-                    <input id="leadQtyKg" type="number" step="0.01" class="form-control hs_span_view text-end" placeholder="0.00">
+                    <input id="leadQtyKg" type="number" step="0.01" min="0" class="form-control hs_span_view text-end" placeholder="0.00">
                     <label class="input-label">Est. Qty (KG)</label>
                   </div>
-                  <!-- Assigned To AJAX S2 -->
+                  <!-- Assigned To — AJAX Select2 → /users/search -->
                   <div class="col-md-6 view-group">
                     <select id="leadAssignedTo" class="form-select hs_span_view"></select>
                     <label class="input-label">Assigned To</label>
+                  </div>
+                  <!-- Converted Customer — AJAX Select2 → /accounts/sub-accounts/search -->
+                  <div class="col-md-6 view-group">
+                    <select id="leadConvertedTo" class="form-select hs_span_view"></select>
+                    <label class="input-label">Converted Customer <small class="text-muted">(optional — link after conversion)</small></label>
                   </div>
                   <div class="col-12 view-group">
                     <textarea id="leadProductInterest" class="form-control hs_span_view" rows="2" placeholder="Product / yarn count / blend interest…"></textarea>
@@ -205,7 +258,7 @@
                   <label class="input-label">Date <span class="text-danger">*</span></label>
                 </div>
                 <div class="col-md-4 view-group">
-                  <input id="actDurFromLead" type="number" class="form-control hs_span_view text-end" placeholder="Minutes">
+                  <input id="actDurFromLead" type="number" min="0" class="form-control hs_span_view text-end" placeholder="Minutes">
                   <label class="input-label">Duration (min)</label>
                 </div>
                 <div class="col-12 view-group">
@@ -233,14 +286,31 @@
   <script th:inline="none">
   (function () {
     'use strict';
-    const BASE = '/crm/leads', ACT_BASE = '/crm/activities';
-    const SUB_URL = '/accounts/sub-accounts/search';
+    const BASE     = '/crm/leads';
+    const ACT_BASE = '/crm/activities';
+    const USER_URL = '/users/search';
+    const SUB_URL  = '/accounts/sub-accounts/search';
     var dt;
+
+    /** HTML-escape everything that came from the server or another user
+        (same pattern as trv-documents-fragment). */
+    function _esc(s) {
+      if (s === null || s === undefined) return '';
+      return String(s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
 
     document.addEventListener('DOMContentLoaded', function () {
       dt = $('#leadTable').DataTable({
-        processing: true, serverSide: false, responsive: true, pageLength: 25,
-        ajax: { url: BASE + '/list', type: 'GET', data: function(d){ d.status = document.getElementById('leadStatusFilter').value||''; } },
+        // FIX: CrmController.leadList consumes draw/start/length/search[value]
+        // (JdbcTemplate ROW_NUMBER pattern) — must be serverSide:true.
+        processing: true, serverSide: true, responsive: true, pageLength: 25,
+        searchDelay: 400, ordering: false,
+        ajax: {
+          url: BASE + '/list', type: 'GET',
+          data: function (d) { d.status = $('#leadStatusFilter').val() || ''; }
+        },
         columns: [
           { data: 'sl', orderable: false, width: '40px' },
           { data: 'lead_no' }, { data: 'company_name', defaultContent: '—' },
@@ -253,161 +323,249 @@
         ],
         language: { emptyTable: 'No leads.', processing: '<span class="spinner-border spinner-border-sm me-2"></span> Loading…' }
       });
+
+      // Themed Select2 on the status filter (reload table on change)
+      $('#leadStatusFilter').select2({ width: '170px', minimumResultsForSearch: Infinity })
+        .on('change', function () { _leadReload(); });
+
       document.getElementById('leadForm').addEventListener('submit', _onSubmit);
       document.getElementById('leadActForm').addEventListener('submit', _onActSubmit);
-      document.getElementById('actDateFromLead').value = new Date().toISOString().substring(0,10);
+      document.getElementById('actDateFromLead').value = new Date().toISOString().substring(0, 10);
+
       _initAssignedS2(null, null);
+      _initConvertedS2(null, null);
+      _initStaticS2();
+      _loadKpis();
     });
 
-    window._leadReload = function() { dt.ajax.reload(); };
+    window._leadReload = function () { dt.ajax.reload(null, false); _loadKpis(); };
 
-    function _initAssignedS2(preId, preText) {
-      var $el = $('#leadAssignedTo');
+    /** KPI card click → set filter + reload */
+    window._leadFilter = function (status) {
+      $('#leadStatusFilter').val(status).trigger('change');
+    };
+
+    // ── KPI CARDS — one lightweight count per status via the list endpoint ──
+    function _loadKpis() {
+      _kpi('NEW', 'kpiNew'); _kpi('CONTACTED', 'kpiContacted');
+      _kpi('QUALIFIED', 'kpiQualified'); _kpi('CONVERTED', 'kpiConverted');
+    }
+    function _kpi(status, elId) {
+      secureFetch(BASE + '/list?draw=1&start=0&length=1&status=' + status)
+        .then(function (res) {
+          var n = (res && (res.recordsFiltered != null ? res.recordsFiltered : res.recordsTotal)) || 0;
+          document.getElementById(elId).textContent = n;
+        }).catch(function () { /* KPI is decorative — never block the page */ });
+    }
+
+    // ── SELECT2 ──────────────────────────────────────────────────────────────
+
+    function _ajaxS2($el, url, placeholder) {
       if ($el.hasClass('select2-hidden-accessible')) $el.select2('destroy');
       $el.select2({
         dropdownParent: $('#leadModal'), width: '100%',
-        placeholder: '— Assign User —', allowClear: true, minimumInputLength: 0,
+        placeholder: placeholder, allowClear: true, minimumInputLength: 0,
         ajax: {
-          url: '/users/search', dataType: 'json', delay: 250,
-          data: function(p){ return { search: p.term||'', page: p.page||1 }; },
-          processResults: function(data,p){ p.page=p.page||1; return { results:(data.items||[]).map(function(i){return{id:i.id,text:i.text};}), pagination:{more:data.hasMore||false} }; },
+          url: url, dataType: 'json', delay: 250,
+          data: function (p) { return { search: p.term || '', page: p.page || 1 }; },
+          processResults: function (data, p) {
+            p.page = p.page || 1;
+            return { results: (data.items || []).map(function (i) { return { id: i.id, text: i.text }; }),
+                     pagination: { more: data.hasMore || false } };
+          },
           cache: true
-        },
-        templateResult: function(r){ return r.text; }, templateSelection: function(r){ return r.text||r.id; }
+        }
       });
-      if (preId) $el.append(new Option(preText||'', preId, true, true)).trigger('change');
     }
 
-    window.leadOpenCreate = function() {
+    function _initAssignedS2(preId, preText) {
+      _ajaxS2($('#leadAssignedTo'), USER_URL, '— Assign User —');
+      if (preId) $('#leadAssignedTo').append(new Option(preText || '', preId, true, true)).trigger('change');
+    }
+
+    function _initConvertedS2(preId, preText) {
+      _ajaxS2($('#leadConvertedTo'), SUB_URL, '— Converted Customer —');
+      if (preId) $('#leadConvertedTo').append(new Option(preText || '', preId, true, true)).trigger('change');
+    }
+
+    /** Themed Select2 on static modal dropdowns (source / type / status). */
+    function _initStaticS2() {
+      ['#leadSource', '#leadType', '#leadStatus'].forEach(function (sel) {
+        var $el = $(sel);
+        if ($el.hasClass('select2-hidden-accessible')) $el.select2('destroy');
+        $el.select2({ dropdownParent: $('#leadModal'), width: '100%', minimumResultsForSearch: 6 });
+      });
+    }
+
+    // ── CREATE / VIEW / EDIT ─────────────────────────────────────────────────
+
+    window.leadOpenCreate = function () {
       _resetForm();
       document.getElementById('leadModalTitle').innerHTML = '<i class="fa fa-plus me-1 text-success"></i> New Lead';
       document.getElementById('leadBtnText').textContent  = 'Save';
       bootstrap.Modal.getOrCreateInstance(document.getElementById('leadModal')).show();
     };
 
-    window.leadShow = function(id) {
-      secureFetch(BASE + '/show/' + id).then(function(res) {
+    window.leadShow = function (id) {
+      secureFetch(BASE + '/show/' + id).then(function (res) {
         if (!res.success) { Swal.fire('Error', res.message, 'error'); return; }
         var o = res.obj.defaultData;
         var html = '<div class="hs-box"><div class="row g-2">'
-          + _vf('Lead No', o.leadNo) + _vf('Company', o.companyName||'—')
-          + _vf('Contact', o.contactName) + _vf('Designation', o.designation||'—')
-          + _vf('Email', o.contactEmail||'—') + _vf('Phone', o.contactPhone||'—')
-          + _vf('Country', o.country||'—') + _vf('City', o.city||'—')
-          + _vf('Source', o.source||'—') + _vf('Type', o.leadType||'—')
-          + _vf('Status', o.status) + _vf('Est. Qty (KG)', o.estimatedQtyKg||'—')
-          + _vf('Assigned', o.assignedToDisplay||'—')
-          + _vf('Product Interest', o.productInterest||'—')
-          + _vf('Remarks', o.remarks||'—')
+          + _vf('Lead No', o.leadNo) + _vf('Company', o.companyName)
+          + _vf('Contact', o.contactName) + _vf('Designation', o.designation)
+          + _vf('Email', o.contactEmail) + _vf('Phone', o.contactPhone)
+          + _vf('Country', o.country) + _vf('City', o.city)
+          + _vf('Source', o.source) + _vf('Type', o.leadType)
+          + _vf('Status', o.status) + _vf('Est. Qty (KG)', o.estimatedQtyKg)
+          + _vf('Assigned', o.assignedToDisplay)
+          + _vf('Converted To', o.convertedToDisplay)
+          + _vf('Product Interest', o.productInterest)
+          + _vf('Remarks', o.remarks)
           + '</div></div>';
         document.getElementById('leadViewBody').innerHTML = html;
         bootstrap.Modal.getOrCreateInstance(document.getElementById('leadViewModal')).show();
       });
     };
 
-    window.leadEdit = function(id) {
-      secureFetch(BASE + '/show/' + id).then(function(res) {
+    window.leadEdit = function (id) {
+      secureFetch(BASE + '/show/' + id).then(function (res) {
         if (!res.success) { Swal.fire('Error', res.message, 'error'); return; }
         var o = res.obj.defaultData;
         _resetForm();
-        document.getElementById('leadId').value             = o.id;
-        document.getElementById('leadNo').value             = o.leadNo||'';
-        document.getElementById('leadContactName').value   = o.contactName||'';
-        document.getElementById('leadCompany').value        = o.companyName||'';
-        document.getElementById('leadDesignation').value   = o.designation||'';
-        document.getElementById('leadEmail').value          = o.contactEmail||'';
-        document.getElementById('leadPhone').value          = o.contactPhone||'';
-        document.getElementById('leadCountry').value        = o.country||'';
-        document.getElementById('leadCity').value           = o.city||'';
-        document.getElementById('leadSource').value         = o.source||'';
-        document.getElementById('leadType').value           = o.leadType||'B2B';
-        document.getElementById('leadStatus').value         = o.status||'NEW';
-        document.getElementById('leadQtyKg').value          = o.estimatedQtyKg||'';
-        document.getElementById('leadProductInterest').value= o.productInterest||'';
-        document.getElementById('leadRemarks').value        = o.remarks||'';
+        document.getElementById('leadId').value              = o.id;
+        document.getElementById('leadNo').value              = o.leadNo || '';
+        document.getElementById('leadContactName').value     = o.contactName || '';
+        document.getElementById('leadCompany').value         = o.companyName || '';
+        document.getElementById('leadDesignation').value     = o.designation || '';
+        document.getElementById('leadEmail').value           = o.contactEmail || '';
+        document.getElementById('leadPhone').value           = o.contactPhone || '';
+        document.getElementById('leadCountry').value         = o.country || '';
+        document.getElementById('leadCity').value            = o.city || '';
+        document.getElementById('leadQtyKg').value           = o.estimatedQtyKg || '';
+        document.getElementById('leadProductInterest').value = o.productInterest || '';
+        document.getElementById('leadRemarks').value         = o.remarks || '';
+        $('#leadSource').val(o.source || '').trigger('change');
+        $('#leadType').val(o.leadType || 'B2B').trigger('change');
+        $('#leadStatus').val(o.status === 'CONVERTED' ? 'QUALIFIED' : (o.status || 'NEW')).trigger('change');
         _initAssignedS2(o.assignedToId, o.assignedToDisplay);
+        _initConvertedS2(o.convertedToId, o.convertedToDisplay);
         document.getElementById('leadModalTitle').innerHTML = '<i class="fa fa-pencil me-1 text-warning"></i> Edit Lead';
         document.getElementById('leadBtnText').textContent  = 'Update';
         bootstrap.Modal.getOrCreateInstance(document.getElementById('leadModal')).show();
       });
     };
 
-    window.leadActivity = function(id) {
+    // ── ROW ACTIONS ──────────────────────────────────────────────────────────
+
+    window.leadActivity = function (id) {
       document.getElementById('actLeadId').value = id;
       document.getElementById('leadActForm').reset();
-      document.getElementById('actDateFromLead').value = new Date().toISOString().substring(0,10);
+      document.getElementById('actDateFromLead').value = new Date().toISOString().substring(0, 10);
       bootstrap.Modal.getOrCreateInstance(document.getElementById('leadActModal')).show();
     };
 
-    window.leadConvert = function(id) {
-      Swal.fire({ title:'Convert to Opportunity?', text:'A new Opportunity will be created linked to this lead.',
-        icon:'question', showCancelButton:true, confirmButtonText:'Convert' })
-        .then(function(r){ if (!r.isConfirmed) return;
-          secureFetch(BASE + '/status/' + id + '?status=CONVERTED', { method:'POST' }).then(function(d){
+    window.leadStatusChange = function (id, status) {
+      secureFetch(BASE + '/status/' + id + '?status=' + encodeURIComponent(status), { method: 'POST' })
+        .then(function (d) {
+          if (d.success) { Swal.fire({ icon: 'success', timer: 1400, showConfirmButton: false, title: d.message }); _leadReload(); }
+          else { Swal.fire('Error', d.message, 'error'); }
+        });
+    };
+
+    window.leadConvert = function (id) {
+      Swal.fire({ title: 'Convert to Opportunity?', text: 'Lead status becomes CONVERTED — create the Opportunity next from the Opportunities page.',
+        icon: 'question', showCancelButton: true, confirmButtonText: 'Convert' })
+        .then(function (r) {
+          if (!r.isConfirmed) return;
+          secureFetch(BASE + '/status/' + id + '?status=CONVERTED', { method: 'POST' }).then(function (d) {
             if (d.success) {
-              Swal.fire({ icon:'success', title:'Converted!', text:'Update status to CONVERTED. Create an Opportunity to continue.', timer:2000, showConfirmButton:false });
-              dt.ajax.reload(null,false);
-            } else { Swal.fire('Error',d.message,'error'); }
+              Swal.fire({ icon: 'success', title: 'Converted!', text: 'Now create an Opportunity linked to this lead.', timer: 2200, showConfirmButton: false });
+              _leadReload();
+            } else { Swal.fire('Error', d.message, 'error'); }
           });
         });
     };
 
-    window.leadDelete = function(id) { hsConfirmDelete(BASE + '/delete/' + id, dt); };
+    window.leadDelete = function (id) { hsConfirmDelete(BASE + '/delete/' + id, dt); };
+
+    // ── SUBMIT ───────────────────────────────────────────────────────────────
 
     function _onSubmit(e) {
       e.preventDefault();
-      var sb=document.getElementById('leadSubmitBtn'),sp=document.getElementById('leadSpinner'),bt=document.getElementById('leadBtnText'), fm = document.getElementById('leadActForm');
-      hsDisableButton(sb,sp,bt);
-      secureFetch(BASE + '/save', { method:'POST', body: JSON.stringify({
-        id              : document.getElementById('leadId').value||null,
+      var sb = document.getElementById('leadSubmitBtn'), sp = document.getElementById('leadSpinner'),
+          bt = document.getElementById('leadBtnText'),
+          fm = document.getElementById('leadForm'); // FIX: was leadActForm
+      hsDisableButton(sb, sp, bt);
+      secureFetch(BASE + '/save', { method: 'POST', body: JSON.stringify({
+        id              : document.getElementById('leadId').value || null,
         contactName     : document.getElementById('leadContactName').value,
-        companyName     : document.getElementById('leadCompany').value||null,
-        designation     : document.getElementById('leadDesignation').value||null,
-        contactEmail    : document.getElementById('leadEmail').value||null,
-        contactPhone    : document.getElementById('leadPhone').value||null,
-        country         : document.getElementById('leadCountry').value||null,
-        city            : document.getElementById('leadCity').value||null,
-        source          : document.getElementById('leadSource').value||null,
-        leadType        : document.getElementById('leadType').value||'B2B',
-        status          : document.getElementById('leadStatus').value||'NEW',
-        estimatedQtyKg  : parseFloat(document.getElementById('leadQtyKg').value)||null,
-        assignedToId    : $('#leadAssignedTo').val()||null,
-        productInterest : document.getElementById('leadProductInterest').value||null,
-        remarks         : document.getElementById('leadRemarks').value||null
-      })}).then(function(d){
-        if (d.success) { hsAfterSaveMessages(d.success, d.message, fm, dt); bootstrap.Modal.getOrCreateInstance(document.getElementById('leadModal')).hide(); }
-        else { Swal.fire('Error',d.message,'error'); }
-      }).catch(function(err){ Swal.fire('Error',err.message||'Request failed.','error'); })
-        .finally(function(){ hsEnableButton(sb,sp,bt); });
+        companyName     : document.getElementById('leadCompany').value || null,
+        designation     : document.getElementById('leadDesignation').value || null,
+        contactEmail    : document.getElementById('leadEmail').value || null,
+        contactPhone    : document.getElementById('leadPhone').value || null,
+        country         : document.getElementById('leadCountry').value || null,
+        city            : document.getElementById('leadCity').value || null,
+        source          : $('#leadSource').val() || null,
+        leadType        : $('#leadType').val() || 'B2B',
+        status          : $('#leadStatus').val() || 'NEW',
+        estimatedQtyKg  : parseFloat(document.getElementById('leadQtyKg').value) || null,
+        assignedToId    : $('#leadAssignedTo').val() || null,
+        convertedToId   : $('#leadConvertedTo').val() || null,
+        productInterest : document.getElementById('leadProductInterest').value || null,
+        remarks         : document.getElementById('leadRemarks').value || null
+      }) }).then(function (d) {
+        if (d.success) {
+          hsAfterSaveMessages(d.success, d.message, fm, dt);
+          bootstrap.Modal.getOrCreateInstance(document.getElementById('leadModal')).hide();
+          _loadKpis();
+        } else { Swal.fire('Error', d.message, 'error'); }
+      }).catch(function (err) { Swal.fire('Error', err.message || 'Request failed.', 'error'); })
+        .finally(function () { hsEnableButton(sb, sp, bt); });
     }
 
     function _onActSubmit(e) {
       e.preventDefault();
-      var sb=document.getElementById('leadActSubmitBtn'),sp=document.getElementById('leadActSpinner');
-      hsDisableButton(sb,sp,null);
-      secureFetch(ACT_BASE + '/save', { method:'POST', body: JSON.stringify({
-        leadId          : document.getElementById('actLeadId').value||null,
+      var sb = document.getElementById('leadActSubmitBtn'), sp = document.getElementById('leadActSpinner');
+      hsDisableButton(sb, sp, null);
+      secureFetch(ACT_BASE + '/save', { method: 'POST', body: JSON.stringify({
+        leadId          : document.getElementById('actLeadId').value || null,
         activityType    : document.getElementById('actTypeFromLead').value,
         activityDate    : document.getElementById('actDateFromLead').value,
-        durationMinutes : parseInt(document.getElementById('actDurFromLead').value)||null,
+        durationMinutes : parseInt(document.getElementById('actDurFromLead').value) || null,
         subject         : document.getElementById('actSubjectFromLead').value,
-        description     : document.getElementById('actDescFromLead').value||null,
+        description     : document.getElementById('actDescFromLead').value || null,
         status          : 'PLANNED'
-      })}).then(function(d){
-        if (d.success) { Swal.fire({ icon:'success', title:'Activity Logged!', text:d.message, timer:1600, showConfirmButton:false }); bootstrap.Modal.getOrCreateInstance(document.getElementById('leadActModal')).hide(); }
-        else { Swal.fire('Error',d.message,'error'); }
-      }).catch(function(err){ Swal.fire('Error',err.message||'Request failed.','error'); })
-        .finally(function(){ hsEnableButton(sb,sp,null); });
+      }) }).then(function (d) {
+        if (d.success) {
+          Swal.fire({ icon: 'success', title: 'Activity Logged!', text: d.message, timer: 1600, showConfirmButton: false });
+          bootstrap.Modal.getOrCreateInstance(document.getElementById('leadActModal')).hide();
+        } else { Swal.fire('Error', d.message, 'error'); }
+      }).catch(function (err) { Swal.fire('Error', err.message || 'Request failed.', 'error'); })
+        .finally(function () { hsEnableButton(sb, sp, null); });
     }
+
+    // ── HELPERS ──────────────────────────────────────────────────────────────
 
     function _resetForm() {
-      if ($('#leadAssignedTo').hasClass('select2-hidden-accessible')) $('#leadAssignedTo').select2('destroy');
+      ['#leadAssignedTo', '#leadConvertedTo'].forEach(function (sel) {
+        if ($(sel).hasClass('select2-hidden-accessible')) $(sel).select2('destroy');
+      });
       document.getElementById('leadForm').reset();
       document.getElementById('leadId').value = '';
-      _initAssignedS2(null,null);
+      _initAssignedS2(null, null);
+      _initConvertedS2(null, null);
+      _initStaticS2();
+      $('#leadSource').val('').trigger('change');
+      $('#leadType').val('B2B').trigger('change');
+      $('#leadStatus').val('NEW').trigger('change');
     }
 
-    function _vf(label,value){ return '<div class="col-md-4 view-group"><label class="view-label">'+label+'</label><span class="form-control hs_span_show">'+(value!=null?value:'—')+'</span></div>'; }
+    /** View-field renderer — values are HTML-escaped (XSS fix vs. old page). */
+    function _vf(label, value) {
+      var v = (value !== null && value !== undefined && value !== '') ? _esc(value) : '—';
+      return '<div class="col-md-4 view-group"><label class="view-label">' + _esc(label)
+        + '</label><span class="form-control hs_span_show">' + v + '</span></div>';
+    }
   })();
   </script>
 </section>
