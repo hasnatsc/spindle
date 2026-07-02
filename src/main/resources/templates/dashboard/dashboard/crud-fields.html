@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<!--
+  FILE: src/main/resources/templates/fragments/dashboard/crud-fields.html
+  Spindle ERP — Reusable CRUD form-field fragments (dashboard shell design).
+
+  Every fragment renders a .cm-field block styled by dashboard-crud.css and
+  wired by dashboard-crud.js. Use inside any modal/form on a dashboard-base
+  page. All fragments take (id, label, …) and are span-1 by default — wrap
+  in your own div with cm-span2 / cm-span4 to widen.
+
+  ── TEXT / EMAIL / NUMBER / DATE ────────────────────────────────────────
+    <div th:replace="~{fragments/dashboard/crud-fields
+         :: text('leadCompany', 'Company', false, 'Company name…', 200)}"></div>
+    :: text(id, label, required, placeholder, maxlength)
+    :: email(id, label, required)
+    :: number(id, label, required, placeholder, step)      right-aligned
+    :: date(id, label, required)
+    :: hidden(id)
+
+  ── SELECT2-STYLE FIELDS ────────────────────────────────────────────────
+    Async (AJAX) combo — the Select2 replacement. Endpoint must return
+    { items:[{id,text}], hasMore } (the project-standard /xxx/search shape):
+      <div th:replace="~{fragments/dashboard/crud-fields
+           :: combo('cmbAssigned', 'Assigned To', '/users/search',
+                    '— Assign User —', false)}"></div>
+      :: combo(id, label, url, placeholder, required)
+      JS: SpindleCrud.combo.init auto-runs; get/set via
+          SpindleCrud.combo.get('cmbAssigned') / .set('cmbAssigned', id, text)
+
+    Static searchable select (client-side filter over fixed options):
+      <div th:replace="~{fragments/dashboard/crud-fields
+           :: select('leadStatus', 'Status', false)}">
+        <option value="NEW">New</option> …options are passed via th:insert…
+      </div>
+      Simpler: use rawSelect and put options inline (recommended):
+      :: rawSelect(id, label, required)  — then add <option>s by copying the
+      fragment output pattern, or just write the .cm-field select yourself.
+
+  ── TEXTAREA / SWITCH / VIEW ────────────────────────────────────────────
+    :: textarea(id, label, rows, placeholder)
+    :: switch(id, label, desc, on)          boolean toggle (sd-switch style)
+    View-modal fields are rendered from JS: SpindleCrud.vf(label, value)
+-->
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+
+<!-- ══ HIDDEN ═══════════════════════════════════════════════════════════ -->
+<th:block th:fragment="hidden(id)">
+  <input type="hidden" th:id="${id}">
+</th:block>
+
+<!-- ══ TEXT ═════════════════════════════════════════════════════════════ -->
+<div class="cm-field" th:fragment="text(id, label, required, placeholder, maxlength)">
+  <label th:for="${id}">
+    <th:block th:text="${label}">Label</th:block>
+    <em th:if="${required}">*</em>
+  </label>
+  <input type="text" th:id="${id}"
+         th:placeholder="${placeholder} ?: ''"
+         th:maxlength="${maxlength} ?: 255"
+         th:required="${required}">
+</div>
+
+<!-- ══ READONLY TEXT (auto numbers etc.) ════════════════════════════════ -->
+<div class="cm-field" th:fragment="readonly(id, label, placeholder)">
+  <label th:for="${id}" th:text="${label}">Label</label>
+  <input type="text" th:id="${id}" readonly th:placeholder="${placeholder} ?: 'Auto'">
+</div>
+
+<!-- ══ EMAIL ════════════════════════════════════════════════════════════ -->
+<div class="cm-field" th:fragment="email(id, label, required)">
+  <label th:for="${id}">
+    <th:block th:text="${label}">Email</th:block>
+    <em th:if="${required}">*</em>
+  </label>
+  <input type="email" th:id="${id}" maxlength="150" th:required="${required}">
+</div>
+
+<!-- ══ NUMBER (right-aligned) ═══════════════════════════════════════════ -->
+<div class="cm-field" th:fragment="number(id, label, required, placeholder, step)">
+  <label th:for="${id}">
+    <th:block th:text="${label}">Amount</th:block>
+    <em th:if="${required}">*</em>
+  </label>
+  <input type="number" class="ta-end" th:id="${id}" min="0"
+         th:step="${step} ?: '0.01'"
+         th:placeholder="${placeholder} ?: '0.00'"
+         th:required="${required}">
+</div>
+
+<!-- ══ DATE ═════════════════════════════════════════════════════════════ -->
+<div class="cm-field" th:fragment="date(id, label, required)">
+  <label th:for="${id}">
+    <th:block th:text="${label}">Date</th:block>
+    <em th:if="${required}">*</em>
+  </label>
+  <input type="date" th:id="${id}" th:required="${required}">
+</div>
+
+<!-- ══ TEXTAREA ═════════════════════════════════════════════════════════ -->
+<div class="cm-field" th:fragment="textarea(id, label, rows, placeholder)">
+  <label th:for="${id}" th:text="${label}">Notes</label>
+  <textarea th:id="${id}" th:rows="${rows} ?: 2" th:placeholder="${placeholder} ?: ''"></textarea>
+</div>
+
+<!-- ══ ASYNC COMBO — Select2 replacement ════════════════════════════════
+     data-url must return {items:[{id,text}], hasMore}. dashboard-crud.js
+     auto-initialises every .cm-combo on DOMContentLoaded.               -->
+<div class="cm-field" th:fragment="combo(id, label, url, placeholder, required)">
+  <label>
+    <th:block th:text="${label}">Pick</th:block>
+    <em th:if="${required}">*</em>
+  </label>
+  <div class="cm-combo" th:id="${id}"
+       th:data-url="${url}"
+       th:data-placeholder="${placeholder} ?: '— Select —'"
+       th:data-required="${required} ? 'true' : 'false'"></div>
+</div>
+
+<!-- ══ STATIC SEARCHABLE SELECT (Select2 look, client-side filter) ══════
+     Options are provided as JSON in data-options:
+       :: staticCombo('leadSource', 'Source', '— Select Source —',
+            '[{"id":"WEBSITE","text":"Website"},{"id":"REFERRAL","text":"Referral"}]')
+     Value via SpindleCrud.combo.get/set, same API as async combo.       -->
+<div class="cm-field" th:fragment="staticCombo(id, label, placeholder, optionsJson)">
+  <label th:text="${label}">Pick</label>
+  <div class="cm-combo" th:id="${id}"
+       th:data-placeholder="${placeholder} ?: '— Select —'"
+       th:data-options="${optionsJson}"></div>
+</div>
+
+<!-- ══ PLAIN SELECT (native, shell-styled — for short fixed lists) ══════
+     Copy this block inline into your page and add your own <option>s;
+     kept here as the canonical markup reference.                        -->
+<div class="cm-field" th:fragment="rawSelect(id, label, required)">
+  <label th:for="${id}">
+    <th:block th:text="${label}">Choose</th:block>
+    <em th:if="${required}">*</em>
+  </label>
+  <select th:id="${id}" th:required="${required}">
+    <option value="">— Select —</option>
+  </select>
+</div>
+
+<!-- ══ BOOLEAN SWITCH (settings-drawer style) ═══════════════════════════
+     Read/write via SpindleCrud.sw.get('id') / .set('id', true)          -->
+<div class="cm-field cm-switch-field" th:fragment="switch(id, label, desc, on)">
+  <div class="cm-switch-row">
+    <div>
+      <div class="lbl" th:text="${label}">Enabled</div>
+      <div class="desc" th:text="${desc} ?: ''">description</div>
+    </div>
+    <div class="sd-switch cm-sw" th:id="${id}" th:classappend="${on} ? 'on'"
+         onclick="SpindleCrud.sw.toggle(this)"><div class="kb"></div></div>
+  </div>
+</div>
+
+</body>
+</html>
