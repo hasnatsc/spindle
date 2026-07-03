@@ -106,7 +106,7 @@
     });
 
     function _loadProducts(){
-      secureFetch(PROD_BASE+'/active').then(function(data){_products=data||[];});
+      secureFetch(PROD_BASE+'/published').then(function(data){_products=data||[];});
     }
 
     window.echsAddProductRow=function(sp){

@@ -229,25 +229,29 @@ public class EcDashboardService {
     // ─────────────────────────────────────────────────────────────────────────
     private void _loadTopCustomers(Map<String, Object> res, Long orgId) {
         String sql = """
-            SELECT COALESCE(c.full_name, 'Guest') AS customer_name,
-                   COALESCE(c.phone, '—')          AS phone,
-                   COUNT(o.id)                     AS total_orders,
-                   COALESCE(SUM(o.grand_total), 0) AS total_spent
-            FROM ec_orders o
-            LEFT JOIN ec_customers c ON c.id = o.customer_id
-            WHERE o.order_status NOT IN ('CANCELLED')
-            """ + (orgId != null ? "  AND o.organization_id = " + orgId : "") + """
-            GROUP BY c.id, c.full_name, c.phone
-            ORDER BY total_spent DESC
-            LIMIT 10
-            """;
-        res.put("topCustomers", jdbc.queryForList(sql));
+                SELECT COALESCE(c.full_name, 'Guest') AS customer_name,
+                       COALESCE(c.phone, '—')          AS phone,
+                       COUNT(o.id)                     AS total_orders,
+                       COALESCE(SUM(o.grand_total), 0) AS total_spent
+                FROM ec_orders o
+                LEFT JOIN ec_customers c ON c.id = o.customer_id
+                WHERE o.order_status <> 'CANCELLED'
+                """ +
+                (orgId != null ? " AND o.organization_id = ? " : "") +
+                """
+                GROUP BY c.id, c.full_name, c.phone
+                ORDER BY total_spent DESC
+                LIMIT 10
+                """;
+        List<Map<String, Object>> topCustomers = orgId != null ? jdbc.queryForList(sql, orgId) : jdbc.queryForList(sql);
+        res.put("topCustomers", topCustomers);
     }
 
     // ─────────────────────────────────────────────────────────────────────────
     // 6. REVENUE BY STOREFRONT CATEGORY (MTD, doughnut)
     // ─────────────────────────────────────────────────────────────────────────
     private void _loadCategoryRevenue(Map<String, Object> res, Long orgId, String mtdStart) {
+
         String sql = """
             SELECT COALESCE(cat.category_name, 'Uncategorised') AS category_name,
                    COALESCE(SUM(oi.line_total), 0)              AS revenue
@@ -255,33 +259,47 @@ public class EcDashboardService {
             JOIN ec_product_catalog p   ON p.id   = oi.product_id
             LEFT JOIN ec_categories cat ON cat.id = p.category_id
             JOIN ec_orders o ON o.id = oi.order_id
-            WHERE o.order_status NOT IN ('CANCELLED')
+            WHERE o.order_status <> 'CANCELLED'
               AND DATE(o.created_at) >= ?::date
-            """ + (orgId != null ? "  AND o.organization_id = " + orgId : "") + """
-            GROUP BY cat.id, cat.category_name
-            ORDER BY revenue DESC
-            LIMIT 8
-            """;
-        res.put("categoryRevenue", jdbc.queryForList(sql, mtdStart));
-    }
+        """
+                + (orgId != null ? " AND o.organization_id = ? " : "")
+                + """
+        GROUP BY cat.id, cat.category_name
+        ORDER BY revenue DESC
+        LIMIT 8
+        """;
 
+        if (orgId != null) {
+            res.put("categoryRevenue", jdbc.queryForList(sql, mtdStart, orgId));
+        } else {
+            res.put("categoryRevenue", jdbc.queryForList(sql, mtdStart));
+        }
+    }
     // ─────────────────────────────────────────────────────────────────────────
     // 7. PAYMENT METHOD BREAKDOWN (MTD, doughnut)
     // ─────────────────────────────────────────────────────────────────────────
     private void _loadPaymentMethod(Map<String, Object> res, Long orgId, String mtdStart) {
+
         String sql = """
-            SELECT COALESCE(pay.payment_method, 'COD / Unknown') AS payment_method,
-                   COUNT(*)                                       AS txn_count,
-                   COALESCE(SUM(pay.paid_amount), 0)             AS total_paid
-            FROM ec_payments pay
-            JOIN ec_orders o ON o.id = pay.order_id
-            WHERE DATE(pay.created_at) >= ?::date
-              AND pay.payment_status = 'SUCCESS'
-            """ + (orgId != null ? "  AND pay.organization_id = " + orgId : "") + """
-            GROUP BY pay.payment_method
-            ORDER BY total_paid DESC
-            """;
-        res.put("paymentMethod", jdbc.queryForList(sql, mtdStart));
+        SELECT COALESCE(pay.payment_method, 'COD / Unknown') AS payment_method,
+               COUNT(*)                                     AS txn_count,
+               COALESCE(SUM(pay.paid_amount), 0)            AS total_paid
+        FROM ec_payments pay
+        JOIN ec_orders o ON o.id = pay.order_id
+        WHERE DATE(pay.created_at) >= ?::date
+          AND pay.payment_status = 'SUCCESS'
+        """
+                + (orgId != null ? " AND pay.organization_id = ? " : "")
+                + """
+        GROUP BY pay.payment_method
+        ORDER BY total_paid DESC
+        """;
+
+        if (orgId != null) {
+            res.put("paymentMethod", jdbc.queryForList(sql, mtdStart, orgId));
+        } else {
+            res.put("paymentMethod", jdbc.queryForList(sql, mtdStart));
+        }
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -355,21 +373,29 @@ public class EcDashboardService {
     // 9. RECENT ORDERS (last 15)
     // ─────────────────────────────────────────────────────────────────────────
     private void _loadRecentOrders(Map<String, Object> res, Long orgId) {
+
         String sql = """
-            SELECT o.id, o.order_no,
-                   COALESCE(c.full_name, 'Guest')              AS customer_name,
-                   COALESCE(c.phone, '—')                      AS phone,
-                   TO_CHAR(o.grand_total, 'FM৳ 999,999,999.00') AS grand_total,
-                   o.order_status, o.payment_status, o.shipping_status,
-                   TO_CHAR(o.created_at, 'DD-Mon-YYYY HH24:MI') AS order_date
-            FROM ec_orders o
-            LEFT JOIN ec_customers c ON c.id = o.customer_id
-            WHERE 1=1
-            """ + (orgId != null ? "  AND o.organization_id = " + orgId : "") + """
-            ORDER BY o.id DESC
-            LIMIT 15
-            """;
-        res.put("recentOrders", jdbc.queryForList(sql));
+        SELECT o.id, o.order_no,
+               COALESCE(c.full_name, 'Guest')                 AS customer_name,
+               COALESCE(c.phone, '—')                         AS phone,
+               TO_CHAR(o.grand_total, 'FM৳ 999,999,999.00')   AS grand_total,
+               o.order_status, o.payment_status, o.shipping_status,
+               TO_CHAR(o.created_at, 'DD-Mon-YYYY HH24:MI')   AS order_date
+        FROM ec_orders o
+        LEFT JOIN ec_customers c ON c.id = o.customer_id
+        WHERE 1=1
+        """
+                + (orgId != null ? " AND o.organization_id = ? " : "")
+                + """
+        ORDER BY o.id DESC
+        LIMIT 15
+        """;
+
+        if (orgId != null) {
+            res.put("recentOrders", jdbc.queryForList(sql, orgId));
+        } else {
+            res.put("recentOrders", jdbc.queryForList(sql));
+        }
     }
 
     // ─────────────────────────────────────────────────────────────────────────
