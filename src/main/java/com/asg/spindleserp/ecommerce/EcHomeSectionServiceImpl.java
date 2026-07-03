@@ -14,9 +14,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Slf4j @Service @Transactional @RequiredArgsConstructor
 public class EcHomeSectionServiceImpl implements EcHomeSectionService {
@@ -136,17 +135,43 @@ public class EcHomeSectionServiceImpl implements EcHomeSectionService {
 
     // ── Sync section products (clear-and-reinsert) ─────────────────────────
     private void syncSectionProducts(EcHomeSection entity, List<EcHomeSectionDTO.SectionProductDTO> dtoList) {
-        entity.getSectionProducts().clear();
-        if (dtoList == null || dtoList.isEmpty()) return;
-        dtoList.forEach(d -> {
-            if (d.getProductId() == null) return;
-            EcProductCatalog prod = catalogRepository.findById(d.getProductId())
-                    .orElseThrow(() -> new IllegalArgumentException("Product #" + d.getProductId() + " not found."));
-            entity.getSectionProducts().add(EcHomeSectionProduct.builder()
-                    .section(entity).product(prod)
-                    .displayOrder(d.getDisplayOrder() != null ? d.getDisplayOrder() : 0)
-                    .build());
+
+        List<EcHomeSectionDTO.SectionProductDTO> incoming = dtoList == null ? List.of() : dtoList;
+        // Validate
+        incoming.forEach(d -> {
+            if (d.getProductId() == null) {
+                throw new IllegalArgumentException("Each section product must have a product.");
+            }
         });
+
+        // Prevent duplicate productIds in the request
+        Set<Long> productIds = new HashSet<>();
+        for (EcHomeSectionDTO.SectionProductDTO d : incoming) {
+            if (!productIds.add(d.getProductId())) {
+                throw new IllegalArgumentException("Duplicate product: " + d.getProductId());
+            }
+        }
+
+        Map<Long, EcHomeSectionProduct> existing =
+                entity.getSectionProducts().stream()
+                        .collect(Collectors.toMap(
+                                sp -> sp.getProduct().getId(),
+                                sp -> sp,
+                                (a, b) -> a));
+
+        Set<Long> incomingIds = incoming.stream().map(EcHomeSectionDTO.SectionProductDTO::getProductId).collect(Collectors.toSet());
+        // Remove deleted products
+        entity.getSectionProducts().removeIf(sp -> !incomingIds.contains(sp.getProduct().getId()));
+        // Update existing / Add new
+        for (EcHomeSectionDTO.SectionProductDTO d : incoming) {
+            EcHomeSectionProduct sp = existing.get(d.getProductId());
+            if (sp == null) {
+                EcProductCatalog product = catalogRepository.findById(d.getProductId()).orElseThrow(() -> new IllegalArgumentException("Product #" + d.getProductId() + " not found."));
+                sp = EcHomeSectionProduct.builder().section(entity).product(product).build();
+                entity.getSectionProducts().add(sp);
+            }
+            sp.setDisplayOrder(d.getDisplayOrder() != null ? d.getDisplayOrder() : 0);
+        }
     }
 
     private EcHomeSection findEntityById(Long id) {

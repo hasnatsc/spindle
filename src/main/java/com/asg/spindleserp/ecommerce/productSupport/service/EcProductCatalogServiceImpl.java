@@ -19,6 +19,8 @@ import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -88,12 +90,10 @@ public class EcProductCatalogServiceImpl implements EcProductCatalogService {
         EcProductCatalog entity = findEntityById(id);
         String slug = dto.getSlug().trim().toLowerCase();
 
-        if (!entity.getSlug().equals(slug) &&
-                catalogRepository.existsByOrganizationIdAndSlugAndIdNot(orgId, slug, id))
+        if (!entity.getSlug().equals(slug) && catalogRepository.existsByOrganizationIdAndSlugAndIdNot(orgId, slug, id))
             throw new IllegalArgumentException("Slug '" + slug + "' is already in use.");
 
-        if (entity.getItem().getId() != null && !entity.getItem().getId().equals(dto.getItemId()) &&
-                catalogRepository.existsByOrganizationIdAndItemIdAndIdNot(orgId, dto.getItemId(), id))
+        if (entity.getItem().getId() != null && !entity.getItem().getId().equals(dto.getItemId()) && catalogRepository.existsByOrganizationIdAndItemIdAndIdNot(orgId, dto.getItemId(), id))
             throw new IllegalArgumentException("A catalog entry already exists for the selected item.");
 
         entity.setItem(resolveItem(dto.getItemId()));
@@ -332,48 +332,73 @@ public class EcProductCatalogServiceImpl implements EcProductCatalogService {
         ));
     }
 
-    private void syncVariants(EcProductCatalog entity,
-                              List<EcProductCatalogDTO.VariantDTO> dtoList) {
-        entity.getVariants().clear();
-        if (dtoList == null || dtoList.isEmpty()) return;
-        dtoList.forEach(d -> {
+    private void syncVariants(EcProductCatalog entity, List<EcProductCatalogDTO.VariantDTO> dtoList) {
+        List<EcProductCatalogDTO.VariantDTO> incoming = dtoList == null ? List.of() : dtoList;
+        incoming.forEach(d -> {
             if (d.getItemId() == null)
                 throw new IllegalArgumentException("Each variant must be linked to an inventory item.");
-            entity.getVariants().add(
-                EcProductVariant.builder()
-                    .product(entity)
-                    .item(resolveItem(d.getItemId()))
-                    .variantCode(d.getVariantCode())
-                    .variantName(d.getVariantName())
-                    .color(d.getColor())
-                    .sizeName(d.getSizeName())
-                    .weightOverride(d.getWeightOverride())
-                    .lengthOverride(d.getLengthOverride())
-                    .widthOverride(d.getWidthOverride())
-                    .heightOverride(d.getHeightOverride())
-                    .sellingPrice(d.getSellingPrice())
-                    .comparePrice(d.getComparePrice())
-                    .active(d.getActive() == null || d.getActive())
-                    .deleted(false)
-                    .build()
-            );
         });
+
+        Map<Long, EcProductVariant> existing = entity.getVariants().stream()
+                .collect(Collectors.toMap(v -> v.getItem().getId(), v -> v, (a, b) -> a));
+
+        Set<Long> incomingItemIds = incoming.stream()
+                .map(EcProductCatalogDTO.VariantDTO::getItemId).collect(Collectors.toSet());
+
+        entity.getVariants().removeIf(v -> !incomingItemIds.contains(v.getItem().getId()));
+
+        for (var d : incoming) {
+            EcProductVariant v = existing.get(d.getItemId());
+            if (v == null) {
+                v = EcProductVariant.builder()
+                        .product(entity)
+                        .item(resolveItem(d.getItemId()))
+                        .deleted(false)
+                        .build();
+                entity.getVariants().add(v);
+            }
+            v.setVariantCode(d.getVariantCode());
+            v.setVariantName(d.getVariantName());
+            v.setColor(d.getColor());
+            v.setSizeName(d.getSizeName());
+            v.setWeightOverride(d.getWeightOverride());
+            v.setLengthOverride(d.getLengthOverride());
+            v.setWidthOverride(d.getWidthOverride());
+            v.setHeightOverride(d.getHeightOverride());
+            v.setSellingPrice(d.getSellingPrice());
+            v.setComparePrice(d.getComparePrice());
+            v.setActive(d.getActive() == null || d.getActive());
+        }
     }
 
-    private void syncAttrValues(EcProductCatalog entity,
-                                List<EcProductCatalogDTO.AttrValueDTO> dtoList) {
-        entity.getAttributeValues().clear();
-        if (dtoList == null || dtoList.isEmpty()) return;
-        dtoList.forEach(d -> {
-            if (d.getCategoryAttributeId() == null) return;
-            entity.getAttributeValues().add(
-                EcProductAttributeValue.builder()
-                    .product(entity)
-                    .categoryAttribute(resolveCategoryAttribute(d.getCategoryAttributeId()))
-                    .attributeValue(d.getAttributeValue())
-                    .build()
-            );
-        });
+    private void syncAttrValues(EcProductCatalog entity, List<EcProductCatalogDTO.AttrValueDTO> dtoList) {
+        List<EcProductCatalogDTO.AttrValueDTO> incoming =
+                dtoList == null ? List.of()
+                        : dtoList.stream().filter(d -> d.getCategoryAttributeId() != null).toList();
+
+        Map<Long, EcProductAttributeValue> existing = entity.getAttributeValues().stream()
+                .collect(Collectors.toMap(av -> av.getCategoryAttribute().getId(), av -> av));
+
+        Set<Long> incomingIds = incoming.stream()
+                .map(EcProductCatalogDTO.AttrValueDTO::getCategoryAttributeId)
+                .collect(Collectors.toSet());
+
+        // remove attrs no longer present (orphanRemoval deletes them)
+        entity.getAttributeValues().removeIf(av -> !incomingIds.contains(av.getCategoryAttribute().getId()));
+
+        for (var d : incoming) {
+            EcProductAttributeValue av = existing.get(d.getCategoryAttributeId());
+            if (av != null) {
+                av.setAttributeValue(d.getAttributeValue());          // update in place
+            } else {
+                entity.getAttributeValues().add(                      // genuinely new
+                        EcProductAttributeValue.builder()
+                                .product(entity)
+                                .categoryAttribute(resolveCategoryAttribute(d.getCategoryAttributeId()))
+                                .attributeValue(d.getAttributeValue())
+                                .build());
+            }
+        }
     }
 
     // ── PRIVATE ───────────────────────────────────────────────────────────────
