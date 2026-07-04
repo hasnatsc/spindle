@@ -1,5 +1,7 @@
 <!DOCTYPE html>
-<!-- storefront/fragments/sf-product-card.html — reusable product card -->
+<!-- ecommerce/storefront/fragments/sf-product-card.html — reusable product card
+     v2: wishlist heart toggle. The `wishlistIds` model attribute (Set<Long>|null)
+     drives the initial "active" state; storefront.js handles the toggle. -->
 <html xmlns:th="http://www.thymeleaf.org">
 <body>
 <div th:fragment="card(p)" class="sf-card">
@@ -11,6 +13,12 @@
       <span th:if="${p.discountPercent == null and p.newArrival}" class="sf-card-badge">New</span>
     </div>
   </a>
+  <button class="sf-card-wish" data-sf-wishlist
+          th:attr="data-product-id=${p.id}"
+          th:classappend="${wishlistIds != null and wishlistIds.contains(p.id)} ? 'active'"
+          title="Save to wishlist">
+    <i class="fa-heart" th:classappend="${wishlistIds != null and wishlistIds.contains(p.id)} ? 'fa-solid' : 'fa-regular'"></i>
+  </button>
   <button class="sf-card-quickadd" th:attr="data-product-id=${p.id}" data-sf-add-to-cart title="Quick add to cart">
     <i class="fa-solid fa-bag-shopping" style="font-size:0.85rem"></i>
   </button>
@@ -20,6 +28,11 @@
     <div class="sf-card-price">
       <span class="now" th:text="'৳' + ${#numbers.formatDecimal(p.sellingPrice, 0, 'COMMA', 0, 'POINT')}">৳1,200</span>
       <span th:if="${p.comparePrice != null and p.comparePrice > p.sellingPrice}" class="compare" th:text="'৳' + ${#numbers.formatDecimal(p.comparePrice, 0, 'COMMA', 0, 'POINT')}">৳1,500</span>
+    </div>
+    <div class="sf-card-rating" th:if="${p.reviewCount != null and p.reviewCount > 0}">
+      <i class="fa-solid fa-star"></i>
+      <span th:text="${#numbers.formatDecimal(p.avgRating, 1, 1)}">4.5</span>
+      <span class="cnt" th:text="'(' + ${p.reviewCount} + ')'">(12)</span>
     </div>
   </div>
 </div>

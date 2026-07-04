@@ -1,10 +1,34 @@
 <!DOCTYPE html>
-<!-- storefront/sf-home.html  GET / -->
+<!-- ecommerce/storefront/sf-home.html  GET /
+     v2: banner slider (ec_banners HOME_SLIDER) with static-hero fallback,
+         dynamic home sections (ec_home_sections) with featured/new-arrival fallback. -->
 <html th:replace="~{ecommerce/storefront/layout/sf-base :: layout('Home', ~{::main})}" xmlns:th="http://www.thymeleaf.org">
 <main>
 
-  <!-- ════════════════════ HERO ════════════════════ -->
-  <section class="sf-hero">
+  <!-- ════════════════════ HERO / BANNER SLIDER ════════════════════ -->
+  <section th:if="${banners != null and !banners.isEmpty()}" class="sf-hero-slider" id="sfHeroSlider">
+    <div th:each="b, st : ${banners}" class="sf-slide" th:classappend="${st.index == 0} ? 'active'"
+         th:style="${b.imageUrl != null} ? 'background-image:url(' + ${b.imageUrl} + ')' : ''">
+      <div class="sf-slide-scrim"></div>
+      <div class="container sf-slide-inner">
+        <span class="sf-hero-eyebrow" th:if="${b.subTitle}" th:text="${b.subTitle}">Eyebrow</span>
+        <h1 th:text="${b.title}">Banner Title</h1>
+        <p th:if="${b.description}" th:text="${b.description}">Description</p>
+        <a th:if="${b.buttonUrl}" th:href="${b.buttonUrl}"
+           th:target="${b.openInNewTab != null and b.openInNewTab} ? '_blank' : '_self'"
+           class="sf-btn sf-btn--primary">
+          <span th:text="${b.buttonText != null ? b.buttonText : 'Shop Now'}">Shop Now</span> <i class="fa fa-arrow-right"></i>
+        </a>
+      </div>
+    </div>
+    <div class="sf-slider-dots" th:if="${banners.size() > 1}">
+      <button th:each="b, st : ${banners}" th:attr="data-slide=${st.index}"
+              th:classappend="${st.index == 0} ? 'active'" type="button" aria-label="Go to slide"></button>
+    </div>
+  </section>
+
+  <!-- Static hero fallback when no banners configured -->
+  <section th:if="${banners == null or banners.isEmpty()}" class="sf-hero">
     <div class="container">
       <span class="sf-hero-eyebrow">Spring/Summer Collection — Fresh off the loom</span>
       <h1>Cloth that's<br>cut to last.</h1>
@@ -24,37 +48,59 @@
     </div>
   </section>
 
-  <!-- ════════════════════ FEATURED ════════════════════ -->
-  <section class="sf-section">
-    <div class="container">
-      <div class="sf-section-head">
-        <h2>Featured Pieces</h2>
-        <a href="/shop?sort=featured">View all <i class="fa fa-arrow-right ms-1"></i></a>
-      </div>
-      <div class="sf-product-grid">
-        <div th:each="p : ${featured}" th:replace="~{ecommerce/storefront/fragments/sf-product-card :: card(${p})}"></div>
-        <div th:if="${featured == null or featured.isEmpty()}" class="sf-empty-state" style="grid-column: 1/-1;">
-          <i class="fa-regular fa-image"></i>
-          <p>No featured products yet. Check back soon.</p>
+  <!-- ════════════════════ DYNAMIC HOME SECTIONS (ec_home_sections) ════════════════════ -->
+  <th:block th:if="${homeSections != null and !homeSections.isEmpty()}">
+    <th:block th:each="sec, st : ${homeSections}">
+      <div th:if="${st.index > 0}" class="sf-selvage" aria-hidden="true"><span th:each="i : ${#numbers.sequence(1, 60)}"></span></div>
+      <section class="sf-section">
+        <div class="container">
+          <div class="sf-section-head">
+            <div>
+              <h2 th:text="${sec.sectionTitle != null ? sec.sectionTitle : sec.sectionName}">Section Title</h2>
+              <p th:if="${sec.sectionSubtitle}" class="sf-section-sub" th:text="${sec.sectionSubtitle}">Subtitle</p>
+            </div>
+            <a href="/shop">View all <i class="fa fa-arrow-right ms-1"></i></a>
+          </div>
+          <div class="sf-product-grid">
+            <th:block th:each="p : ${sec.products}"><div th:replace="~{ecommerce/storefront/fragments/sf-product-card :: card(${p})}"></div></th:block>
+          </div>
+        </div>
+      </section>
+    </th:block>
+  </th:block>
+
+  <!-- ════════════════════ FALLBACK SHELVES (no sections configured) ════════════════════ -->
+  <th:block th:if="${homeSections == null or homeSections.isEmpty()}">
+    <section class="sf-section">
+      <div class="container">
+        <div class="sf-section-head">
+          <h2>Featured Pieces</h2>
+          <a href="/shop?sort=featured">View all <i class="fa fa-arrow-right ms-1"></i></a>
+        </div>
+        <div class="sf-product-grid">
+          <th:block th:each="p : ${featured}"><div th:replace="~{ecommerce/storefront/fragments/sf-product-card :: card(${p})}"></div></th:block>
+          <div th:if="${featured == null or featured.isEmpty()}" class="sf-empty-state" style="grid-column: 1/-1;">
+            <i class="fa-regular fa-image"></i>
+            <p>No featured products yet. Check back soon.</p>
+          </div>
         </div>
       </div>
-    </div>
-  </section>
+    </section>
 
-  <div class="sf-selvage" aria-hidden="true"><span th:each="i : ${#numbers.sequence(1, 60)}"></span></div>
+    <div class="sf-selvage" aria-hidden="true"><span th:each="i : ${#numbers.sequence(1, 60)}"></span></div>
 
-  <!-- ════════════════════ NEW ARRIVALS ════════════════════ -->
-  <section class="sf-section">
-    <div class="container">
-      <div class="sf-section-head">
-        <h2>Just Arrived</h2>
-        <a href="/shop?sort=newest">View all <i class="fa fa-arrow-right ms-1"></i></a>
+    <section class="sf-section">
+      <div class="container">
+        <div class="sf-section-head">
+          <h2>Just Arrived</h2>
+          <a href="/shop?sort=newest">View all <i class="fa fa-arrow-right ms-1"></i></a>
+        </div>
+        <div class="sf-product-grid">
+          <th:block th:each="p : ${newArrivals}"><div th:replace="~{ecommerce/storefront/fragments/sf-product-card :: card(${p})}"></div></th:block>
+        </div>
       </div>
-      <div class="sf-product-grid">
-        <div th:each="p : ${newArrivals}" th:replace="~{ecommerce/storefront/fragments/sf-product-card :: card(${p})}"></div>
-      </div>
-    </div>
-  </section>
+    </section>
+  </th:block>
 
 </main>
 </html>

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- storefront/sf-register.html  GET /account/register -->
+<!-- ecommerce/storefront/sf-register.html  GET /account/register -->
 <html th:replace="~{ecommerce/storefront/layout/sf-base :: layout('Create Account', ~{::main})}" xmlns:th="http://www.thymeleaf.org">
 <main>
   <div class="sf-auth-wrap">
@@ -40,7 +40,7 @@
     </div>
   </div>
 
-  <script th:inline="none">
+  <script th:inline="javascript">
     var sfRedirectUrl = /*[[${redirectUrl}]]*/ '/account/dashboard';
     document.getElementById('sfRegisterForm').addEventListener('submit', function (e) {
       e.preventDefault();
@@ -58,7 +58,7 @@
           password: document.getElementById('sfRegPassword').value
         })
       }).then(function (d) {
-        if (d.success) { window.location.href = sfRedirectUrl; }
+        if (d.success) { window.location.href = (sfRedirectUrl && sfRedirectUrl.charAt(0) === '/') ? sfRedirectUrl : '/account/dashboard'; }
         else { errEl.textContent = d.message; btn.disabled = false; btn.textContent = 'Create Account'; }
       }).catch(function () { errEl.textContent = 'Something went wrong. Please try again.'; btn.disabled = false; btn.textContent = 'Create Account'; });
     });

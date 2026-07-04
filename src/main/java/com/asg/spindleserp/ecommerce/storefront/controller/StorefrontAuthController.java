@@ -1,4 +1,4 @@
-// Path: com/asg/spindleserp/storefront/controller/StorefrontAuthController.java
+// Path: com/asg/spindleserp/ecommerce/storefront/controller/StorefrontAuthController.java
 package com.asg.spindleserp.ecommerce.storefront.controller;
 
 import com.asg.spindleserp.ecommerce.customerSupport.entity.EcCustomer;

@@ -1,4 +1,4 @@
-// Path: com/asg/spindleserp/storefront/service/StorefrontAuthService.java
+// Path: com/asg/spindleserp/ecommerce/storefront/service/StorefrontAuthService.java
 package com.asg.spindleserp.ecommerce.storefront.service;
 
 import com.asg.spindleserp.ecommerce.customerSupport.entity.EcCustomer;
@@ -9,6 +9,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,6 +26,12 @@ import java.util.regex.Pattern;
  *
  * Session key: "SF_CUSTOMER_ID" — set on login/register, cleared on logout.
  * Cart merge on login is handled by StorefrontCartService.mergeGuestCartOnLogin().
+ *
+ * v2 changes:
+ *  - login(): now @Transactional (writes last_login_at) + ec_customer_login_history row.
+ *  - register(): also records a login-history row.
+ *  - updateProfile(): the profile POST previously mutated a detached entity and
+ *    never persisted — this is the proper transactional path.
  */
 @Slf4j
 @Service
@@ -37,6 +44,7 @@ public class StorefrontAuthService {
     private static final Pattern EMAIL_PATTERN  = Pattern.compile("^[\\w.+-]+@[\\w-]+\\.[a-zA-Z]{2,}$");
 
     private final EcCustomerRepository customerRepository;
+    private final JdbcTemplate jdbcTemplate;
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder(12);
 
     // ── REGISTER ─────────────────────────────────────────────────────────────
@@ -77,13 +85,14 @@ public class StorefrontAuthService {
 
         customer = customerRepository.save(customer);
         loginSession(request, customer);
+        recordLogin(customer.getId(), request, "SUCCESS");
 
         log.info("Storefront registration: customer #{} phone={}", customer.getId(), phone);
         return toAuthDTO(customer);
     }
 
     // ── LOGIN ────────────────────────────────────────────────────────────────
-    @Transactional(readOnly = true)
+    @Transactional
     public SfAuthDTO login(String identifier, String password, HttpServletRequest request) {
         Long orgId = ContextProvider.getOrganizationId();
         String normalized = identifier.contains("@") ? identifier.trim().toLowerCase() : normalizePhone(identifier);
@@ -97,10 +106,16 @@ public class StorefrontAuthService {
             throw new IllegalArgumentException("This account is no longer active.");
         if (customer.getAccountStatus() == EcCustomer.AccountStatus.BLOCKED)
             throw new IllegalArgumentException("This account has been blocked. Please contact support.");
-        if (customer.getPasswordHash() == null || !passwordEncoder.matches(password, customer.getPasswordHash()))
+        if (customer.getPasswordHash() == null || !passwordEncoder.matches(password, customer.getPasswordHash())) {
+            recordLogin(customer.getId(), request, "FAILED");
             throw new IllegalArgumentException("Invalid phone/email or password.");
+        }
+
+        customer.setLastLoginAt(LocalDateTime.now());
+        customerRepository.save(customer);
 
         loginSession(request, customer);
+        recordLogin(customer.getId(), request, "SUCCESS");
         log.info("Storefront login: customer #{}", customer.getId());
         return toAuthDTO(customer);
     }
@@ -125,10 +140,47 @@ public class StorefrontAuthService {
         return currentCustomerOrNull(request) != null;
     }
 
+    // ── UPDATE PROFILE ───────────────────────────────────────────────────────
+    @Transactional
+    public EcCustomer updateProfile(Long customerId, String firstName, String lastName, String email) {
+        EcCustomer customer = customerRepository.findById(customerId)
+                .filter(c -> !c.isDeleted() && c.isActive())
+                .orElseThrow(() -> new IllegalArgumentException("Account not found."));
+
+        if (firstName == null || firstName.isBlank())
+            throw new IllegalArgumentException("Please enter your first name.");
+        if (email != null && !email.isBlank() && !EMAIL_PATTERN.matcher(email.trim()).matches())
+            throw new IllegalArgumentException("Please enter a valid email address.");
+
+        customer.setFirstName(firstName.trim());
+        customer.setLastName(lastName != null && !lastName.isBlank() ? lastName.trim() : null);
+        customer.setFullName((customer.getFirstName() + " " +
+                (customer.getLastName() != null ? customer.getLastName() : "")).trim());
+        customer.setEmail(email != null && !email.isBlank() ? email.trim().toLowerCase() : null);
+        return customerRepository.save(customer);
+    }
+
     // ── HELPERS ──────────────────────────────────────────────────────────────
     private void loginSession(HttpServletRequest request, EcCustomer customer) {
         HttpSession session = request.getSession(true);
         session.setAttribute(SESSION_CUSTOMER_ID, customer.getId());
+    }
+
+    /** Best-effort audit row in ec_customer_login_history — never fails the login. */
+    private void recordLogin(Long customerId, HttpServletRequest request, String status) {
+        try {
+            String ua = request.getHeader("User-Agent");
+            if (ua != null && ua.length() > 150) ua = ua.substring(0, 150);
+            String fwd = request.getHeader("X-Forwarded-For");
+            String ip = (fwd != null && !fwd.isBlank()) ? fwd.split(",")[0].trim() : request.getRemoteAddr();
+            jdbcTemplate.update("""
+                    INSERT INTO ec_customer_login_history
+                        (customer_id, login_at, ip_address, browser, login_source, status)
+                    VALUES (?, now(), ?, ?, 'WEB', ?)
+                    """, customerId, ip, ua, status);
+        } catch (Exception e) {
+            log.warn("recordLogin failed: {}", e.getMessage());
+        }
     }
 
     private String normalizePhone(String raw) {

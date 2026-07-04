@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- storefront/sf-shop.html  GET /shop, /category/{slug} -->
+<!-- ecommerce/storefront/sf-shop.html  GET /shop, /category/{slug} -->
 <html th:replace="~{ecommerce/storefront/layout/sf-base :: layout('Shop', ~{::main})}" xmlns:th="http://www.thymeleaf.org">
 <main>
   <section class="sf-section">
@@ -31,7 +31,7 @@
       </div>
 
       <div class="sf-product-grid">
-        <div th:each="p : ${result.items}" th:replace="~{ecommerce/storefront/fragments/sf-product-card :: card(${p})}"></div>
+        <th:block th:each="p : ${result.items}"><div th:replace="~{ecommerce/storefront/fragments/sf-product-card :: card(${p})}"></div></th:block>
       </div>
 
       <div th:if="${result.items.isEmpty()}" class="sf-empty-state">

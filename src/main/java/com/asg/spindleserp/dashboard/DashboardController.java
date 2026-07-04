@@ -42,10 +42,10 @@ public class DashboardController {
 
     // ── MAIN ERP DASHBOARD ────────────────────────────────────────────────────
 
-    @GetMapping
-    public String home(Model m) {
-        return "redirect:/dashboard";
-    }
+//    @GetMapping
+//    public String home(Model m) {
+//        return "redirect:/dashboard";
+//    }
 
     /** Main landing page — full ERP summary for all permitted modules */
     @GetMapping("/dashboard")

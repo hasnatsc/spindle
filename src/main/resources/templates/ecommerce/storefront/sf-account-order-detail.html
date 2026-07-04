@@ -1,5 +1,7 @@
 <!DOCTYPE html>
-<!-- storefront/sf-account-order-detail.html  GET /account/orders/{orderNo} -->
+<!-- ecommerce/storefront/sf-account-order-detail.html  GET /account/orders/{orderNo}
+     v2: EcOrder has no discountAmount field — summary now shows couponDiscount
+         and productDiscount separately (and taxAmount when present). -->
 <html th:replace="~{ecommerce/storefront/layout/sf-base :: layout('Order Details', ~{::main})}" xmlns:th="http://www.thymeleaf.org">
 <main>
   <section class="sf-portal">
@@ -42,8 +44,10 @@
                 <div style="background:var(--white);border:1px solid var(--linen);border-radius:6px;padding:20px">
                   <h6 style="font-family:var(--font-mono);font-size:0.75rem;text-transform:uppercase;color:var(--sage);margin-bottom:14px">Order Summary</h6>
                   <div class="sf-summary-row"><span>Subtotal</span><span th:text="'৳' + ${#numbers.formatDecimal(order.subtotal, 0, 'COMMA', 0, 'POINT')}">৳1,800</span></div>
+                  <div class="sf-summary-row sf-summary-row--discount" th:if="${order.productDiscount != null and order.productDiscount.signum() > 0}"><span>Discount</span><span th:text="'−৳' + ${#numbers.formatDecimal(order.productDiscount, 0, 'COMMA', 0, 'POINT')}">−৳50</span></div>
+                  <div class="sf-summary-row sf-summary-row--discount" th:if="${order.couponDiscount != null and order.couponDiscount.signum() > 0}"><span>Coupon</span><span th:text="'−৳' + ${#numbers.formatDecimal(order.couponDiscount, 0, 'COMMA', 0, 'POINT')}">−৳100</span></div>
                   <div class="sf-summary-row"><span>Shipping</span><span th:text="'৳' + ${#numbers.formatDecimal(order.shippingCharge, 0, 'COMMA', 0, 'POINT')}">৳80</span></div>
-                  <div class="sf-summary-row" th:if="${order.discountAmount != null and order.discountAmount.signum() > 0}"><span>Discount</span><span th:text="'-৳' + ${#numbers.formatDecimal(order.discountAmount, 0, 'COMMA', 0, 'POINT')}">-৳100</span></div>
+                  <div class="sf-summary-row" th:if="${order.taxAmount != null and order.taxAmount.signum() > 0}"><span>Tax</span><span th:text="'৳' + ${#numbers.formatDecimal(order.taxAmount, 0, 'COMMA', 0, 'POINT')}">৳0</span></div>
                   <div class="sf-summary-row total"><span>Total</span><span th:text="'৳' + ${#numbers.formatDecimal(order.grandTotal, 0, 'COMMA', 0, 'POINT')}">৳1,780</span></div>
                 </div>
               </div>

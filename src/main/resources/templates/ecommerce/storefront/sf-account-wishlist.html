@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<!-- ecommerce/storefront/sf-account-wishlist.html  GET /account/wishlist  (NEW in v2) -->
+<html th:replace="~{ecommerce/storefront/layout/sf-base :: layout('My Wishlist', ~{::main})}" xmlns:th="http://www.thymeleaf.org">
+<main>
+  <section class="sf-portal">
+    <div class="container">
+      <h1 class="mb-4">My Account</h1>
+      <div class="row g-4">
+        <div class="col-lg-3">
+          <div th:replace="~{ecommerce/storefront/fragments/sf-account-sidebar :: sidebar('wishlist')}"></div>
+        </div>
+        <div class="col-lg-9">
+          <div class="sf-portal-card">
+            <h5 class="mb-3">Wishlist</h5>
+
+            <div th:if="${items == null or items.isEmpty()}" class="sf-empty-state">
+              <i class="fa-regular fa-heart"></i>
+              <p>Nothing saved yet. Tap the heart on any product to keep it here.</p>
+              <a href="/shop" class="sf-btn sf-btn--primary mt-2">Browse the Collection</a>
+            </div>
+
+            <div class="sf-product-grid sf-product-grid--wishlist" id="sfWishlistGrid"
+                 th:unless="${items == null or items.isEmpty()}">
+              <th:block th:each="p : ${items}"><div th:replace="~{ecommerce/storefront/fragments/sf-product-card :: card(${p})}"></div></th:block>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+</html>

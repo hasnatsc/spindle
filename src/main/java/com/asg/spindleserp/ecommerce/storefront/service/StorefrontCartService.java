@@ -1,4 +1,4 @@
-// Path: com/asg/spindleserp/storefront/service/StorefrontCartService.java
+// Path: com/asg/spindleserp/ecommerce/storefront/service/StorefrontCartService.java
 package com.asg.spindleserp.ecommerce.storefront.service;
 import com.asg.spindleserp.ecommerce.cart.entity.EcCart;
 import com.asg.spindleserp.ecommerce.cart.entity.EcCartItem;
@@ -9,7 +9,6 @@ import com.asg.spindleserp.ecommerce.productSupport.entity.EcProductVariant;
 import com.asg.spindleserp.ecommerce.productSupport.repository.EcProductCatalogRepository;
 import com.asg.spindleserp.ecommerce.storefront.dto.SfCartDTO;
 import com.asg.spindleserp.inventory.transaction.service.StockLedgerService;
-import com.asg.spindleserp.security.auth.ContextProvider;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
@@ -18,7 +17,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -27,6 +25,13 @@ import java.util.UUID;
  * StorefrontCartService — manages EcCart for both guests (session-id keyed)
  * and logged-in customers (customer-id keyed). On login, the guest cart's
  * items are merged into (or become) the customer's cart.
+ *
+ * v2 changes:
+ *  - peekCart(): read-only lookup that never creates a cart — cartItemCount now
+ *    uses it, so anonymous crawlers/bots no longer spawn a cart row per visit.
+ *  - setCouponDiscount(): checkout/coupon seam — recalculates totals with the
+ *    validated discount and persists.
+ *  - markOrdered(): flips the cart to ORDERED after successful order placement.
  */
 @Slf4j
 @Service
@@ -57,6 +62,17 @@ public class StorefrontCartService {
                         .sessionId(sid)
                         .cartStatus(EcCart.CartStatus.ACTIVE)
                         .build()));
+    }
+
+    /** Read-only cart lookup — never creates rows or sessions. */
+    @Transactional(readOnly = true)
+    public Optional<EcCart> peekCart(HttpServletRequest request, EcCustomer customer) {
+        if (customer != null)
+            return cartRepository.findByCustomerIdAndCartStatus(customer.getId(), EcCart.CartStatus.ACTIVE);
+        HttpSession session = request.getSession(false);
+        String sid = session != null ? (String) session.getAttribute(SESSION_KEY) : null;
+        if (sid == null) return Optional.empty();
+        return cartRepository.findBySessionIdAndCartStatus(sid, EcCart.CartStatus.ACTIVE);
     }
 
     // ── ADD ITEM ─────────────────────────────────────────────────────────────
@@ -140,10 +156,27 @@ public class StorefrontCartService {
         return toDTO(getOrCreateCart(request, customer));
     }
 
-    @Transactional
+    @Transactional(readOnly = true)
     public int cartItemCount(HttpServletRequest request, EcCustomer customer) {
+        return peekCart(request, customer)
+                .map(c -> c.getItems().stream().mapToInt(i -> i.getQuantity().intValue()).sum())
+                .orElse(0);
+    }
+
+    // ── COUPON SEAM (called by StorefrontCheckoutService) ────────────────────
+    @Transactional
+    public SfCartDTO setCouponDiscount(HttpServletRequest request, EcCustomer customer, BigDecimal discount) {
         EcCart cart = getOrCreateCart(request, customer);
-        return cart.getItems().stream().mapToInt(i -> i.getQuantity().intValue()).sum();
+        cart.setCouponDiscount(discount != null ? discount.max(BigDecimal.ZERO) : BigDecimal.ZERO);
+        recalculate(cart);
+        return toDTO(cartRepository.save(cart));
+    }
+
+    /** Flip cart to ORDERED after successful order placement. */
+    @Transactional
+    public void markOrdered(EcCart cart) {
+        cart.setCartStatus(EcCart.CartStatus.ORDERED);
+        cartRepository.save(cart);
     }
 
     // ── MERGE GUEST CART INTO CUSTOMER CART ON LOGIN ────────────────────────

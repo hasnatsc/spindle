@@ -1,5 +1,8 @@
 <!DOCTYPE html>
-<!-- storefront/sf-product-detail.html  GET /product/{slug} -->
+<!-- ecommerce/storefront/sf-product-detail.html  GET /product/{slug}
+     v2: wishlist toggle, real review summary + review list + submit form,
+         "Recently viewed" strip, th:inline fixed to "javascript" (the old
+         "none" meant sfProductId was never populated). -->
 <html th:replace="~{ecommerce/storefront/layout/sf-base :: layout(${product.productTitle}, ~{::main})}" xmlns:th="http://www.thymeleaf.org">
 <main>
   <section class="sf-pd">
@@ -30,6 +33,12 @@
           <div class="sf-pd-cat" th:text="${product.categoryName}">Category</div>
           <h1 class="sf-pd-title" th:text="${product.productTitle}">Product Title</h1>
 
+          <a href="#reviews" class="sf-pd-rating-link" th:if="${product.reviewCount != null and product.reviewCount > 0}">
+            <i class="fa-solid fa-star"></i>
+            <span th:text="${#numbers.formatDecimal(product.avgRating, 1, 1)}">4.5</span>
+            <span th:text="'(' + ${product.reviewCount} + ' reviews)'">(12 reviews)</span>
+          </a>
+
           <div class="sf-pd-price">
             ৳<span th:text="${#numbers.formatDecimal(product.sellingPrice, 0, 'COMMA', 0, 'POINT')}">1,200</span>
             <span th:if="${product.discountPercent != null and product.discountPercent > 0}" class="compare"
@@ -57,7 +66,7 @@
 
           <p class="sf-pd-desc" th:if="${product.shortDescription}" th:text="${product.shortDescription}">Short description.</p>
 
-          <!-- Qty + Add to cart -->
+          <!-- Qty + Add to cart + Wishlist -->
           <div class="d-flex align-items-end gap-3 flex-wrap">
             <div class="sf-qty-stepper" id="sfQtyStepper">
               <button type="button" class="sf-qty-minus">−</button>
@@ -66,6 +75,12 @@
             </div>
             <button class="sf-btn sf-btn--accent" id="sfAddToCartBtn" style="flex:1;min-width:200px" onclick="sfAddProductToCart()">
               <i class="fa-solid fa-bag-shopping"></i> Add to Cart
+            </button>
+            <button class="sf-pd-wish" data-sf-wishlist
+                    th:attr="data-product-id=${product.id}"
+                    th:classappend="${inWishlist != null and inWishlist} ? 'active'"
+                    title="Save to wishlist" type="button">
+              <i class="fa-heart" th:classappend="${inWishlist != null and inWishlist} ? 'fa-solid' : 'fa-regular'"></i>
             </button>
           </div>
           <div class="sf-pd-actions">
@@ -101,20 +116,129 @@
 
   <div class="sf-selvage" aria-hidden="true"><span th:each="i : ${#numbers.sequence(1, 60)}"></span></div>
 
+  <!-- ════════════════════ REVIEWS ════════════════════ -->
+  <section class="sf-section" id="reviews">
+    <div class="container">
+      <div class="sf-section-head"><h2>Reviews</h2></div>
+
+      <div class="row g-5">
+        <!-- Summary + write form -->
+        <div class="col-lg-4">
+          <div class="sf-review-summary" th:if="${reviewSummary != null and reviewSummary['totalReviews'] != null and reviewSummary['totalReviews'] > 0}">
+            <div class="sf-review-score">
+              <span class="num" th:text="${#numbers.formatDecimal(reviewSummary['avgRating'], 1, 1)}">4.5</span>
+              <div>
+                <div class="sf-stars">
+                  <i th:each="s : ${#numbers.sequence(1,5)}" class="fa-star"
+                     th:classappend="${s <= reviewSummary['avgRatingRounded']} ? 'fa-solid' : 'fa-regular'"></i>
+                </div>
+                <div class="sf-review-total" th:text="${reviewSummary['totalReviews']} + ' reviews'">12 reviews</div>
+              </div>
+            </div>
+            <div class="sf-review-bars">
+              <div class="sf-review-bar" th:each="s : ${#numbers.sequence(5,1,-1)}">
+                <span class="lbl" th:text="${s}">5</span>
+                <div class="track"><div class="fill" th:style="'width:' + ${reviewSummary['pct' + s]} + '%'"></div></div>
+                <span class="cnt" th:text="${reviewSummary['count' + s]}">8</span>
+              </div>
+            </div>
+          </div>
+          <div th:if="${reviewSummary == null or reviewSummary['totalReviews'] == null or reviewSummary['totalReviews'] == 0}"
+               class="sf-review-summary sf-review-summary--empty">
+            <p>No reviews yet — be the first to share how it wears.</p>
+          </div>
+
+          <!-- Write a review -->
+          <div class="sf-review-form mt-4" th:if="${customer != null}">
+            <h5>Write a review</h5>
+            <div class="sf-star-picker" id="sfStarPicker">
+              <i th:each="s : ${#numbers.sequence(1,5)}" class="fa-regular fa-star" th:attr="data-star=${s}"></i>
+            </div>
+            <input type="text" id="sfReviewTitle" class="sf-input" placeholder="Title (optional)" maxlength="150">
+            <textarea id="sfReviewText" class="sf-input" rows="4" placeholder="How's the fabric, fit, and finish?"></textarea>
+            <button type="button" class="sf-btn sf-btn--primary sf-btn--block" id="sfReviewSubmitBtn" onclick="sfSubmitReview()">Submit Review</button>
+            <p class="sf-review-note">Reviews are published after a quick moderation check.</p>
+          </div>
+          <div class="sf-review-form mt-4" th:if="${customer == null}">
+            <p style="margin:0"><a th:href="@{'/account/login?redirect=/product/' + ${product.slug}}" style="color:var(--rust);font-weight:600">Sign in</a> to write a review.</p>
+          </div>
+        </div>
+
+        <!-- Review list -->
+        <div class="col-lg-8">
+          <div th:if="${reviews != null and !reviews.isEmpty()}">
+            <div class="sf-review" th:each="r : ${reviews}">
+              <div class="sf-review-head">
+                <div class="sf-stars sf-stars--sm">
+                  <i th:each="s : ${#numbers.sequence(1,5)}" class="fa-star"
+                     th:classappend="${s <= r.rating} ? 'fa-solid' : 'fa-regular'"></i>
+                </div>
+                <span class="sf-review-author" th:text="${r.customerName}">Rahim A.</span>
+                <span class="sf-review-verified" th:if="${r.verifiedPurchase != null and r.verifiedPurchase}">
+                  <i class="fa-solid fa-circle-check"></i> Verified purchase
+                </span>
+                <span class="sf-review-date" th:text="${r.createdAt}">04 Jul 2026</span>
+              </div>
+              <div class="sf-review-title" th:if="${r.reviewTitle}" th:text="${r.reviewTitle}">Great quality</div>
+              <p class="sf-review-text" th:if="${r.reviewText}" th:text="${r.reviewText}">The fabric feels premium.</p>
+            </div>
+          </div>
+          <div th:if="${reviews == null or reviews.isEmpty()}" class="sf-empty-state">
+            <i class="fa-regular fa-comment"></i>
+            <p>Nothing here yet. Once reviews are approved, they'll show up right here.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="sf-selvage" aria-hidden="true"><span th:each="i : ${#numbers.sequence(1, 60)}"></span></div>
+
   <!-- Related -->
   <section class="sf-section" th:if="${product.relatedProducts != null and !product.relatedProducts.isEmpty()}">
     <div class="container">
       <div class="sf-section-head"><h2>You Might Also Like</h2></div>
       <div class="sf-product-grid">
-        <div th:each="p : ${product.relatedProducts}" th:replace="~{ecommerce/storefront/fragments/sf-product-card :: card(${p})}"></div>
+        <th:block th:each="p : ${product.relatedProducts}"><div th:replace="~{ecommerce/storefront/fragments/sf-product-card :: card(${p})}"></div></th:block>
       </div>
     </div>
   </section>
 
-  <script th:inline="none">
+  <!-- Recently viewed -->
+  <section class="sf-section pt-0" th:if="${recentlyViewed != null and !recentlyViewed.isEmpty()}">
+    <div class="container">
+      <div class="sf-section-head"><h2>Recently Viewed</h2></div>
+      <div class="sf-product-grid">
+        <th:block th:each="p : ${recentlyViewed}"><div th:replace="~{ecommerce/storefront/fragments/sf-product-card :: card(${p})}"></div></th:block>
+      </div>
+    </div>
+  </section>
+
+  <script th:inline="javascript">
     var sfProductId = /*[[${product.id}]]*/ 0;
-    var sfSelectedVariantId = document.querySelector('#sfVariantRow .sf-variant-chip.active')
-        ? document.querySelector('#sfVariantRow .sf-variant-chip.active').dataset.variantId : null;
+    var sfProductSlug = /*[[${product.slug}]]*/ '';
+    var sfSelectedVariantId = null;
+    var sfReviewRating = 0;
+
+    document.addEventListener('DOMContentLoaded', function () {
+      var activeChip = document.querySelector('#sfVariantRow .sf-variant-chip.active');
+      if (activeChip) sfSelectedVariantId = activeChip.dataset.variantId;
+      sfQtyStepper(document.getElementById('sfQtyStepper'));
+
+      var picker = document.getElementById('sfStarPicker');
+      if (picker) {
+        picker.querySelectorAll('i').forEach(function (star) {
+          star.addEventListener('click', function () {
+            sfReviewRating = parseInt(star.dataset.star, 10);
+            picker.querySelectorAll('i').forEach(function (s) {
+              var on = parseInt(s.dataset.star, 10) <= sfReviewRating;
+              s.classList.toggle('fa-solid', on);
+              s.classList.toggle('fa-regular', !on);
+            });
+          });
+        });
+      }
+    });
 
     function sfSwapImg(thumb) {
       document.getElementById('sfMainImg').src = thumb.src;
@@ -130,9 +254,30 @@
       var qty = parseInt(document.getElementById('sfQtyInput').value || '1');
       sfAddToCart(sfProductId, sfSelectedVariantId, qty, document.getElementById('sfAddToCartBtn'));
     }
-    document.addEventListener('DOMContentLoaded', function () {
-      sfQtyStepper(document.getElementById('sfQtyStepper'));
-    });
+    function sfSubmitReview() {
+      if (!sfReviewRating) { sfToast('Please pick a star rating first.', true); return; }
+      var btn = document.getElementById('sfReviewSubmitBtn');
+      btn.disabled = true;
+      sfFetch('/product/' + sfProductId + '/reviews', {
+        method: 'POST',
+        body: JSON.stringify({
+          rating: sfReviewRating,
+          title: document.getElementById('sfReviewTitle').value,
+          text: document.getElementById('sfReviewText').value
+        })
+      }).then(function (res) {
+        btn.disabled = false;
+        if (res.success) {
+          sfToast(res.message);
+          document.getElementById('sfReviewTitle').value = '';
+          document.getElementById('sfReviewText').value = '';
+        } else if (res.login) {
+          window.location.href = '/account/login?redirect=/product/' + sfProductSlug;
+        } else {
+          sfToast(res.message || 'Could not submit review.', true);
+        }
+      }).catch(function () { btn.disabled = false; sfToast('Could not submit review.', true); });
+    }
   </script>
 </main>
 </html>

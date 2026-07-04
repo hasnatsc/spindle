@@ -1,0 +1,13 @@
+<!DOCTYPE html>
+<!-- ecommerce/storefront/sf-page.html  GET /page/{slug}  (NEW in v2) — CMS page from ec_pages.
+     page_content is admin-authored HTML, rendered with th:utext. -->
+<html th:replace="~{ecommerce/storefront/layout/sf-base :: layout(${pageTitle}, ~{::main})}" xmlns:th="http://www.thymeleaf.org">
+<main>
+  <section class="sf-cart-page">
+    <div class="container" style="max-width:820px">
+      <h1 class="mb-4" th:text="${pageTitle}">About Us</h1>
+      <div class="sf-cms-body" th:utext="${pageContent}">Page content…</div>
+    </div>
+  </section>
+</main>
+</html>

@@ -1,9 +1,10 @@
-// Path: com/asg/spindleserp/storefront/controller/StorefrontCartController.java
+// Path: com/asg/spindleserp/ecommerce/storefront/controller/StorefrontCartController.java
 package com.asg.spindleserp.ecommerce.storefront.controller;
 
 import com.asg.spindleserp.ecommerce.customerSupport.entity.EcCustomer;
 import com.asg.spindleserp.ecommerce.storefront.service.StorefrontAuthService;
 import com.asg.spindleserp.ecommerce.storefront.service.StorefrontCartService;
+import com.asg.spindleserp.ecommerce.storefront.service.StorefrontCheckoutService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Controller;
@@ -18,6 +19,7 @@ import java.util.Map;
  * StorefrontCartController — cart drawer/page for both guests and customers.
  * Page: /cart
  * REST: /cart/view  /cart/add  /cart/update/{itemId}  /cart/remove/{itemId}  /cart/count
+ *       /cart/apply-coupon  /cart/remove-coupon   (v2)
  */
 @Controller
 @RequestMapping("/cart")
@@ -25,12 +27,17 @@ import java.util.Map;
 public class StorefrontCartController {
 
     private final StorefrontCartService cartService;
+    private final StorefrontCheckoutService checkoutService;
     private final StorefrontAuthService authService;
 
     @GetMapping
     public String cartPage(Model model, HttpServletRequest request) {
         EcCustomer customer = authService.currentCustomerOrNull(request);
-        model.addAttribute("cart", cartService.viewCart(request, customer));
+        var cart = cartService.viewCart(request, customer);
+        model.addAttribute("cart", cart);
+        model.addAttribute("appliedCoupon",
+                checkoutService.appliedCoupon(request, customer,
+                        cart.getSubtotal() != null ? cart.getSubtotal() : BigDecimal.ZERO));
         return "ecommerce/storefront/sf-cart";
     }
 
@@ -101,5 +108,38 @@ public class StorefrontCartController {
     public Map<String, Object> count(HttpServletRequest request) {
         EcCustomer customer = authService.currentCustomerOrNull(request);
         return Map.of("count", cartService.cartItemCount(request, customer));
+    }
+
+    // ── COUPONS (v2) ─────────────────────────────────────────────────────────
+    @PostMapping("/apply-coupon")
+    @ResponseBody
+    public Map<String, Object> applyCoupon(@RequestBody Map<String, String> body, HttpServletRequest request) {
+        Map<String, Object> res = new HashMap<>();
+        try {
+            EcCustomer customer = authService.currentCustomerOrNull(request);
+            var cart = checkoutService.applyCoupon(request, customer, body.get("code"));
+            BigDecimal saved = cart.getCouponDiscount() != null ? cart.getCouponDiscount() : BigDecimal.ZERO;
+            res.put("success", true);
+            res.put("message", "Coupon applied — you saved ৳" + saved.stripTrailingZeros().toPlainString() + "!");
+            res.put("cart", cart);
+        } catch (Exception e) {
+            res.put("success", false); res.put("message", e.getMessage());
+        }
+        return res;
+    }
+
+    @PostMapping("/remove-coupon")
+    @ResponseBody
+    public Map<String, Object> removeCoupon(HttpServletRequest request) {
+        Map<String, Object> res = new HashMap<>();
+        try {
+            EcCustomer customer = authService.currentCustomerOrNull(request);
+            res.put("success", true);
+            res.put("message", "Coupon removed.");
+            res.put("cart", checkoutService.removeCoupon(request, customer));
+        } catch (Exception e) {
+            res.put("success", false); res.put("message", e.getMessage());
+        }
+        return res;
     }
 }

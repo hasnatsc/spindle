@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<!-- ecommerce/storefront/sf-checkout.html  GET /checkout  (NEW in v2)
+     Saved-address selection or inline new address, COD payment (online = coming
+     soon), order note, and a live summary. Places order via POST /checkout/place-order. -->
+<html th:replace="~{ecommerce/storefront/layout/sf-base :: layout('Checkout', ~{::main})}" xmlns:th="http://www.thymeleaf.org">
+<main>
+  <section class="sf-cart-page">
+    <div class="container">
+      <h1 class="mb-4">Checkout</h1>
+
+      <div class="row g-5">
+        <!-- ══════════ LEFT — address, payment, note ══════════ -->
+        <div class="col-lg-7">
+
+          <!-- Delivery address -->
+          <div class="sf-checkout-panel">
+            <h5><span class="sf-step-no">1</span> Delivery Address</h5>
+
+            <div th:if="${addresses != null and !addresses.isEmpty()}" class="sf-addr-list">
+              <label class="sf-addr-card" th:each="a, st : ${addresses}">
+                <input type="radio" name="sfAddrSel" th:value="${a.id}"
+                       th:checked="${(a.defaultShipping != null and a.defaultShipping) or (st.index == 0 and !#lists.contains(addresses.![defaultShipping != null and defaultShipping], true))}">
+                <div class="sf-addr-card-body">
+                  <div class="sf-addr-name">
+                    <span th:text="${a.contactPerson}">Abul Hasnat</span>
+                    <span class="sf-addr-badge" th:if="${a.defaultShipping != null and a.defaultShipping}">Default</span>
+                  </div>
+                  <div class="sf-addr-lines">
+                    <span th:text="${a.addressLine1}">House 12, Road 5</span><span th:if="${a.addressLine2}" th:text="', ' + ${a.addressLine2}"></span><br>
+                    <span th:if="${a.area}" th:text="${a.area} + ', '"></span><span th:if="${a.upazila}" th:text="${a.upazila} + ', '"></span><span th:text="${a.district}">Dhaka</span><span th:if="${a.postCode}" th:text="' — ' + ${a.postCode}"></span>
+                  </div>
+                  <div class="sf-addr-phone" th:text="${a.contactPhone}">01712345678</div>
+                </div>
+              </label>
+
+              <label class="sf-addr-card sf-addr-card--new">
+                <input type="radio" name="sfAddrSel" value="new">
+                <div class="sf-addr-card-body">
+                  <div class="sf-addr-name"><i class="fa-solid fa-plus me-1"></i> Deliver to a new address</div>
+                </div>
+              </label>
+            </div>
+
+            <!-- New / inline address form -->
+            <div id="sfNewAddr" th:style="${addresses != null and !addresses.isEmpty()} ? 'display:none' : ''">
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <label class="sf-label">Full Name *</label>
+                  <input type="text" id="sfCoName" class="sf-input" th:value="${customer.fullName}">
+                </div>
+                <div class="col-md-6">
+                  <label class="sf-label">Phone *</label>
+                  <input type="tel" id="sfCoPhone" class="sf-input" th:value="${customer.phone}">
+                </div>
+                <div class="col-12">
+                  <label class="sf-label">Address Line 1 *</label>
+                  <input type="text" id="sfCoLine1" class="sf-input" placeholder="House, road, block…">
+                </div>
+                <div class="col-12">
+                  <label class="sf-label">Address Line 2</label>
+                  <input type="text" id="sfCoLine2" class="sf-input" placeholder="Apartment, floor (optional)">
+                </div>
+                <div class="col-md-6">
+                  <label class="sf-label">Area</label>
+                  <input type="text" id="sfCoArea" class="sf-input" placeholder="e.g. Dhanmondi">
+                </div>
+                <div class="col-md-6">
+                  <label class="sf-label">Upazila / Thana</label>
+                  <input type="text" id="sfCoUpazila" class="sf-input">
+                </div>
+                <div class="col-md-4">
+                  <label class="sf-label">District *</label>
+                  <input type="text" id="sfCoDistrict" class="sf-input" placeholder="e.g. Dhaka">
+                </div>
+                <div class="col-md-4">
+                  <label class="sf-label">Division</label>
+                  <input type="text" id="sfCoDivision" class="sf-input" placeholder="e.g. Dhaka">
+                </div>
+                <div class="col-md-4">
+                  <label class="sf-label">Post Code</label>
+                  <input type="text" id="sfCoPostCode" class="sf-input">
+                </div>
+                <div class="col-12">
+                  <label class="sf-check">
+                    <input type="checkbox" id="sfCoSaveAddr" checked> Save this address to my address book
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Payment -->
+          <div class="sf-checkout-panel">
+            <h5><span class="sf-step-no">2</span> Payment</h5>
+            <label class="sf-pay-opt">
+              <input type="radio" name="sfPay" value="COD" checked>
+              <div>
+                <div class="sf-pay-title"><i class="fa-solid fa-hand-holding-dollar"></i> Cash on Delivery</div>
+                <div class="sf-pay-sub">Pay when your order arrives at your door.</div>
+              </div>
+            </label>
+            <label class="sf-pay-opt sf-pay-opt--disabled">
+              <input type="radio" name="sfPay" value="BKASH" disabled>
+              <div>
+                <div class="sf-pay-title"><i class="fa-solid fa-mobile-screen"></i> bKash / Nagad <span class="sf-soon">Coming soon</span></div>
+                <div class="sf-pay-sub">Mobile payment at checkout.</div>
+              </div>
+            </label>
+            <label class="sf-pay-opt sf-pay-opt--disabled">
+              <input type="radio" name="sfPay" value="CARD" disabled>
+              <div>
+                <div class="sf-pay-title"><i class="fa-regular fa-credit-card"></i> Card (SSLCommerz) <span class="sf-soon">Coming soon</span></div>
+                <div class="sf-pay-sub">Visa, Mastercard, Amex.</div>
+              </div>
+            </label>
+          </div>
+
+          <!-- Note -->
+          <div class="sf-checkout-panel">
+            <h5><span class="sf-step-no">3</span> Order Note <span class="sf-optional">(optional)</span></h5>
+            <textarea id="sfCoNote" class="sf-input" rows="3" placeholder="Anything the delivery rider or our team should know?"></textarea>
+          </div>
+        </div>
+
+        <!-- ══════════ RIGHT — summary ══════════ -->
+        <div class="col-lg-5">
+          <div class="sf-cart-summary sf-checkout-summary">
+            <h5 class="mb-3">Order Summary</h5>
+
+            <div class="sf-co-item" th:each="item : ${cart.items}">
+              <img th:src="${item.productImage ?: 'https://placehold.co/100x120/E8E1D3/8A8275?text=ASG'}" th:alt="${item.productTitle}">
+              <div class="sf-co-item-info">
+                <div class="ttl" th:text="${item.productTitle}">Product</div>
+                <div class="sub">
+                  <span th:if="${item.variantName}" th:text="${item.variantName} + ' · '"></span>
+                  <span th:text="'× ' + ${item.quantity.intValue()}">× 2</span>
+                </div>
+              </div>
+              <div class="amt" th:text="'৳' + ${#numbers.formatDecimal(item.lineTotal, 0, 'COMMA', 0, 'POINT')}">৳1,200</div>
+            </div>
+
+            <hr>
+            <div class="sf-summary-row"><span>Subtotal</span><span th:text="'৳' + ${#numbers.formatDecimal(cart.subtotal, 0, 'COMMA', 0, 'POINT')}">৳1,800</span></div>
+            <div class="sf-summary-row sf-summary-row--discount" th:if="${appliedCoupon != null}">
+              <span>Coupon (<span th:text="${appliedCoupon['code']}">SAVE10</span>)</span>
+              <span th:text="'−৳' + ${#numbers.formatDecimal(appliedCoupon['discount'], 0, 'COMMA', 0, 'POINT')}">−৳100</span>
+            </div>
+            <div class="sf-summary-row">
+              <span>Shipping</span>
+              <span th:text="${cart.shippingCharge != null and cart.shippingCharge == 0} ? 'Free' : ('৳' + ${#numbers.formatDecimal(cart.shippingCharge, 0, 'COMMA', 0, 'POINT')})">৳80</span>
+            </div>
+            <p class="sf-ship-note">Final shipping is confirmed by delivery area at order placement.</p>
+            <div class="sf-summary-row total"><span>Total</span><span th:text="'৳' + ${#numbers.formatDecimal(cart.grandTotal, 0, 'COMMA', 0, 'POINT')}">৳1,880</span></div>
+
+            <div id="sfCoError" class="sf-co-error" style="display:none"></div>
+
+            <button type="button" class="sf-btn sf-btn--accent sf-btn--block mt-3" id="sfPlaceOrderBtn" onclick="sfPlaceOrder()">
+              <i class="fa-solid fa-lock"></i> Place Order
+            </button>
+            <a href="/cart" class="sf-btn sf-btn--outline sf-btn--block mt-2">Back to Cart</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <script th:inline="none">
+    document.addEventListener('DOMContentLoaded', function () {
+      document.querySelectorAll('input[name="sfAddrSel"]').forEach(function (radio) {
+        radio.addEventListener('change', function () {
+          var isNew = document.querySelector('input[name="sfAddrSel"]:checked').value === 'new';
+          document.getElementById('sfNewAddr').style.display = isNew ? '' : 'none';
+        });
+      });
+    });
+
+    function sfCoVal(id) { var el = document.getElementById(id); return el ? el.value.trim() : ''; }
+
+    function sfPlaceOrder() {
+      var err = document.getElementById('sfCoError');
+      err.style.display = 'none';
+
+      var sel = document.querySelector('input[name="sfAddrSel"]:checked');
+      var payload = {
+        paymentMethod: (document.querySelector('input[name="sfPay"]:checked') || {}).value || 'COD',
+        customerNote: sfCoVal('sfCoNote')
+      };
+
+      if (sel && sel.value !== 'new') {
+        payload.addressId = parseInt(sel.value, 10);
+      } else {
+        payload.fullName = sfCoVal('sfCoName');
+        payload.phone = sfCoVal('sfCoPhone');
+        payload.addressLine1 = sfCoVal('sfCoLine1');
+        payload.addressLine2 = sfCoVal('sfCoLine2');
+        payload.area = sfCoVal('sfCoArea');
+        payload.upazila = sfCoVal('sfCoUpazila');
+        payload.district = sfCoVal('sfCoDistrict');
+        payload.division = sfCoVal('sfCoDivision');
+        payload.postCode = sfCoVal('sfCoPostCode');
+        payload.saveAddress = document.getElementById('sfCoSaveAddr') ? document.getElementById('sfCoSaveAddr').checked : false;
+        if (!payload.fullName || !payload.phone || !payload.addressLine1 || !payload.district) {
+          err.textContent = 'Please fill in your name, phone, address line and district.';
+          err.style.display = '';
+          return;
+        }
+      }
+
+      var btn = document.getElementById('sfPlaceOrderBtn');
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Placing your order…';
+
+      sfFetch('/checkout/place-order', { method: 'POST', body: JSON.stringify(payload) })
+        .then(function (d) {
+          if (d.success && d.orderNo) {
+            window.location.href = '/checkout/success/' + encodeURIComponent(d.orderNo);
+          } else {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-lock"></i> Place Order';
+            err.textContent = d.message || 'Could not place your order. Please try again.';
+            err.style.display = '';
+          }
+        })
+        .catch(function () {
+          btn.disabled = false;
+          btn.innerHTML = '<i class="fa-solid fa-lock"></i> Place Order';
+          err.textContent = 'Something went wrong. Please try again.';
+          err.style.display = '';
+        });
+    }
+  </script>
+</main>
+</html>
