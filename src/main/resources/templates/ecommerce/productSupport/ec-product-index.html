@@ -582,7 +582,7 @@
             (img.isPrimary ? '' : '<button type="button" class="btn btn-light" title="Make primary" onclick="ecpImgMakePrimary(' + img.id + ')"><i class="fa fa-star"></i></button>') +
             '<button type="button" class="btn btn-light text-danger" title="Delete" onclick="ecpImgDelete(' + img.id + ')"><i class="fa fa-times"></i></button>' +
           '</div>' +
-          '<img src="' + img.imageUrl + '" alt="' + _esc(img.altText || '') + '" onclick="ecpImgPreview(\'' + img.imageUrl + '\')">' +
+          '<img src="' + _escAttr(img.imageUrl) + '" alt="' + _esc(img.altText || '') + '" onclick="ecpImgPreview(this.getAttribute(\'src\'))">' +
           '<input type="text" class="ecp-img-alt-input" placeholder="Alt text…" value="' + _esc(img.altText || '') + '" onchange="ecpImgUpdateAlt(' + img.id + ', this.value)">' +
         '</div>';
       document.getElementById('ecpImgGallery').appendChild(col);
@@ -593,8 +593,10 @@
       bootstrap.Modal.getOrCreateInstance(document.getElementById('ecpLightbox')).show();
     };
 
+    // ★ FIX: state-changing image calls now use POST (app convention), matching
+    // the new POST /{imageId}/update and POST /{imageId}/delete endpoints.
     window.ecpImgMakePrimary = function (imageId) {
-      secureFetch(_imgBase() + '/' + imageId, { method: 'PUT', body: JSON.stringify({ isPrimary: true }) })
+      secureFetch(_imgBase() + '/' + imageId + '/update', { method: 'POST', body: JSON.stringify({ isPrimary: true }) })
         .then(function (d) {
           if (d.success) { _loadImageGallery(); }
           else { Swal.fire('Error', d.message, 'error'); }
@@ -602,7 +604,7 @@
     };
 
     window.ecpImgUpdateAlt = function (imageId, altText) {
-      secureFetch(_imgBase() + '/' + imageId, { method: 'PUT', body: JSON.stringify({ altText: altText }) })
+      secureFetch(_imgBase() + '/' + imageId + '/update', { method: 'POST', body: JSON.stringify({ altText: altText }) })
         .then(function (d) { if (!d.success) Swal.fire('Error', d.message, 'error'); });
     };
 
@@ -610,8 +612,8 @@
       Swal.fire({ title: 'Delete this image?', icon: 'warning', showCancelButton: true, confirmButtonText: 'Delete', confirmButtonColor: '#dc3545' })
         .then(function (r) {
           if (!r.isConfirmed) return;
-          secureFetch(_imgBase() + '/' + imageId, { method: 'DELETE' }).then(function (d) {
-            if (d.success) { _loadImageGallery(); }
+          secureFetch(_imgBase() + '/' + imageId + '/delete', { method: 'POST' }).then(function (d) {
+            if (d.success) { _loadImageGallery(); if (dt) dt.ajax.reload(null, false); }
             else { Swal.fire('Error', d.message, 'error'); }
           });
         });
@@ -653,7 +655,7 @@
         .then(function (r) { return r.json(); })
         .then(function (d) {
           col.remove();
-          if (d.success) { _loadImageGallery(); }
+          if (d.success) { _loadImageGallery(); if (dt) dt.ajax.reload(null, false); }
           else { Swal.fire('Error', d.message || 'Upload failed.', 'error'); }
         })
         .catch(function () { col.remove(); Swal.fire('Error', 'Upload failed.', 'error'); });
@@ -754,9 +756,9 @@
         var col = document.createElement('div');
         col.className = 'col-4 col-md-2';
         col.innerHTML =
-          '<div class="ecp-img-card" style="cursor:pointer" onclick="ecpImgPreview(\'' + img.imageUrl + '\')">' +
+          '<div class="ecp-img-card" style="cursor:pointer" onclick="ecpImgPreview(this.querySelector(\'img\').getAttribute(\'src\'))">' +
             (img.isPrimary ? '<span class="badge bg-success ecp-img-badge">Primary</span>' : '') +
-            '<img src="' + img.imageUrl + '" alt="' + _esc(img.altText || '') + '" style="height:90px">' +
+            '<img src="' + _escAttr(img.imageUrl) + '" alt="' + _esc(img.altText || '') + '" style="height:90px">' +
           '</div>';
         gallery.appendChild(col);
       });
@@ -902,7 +904,8 @@
         })
       }).then(function (d) {
         if (d.success) {
-          var savedId = d.obj && d.obj.id ? d.obj.id : null;
+          // ★ FIX: server returns { success, message, obj: { defaultData: dto } }
+          var savedId = (d.obj && d.obj.defaultData && d.obj.defaultData.id) ? d.obj.defaultData.id : null;
 
           if (wasCreate && savedId) {
             // Brand-new product: keep the modal open, unlock image upload,
@@ -959,6 +962,7 @@
     function _v(id, v)  { var e = document.getElementById(id); if (e) e.value = (v !== null && v !== undefined) ? v : ''; }
     function _st(id, v) { var e = document.getElementById(id); if (e) e.textContent = (v !== null && v !== undefined && v !== '') ? v : '—'; }
     function _esc(s)    { return String(s || '').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+    function _escAttr(s){ return String(s || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
     function _slugify(s) {
       return (s || '').toLowerCase().trim()
         .replace(/[^\w\s-]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-').substring(0, 250);

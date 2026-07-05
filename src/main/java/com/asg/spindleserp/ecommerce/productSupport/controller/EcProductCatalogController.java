@@ -67,14 +67,17 @@ public class EcProductCatalogController {
     public Map<String, Object> save(@RequestBody @Valid EcProductCatalogDTO dto) {
         Map<String, Object> res = new HashMap<>();
         try {
+            EcProductCatalogDTO saved;
             if (dto.getId() != null) {
-                catalogService.update(dto.getId(), dto);
+                saved = catalogService.update(dto.getId(), dto);
                 res.put("message", "Product updated successfully.");
             } else {
-                catalogService.create(dto);
+                saved = catalogService.create(dto);
                 res.put("message", "Product created successfully.");
             }
             res.put("success", true);
+            // ★ FIX: the create-then-upload-images flow in the UI needs the new id.
+            res.put("obj", Map.of("defaultData", saved));
         } catch (Exception e) { res.put("success", false); res.put("message", e.getMessage()); }
         return res;
     }

@@ -51,23 +51,38 @@ public class EcProductImageStorageService {
      * Returns the server-relative URL to store in EcProductImage.imageUrl.
      */
     public String store(Long productId, MultipartFile file) {
+        return store("products", productId, file);
+    }
+
+    /** Category main / banner images live under categories/{categoryId}/. */
+    public String storeForCategory(Long categoryId, MultipartFile file) {
+        return store("categories", categoryId, file);
+    }
+
+    /**
+     * Generic variant — saves an uploaded image under {uploadDir}/{folder}/{ownerId}/.
+     * folder is always supplied by our own code (never client input), but is
+     * sanitized anyway so it can never introduce path separators.
+     */
+    public String store(String folder, Long ownerId, MultipartFile file) {
         validate(file);
 
-        String ext = extensionOf(file.getOriginalFilename(), file.getContentType());
-        String filename = UUID.randomUUID() + ext;
+        String safeFolder = folder.replaceAll("[^a-zA-Z0-9_-]", "");
+        String ext        = extensionOf(file.getOriginalFilename(), file.getContentType());
+        String filename   = UUID.randomUUID() + ext;
 
         try {
-            Path productDir = Paths.get(uploadDir, "products", String.valueOf(productId));
-            Files.createDirectories(productDir);
+            Path ownerDir = Paths.get(uploadDir, safeFolder, String.valueOf(ownerId));
+            Files.createDirectories(ownerDir);
 
-            Path target = productDir.resolve(filename);
+            Path target = ownerDir.resolve(filename);
             Files.copy(file.getInputStream(), target, StandardCopyOption.REPLACE_EXISTING);
 
-            String url = "/uploads/products/" + productId + "/" + filename;
-            log.info("Stored product image: productId={} url={} size={}B", productId, url, file.getSize());
+            String url = "/uploads/" + safeFolder + "/" + ownerId + "/" + filename;
+            log.info("Stored image: folder={} ownerId={} url={} size={}B", safeFolder, ownerId, url, file.getSize());
             return url;
         } catch (IOException e) {
-            log.error("Failed to store product image for productId={}", productId, e);
+            log.error("Failed to store image: folder={} ownerId={}", folder, ownerId, e);
             throw new IllegalStateException("Failed to save uploaded image: " + e.getMessage(), e);
         }
     }

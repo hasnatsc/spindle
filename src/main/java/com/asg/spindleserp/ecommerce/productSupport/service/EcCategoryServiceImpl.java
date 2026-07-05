@@ -24,8 +24,9 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class EcCategoryServiceImpl implements EcCategoryService {
 
-    private final EcCategoryRepository categoryRepository;
-    private final JdbcTemplate          jdbcTemplate;
+    private final EcCategoryRepository         categoryRepository;
+    private final JdbcTemplate                 jdbcTemplate;
+    private final EcProductImageStorageService storageService;
 
     // ── CREATE ────────────────────────────────────────────────────────────────
     @Override
@@ -128,13 +129,47 @@ public class EcCategoryServiceImpl implements EcCategoryService {
         return categoryRepository.findAllByOrgNotDeleted(orgId).stream().map(this::toDTO).toList();
     }
 
+    // ── IMAGE UPLOAD (same pattern as EcProductCatalog images) ───────────────
+    @Override
+    public EcCategoryDTO uploadImage(Long id, String type, org.springframework.web.multipart.MultipartFile file) {
+        EcCategory entity = findEntityById(id);
+        String url = storageService.storeForCategory(id, file);
+
+        if ("banner".equalsIgnoreCase(type)) {
+            storageService.delete(entity.getBannerUrl());   // clean previous local file (no-op for external URLs)
+            entity.setBannerUrl(url);
+        } else {
+            storageService.delete(entity.getImageUrl());
+            entity.setImageUrl(url);
+        }
+        return toDTO(categoryRepository.save(entity));
+    }
+
+    @Override
+    public EcCategoryDTO removeImage(Long id, String type) {
+        EcCategory entity = findEntityById(id);
+        if ("banner".equalsIgnoreCase(type)) {
+            storageService.delete(entity.getBannerUrl());
+            entity.setBannerUrl(null);
+        } else {
+            storageService.delete(entity.getImageUrl());
+            entity.setImageUrl(null);
+        }
+        return toDTO(categoryRepository.save(entity));
+    }
+
     // ── DELETE ────────────────────────────────────────────────────────────────
     @Override
     public void delete(Long id) {
         EcCategory entity = findEntityById(id);
         if (!entity.getChildren().isEmpty())
             throw new IllegalArgumentException("Cannot delete category with sub-categories. Remove children first.");
+        String imageUrl  = entity.getImageUrl();
+        String bannerUrl = entity.getBannerUrl();
         categoryRepository.delete(entity);
+        // Clean local files after the DB delete succeeds (external URLs are no-ops)
+        storageService.delete(imageUrl);
+        storageService.delete(bannerUrl);
     }
 
     // ── TOGGLE ────────────────────────────────────────────────────────────────

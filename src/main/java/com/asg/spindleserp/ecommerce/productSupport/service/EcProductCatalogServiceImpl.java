@@ -28,9 +28,10 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class EcProductCatalogServiceImpl implements EcProductCatalogService {
 
-    private final EcProductCatalogRepository catalogRepository;
-    private final ItemRepository             itemRepository;
-    private final JdbcTemplate               jdbcTemplate;
+    private final EcProductCatalogRepository   catalogRepository;
+    private final ItemRepository               itemRepository;
+    private final JdbcTemplate                 jdbcTemplate;
+    private final EcProductImageStorageService storageService;
 
     // ── CREATE ────────────────────────────────────────────────────────────────
 
@@ -76,7 +77,7 @@ public class EcProductCatalogServiceImpl implements EcProductCatalogService {
 
         // Persist first to get PK, then sync children
         entity = catalogRepository.save(entity);
-        syncImages(entity, dto.getImages());
+        if (dto.getImages() != null) syncImages(entity, dto.getImages());
         syncVariants(entity, dto.getVariants());
         syncAttrValues(entity, dto.getAttrValues());
         return toDTO(catalogRepository.save(entity));
@@ -120,7 +121,12 @@ public class EcProductCatalogServiceImpl implements EcProductCatalogService {
         entity.setPublishDate(dto.getPublishDate());
         entity.setActive(dto.getActive() != null ? dto.getActive() : entity.isActive());
 
-        syncImages(entity, dto.getImages());
+        // ★ FIX: images == null means "not managed by this request" — the form
+        // intentionally omits images because uploads go through the dedicated
+        // /ecommerce/products/{id}/images/** endpoints. Previously a null list
+        // cleared the collection and orphanRemoval DELETED every image row on
+        // every product update. Only sync when the caller explicitly sends a list.
+        if (dto.getImages() != null)     syncImages(entity, dto.getImages());
         syncVariants(entity, dto.getVariants());
         syncAttrValues(entity, dto.getAttrValues());
         return toDTO(catalogRepository.save(entity));
@@ -143,7 +149,15 @@ public class EcProductCatalogServiceImpl implements EcProductCatalogService {
 
     @Override
     public void delete(Long id) {
-        catalogRepository.delete(findEntityById(id));
+        EcProductCatalog entity = findEntityById(id);
+        // Capture URLs BEFORE the cascade delete removes the rows, then clean
+        // the physical files after the DB delete succeeds (external CDN URLs
+        // are ignored by the storage service — only /uploads/** files are touched).
+        List<String> fileUrls = entity.getImages().stream()
+                .map(EcProductImage::getImageUrl)
+                .toList();
+        catalogRepository.delete(entity);
+        storageService.deleteAll(fileUrls);
     }
 
     // ── TOGGLE STATUS ─────────────────────────────────────────────────────────

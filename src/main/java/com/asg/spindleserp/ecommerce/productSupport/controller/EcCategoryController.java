@@ -54,9 +54,45 @@ public class EcCategoryController {
     public Map<String, Object> save(@RequestBody @Valid EcCategoryDTO dto) {
         Map<String, Object> res = new HashMap<>();
         try {
-            if (dto.getId() != null) { categoryService.update(dto.getId(), dto); res.put("message", "Category updated."); }
-            else                     { categoryService.create(dto);              res.put("message", "Category created."); }
+            EcCategoryDTO saved;
+            if (dto.getId() != null) { saved = categoryService.update(dto.getId(), dto); res.put("message", "Category updated."); }
+            else                     { saved = categoryService.create(dto);              res.put("message", "Category created."); }
             res.put("success", true);
+            // ★ create-then-upload-images flow needs the new id (same as products)
+            res.put("obj", Map.of("defaultData", saved));
+        } catch (Exception e) { res.put("success", false); res.put("message", e.getMessage()); }
+        return res;
+    }
+
+    // ── IMAGE UPLOAD (same pattern as /ecommerce/products/{id}/images) ───────
+    // multipart/form-data: file=<binary>, type=image|banner
+    @PostMapping(value = "/{id}/image", consumes = "multipart/form-data")
+    @ResponseBody
+    public Map<String, Object> uploadImage(
+            @PathVariable Long id,
+            @RequestParam("file") org.springframework.web.multipart.MultipartFile file,
+            @RequestParam(value = "type", defaultValue = "image") String type) {
+        Map<String, Object> res = new HashMap<>();
+        try {
+            EcCategoryDTO saved = categoryService.uploadImage(id, type, file);
+            res.put("success", true);
+            res.put("message", ("banner".equalsIgnoreCase(type) ? "Banner" : "Image") + " uploaded successfully.");
+            res.put("obj", Map.of("defaultData", saved));
+        } catch (Exception e) { res.put("success", false); res.put("message", e.getMessage()); }
+        return res;
+    }
+
+    @PostMapping("/{id}/image/delete")
+    @ResponseBody
+    public Map<String, Object> deleteImage(
+            @PathVariable Long id,
+            @RequestParam(value = "type", defaultValue = "image") String type) {
+        Map<String, Object> res = new HashMap<>();
+        try {
+            EcCategoryDTO saved = categoryService.removeImage(id, type);
+            res.put("success", true);
+            res.put("message", ("banner".equalsIgnoreCase(type) ? "Banner" : "Image") + " removed.");
+            res.put("obj", Map.of("defaultData", saved));
         } catch (Exception e) { res.put("success", false); res.put("message", e.getMessage()); }
         return res;
     }

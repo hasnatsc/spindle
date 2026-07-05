@@ -81,7 +81,15 @@ public class EcProductImageController {
     }
 
     // ── UPDATE metadata (alt text, order, primary) — no file change ─────────
+    // POST /{imageId}/update is the canonical route (secureFetch + app convention
+    // is POST for state changes); PUT /{imageId} is kept as a REST-style alias.
     @PutMapping("/{imageId}")
+    public Map<String, Object> updateViaPut(@PathVariable Long productId, @PathVariable Long imageId,
+                                            @RequestBody EcProductImageDTO dto) {
+        return update(productId, imageId, dto);
+    }
+
+    @PostMapping("/{imageId}/update")
     public Map<String, Object> update(@PathVariable Long productId, @PathVariable Long imageId,
                                        @RequestBody EcProductImageDTO dto) {
         Map<String, Object> res = new HashMap<>();
@@ -95,7 +103,9 @@ public class EcProductImageController {
     }
 
     // ── REPLACE the file behind an existing image row ────────────────────────
-    @PutMapping(value = "/{imageId}/file", consumes = "multipart/form-data")
+    @RequestMapping(value = "/{imageId}/file",
+                    method = {RequestMethod.POST, RequestMethod.PUT},
+                    consumes = "multipart/form-data")
     public Map<String, Object> replaceFile(@PathVariable Long productId, @PathVariable Long imageId,
                                             @RequestParam("file") MultipartFile file) {
         Map<String, Object> res = new HashMap<>();
@@ -109,6 +119,12 @@ public class EcProductImageController {
     }
 
     // ── DELETE one image ──────────────────────────────────────────────────────
+    // POST /{imageId}/delete is the canonical route; DELETE /{imageId} kept as alias.
+    @PostMapping("/{imageId}/delete")
+    public Map<String, Object> deleteViaPost(@PathVariable Long productId, @PathVariable Long imageId) {
+        return delete(productId, imageId);
+    }
+
     @DeleteMapping("/{imageId}")
     public Map<String, Object> delete(@PathVariable Long productId, @PathVariable Long imageId) {
         Map<String, Object> res = new HashMap<>();

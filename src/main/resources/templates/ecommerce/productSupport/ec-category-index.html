@@ -10,6 +10,31 @@
   </ol>
   <h1 class="page-header">EC Categories <small>storefront navigation &amp; SEO category tree</small></h1>
 
+  <style>
+    .ecc-img-dropzone {
+      border: 2px dashed #c5c9d0; border-radius: 8px; cursor: pointer;
+      transition: border-color .15s, background-color .15s;
+    }
+    .ecc-img-dropzone:hover, .ecc-img-dropzone.dragover {
+      border-color: #348fe2; background-color: rgba(52,143,226,0.05);
+    }
+    .ecc-img-dropzone.is-uploading { opacity: .5; pointer-events: none; }
+    .ecc-img-preview {
+      position: relative; border: 1px solid #e2e5e9; border-radius: 6px; overflow: hidden; background: #f4f5f7;
+    }
+    .ecc-img-preview img {
+      width: 100%; height: 140px; object-fit: cover; display: block; cursor: pointer;
+    }
+    .ecc-img-preview .ecc-img-remove {
+      position: absolute; top: 4px; right: 4px; width: 26px; height: 26px; padding: 0;
+      line-height: 1; font-size: 12px; border-radius: 4px; border: none;
+    }
+    .ecc-vw-thumb {
+      border: 1px solid #e2e5e9; border-radius: 6px; overflow: hidden; background: #f4f5f7;
+    }
+    .ecc-vw-thumb img { width: 100%; height: 110px; object-fit: cover; display: block; cursor: pointer; }
+  </style>
+
   <div class="panel panel-inverse">
     <div class="panel-heading">
       <div class="panel-title">
@@ -94,17 +119,71 @@
                     <div class="col-md-3 mt-1"><div class="form-check form-switch pt-2"><input type="checkbox" id="eccFeatured" class="form-check-input"><label class="form-check-label" for="eccFeatured">Featured</label></div></div>
                   </div>
                 </div>
-                <!-- TAB 2: SEO -->
+                <!-- TAB 2: DISPLAY & SEO -->
                 <div class="tab-pane fade" id="ecctab2">
                   <div class="row g-2">
-                    <div class="col-md-6 view-group">
-                      <input id="eccImageUrl" type="url" class="form-control hs_span_view" placeholder="https://…/image.jpg" maxlength="700">
-                      <label class="input-label">Image URL</label>
+
+                    <!-- Image uploads — same pattern as the Product Catalog Images tab -->
+                    <div class="col-12">
+                      <div class="alert alert-info py-2 small mb-1" id="eccImgNewHint">
+                        <i class="fa fa-info-circle me-1"></i>
+                        Save the category first (Basic tab) before uploading images — files attach to a saved category.
+                      </div>
                     </div>
-                    <div class="col-md-6 view-group">
-                      <input id="eccBannerUrl" type="url" class="form-control hs_span_view" placeholder="https://…/banner.jpg" maxlength="700">
-                      <label class="input-label">Banner URL</label>
+
+                    <div class="col-md-6">
+                      <label class="fw-bold small mb-1"><i class="fa fa-image me-1 text-success"></i> Category Image</label>
+                      <div id="eccDropImage" class="ecc-img-dropzone">
+                        <input type="file" id="eccFileImage" accept="image/jpeg,image/jpg,image/png,image/webp,image/gif" hidden>
+                        <div class="text-center py-3">
+                          <i class="fa fa-cloud-upload-alt fa-lg text-muted"></i>
+                          <div class="small mt-1">Drag &amp; drop, or click to browse</div>
+                          <div class="text-muted" style="font-size:11px">JPEG, PNG, WEBP, GIF — up to 10MB</div>
+                        </div>
+                      </div>
+                      <div id="eccPreviewImage" class="ecc-img-preview d-none mt-2">
+                        <img id="eccPreviewImageImg" src="" alt="Category image" onclick="eccImgLightbox(this.getAttribute('src'))">
+                        <button type="button" class="btn btn-light text-danger ecc-img-remove" title="Remove image" onclick="eccImgRemove('image')"><i class="fa fa-times"></i></button>
+                      </div>
                     </div>
+
+                    <div class="col-md-6">
+                      <label class="fw-bold small mb-1"><i class="fa fa-panorama me-1 text-primary"></i> Banner Image</label>
+                      <div id="eccDropBanner" class="ecc-img-dropzone">
+                        <input type="file" id="eccFileBanner" accept="image/jpeg,image/jpg,image/png,image/webp,image/gif" hidden>
+                        <div class="text-center py-3">
+                          <i class="fa fa-cloud-upload-alt fa-lg text-muted"></i>
+                          <div class="small mt-1">Drag &amp; drop, or click to browse</div>
+                          <div class="text-muted" style="font-size:11px">JPEG, PNG, WEBP, GIF — up to 10MB</div>
+                        </div>
+                      </div>
+                      <div id="eccPreviewBanner" class="ecc-img-preview d-none mt-2">
+                        <img id="eccPreviewBannerImg" src="" alt="Category banner" onclick="eccImgLightbox(this.getAttribute('src'))">
+                        <button type="button" class="btn btn-light text-danger ecc-img-remove" title="Remove banner" onclick="eccImgRemove('banner')"><i class="fa fa-times"></i></button>
+                      </div>
+                    </div>
+
+                    <!-- Manual URL fallback, collapsed by default (kept for CDN-paste workflow) -->
+                    <div class="col-12">
+                      <a href="javascript:;" class="small text-muted" data-bs-toggle="collapse" data-bs-target="#eccImgUrlFallback">
+                        <i class="fa fa-link me-1"></i> Or paste external image / banner URLs instead
+                      </a>
+                      <div class="collapse mt-2" id="eccImgUrlFallback">
+                        <div class="row g-2">
+                          <div class="col-md-6 view-group">
+                            <input id="eccImageUrl" type="url" class="form-control hs_span_view" placeholder="https://…/image.jpg" maxlength="700">
+                            <label class="input-label">Image URL</label>
+                          </div>
+                          <div class="col-md-6 view-group">
+                            <input id="eccBannerUrl" type="url" class="form-control hs_span_view" placeholder="https://…/banner.jpg" maxlength="700">
+                            <label class="input-label">Banner URL</label>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-12"><hr class="my-2"></div>
+
                     <div class="col-12 view-group">
                       <input id="eccMetaTitle" type="text" class="form-control hs_span_view" placeholder="SEO title" maxlength="255">
                       <label class="input-label">Meta Title</label>
@@ -168,11 +247,33 @@
               <div class="col-md-3 view-group"><label class="view-label">Status</label><span id="vw_ecc_status" class="form-control hs_span_show"></span></div>
               <div class="col-md-3 view-group"><label class="view-label">Featured</label><span id="vw_ecc_featured" class="form-control hs_span_show"></span></div>
               <div class="col-12 view-group"><label class="view-label">Short Description</label><span id="vw_ecc_shortDesc" class="form-control hs_span_show" style="min-height:38px"></span></div>
+              <!-- Images -->
+              <div class="col-12"><hr class="my-1"><strong class="small text-muted">Images</strong></div>
+              <div class="col-md-4">
+                <label class="view-label d-block">Category Image</label>
+                <div id="vw_ecc_imageWrap" class="ecc-vw-thumb d-none"><img id="vw_ecc_image" src="" alt="Category image" onclick="eccImgLightbox(this.getAttribute('src'))"></div>
+                <span id="vw_ecc_imageEmpty" class="text-muted small">—</span>
+              </div>
+              <div class="col-md-8">
+                <label class="view-label d-block">Banner</label>
+                <div id="vw_ecc_bannerWrap" class="ecc-vw-thumb d-none"><img id="vw_ecc_banner" src="" alt="Category banner" onclick="eccImgLightbox(this.getAttribute('src'))"></div>
+                <span id="vw_ecc_bannerEmpty" class="text-muted small">—</span>
+              </div>
               <div class="col-md-4 view-group"><label class="view-label">Created</label><span id="vw_ecc_createdAt" class="form-control hs_span_show"></span></div>
               <div class="col-md-4 view-group"><label class="view-label">Created By</label><span id="vw_ecc_createdBy" class="form-control hs_span_show"></span></div>
             </div></div>
           </div>
           <div class="modal-footer"><button type="button" class="btn btn-white" data-bs-dismiss="modal">Close</button></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- LIGHTBOX — full-size image preview on thumbnail click -->
+    <div tabindex="-1" id="eccLightbox" class="modal fade">
+      <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content bg-dark">
+          <button type="button" class="btn-close btn-close-white position-absolute top-0 end-0 m-3" style="z-index:10" data-bs-dismiss="modal"></button>
+          <img id="eccLightboxImg" src="" style="width:100%;max-height:80vh;object-fit:contain" alt="">
         </div>
       </div>
     </div>
@@ -215,7 +316,111 @@
         this.dataset.manual = this.value ? '1' : '';
         this.value = this.value.toLowerCase().replace(/[^a-z0-9-]/g,'-').replace(/-+/g,'-');
       });
+      _initCatDropzones();
+      // Pasting an external URL in the fallback fields live-updates the preview
+      document.getElementById('eccImageUrl').addEventListener('change',  function(){ _setCatPreview('image',  this.value.trim() || null); });
+      document.getElementById('eccBannerUrl').addEventListener('change', function(){ _setCatPreview('banner', this.value.trim() || null); });
     });
+
+    // ── Image upload (same pattern as Product Catalog images) ───────────────
+    var _currentCatId = null;   // set once a category is saved/loaded; uploads attach to this id
+
+    function _setCatImgEnabled(catId) {
+      _currentCatId = catId || null;
+      var hint = document.getElementById('eccImgNewHint');
+      ['eccDropImage','eccDropBanner'].forEach(function(id){
+        var dz = document.getElementById(id);
+        if (_currentCatId) { dz.style.opacity='1'; dz.style.pointerEvents='auto'; }
+        else               { dz.style.opacity='0.5'; dz.style.pointerEvents='none'; }
+      });
+      hint.classList.toggle('d-none', !!_currentCatId);
+    }
+
+    function _setCatPreview(type, url) {
+      var wrap = document.getElementById(type === 'banner' ? 'eccPreviewBanner' : 'eccPreviewImage');
+      var img  = document.getElementById(type === 'banner' ? 'eccPreviewBannerImg' : 'eccPreviewImageImg');
+      if (url) { img.src = url; wrap.classList.remove('d-none'); }
+      else     { img.src = '';  wrap.classList.add('d-none'); }
+    }
+
+    function _uploadCatImage(type, file) {
+      if (!_currentCatId) { Swal.fire('Warning','Save the category first before uploading images.','warning'); return; }
+      var fd = new FormData();
+      fd.append('file', file);
+      fd.append('type', type);
+
+      var token  = document.querySelector('meta[name="_csrf"]')?.content;
+      var header = document.querySelector('meta[name="_csrf_header"]')?.content || 'X-CSRF-TOKEN';
+      var headers = {}; if (token) headers[header] = token;
+
+      var dz = document.getElementById(type === 'banner' ? 'eccDropBanner' : 'eccDropImage');
+      dz.classList.add('is-uploading');
+
+      fetch(BASE + '/' + _currentCatId + '/image', { method:'POST', body: fd, headers: headers, credentials:'same-origin' })
+        .then(function(r){ return r.json(); })
+        .then(function(d){
+          dz.classList.remove('is-uploading');
+          if (d.success) {
+            var o = d.obj && d.obj.defaultData ? d.obj.defaultData : {};
+            // keep the form fields in sync so a later Update doesn't overwrite the uploaded URL
+            _v('eccImageUrl',  o.imageUrl  || '');
+            _v('eccBannerUrl', o.bannerUrl || '');
+            _setCatPreview('image',  o.imageUrl);
+            _setCatPreview('banner', o.bannerUrl);
+            dt.ajax.reload(null, false);
+          } else { Swal.fire('Error', d.message || 'Upload failed.', 'error'); }
+        })
+        .catch(function(){ dz.classList.remove('is-uploading'); Swal.fire('Error','Upload failed.','error'); });
+    }
+
+    window.eccImgRemove = function(type) {
+      // Unsaved category (or URL typed but not saved): just clear the field locally.
+      if (!_currentCatId) { _v(type==='banner'?'eccBannerUrl':'eccImageUrl',''); _setCatPreview(type,null); return; }
+      Swal.fire({ title:'Remove this '+(type==='banner'?'banner':'image')+'?', icon:'warning', showCancelButton:true, confirmButtonText:'Remove', confirmButtonColor:'#dc3545' })
+        .then(function(r){
+          if (!r.isConfirmed) return;
+          secureFetch(BASE + '/' + _currentCatId + '/image/delete?type=' + type, { method:'POST' })
+            .then(function(d){
+              if (d.success) {
+                var o = d.obj && d.obj.defaultData ? d.obj.defaultData : {};
+                _v('eccImageUrl',  o.imageUrl  || '');
+                _v('eccBannerUrl', o.bannerUrl || '');
+                _setCatPreview('image',  o.imageUrl);
+                _setCatPreview('banner', o.bannerUrl);
+                dt.ajax.reload(null, false);
+              } else { Swal.fire('Error', d.message, 'error'); }
+            });
+        });
+    };
+
+    window.eccImgLightbox = function(url) {
+      document.getElementById('eccLightboxImg').src = url;
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('eccLightbox')).show();
+    };
+
+    function _initCatDropzones() {
+      [{ dz:'eccDropImage', input:'eccFileImage', type:'image' },
+       { dz:'eccDropBanner', input:'eccFileBanner', type:'banner' }].forEach(function(cfg){
+        var dz    = document.getElementById(cfg.dz);
+        var input = document.getElementById(cfg.input);
+        dz.addEventListener('click', function(){ input.click(); });
+        input.addEventListener('change', function(){
+          if (input.files && input.files[0]) _uploadCatImage(cfg.type, input.files[0]);
+          input.value = '';
+        });
+        ['dragenter','dragover'].forEach(function(evt){
+          dz.addEventListener(evt, function(e){ e.preventDefault(); dz.classList.add('dragover'); });
+        });
+        ['dragleave','drop'].forEach(function(evt){
+          dz.addEventListener(evt, function(e){ e.preventDefault(); dz.classList.remove('dragover'); });
+        });
+        dz.addEventListener('drop', function(e){
+          var f = Array.prototype.slice.call((e.dataTransfer && e.dataTransfer.files) || [])
+                    .filter(function(x){ return x.type.indexOf('image/') === 0; })[0];
+          if (f) _uploadCatImage(cfg.type, f);
+        });
+      });
+    }
 
     function _loadParentDropdown(excludeId) {
       secureFetch(BASE+'/active').then(function(data){
@@ -266,6 +471,7 @@
 
     window.eccOpenCreate = function(){
       _reset();
+      _setCatImgEnabled(null);
       document.getElementById('eccModalTitle').innerHTML='<i class="fa fa-plus me-1 text-success"></i> Add Category';
       document.getElementById('eccBtnText').textContent='Save';
       bootstrap.Modal.getOrCreateInstance(document.getElementById('eccModal')).show();
@@ -281,9 +487,20 @@
         _st('vw_ecc_createdAt',o.createdAt); _st('vw_ecc_createdBy',o.createdBy);
         document.getElementById('vw_ecc_status').innerHTML=o.active?"<span class='badge bg-success'>Active</span>":"<span class='badge bg-danger'>Inactive</span>";
         document.getElementById('vw_ecc_featured').innerHTML=o.isFeatured?"<span class='badge bg-warning text-dark'>Yes</span>":'—';
+        // Images
+        _setVwThumb('image',  o.imageUrl);
+        _setVwThumb('banner', o.bannerUrl);
         bootstrap.Modal.getOrCreateInstance(document.getElementById('eccViewModal')).show();
       });
     };
+
+    function _setVwThumb(type, url) {
+      var wrap  = document.getElementById(type === 'banner' ? 'vw_ecc_bannerWrap'  : 'vw_ecc_imageWrap');
+      var img   = document.getElementById(type === 'banner' ? 'vw_ecc_banner'      : 'vw_ecc_image');
+      var empty = document.getElementById(type === 'banner' ? 'vw_ecc_bannerEmpty' : 'vw_ecc_imageEmpty');
+      if (url) { img.src = url; wrap.classList.remove('d-none'); empty.classList.add('d-none'); }
+      else     { img.src = '';  wrap.classList.add('d-none');    empty.classList.remove('d-none'); }
+    }
 
     window.eccEdit = function(id){
       secureFetch(BASE+'/show/'+id).then(function(res){
@@ -302,6 +519,10 @@
         document.getElementById('eccSlug').dataset.manual='1';
         if(window.$&&$.fn.select2) $(document.getElementById('eccParentId')).trigger('change');
         (o.attributes||[]).forEach(function(a){eccAddAttrRow(a);});
+        // Images — enable upload now that we have a saved categoryId, show previews
+        _setCatImgEnabled(o.id);
+        _setCatPreview('image',  o.imageUrl);
+        _setCatPreview('banner', o.bannerUrl);
         document.getElementById('eccModalTitle').innerHTML='<i class="fa fa-pencil me-1 text-warning"></i> Edit Category';
         document.getElementById('eccBtnText').textContent='Update';
         bootstrap.Modal.getOrCreateInstance(document.getElementById('eccModal')).show();
@@ -315,6 +536,9 @@
       e.preventDefault();
       var sb=document.getElementById('eccSubmitBtn'),sp=document.getElementById('eccSpinner'),bt=document.getElementById('eccBtnText');
       hsDisableButton(sb,sp,bt);
+
+      var wasCreate = !document.getElementById('eccId').value;
+
       secureFetch(BASE+'/save',{method:'POST',body:JSON.stringify({
         id:                document.getElementById('eccId').value||null,
         categoryCode:      document.getElementById('eccCode').value,
@@ -335,8 +559,30 @@
         isFeatured:        document.getElementById('eccFeatured').checked,
         attributes:        _collectAttrs()
       })}).then(function(d){
-        if(d.success){Swal.fire({icon:'success',title:'Saved!',text:d.message,timer:1600,showConfirmButton:false});
-          bootstrap.Modal.getOrCreateInstance(document.getElementById('eccModal')).hide(); dt.ajax.reload(null,false);}
+        if(d.success){
+          // ★ server returns { success, message, obj: { defaultData: dto } }
+          var saved   = d.obj && d.obj.defaultData ? d.obj.defaultData : null;
+          var savedId = saved ? saved.id : null;
+
+          if (wasCreate && savedId) {
+            // Brand-new category: keep the modal open, unlock image upload,
+            // jump to the Display & SEO tab so the admin can upload right away.
+            document.getElementById('eccId').value = savedId;
+            _setCatImgEnabled(savedId);
+            _setCatPreview('image',  saved.imageUrl);
+            _setCatPreview('banner', saved.bannerUrl);
+            document.getElementById('eccModalTitle').innerHTML='<i class="fa fa-pencil me-1 text-warning"></i> Edit Category';
+            document.getElementById('eccBtnText').textContent='Update';
+            Swal.fire({icon:'success',title:'Category created!',text:'Now you can upload an image and banner.',timer:1800,showConfirmButton:false});
+            var imgTab = document.querySelector('#eccModal a[href="#ecctab2"]');
+            if (imgTab) bootstrap.Tab.getOrCreateInstance(imgTab).show();
+            dt.ajax.reload(null,false);
+          } else {
+            Swal.fire({icon:'success',title:'Saved!',text:d.message,timer:1600,showConfirmButton:false});
+            bootstrap.Modal.getOrCreateInstance(document.getElementById('eccModal')).hide();
+            dt.ajax.reload(null,false);
+          }
+        }
         else{Swal.fire('Error',d.message,'error');}
       }).catch(function(err){Swal.fire('Error',err.message||'Request failed.','error');})
         .finally(function(){hsEnableButton(sb,sp,bt);});
@@ -349,6 +595,8 @@
       document.getElementById('eccAttrRows').innerHTML='';
       document.getElementById('eccSlug').dataset.manual='';
       _attrIdx=0;
+      _setCatImgEnabled(null);
+      _setCatPreview('image',null); _setCatPreview('banner',null);
       if(window.$&&$.fn.select2){$(document.getElementById('eccParentId')).val(null).trigger('change');}
       var ft=document.querySelector('#eccModal .nav-link'); if(ft) bootstrap.Tab.getOrCreateInstance(ft).show();
     }
