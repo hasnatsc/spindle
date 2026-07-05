@@ -3,7 +3,7 @@
   accounts/accounts-policy.html    GET /accounts/policy
   JS fns: policyShow / policyEdit / policyToggle / policyDelete
   AccountsMapping  → AJAX Select2  /accounts/mapping/search
-  Default Debit/Credit → AJAX Select2 /accounts/chart/search
+  Default Debit/Credit → AJAX Select2 /accounts/chart-of-accounts/search
 -->
 <html th:replace="~{layout/base :: layout('Voucher Policy', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
 <section>
@@ -200,7 +200,7 @@
   (function () {
     'use strict';
     const BASE        = '/accounts/policy';
-    const COA_URL     = '/accounts/chart/search';
+    const COA_URL     = '/accounts/chart-of-accounts/search';
     const MAPPING_URL = '/accounts/mapping/search';
     var dt;
 

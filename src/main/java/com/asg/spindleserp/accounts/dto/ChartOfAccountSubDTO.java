@@ -16,7 +16,7 @@ import java.time.LocalDate;
  *
  * Fields are conditionally required based on subAccountType.
  * AJAX Select2 fields:
- *   - mainAccountId / mainAccountDisplay  → /accounts/chart/search
+ *   - mainAccountId / mainAccountDisplay  → /accounts/chart-of-accounts/search
  *   - bankId / bankName                   → /banks/search
  */
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder

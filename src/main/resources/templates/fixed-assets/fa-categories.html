@@ -2,7 +2,7 @@
 <!--
   fixed-assets/fa-categories.html    GET /fixed-assets/categories
   JS prefix: cat
-  4 GL account AJAX Select2 → /accounts/chart/search
+  4 GL account AJAX Select2 → /accounts/chart-of-accounts/search
   Depreciation method defaults populated to asset register on create
 -->
 <html th:replace="~{layout/base :: layout('Asset Categories', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
@@ -159,7 +159,7 @@
   (function () {
     'use strict';
     const BASE    = '/fixed-assets/categories';
-    const COA_URL = '/accounts/chart/search';
+    const COA_URL = '/accounts/chart-of-accounts/search';
     var dt;
 
     var _coaFields = [

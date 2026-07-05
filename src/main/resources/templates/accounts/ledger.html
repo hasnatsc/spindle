@@ -127,7 +127,7 @@
       $('#glAccountId').select2({
         placeholder:'— Search Account (code or name) —', allowClear:true, width:'100%',
         ajax:{
-          url:'/accounts/chart/search', dataType:'json', delay:250,
+          url:'/accounts/chart-of-accounts/search', dataType:'json', delay:250,
           data:function(p){ return {search:p.term||'',page:p.page||1}; },
           processResults:function(d){ return {results:(d.items||[]).map(function(i){ return {id:i.id,text:i.code+' — '+i.name}; }),pagination:{more:d.hasMore}}; }
         }

@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <!--
-  accounts/chart-of-accounts.html    GET /accounts/chart
+  accounts/chart-of-accounts.html    GET /accounts/chart-of-accounts-of-accounts
   JS fns: coaShow / coaEdit / coaToggle / coaDelete
-  Parent account → AJAX Select2 via /accounts/chart/search
+  Parent account → AJAX Select2 via /accounts/chart-of-accounts-of-accounts/search
 -->
 <html th:replace="~{layout/base :: layout('Chart of Accounts', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
 <section>
@@ -159,7 +159,7 @@
   <script th:inline="none">
   (function () {
     'use strict';
-    const BASE      = '/accounts/chart';
+    const BASE      = '/accounts/chart-of-accounts-of-accounts';
     const COA_URL   = BASE + '/search';
     var dt;
 

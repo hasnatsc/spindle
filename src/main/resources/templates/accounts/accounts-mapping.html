@@ -2,7 +2,7 @@
 <!--
   accounts/accounts-mapping.html    GET /accounts/mapping
   JS fns: mapShow / mapEdit / mapToggle / mapDelete
-  All ChartOfAccount FK fields → AJAX Select2 via /accounts/chart/search
+  All ChartOfAccount FK fields → AJAX Select2 via /accounts/chart-of-accounts/search
   Detail lines table: dynamic rows with per-row COA AJAX Select2
 -->
 <html th:replace="~{layout/base :: layout('Accounts Mapping', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
@@ -206,7 +206,7 @@
   (function () {
     'use strict';
     const BASE    = '/accounts/mapping';
-    const COA_URL = '/accounts/chart/search';
+    const COA_URL = '/accounts/chart-of-accounts/search';
     var dt, _lineCount = 0;
 
     // COA reference fields on the header form

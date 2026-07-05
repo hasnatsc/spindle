@@ -5,7 +5,7 @@
   Per-type pages (bank-accounts.html etc.) use th:replace to embed this template.
 
   AJAX Select2:
-    Main Account  → /accounts/chart/search
+    Main Account  → /accounts/chart-of-accounts/search
     Bank          → /banks/search  (for Bank type)
 -->
 <html th:replace="~{layout/base :: layout('Sub-Ledger Accounts', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
@@ -444,7 +444,7 @@
   (function () {
     'use strict';
     const BASE        = '/accounts/sub-accounts';
-    const COA_URL     = '/accounts/chart/search';
+    const COA_URL     = '/accounts/chart-of-accounts/search';
     const BANK_URL    = '/banks/search';    // expects {items:[{id,text,...}], hasMore}
     var dt, _currentType = '';
 

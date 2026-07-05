@@ -18,19 +18,19 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
- * ChartOfAccountController  /accounts/chart
+ * ChartOfAccountController  /accounts/chart-of-accounts
  *
  * JS fn → endpoint:
- *   coaShow(id)   GET    /accounts/chart/show/{id}
- *   coaEdit(id)   GET    /accounts/chart/show/{id}
- *   coaToggle(id) POST   /accounts/chart/toggle/{id}
- *   coaDelete(id) DELETE /accounts/chart/delete/{id}
- *   (save)        POST   /accounts/chart/save
- *   (search)      GET    /accounts/chart/search?search=&page=
+ *   coaShow(id)   GET    /accounts/chart-of-accounts/show/{id}
+ *   coaEdit(id)   GET    /accounts/chart-of-accounts/show/{id}
+ *   coaToggle(id) POST   /accounts/chart-of-accounts/toggle/{id}
+ *   coaDelete(id) DELETE /accounts/chart-of-accounts/delete/{id}
+ *   (save)        POST   /accounts/chart-of-accounts/save
+ *   (search)      GET    /accounts/chart-of-accounts/search?search=&page=
  */
 @Slf4j
 @Controller
-@RequestMapping("/accounts/chart")
+@RequestMapping("/accounts/chart-of-accounts")
 @RequiredArgsConstructor
 public class ChartOfAccountController {
 
@@ -116,7 +116,7 @@ public class ChartOfAccountController {
     // ── AJAX Select2 search ───────────────────────────────────────────────────
 
     /**
-     * GET /accounts/chart/search?search=cash&page=1&pageSize=30
+     * GET /accounts/chart-of-accounts/search?search=cash&page=1&pageSize=30
      * Returns: { items: [{id, text, code, name, accountType, nature}], hasMore }
      */
     @GetMapping("/search")
