@@ -229,7 +229,7 @@
       var start=document.getElementById('leaveStartDate').value;
       var end=document.getElementById('leaveEndDate').value;
       if (end<start) { Swal.fire('Validation','End date must be on or after start date.','warning'); return; }
-      var sb=document.getElementById('leaveSubmitBtn'),sp=document.getElementById('leaveSpinner');
+      var sb=document.getElementById('leaveSubmitBtn'),sp=document.getElementById('leaveSpinner'), fm = document.getElementById('periodForm');
       hsDisableButton(sb,sp,null);
       secureFetch(BASE+'/save',{method:'POST',body:JSON.stringify({
         employeeId  : $('#leaveEmpId').val()||null,
@@ -238,7 +238,7 @@
         endDate     : end,
         reason      : document.getElementById('leaveReason').value||null
       })}).then(function(d){
-        if (d.success) { hsAfterSaveMessages(d,dt); bootstrap.Modal.getOrCreateInstance(document.getElementById('leaveModal')).hide(); }
+        if (d.success) { hsAfterSaveMessages(d.success, d.message, fm, dt); bootstrap.Modal.getOrCreateInstance(document.getElementById('leaveModal')).hide(); }
         else Swal.fire('Error',d.message,'error');
       }).catch(function(err){ Swal.fire('Error',err.message||'Request failed.','error'); })
         .finally(function(){ hsEnableButton(sb,sp,null); });
