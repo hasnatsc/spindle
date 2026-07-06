@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<!-- travel-site/tf-tours.html  GET /travel-site/tours -->
+<html th:replace="~{travel-site/layout/tf-base :: layout('Tours', ~{::main})}" xmlns:th="http://www.thymeleaf.org">
+<main>
+  <section class="tf-section">
+    <div class="container">
+      <h1 class="tf-page-title">Tours</h1>
+      <form action="/travel-site/tours" method="get" class="tf-search mb-4">
+        <input type="search" name="q" th:value="${query}" placeholder="Search destination or tour name…">
+        <button type="submit"><i class="fa fa-search"></i></button>
+      </form>
+      <div class="tf-grid">
+        <th:block th:each="t : ${tours}"><div th:replace="~{travel-site/fragments/tf-tour-card :: card(${t})}"></div></th:block>
+        <div th:if="${tours == null or tours.isEmpty()}" class="tf-empty-state" style="grid-column:1/-1">
+          <i class="fa-regular fa-map"></i>
+          <p>No tours found.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+</html>

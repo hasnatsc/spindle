@@ -101,7 +101,7 @@ public class TravelMasterServiceImpl implements TravelMasterService {
                         ELSE '<span class="badge bg-secondary">Inactive</span>' END  AS status_badge,
                    '<div class="btn-group">'
                      || '<a href="javascript:;" onclick="htlEdit('   || h.id || ')" class="btn btn-white btn-sm" title="Edit"><i class="fa-regular fa-pen-to-square text-warning"></i></a>'
-                     || '<a href="javascript:;" onclick="htlRooms('  || h.id || ',\\'' || replace(h.hotel_name,'''','') || '\\')" class="btn btn-white btn-sm" title="Room Types"><i class="fas fa-bed text-info"></i></a>'
+                     || '<a href="javascript:;" onclick="htlRooms('  || h.id || ',\\' || replace(h.hotel_name,'''','') || '\\)" class="btn btn-white btn-sm" title="Room Types"><i class="fas fa-bed text-info"></i></a>'
                      || '<a href="javascript:;" onclick="htlDelete(' || h.id || ')" class="btn btn-white btn-sm" title="Delete"><i class="fa-regular fa-trash-can text-danger"></i></a>'
                      || '</div>'                                                    AS actions
             FROM   trv_hotels h

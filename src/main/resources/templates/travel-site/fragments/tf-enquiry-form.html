@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<!-- travel-site/fragments/tf-enquiry-form.html — shared enquiry form used by
+     both package and tour detail pages. Boarding-pass notch styling. -->
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+<div th:fragment="form(type, refId, basePrice)" class="tf-enquiry-card">
+  <div class="tf-enquiry-notch"></div>
+  <h5>Get a Quote</h5>
+  <div class="tf-enquiry-price">
+    <span>Starting from</span>
+    <strong th:text="'৳' + ${#numbers.formatDecimal(basePrice, 0, 'COMMA', 0, 'POINT')}">৳12,000</strong>
+    <span>/ person</span>
+  </div>
+
+  <div class="mb-2">
+    <label class="tf-label">Number of Travellers</label>
+    <input type="number" id="tfPax" class="tf-input" value="1" min="1">
+  </div>
+  <div class="mb-2">
+    <label class="tf-label">Full Name *</label>
+    <input type="text" id="tfName" class="tf-input" placeholder="Your name">
+  </div>
+  <div class="mb-2">
+    <label class="tf-label">Phone *</label>
+    <input type="tel" id="tfPhone" class="tf-input" placeholder="01712345678">
+  </div>
+  <div class="mb-2">
+    <label class="tf-label">Email</label>
+    <input type="email" id="tfEmail" class="tf-input" placeholder="optional">
+  </div>
+  <div class="mb-3">
+    <label class="tf-label">Message</label>
+    <textarea id="tfMessage" class="tf-input" rows="3" placeholder="Preferred dates, questions, anything else…"></textarea>
+  </div>
+
+  <button type="button" class="tf-btn tf-btn--primary tf-btn--block" id="tfEnquireBtn"
+          th:onclick="|tfSubmitEnquiry('${type}', ${refId})|">
+    Request a Callback
+  </button>
+  <div id="tfEnquiryMsg" class="mt-2"></div>
+  <p class="tf-enquiry-note">No payment now — an agent will call to confirm availability and finalize pricing.</p>
+</div>
+</body>
+</html>

@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<!-- travel-site/tf-home.html  GET /travel-site -->
+<html th:replace="~{travel-site/layout/tf-base :: layout('Home', ~{::main})}" xmlns:th="http://www.thymeleaf.org">
+<main>
+  <section class="tf-hero">
+    <div class="container">
+      <span class="tf-hero-eyebrow">Hotels · Tours · Packages · Air · Visa</span>
+      <h1>Go somewhere<br>worth talking about.</h1>
+      <p>Real itineraries, real prices, real people on the other end of the phone. Tell us where — we'll handle the rest.</p>
+      <a href="/travel-site/packages" class="tf-btn tf-btn--primary">Browse Packages <i class="fa fa-arrow-right"></i></a>
+    </div>
+  </section>
+
+  <div class="tf-flightpath" aria-hidden="true"></div>
+
+  <section class="tf-section">
+    <div class="container">
+      <div class="tf-section-head">
+        <h2>Featured Packages</h2>
+        <a href="/travel-site/packages">View all <i class="fa fa-arrow-right ms-1"></i></a>
+      </div>
+      <div class="tf-grid">
+        <th:block th:each="p : ${featuredPackages}"><div th:replace="~{travel-site/fragments/tf-package-card :: card(${p})}"></div></th:block>
+        <div th:if="${featuredPackages == null or featuredPackages.isEmpty()}" class="tf-empty-state" style="grid-column:1/-1">
+          <i class="fa-regular fa-compass"></i>
+          <p>No packages published yet. Check back soon.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="tf-flightpath" aria-hidden="true"></div>
+
+  <section class="tf-section">
+    <div class="container">
+      <div class="tf-section-head">
+        <h2>Featured Tours</h2>
+        <a href="/travel-site/tours">View all <i class="fa fa-arrow-right ms-1"></i></a>
+      </div>
+      <div class="tf-grid">
+        <th:block th:each="t : ${featuredTours}"><div th:replace="~{travel-site/fragments/tf-tour-card :: card(${t})}"></div></th:block>
+        <div th:if="${featuredTours == null or featuredTours.isEmpty()}" class="tf-empty-state" style="grid-column:1/-1">
+          <i class="fa-regular fa-map"></i>
+          <p>No tours published yet. Check back soon.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+</html>

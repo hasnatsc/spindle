@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<!-- travel-site/tf-package-detail.html  GET /travel-site/packages/{id} -->
+<html th:replace="~{travel-site/layout/tf-base :: layout(${pkg.packageName}, ~{::main})}" xmlns:th="http://www.thymeleaf.org">
+<main>
+  <section class="tf-detail">
+    <div class="container">
+      <div class="tf-detail-hero">
+        <span class="tf-hero-eyebrow" th:text="${pkg.destination}">Destination</span>
+        <h1 th:text="${pkg.packageName}">Package Name</h1>
+        <div class="tf-detail-meta">
+          <span th:if="${pkg.durationDays}"><i class="fa-regular fa-clock"></i> <span th:text="${pkg.durationDays} + ' Days / ' + ${pkg.durationNights} + ' Nights'">3D/2N</span></span>
+          <span th:if="${pkg.category}"><i class="fa-solid fa-tag"></i> <span th:text="${pkg.category}">Category</span></span>
+        </div>
+      </div>
+
+      <div class="row g-5">
+        <div class="col-lg-7">
+          <p class="tf-detail-desc" th:if="${pkg.description}" th:utext="${pkg.description}">Description.</p>
+
+          <div th:if="${pkg.itineraryDays != null and !pkg.itineraryDays.isEmpty()}" class="tf-itinerary">
+            <h5>Itinerary</h5>
+            <div class="tf-itinerary-day" th:each="d : ${pkg.itineraryDays}">
+              <div class="tf-itinerary-daynum">Day <span th:text="${d.dayNumber}">1</span></div>
+              <div>
+                <div class="tf-itinerary-title" th:text="${d.title}">Arrival</div>
+                <p th:if="${d.description}" th:text="${d.description}">Details.</p>
+              </div>
+            </div>
+          </div>
+
+          <div th:if="${pkg.inclusions != null and !pkg.inclusions.isEmpty()}" class="row g-4 mt-2">
+            <div class="col-md-6">
+              <h6 class="tf-incl-head tf-incl-head--in"><i class="fa-solid fa-circle-check"></i> Included</h6>
+              <ul class="tf-incl-list">
+                <li th:each="i : ${pkg.inclusions}" th:if="${i.inclusionType == 'INCLUDED'}" th:text="${i.description}">Item</li>
+              </ul>
+            </div>
+            <div class="col-md-6">
+              <h6 class="tf-incl-head tf-incl-head--ex"><i class="fa-solid fa-circle-xmark"></i> Not Included</h6>
+              <ul class="tf-incl-list">
+                <li th:each="i : ${pkg.inclusions}" th:if="${i.inclusionType == 'EXCLUDED'}" th:text="${i.description}">Item</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-lg-5">
+          <div th:replace="~{travel-site/fragments/tf-enquiry-form :: form('PACKAGE', ${pkg.id}, ${pkg.basePrice})}"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+</html>

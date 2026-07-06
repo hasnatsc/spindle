@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<!--
+  travel-site/layout/tf-base.html — public travel site shell.
+  Fresh theme, NOT Color Admin, NOT the eCommerce storefront tokens —
+  travel needs its own voice.
+
+  DESIGN TOKENS
+  Color: --tf-navy #0F2A43 (ink) · --tf-sand #F3EDE1 (bg) · --tf-coral #E1623D
+         (CTA/accent) · --tf-sky #4C88A6 (secondary) · --tf-linen #E7DFCF
+  Type:  Display = Fraunces · Body = Inter · Utility = JetBrains Mono (dates/ref no.)
+  Signature: dashed "flight path" divider between sections + a boarding-pass
+             notch on the enquiry card — literal nods to travel documents.
+-->
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+<th:block th:fragment="tfHead(title)">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title th:text="${title} ? ${title} + ' — ASG Travel' : 'ASG Travel'">ASG Travel</title>
+  <meta name="_csrf" th:content="${_csrf?.token}">
+  <meta name="_csrf_header" th:content="${_csrf?.headerName}">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300..900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="stylesheet" th:href="@{/css/travel/tf-site.css}">
+</th:block>
+</head>
+<body>
+<th:block th:fragment="layout(title, content)">
+<head th:replace="~{::tfHead(${title})}"></head>
+<body class="tf-body">
+
+  <header class="tf-header">
+    <div class="container tf-header-row">
+      <a href="/travel-site" class="tf-logo">ASG <span>Travel</span></a>
+      <nav class="tf-nav d-none d-md-flex">
+        <a href="/travel-site/packages">Packages</a>
+        <a href="/travel-site/tours">Tours</a>
+        <a href="/travel-site/packages">Visa &amp; Hotels</a>
+      </nav>
+      <a href="tel:+8801700000000" class="tf-btn tf-btn--outline"><i class="fa-solid fa-phone"></i> <span class="d-none d-sm-inline">Call an Agent</span></a>
+    </div>
+  </header>
+
+  <main th:replace="${content}"></main>
+
+  <div class="tf-flightpath" aria-hidden="true"></div>
+
+  <footer class="tf-footer">
+    <div class="container">
+      <div class="row g-4">
+        <div class="col-md-4">
+          <div class="tf-logo tf-logo--footer">ASG <span>Travel</span></div>
+          <p class="tf-footer-tag">Hotels, tours, packages, air, and visa — planned and booked by people who've actually been there.</p>
+        </div>
+        <div class="col-md-4">
+          <h6>Explore</h6>
+          <a href="/travel-site/packages">Packages</a>
+          <a href="/travel-site/tours">Tours</a>
+        </div>
+        <div class="col-md-4">
+          <h6>Talk to us</h6>
+          <p class="mb-1"><i class="fa-solid fa-phone"></i> +880 1700-000000</p>
+          <p class="mb-0"><i class="fa-solid fa-envelope"></i> travel@asggroup.com</p>
+        </div>
+      </div>
+      <div class="tf-footer-bottom">
+        <span>&copy; <span th:text="${#calendars.format(#calendars.createNow(),'yyyy')}">2026</span> ASG Travel. All rights reserved.</span>
+      </div>
+    </div>
+  </footer>
+
+  <div id="tfToast" class="tf-toast"></div>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script th:src="@{/js/travel/tf-site.js}"></script>
+</body>
+</th:block>
+</body>
+</html>

@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<!--
+  travel/travel-frontdesk.html   GET /travel/frontdesk
+  Walk-in booking console for counter agents.
+
+  Wiring (all endpoints already exist):
+    Customer  : GET  /accounts/sub-accounts/search?subAccountType=CUSTOMER  ({items:[{id,text}],hasMore})
+    Hotel     : GET  /travel/hotels/search?search=      ({items:[{id,text}]})
+    Package   : GET  /travel/packages/search?search=    ({items:[{id,text}]})
+    Tour      : GET  /travel/tours/search?search=       ({items:[{id,text}]})
+    Air / Visa: description-only at the counter (referenceId stays null; detailed
+                ticketing / visa fulfilment happens on their own ops screens after confirm)
+    Save      : POST /travel/bookings/save              ({success,id,bookingNo,message})
+    Confirm   : POST /travel/bookings/confirm/{id}      (requires partyId server-side)
+    Feed      : GET  /travel/bookings/list?length=8     (DataTableResponse -> {data:[...]})
+
+  Assumes the shared dashboard shell (dashboard-base.html + sidebar/topbar fragments).
+-->
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/dashboard-base}">
+<head>
+  <title th:text="${pageTitle} + ' — Spindle ERP'">Front Desk</title>
+  <link rel="stylesheet" th:href="@{/css/travel/travel-frontdesk.css}">
+</head>
+<body>
+<div layout:fragment="content">
+
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h4 class="mb-0">Front Desk</h4>
+      <p class="text-muted mb-0">Quick walk-in booking — hotel, air, package, tour, or visa.</p>
+    </div>
+    <div class="d-flex align-items-center gap-3">
+      <span class="fd-clock" id="fdClock"></span>
+      <button type="button" class="btn btn-sm btn-outline-secondary" onclick="fdNew()" title="Start a fresh booking">
+        <i class="fa fa-rotate-left me-1"></i>New
+      </button>
+    </div>
+  </div>
+
+  <div class="row g-4">
+    <!-- ══════════ LEFT: booking builder ══════════ -->
+    <div class="col-xl-8">
+
+      <!-- 1. Customer -->
+      <div class="fd-card mb-3">
+        <h6 class="fd-card-title">1. Customer</h6>
+        <div class="d-flex gap-2 mb-3">
+          <button type="button" class="btn btn-sm fd-toggle active" id="fdModeRegistered" onclick="fdSetCustomerMode('registered')">Registered Customer</button>
+          <button type="button" class="btn btn-sm fd-toggle" id="fdModeWalkin" onclick="fdSetCustomerMode('walkin')">Walk-in Guest</button>
+        </div>
+
+        <!-- Registered: real CUSTOMER sub-account lookup -->
+        <div id="fdRegisteredFields" class="row g-2">
+          <div class="col-md-8">
+            <label class="form-label">Customer *</label>
+            <select id="fdPartyId" class="form-select"></select>
+            <small class="text-muted">Required to <strong>Save &amp; Confirm</strong> (a confirmed booking posts to the customer's AR).</small>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Travel Date</label>
+            <input type="date" id="fdTravelDate" class="form-control">
+          </div>
+        </div>
+
+        <!-- Walk-in: quick guest capture (folded into remarks; draft only) -->
+        <div id="fdWalkinFields" class="row g-2" style="display:none">
+          <div class="col-md-4">
+            <label class="form-label">Full Name *</label>
+            <input type="text" id="fdGuestName" class="form-control" placeholder="Rahim Ahmed">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Phone *</label>
+            <input type="tel" id="fdGuestPhone" class="form-control" placeholder="01712345678">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Email</label>
+            <input type="email" id="fdGuestEmail" class="form-control" placeholder="optional">
+          </div>
+          <div class="col-md-2">
+            <label class="form-label">Travel Date</label>
+            <input type="date" id="fdTravelDateW" class="form-control">
+          </div>
+          <div class="col-12">
+            <small class="text-muted"><i class="fa fa-circle-info me-1"></i>Walk-in guests save as <strong>Draft</strong>. To confirm, attach a registered customer.</small>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2. Add service line -->
+      <div class="fd-card mb-3">
+        <h6 class="fd-card-title">2. Add a service</h6>
+        <ul class="nav nav-pills fd-tabs mb-3" id="fdServiceTabs">
+          <li class="nav-item"><button type="button" class="nav-link active" data-type="HOTEL"   onclick="fdSwitchTab(this)">Hotel</button></li>
+          <li class="nav-item"><button type="button" class="nav-link"        data-type="AIR"     onclick="fdSwitchTab(this)">Air</button></li>
+          <li class="nav-item"><button type="button" class="nav-link"        data-type="PACKAGE" onclick="fdSwitchTab(this)">Package</button></li>
+          <li class="nav-item"><button type="button" class="nav-link"        data-type="TOUR"    onclick="fdSwitchTab(this)">Tour</button></li>
+          <li class="nav-item"><button type="button" class="nav-link"        data-type="VISA"    onclick="fdSwitchTab(this)">Visa</button></li>
+        </ul>
+
+        <!-- reference row -->
+        <div class="row g-2 mb-2">
+          <div class="col-md-12" id="fdRefWrap">
+            <label class="form-label">Search <span id="fdRefLabel">Hotel</span></label>
+            <select id="fdRefSelect" class="form-select"></select>
+          </div>
+          <div class="col-md-12" id="fdRefNote" style="display:none">
+            <div class="fd-ref-note">
+              <i class="fa fa-circle-info me-1"></i>
+              <span id="fdRefNoteText">Enter a description below — the ticket is issued in Air Tickets after confirming.</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- detail row -->
+        <div class="row g-2 align-items-end">
+          <div class="col-md-6">
+            <label class="form-label">Description</label>
+            <input type="text" id="fdLineDesc" class="form-control" placeholder="e.g. Deluxe room × 2 nights">
+          </div>
+          <div class="col-md-2">
+            <label class="form-label">Qty</label>
+            <input type="number" id="fdLineQty" class="form-control" value="1" min="0.001" step="1">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Unit Price (৳)</label>
+            <input type="number" id="fdLinePrice" class="form-control" value="0" min="0" step="0.01">
+          </div>
+          <div class="col-md-1 d-grid">
+            <button type="button" class="btn btn-primary" onclick="fdAddLine()" title="Add to quote"><i class="fa fa-plus"></i></button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. Quote -->
+      <div class="fd-card">
+        <h6 class="fd-card-title">3. Quote</h6>
+        <div class="table-responsive">
+          <table class="table table-sm align-middle mb-2" id="fdCartTable">
+            <thead>
+              <tr>
+                <th style="width:90px">Type</th>
+                <th>Description</th>
+                <th class="text-end" style="width:70px">Qty</th>
+                <th class="text-end" style="width:130px">Unit Price</th>
+                <th class="text-end" style="width:140px">Line Total</th>
+                <th style="width:40px"></th>
+              </tr>
+            </thead>
+            <tbody id="fdCartBody">
+              <tr id="fdCartEmpty"><td colspan="6" class="text-center text-muted py-4">No services added yet.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="d-flex justify-content-end">
+          <div class="fd-totals">
+            <div class="d-flex justify-content-between"><span>Lines</span><strong id="fdSumCount">0</strong></div>
+            <div class="d-flex justify-content-between"><span>Subtotal</span><strong id="fdSumSubtotal">৳0.00</strong></div>
+            <div class="d-flex justify-content-between fd-grand"><span>Total</span><strong id="fdSumTotal">৳0.00</strong></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════ RIGHT: actions + activity ══════════ -->
+    <div class="col-xl-4">
+      <div class="fd-card mb-3">
+        <h6 class="fd-card-title">Remarks</h6>
+        <textarea id="fdRemarks" class="form-control" rows="3" placeholder="Anything the back office should know?"></textarea>
+      </div>
+
+      <div class="fd-card mb-3">
+        <div class="d-grid gap-2">
+          <button type="button" class="btn btn-outline-secondary" id="fdSaveDraftBtn" onclick="fdSave(false)">
+            <span class="spinner-border spinner-border-sm me-1 d-none" id="fdDraftSpin"></span>
+            <span id="fdDraftTxt">Save as Draft</span>
+          </button>
+          <button type="button" class="btn btn-success" id="fdSaveConfirmBtn" onclick="fdSave(true)">
+            <span class="spinner-border spinner-border-sm me-1 d-none" id="fdConfirmSpin"></span>
+            <span id="fdConfirmTxt">Save &amp; Confirm</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="fd-card">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <h6 class="fd-card-title mb-0">Recent Front Desk Activity</h6>
+          <a href="/travel/bookings" class="small text-decoration-none">All bookings →</a>
+        </div>
+        <div id="fdRecentList"><p class="text-muted small mb-0">Loading…</p></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script th:src="@{/js/travel/travel-frontdesk.js}"></script>
+</body>
+</html>

@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<!-- travel-site/tf-tour-detail.html  GET /travel-site/tours/{id} -->
+<html th:replace="~{travel-site/layout/tf-base :: layout(${tour.tourName}, ~{::main})}" xmlns:th="http://www.thymeleaf.org">
+<main>
+  <section class="tf-detail">
+    <div class="container">
+      <div class="tf-detail-hero">
+        <span class="tf-hero-eyebrow" th:text="${tour.destination}">Destination</span>
+        <h1 th:text="${tour.tourName}">Tour Name</h1>
+        <div class="tf-detail-meta">
+          <span th:if="${tour.durationHours}"><i class="fa-regular fa-clock"></i> <span th:text="${tour.durationHours} + ' hours'">4 hrs</span></span>
+        </div>
+      </div>
+
+      <div class="row g-5">
+        <div class="col-lg-7">
+          <p class="tf-detail-desc" th:if="${tour.description}" th:utext="${tour.description}">Description.</p>
+        </div>
+        <div class="col-lg-5">
+          <div th:replace="~{travel-site/fragments/tf-enquiry-form :: form('TOUR', ${tour.id}, ${tour.basePrice})}"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+</html>

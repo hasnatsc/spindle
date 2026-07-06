@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<!-- travel-site/fragments/tf-tour-card.html — same ?. safe-navigation pattern
+     as tf-package-card.html. -->
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+<div th:fragment="card(t)" class="tf-card">
+  <a th:href="@{'/travel-site/tours/' + ${t?.id}}" class="tf-card-link">
+    <div class="tf-card-media tf-card-media--tour">
+      <span class="tf-card-dest" th:text="${t?.destination}">Destination</span>
+      <span class="tf-card-dur" th:if="${t?.durationHours != null}" th:text="${t.durationHours} + ' hrs'">4 hrs</span>
+    </div>
+    <div class="tf-card-body">
+      <div class="tf-card-title" th:text="${t?.tourName}">Tour Name</div>
+      <div class="tf-card-price">
+        from <strong th:text="'৳' + ${#numbers.formatDecimal(t?.basePrice != null ? t.basePrice : 0, 0, 'COMMA', 0, 'POINT')}">৳2,500</strong>
+      </div>
+    </div>
+  </a>
+</div>
+</body>
+</html>

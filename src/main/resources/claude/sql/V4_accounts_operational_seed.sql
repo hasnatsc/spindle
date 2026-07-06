@@ -1,4 +1,16 @@
--- =============================================================================
+
+
+
+
+
+
+
+
+
+
+
+
+
 --  Spindle ERP  —  Accounts Operational Seed  v4.0
 --  File   : V4_accounts_operational_seed.sql
 --  Target : PostgreSQL + Flyway compatible, idempotent (WHERE NOT EXISTS)

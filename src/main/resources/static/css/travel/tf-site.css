@@ -1,0 +1,126 @@
+/* =============================================================================
+   tf-site.css — ASG Travel public site. Own token set (not the eCommerce
+   storefront's, not Color Admin's).
+   ============================================================================= */
+:root {
+  --tf-navy: #0F2A43;
+  --tf-sand: #F3EDE1;
+  --tf-coral: #E1623D;
+  --tf-sky: #4C88A6;
+  --tf-linen: #E7DFCF;
+  --tf-grey: #7A8388;
+  --font-display: 'Fraunces', serif;
+  --font-body: 'Inter', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+* { box-sizing: border-box; }
+body.tf-body { font-family: var(--font-body); color: var(--tf-navy); background: var(--tf-sand); margin: 0; }
+a { text-decoration: none; }
+
+/* Header */
+.tf-header { background: var(--tf-navy); padding: 16px 0; }
+.tf-header-row { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+.tf-logo { font-family: var(--font-display); font-size: 1.5rem; font-weight: 700; color: var(--tf-sand); }
+.tf-logo span { color: var(--tf-coral); }
+.tf-nav { gap: 28px; }
+.tf-nav a { color: var(--tf-sand); font-weight: 500; font-size: .92rem; opacity: .9; }
+.tf-nav a:hover { opacity: 1; color: var(--tf-coral); }
+
+/* Buttons */
+.tf-btn { display: inline-flex; align-items: center; gap: 8px; padding: 11px 22px; border-radius: 4px; font-weight: 600; font-size: .9rem; border: 2px solid transparent; cursor: pointer; }
+.tf-btn--primary { background: var(--tf-coral); color: #fff; }
+.tf-btn--primary:hover { background: #c94f2c; color: #fff; }
+.tf-btn--outline { border-color: var(--tf-sand); color: var(--tf-sand); background: transparent; }
+.tf-btn--outline:hover { background: rgba(247,243,236,.1); color: var(--tf-sand); }
+.tf-btn--block { width: 100%; justify-content: center; }
+
+/* Hero */
+.tf-hero { background: var(--tf-navy); color: var(--tf-sand); padding: 90px 0 70px; text-align: center; }
+.tf-hero-eyebrow { font-family: var(--font-mono); font-size: .78rem; letter-spacing: .06em; text-transform: uppercase; color: var(--tf-coral); }
+.tf-hero h1 { font-family: var(--font-display); font-size: clamp(2.2rem, 5vw, 3.4rem); margin: 16px 0; }
+.tf-hero p { max-width: 560px; margin: 0 auto 28px; opacity: .85; }
+
+/* Flight path divider */
+.tf-flightpath { height: 1px; border-top: 2px dashed var(--tf-linen); margin: 0; position: relative; }
+.tf-flightpath::before { content: '\2708'; position: absolute; left: 50%; top: -11px; background: var(--tf-sand); padding: 0 10px; color: var(--tf-sky); font-size: 1rem; }
+
+/* Sections */
+.tf-section { padding: 60px 0; }
+.tf-section-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 28px; }
+.tf-section-head h2 { font-family: var(--font-display); font-size: 1.8rem; margin: 0; }
+.tf-section-head a { color: var(--tf-sky); font-weight: 600; font-size: .88rem; }
+.tf-page-title { font-family: var(--font-display); font-size: 2.2rem; margin-bottom: 24px; }
+
+/* Search */
+.tf-search { display: flex; max-width: 480px; border: 1px solid var(--tf-linen); border-radius: 4px; overflow: hidden; background: #fff; }
+.tf-search input { flex: 1; border: none; padding: 12px 16px; font-family: var(--font-body); background: transparent; }
+.tf-search input:focus { outline: none; }
+.tf-search button { border: none; background: var(--tf-navy); color: #fff; padding: 0 20px; cursor: pointer; }
+
+/* Grid + cards */
+.tf-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 22px; }
+.tf-card { background: #fff; border-radius: 8px; overflow: hidden; border: 1px solid var(--tf-linen); transition: transform .15s, box-shadow .15s; }
+.tf-card:hover { transform: translateY(-3px); box-shadow: 0 10px 24px rgba(15,42,67,.1); }
+.tf-card-link { color: inherit; display: block; }
+.tf-card-media { background: linear-gradient(135deg, var(--tf-navy), var(--tf-sky)); color: #fff; padding: 30px 18px; display: flex; flex-direction: column; justify-content: space-between; min-height: 110px; }
+.tf-card-media--tour { background: linear-gradient(135deg, var(--tf-coral), #a8442b); }
+.tf-card-dest { font-family: var(--font-display); font-size: 1.3rem; font-weight: 600; }
+.tf-card-dur { font-family: var(--font-mono); font-size: .74rem; opacity: .85; align-self: flex-end; }
+.tf-card-body { padding: 16px 18px 20px; }
+.tf-card-cat { font-family: var(--font-mono); font-size: .68rem; text-transform: uppercase; color: var(--tf-sky); margin-bottom: 4px; }
+.tf-card-title { font-weight: 600; margin-bottom: 8px; }
+.tf-card-price { font-size: .86rem; color: var(--tf-grey); }
+.tf-card-price strong { color: var(--tf-coral); font-family: var(--font-mono); }
+
+/* Empty state */
+.tf-empty-state { text-align: center; padding: 50px 20px; color: var(--tf-grey); }
+.tf-empty-state i { font-size: 2rem; margin-bottom: 12px; display: block; }
+
+/* Detail */
+.tf-detail-hero { padding: 40px 0 20px; }
+.tf-detail-hero h1 { font-family: var(--font-display); font-size: 2.2rem; margin: 6px 0 12px; }
+.tf-detail-meta { display: flex; gap: 20px; color: var(--tf-grey); font-size: .88rem; }
+.tf-detail-desc { line-height: 1.7; }
+.tf-itinerary { margin-top: 24px; }
+.tf-itinerary h5 { font-family: var(--font-display); margin-bottom: 16px; }
+.tf-itinerary-day { display: flex; gap: 16px; padding: 14px 0; border-bottom: 1px dashed var(--tf-linen); }
+.tf-itinerary-daynum { font-family: var(--font-mono); font-weight: 600; color: var(--tf-coral); flex: none; width: 70px; }
+.tf-itinerary-title { font-weight: 600; margin-bottom: 4px; }
+.tf-incl-head { font-size: .82rem; text-transform: uppercase; letter-spacing: .03em; margin-bottom: 10px; }
+.tf-incl-head--in { color: #2f7d4f; }
+.tf-incl-head--ex { color: var(--tf-coral); }
+.tf-incl-list { padding-left: 18px; font-size: .9rem; }
+.tf-incl-list li { margin-bottom: 6px; }
+
+/* Enquiry card (boarding pass motif) */
+.tf-enquiry-card { position: sticky; top: 20px; background: #fff; border: 1px solid var(--tf-linen); border-radius: 8px; padding: 26px; }
+.tf-enquiry-notch { position: absolute; width: 20px; height: 20px; background: var(--tf-sand); border-radius: 50%; margin-top: -46px; margin-left: -46px; display: none; }
+.tf-enquiry-card h5 { font-family: var(--font-display); margin-bottom: 14px; }
+.tf-enquiry-price { display: flex; align-items: baseline; gap: 6px; margin-bottom: 20px; font-size: .82rem; color: var(--tf-grey); }
+.tf-enquiry-price strong { font-family: var(--font-mono); font-size: 1.3rem; color: var(--tf-navy); }
+.tf-label { font-size: .78rem; font-weight: 600; color: var(--tf-navy); display: block; margin-bottom: 4px; }
+.tf-input { width: 100%; border: 1px solid var(--tf-linen); border-radius: 4px; padding: 9px 12px; font-family: var(--font-body); font-size: .9rem; }
+.tf-input:focus { outline: none; border-color: var(--tf-sky); }
+.tf-enquiry-note { font-size: .74rem; color: var(--tf-grey); margin: 10px 0 0; }
+
+/* Success */
+.tf-success { max-width: 560px; margin: 0 auto; text-align: center; padding: 30px 0; }
+.tf-success-icon { width: 72px; height: 72px; border-radius: 50%; background: var(--tf-sky); color: #fff; font-size: 1.7rem; display: flex; align-items: center; justify-content: center; margin: 0 auto 24px; }
+.tf-success h1 { font-family: var(--font-display); }
+.tf-success-sub { color: var(--tf-grey); }
+.tf-mono { font-family: var(--font-mono); font-weight: 600; color: var(--tf-navy); }
+.tf-success-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-top: 24px; }
+
+/* Footer */
+.tf-footer { background: var(--tf-navy); color: var(--tf-sand); padding: 50px 0 20px; margin-top: 40px; }
+.tf-footer h6 { font-family: var(--font-mono); font-size: .78rem; text-transform: uppercase; color: var(--tf-coral); margin-bottom: 14px; }
+.tf-footer a, .tf-footer p { display: block; color: var(--tf-sand); opacity: .85; font-size: .88rem; margin-bottom: 8px; text-decoration: none; }
+.tf-footer-tag { opacity: .7; font-size: .85rem; margin-top: 10px; max-width: 320px; }
+.tf-footer-bottom { border-top: 1px solid rgba(247,243,236,.15); margin-top: 30px; padding-top: 18px; font-size: .8rem; opacity: .7; }
+
+/* Toast */
+.tf-toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(20px); background: var(--tf-navy); color: #fff; padding: 12px 22px; border-radius: 6px; font-size: .88rem; opacity: 0; pointer-events: none; transition: all .3s; z-index: 999; }
+.tf-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+.tf-toast.error { background: var(--tf-coral); }
+
+@media (max-width: 768px) { .tf-enquiry-card { position: static; } }

@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<!-- travel-site/fragments/tf-package-card.html — no product images exist in
+     the schema (trv_packages has no image column), so cards lead with
+     destination + duration typography rather than invented photos.
+     Uses ?. (safe navigation) throughout so a partially-null DTO renders an
+     empty/blank field instead of throwing "cannot be found on null". -->
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+<div th:fragment="card(p)" class="tf-card">
+  <a th:href="@{'/travel-site/packages/' + ${p?.id}}" class="tf-card-link">
+    <div class="tf-card-media">
+      <span class="tf-card-dest" th:text="${p?.destination}">Destination</span>
+      <span class="tf-card-dur" th:if="${p?.durationDays != null}"
+            th:text="${p.durationDays} + 'D/' + ${p?.durationNights != null ? p.durationNights : 0} + 'N'">3D/2N</span>
+    </div>
+    <div class="tf-card-body">
+      <div class="tf-card-cat" th:if="${p?.category != null}" th:text="${p.category}">Category</div>
+      <div class="tf-card-title" th:text="${p?.packageName}">Package Name</div>
+      <div class="tf-card-price">
+        from <strong th:text="'৳' + ${#numbers.formatDecimal(p?.basePrice != null ? p.basePrice : 0, 0, 'COMMA', 0, 'POINT')}">৳12,000</strong>
+      </div>
+    </div>
+  </a>
+</div>
+</body>
+</html>
