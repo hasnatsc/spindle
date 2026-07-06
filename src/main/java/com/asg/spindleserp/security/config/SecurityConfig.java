@@ -10,8 +10,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.security.autoconfigure.web.servlet.PathRequest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.ProviderManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -21,7 +19,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
-import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
+import org.springframework.security.web.csrf.XorCsrfTokenRequestAttributeHandler;
 import org.springframework.session.FindByIndexNameSessionRepository;
 import org.springframework.session.Session;
 import org.springframework.session.security.SpringSessionBackedSessionRegistry;
@@ -132,6 +130,21 @@ import org.springframework.session.security.SpringSessionBackedSessionRegistry;
  *   (the in-memory registry is per-JVM and silently wrong the moment
  *   there's more than one).
  *
+ * BUG 6 — application.properties documented FIX 1 (initialize-schema=never)
+ *         but the value was still literally "always".              [NEW FIX]
+ *   This was the actual live, reproducible cause of "need to submit the
+ *   login form twice": spring-boot-devtools restarts the app context on
+ *   nearly every save during development, and "always" drops + recreates
+ *   SPRING_SESSION / SPRING_SESSION_ATTRIBUTES on every one of those
+ *   restarts — wiping the very session that was just created moments
+ *   earlier for the /login page. Bugs 1–5 above were real and worth
+ *   fixing, but none of them could survive the session table itself
+ *   getting wiped out from under a request in flight.
+ *
+ *   FIX: application.properties now genuinely sets
+ *   spring.session.jdbc.initialize-schema=never (tables already exist
+ *   via Flyway V1, so this is safe from first deploy onward).
+ *
  * ══════════════════════════════════════════════════════════════════════
  * ALL PRIOR FIXES RETAINED:
  *   ✅ CsrfTokenRequestAttributeHandler + meta-tag approach (FIX 3 from
@@ -183,10 +196,12 @@ public class SecurityConfig {
         return provider;
     }
 
-    @Bean
-    public AuthenticationManager authenticationManager() {
-        return new ProviderManager(authenticationProvider());
-    }
+    // NOTE: no standalone AuthenticationManager @Bean here on purpose.
+    // .authenticationProvider(authenticationProvider()) below (on HttpSecurity
+    // itself) is what actually builds the AuthenticationManager formLogin uses.
+    // A previous standalone `authenticationManager()` bean built a second,
+    // separate ProviderManager instance that nothing ever called — dead code
+    // that just risked someone later autowiring the unused one by mistake.
 
     // ── Spring-Session-aware concurrent session registry ───────────────────────
     // ✅ FIX BUG 5: HttpSessionEventPublisher (a servlet HttpSessionListener)
@@ -209,13 +224,30 @@ public class SecurityConfig {
         http
                 // ── CSRF ──────────────────────────────────────────────────────────
                 .csrf(csrf -> csrf
-                        .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+//                        .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
 
-                        // CsrfTokenRequestAttributeHandler: server-renders token into
-                        // <meta name="_csrf" th:content="${_csrf.token}"> via head.html.
-                        // secureFetch() reads from that meta tag — always fresh, never stale.
-                        // The XSRF-TOKEN cookie is a secondary path for Thymeleaf forms.
-                        .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler())
+                        // BUG 7 — CsrfTokenRequestAttributeHandler resolves the token EAGERLY
+                        // (calls .get() on every request that reaches CsrfFilter, including
+                        // /css/**, /js/**, /img/** etc, even though those are in
+                        // ignoringRequestMatchers below — that matcher only skips VALIDATION,
+                        // not the eager load-or-generate-and-save step that runs first).
+                        // The login page fires a dozen+ parallel asset requests on first
+                        // load; none of them carry the XSRF-TOKEN cookie yet, so EACH ONE
+                        // independently generates its own new token and sets its own
+                        // competing Set-Cookie. Whichever response the browser processes
+                        // last wins the cookie jar — essentially at random — while the
+                        // login page's own hidden _csrf field was rendered from a DIFFERENT
+                        // independently-generated token. Result: MissingCsrfTokenException
+                        // on first submit, every time, deterministically. On retry the
+                        // assets are already cached (no race), so it works.
+                        //
+                        // FIX: XorCsrfTokenRequestAttributeHandler (Spring's default) is
+                        // LAZY — it only resolves when something actually reads _csrf,
+                        // which for asset requests never happens. Only the login page's own
+                        // Thymeleaf render (${_csrf.token}) triggers resolution, once, for
+                        // that one response — no race. Still fully compatible with the
+                        // meta-tag / secureFetch AJAX read elsewhere in the app.
+                        .csrfTokenRequestHandler(new XorCsrfTokenRequestAttributeHandler())
 
                         // Static resources never need a CSRF token
                         .ignoringRequestMatchers(
@@ -270,13 +302,8 @@ public class SecurityConfig {
                         .logoutUrl("/logout")
                         .logoutSuccessUrl("/login?logout")
                         .invalidateHttpSession(true)
-                        // ✅ FIX BUG 4: Spring Session (store-type=jdbc) issues a cookie
-                        //    named "SESSION", not "JSESSIONID". Deleting "JSESSIONID" was
-                        //    a no-op — the browser kept the real session cookie after
-                        //    logout, pointing at a DB row that no longer existed.
                         .deleteCookies("SESSION", "XSRF-TOKEN", "remember-me")
                         .clearAuthentication(true)
-                        .permitAll()
                 )
 
                 // ── Session management ─────────────────────────────────────────────

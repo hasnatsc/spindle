@@ -96,8 +96,8 @@
       position: absolute;
       inset: 0;
       background-image:
-        linear-gradient(rgba(0,200,255,.04) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(0,200,255,.04) 1px, transparent 1px);
+              linear-gradient(rgba(0,200,255,.04) 1px, transparent 1px),
+              linear-gradient(90deg, rgba(0,200,255,.04) 1px, transparent 1px);
       background-size: 28px 28px;
       pointer-events: none;
     }
@@ -569,7 +569,17 @@
       <form th:action="@{/login}" method="POST"
             id="loginForm" autocomplete="on" novalidate>
 
-        <!-- Thymeleaf auto-injects CSRF hidden input when using th:action -->
+        <!--
+          FIX — explicit CSRF field, not relying on implicit auto-injection.
+          Thymeleaf CAN auto-inject a hidden _csrf field via th:action, but
+          only if a RequestDataValueProcessor bean actually gets autowired
+          by Spring Boot's security autoconfiguration. That mechanism moved
+          packages in Boot 4.x (see PathRequest import in SecurityConfig)
+          and silently not firing is indistinguishable from "working" until
+          a POST fails. Rendering it explicitly removes that uncertainty
+          entirely — this always works regardless of that autoconfiguration.
+        -->
+        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" />
 
         <!-- Username / Email / Phone -->
         <div class="form-field">
