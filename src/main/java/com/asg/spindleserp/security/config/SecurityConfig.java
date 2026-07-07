@@ -145,6 +145,36 @@ import org.springframework.session.security.SpringSessionBackedSessionRegistry;
  *   spring.session.jdbc.initialize-schema=never (tables already exist
  *   via Flyway V1, so this is safe from first deploy onward).
  *
+ * BUG 7 — Storefront / travel-site were completely unreachable by
+ *         anonymous visitors — home page, product pages, add-to-cart,
+ *         all of it 401/redirected to /login.                  [NEW FIX]
+ *   The eCommerce storefront (StorefrontCatalogController "/", "/shop",
+ *   "/product/**", "/category/**"; StorefrontCartController "/cart/**";
+ *   StorefrontCheckoutController "/checkout/**"; StorefrontAuthController
+ *   / StorefrontAccountController "/account/**"; StorefrontWishlistController
+ *   "/wishlist/**") and the public Travel portal ("/travel-site/**") are
+ *   ALL deliberately built OUTSIDE Spring Security's Authentication model.
+ *   Customer identity there is StorefrontAuthService's own lightweight
+ *   session key (SF_CUSTOMER_ID) — there is no sec_users row, no
+ *   GrantedAuthority, nothing DynamicAuthorizationManager can ever see.
+ *
+ *   Because none of those prefixes were in PUBLIC_URLS, every single
+ *   request to them fell through to
+ *   ".anyRequest().access(dynamicAuthorizationManager)". An anonymous
+ *   visitor has zero ERP permissions, so DynamicAuthorizationManager
+ *   denied everything before the controller's own
+ *   authService.currentCustomerOrNull(request) guest/login logic ever
+ *   ran — the home page (and its configured home sections), product
+ *   browsing, and even guest add-to-cart were all blocked.
+ *
+ *   FIX: add every storefront + travel-site prefix to PUBLIC_URLS as
+ *   permitAll. This does NOT make checkout/account/wishlist anonymous —
+ *   those still redirect to /account/login (or return {login:true}) at
+ *   the controller level via authService.currentCustomerOrNull(request).
+ *   It only stops Spring Security's ERP-staff authorization layer from
+ *   intercepting a completely separate, intentionally-public customer
+ *   surface before that controller-level check gets a chance to run.
+ *
  * ══════════════════════════════════════════════════════════════════════
  * ALL PRIOR FIXES RETAINED:
  *   ✅ CsrfTokenRequestAttributeHandler + meta-tag approach (FIX 3 from
@@ -176,7 +206,27 @@ public class SecurityConfig {
             "/access-denied",
             "/actuator/health",
             "/favicon.ico",
-            "/favicon.svg"
+            "/favicon.svg",
+
+            // ── eCommerce storefront (public customer-facing site) ────────────
+            // Auth here is StorefrontAuthService's own SF_CUSTOMER_ID session
+            // attribute, entirely separate from Spring Security's Authentication.
+            // Login-gating for account-only actions (checkout, /account/**,
+            // wishlist) happens in the controllers themselves via
+            // authService.currentCustomerOrNull(request) — NOT here. Browsing
+            // and guest add-to-cart must stay open, or the home page (and its
+            // configured home sections) never renders for an anonymous visitor.
+            "/",
+            "/shop", "/shop/**",
+            "/product/**",
+            "/category/**",
+            "/cart", "/cart/**",
+            "/checkout", "/checkout/**",
+            "/account", "/account/**",
+            "/wishlist", "/wishlist/**",
+
+            // ── Public travel portal — no login at all, lead-capture only ─────
+            "/travel-site", "/travel-site/**"
     };
 
     // ── Password encoder ──────────────────────────────────────────────────────
@@ -226,34 +276,34 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf
 //                        .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
 
-                        // BUG 7 — CsrfTokenRequestAttributeHandler resolves the token EAGERLY
-                        // (calls .get() on every request that reaches CsrfFilter, including
-                        // /css/**, /js/**, /img/** etc, even though those are in
-                        // ignoringRequestMatchers below — that matcher only skips VALIDATION,
-                        // not the eager load-or-generate-and-save step that runs first).
-                        // The login page fires a dozen+ parallel asset requests on first
-                        // load; none of them carry the XSRF-TOKEN cookie yet, so EACH ONE
-                        // independently generates its own new token and sets its own
-                        // competing Set-Cookie. Whichever response the browser processes
-                        // last wins the cookie jar — essentially at random — while the
-                        // login page's own hidden _csrf field was rendered from a DIFFERENT
-                        // independently-generated token. Result: MissingCsrfTokenException
-                        // on first submit, every time, deterministically. On retry the
-                        // assets are already cached (no race), so it works.
-                        //
-                        // FIX: XorCsrfTokenRequestAttributeHandler (Spring's default) is
-                        // LAZY — it only resolves when something actually reads _csrf,
-                        // which for asset requests never happens. Only the login page's own
-                        // Thymeleaf render (${_csrf.token}) triggers resolution, once, for
-                        // that one response — no race. Still fully compatible with the
-                        // meta-tag / secureFetch AJAX read elsewhere in the app.
-                        .csrfTokenRequestHandler(new XorCsrfTokenRequestAttributeHandler())
+                                // BUG 7 — CsrfTokenRequestAttributeHandler resolves the token EAGERLY
+                                // (calls .get() on every request that reaches CsrfFilter, including
+                                // /css/**, /js/**, /img/** etc, even though those are in
+                                // ignoringRequestMatchers below — that matcher only skips VALIDATION,
+                                // not the eager load-or-generate-and-save step that runs first).
+                                // The login page fires a dozen+ parallel asset requests on first
+                                // load; none of them carry the XSRF-TOKEN cookie yet, so EACH ONE
+                                // independently generates its own new token and sets its own
+                                // competing Set-Cookie. Whichever response the browser processes
+                                // last wins the cookie jar — essentially at random — while the
+                                // login page's own hidden _csrf field was rendered from a DIFFERENT
+                                // independently-generated token. Result: MissingCsrfTokenException
+                                // on first submit, every time, deterministically. On retry the
+                                // assets are already cached (no race), so it works.
+                                //
+                                // FIX: XorCsrfTokenRequestAttributeHandler (Spring's default) is
+                                // LAZY — it only resolves when something actually reads _csrf,
+                                // which for asset requests never happens. Only the login page's own
+                                // Thymeleaf render (${_csrf.token}) triggers resolution, once, for
+                                // that one response — no race. Still fully compatible with the
+                                // meta-tag / secureFetch AJAX read elsewhere in the app.
+                                .csrfTokenRequestHandler(new XorCsrfTokenRequestAttributeHandler())
 
-                        // Static resources never need a CSRF token
-                        .ignoringRequestMatchers(
-                                "/css/**", "/js/**", "/img/**", "/images/**",
-                                "/fonts/**", "/webjars/**"
-                        )
+                                // Static resources never need a CSRF token
+                                .ignoringRequestMatchers(
+                                        "/css/**", "/js/**", "/img/**", "/images/**",
+                                        "/fonts/**", "/webjars/**"
+                                )
                 )
 
                 // ── Authorization ─────────────────────────────────────────────────
