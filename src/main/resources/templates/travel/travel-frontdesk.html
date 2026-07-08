@@ -16,12 +16,127 @@
 
   Assumes the shared dashboard shell (dashboard-base.html + sidebar/topbar fragments).
 -->
-<html xmlns:th="http://www.thymeleaf.org"
-      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+<html xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
       layout:decorate="~{layout/dashboard-base}">
 <head>
-  <title th:text="${pageTitle} + ' — Spindle ERP'">Front Desk</title>
-  <link rel="stylesheet" th:href="@{/css/travel/travel-frontdesk.css}">
+  <title>Front Desk — Spindle ERP</title>
+  <link rel="stylesheet" href="/css/travel/travel-frontdesk.css">
+  <style>
+    /* travel/travel-frontdesk.css
+       Front desk console styling. Uses Bootstrap/Color Admin --bs-* custom
+       properties so it inherits the active (light/dark) theme automatically
+       instead of hardcoding colors. */
+
+    .fd-clock {
+      font-variant-numeric: tabular-nums;
+      font-weight: 600;
+      font-size: .95rem;
+      color: var(--bs-secondary-color, #6c757d);
+      letter-spacing: .3px;
+    }
+
+    /* Card surface — mirrors Color Admin .card but scoped to the console */
+    .fd-card {
+      background: var(--bs-card-bg, var(--bs-body-bg, #fff));
+      border: 1px solid var(--bs-border-color, rgba(0, 0, 0, .125));
+      border-radius: .5rem;
+      padding: 1rem 1.15rem;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, .04);
+    }
+
+    .fd-card-title {
+      font-size: .78rem;
+      text-transform: uppercase;
+      letter-spacing: .6px;
+      color: var(--bs-secondary-color, #6c757d);
+      font-weight: 700;
+      margin-bottom: .85rem;
+    }
+
+    /* Customer mode toggle */
+    .fd-toggle {
+      border: 1px solid var(--bs-border-color, #ced4da);
+      background: transparent;
+      color: var(--bs-body-color, #212529);
+      font-weight: 600;
+    }
+    .fd-toggle.active {
+      background: var(--bs-primary, #0d6efd);
+      border-color: var(--bs-primary, #0d6efd);
+      color: #fff;
+    }
+
+    /* Service type pills */
+    .fd-tabs .nav-link {
+      border: 1px solid var(--bs-border-color, #ced4da);
+      color: var(--bs-body-color, #212529);
+      padding: .35rem .9rem;
+      margin-right: .4rem;
+      font-weight: 600;
+      background: transparent;
+    }
+    .fd-tabs .nav-link.active {
+      background: var(--bs-primary, #0d6efd);
+      border-color: var(--bs-primary, #0d6efd);
+      color: #fff;
+    }
+
+    .fd-ref-note {
+      padding: .55rem .75rem;
+      border: 1px dashed var(--bs-border-color, #ced4da);
+      border-radius: .375rem;
+      color: var(--bs-secondary-color, #6c757d);
+      font-size: .85rem;
+      background: var(--bs-tertiary-bg, rgba(0, 0, 0, .02));
+    }
+
+    /* Quote totals block */
+    .fd-totals {
+      min-width: 260px;
+      font-size: .92rem;
+    }
+    .fd-totals > div { padding: .25rem 0; }
+    .fd-totals .fd-grand {
+      border-top: 1px solid var(--bs-border-color, #dee2e6);
+      margin-top: .25rem;
+      padding-top: .5rem;
+      font-size: 1.1rem;
+    }
+    .fd-totals .fd-grand strong { color: var(--bs-primary, #0d6efd); }
+
+    /* Cart type chip */
+    .fd-type-chip {
+      display: inline-block;
+      font-size: .68rem;
+      font-weight: 700;
+      letter-spacing: .4px;
+      padding: .12rem .5rem;
+      border-radius: 999px;
+      color: #fff;
+    }
+    .fd-type-HOTEL   { background: #0d6efd; }
+    .fd-type-AIR     { background: #6f42c1; }
+    .fd-type-PACKAGE { background: #198754; }
+    .fd-type-TOUR    { background: #fd7e14; }
+    .fd-type-VISA    { background: #d63384; }
+
+    /* Recent activity feed */
+    .fd-recent-item {
+      padding: .55rem 0;
+      border-bottom: 1px solid var(--bs-border-color, #eee);
+    }
+    .fd-recent-item:last-child { border-bottom: 0; }
+    .fd-recent-item .fd-recent-no { font-weight: 700; }
+    .fd-recent-item .fd-recent-meta {
+      font-size: .8rem;
+      color: var(--bs-secondary-color, #6c757d);
+    }
+    .fd-recent-item .fd-recent-amount {
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+    }
+
+  </style>
 </head>
 <body>
 <div layout:fragment="content">
@@ -139,17 +254,17 @@
         <div class="table-responsive">
           <table class="table table-sm align-middle mb-2" id="fdCartTable">
             <thead>
-              <tr>
-                <th style="width:90px">Type</th>
-                <th>Description</th>
-                <th class="text-end" style="width:70px">Qty</th>
-                <th class="text-end" style="width:130px">Unit Price</th>
-                <th class="text-end" style="width:140px">Line Total</th>
-                <th style="width:40px"></th>
-              </tr>
+            <tr>
+              <th style="width:90px">Type</th>
+              <th>Description</th>
+              <th class="text-end" style="width:70px">Qty</th>
+              <th class="text-end" style="width:130px">Unit Price</th>
+              <th class="text-end" style="width:140px">Line Total</th>
+              <th style="width:40px"></th>
+            </tr>
             </thead>
             <tbody id="fdCartBody">
-              <tr id="fdCartEmpty"><td colspan="6" class="text-center text-muted py-4">No services added yet.</td></tr>
+            <tr id="fdCartEmpty"><td colspan="6" class="text-center text-muted py-4">No services added yet.</td></tr>
             </tbody>
           </table>
         </div>
@@ -171,6 +286,8 @@
       </div>
 
       <div class="fd-card mb-3">
+        <!-- hsAfterSaveMessages renders its dismissible alert here -->
+        <div id="fdMessages"></div>
         <div class="d-grid gap-2">
           <button type="button" class="btn btn-outline-secondary" id="fdSaveDraftBtn" onclick="fdSave(false)">
             <span class="spinner-border spinner-border-sm me-1 d-none" id="fdDraftSpin"></span>
@@ -195,6 +312,589 @@
 
 </div>
 
-<script th:src="@{/js/travel/travel-frontdesk.js}"></script>
+<script>
+  /* ══════════════════════════════════════════════════════════════════════
+   travel/travel-frontdesk.js        served at /js/travel/travel-frontdesk.js
+   Front Desk — walk-in booking console
+   JS prefix: fd*
+
+   Wiring (matches the comment block in travel-frontdesk.html):
+     Customer  GET  /accounts/sub-accounts/search?subAccountType=CUSTOMER
+     Hotel     GET  /travel/hotels/search?search=
+     Package   GET  /travel/packages/search?search=
+     Tour      GET  /travel/tours/search?search=
+     Air/Visa  description-only — referenceId stays null
+     Save      POST /travel/bookings/save          → {success,id,bookingNo,message}
+     Confirm   POST /travel/bookings/confirm/{id}
+     Feed      GET  /travel/bookings/list?length=8 → DataTableResponse {data:[...]}
+
+   ★ Backend-seam assumptions (adjust if TrvBookingDTO differs):
+     - Save payload shape: { bookingType, partyId, guestName, guestPhone,
+       guestEmail, travelDate, remarks, lines:[{serviceType, referenceId,
+       description, qty, unitPrice}] }.
+     - bookingType is derived client-side from the line mix (HOTEL/AIR/PACKAGE
+       when every line matches, COMBINED otherwise — including TOUR-only and
+       VISA-only quotes, since the documented enum is {PACKAGE|HOTEL|AIR|COMBINED}).
+     - Recent-activity rows are read defensively (bookingNo/bookingNumber,
+       partyName/customerName/guestName, status, totalAmount, createdAt/
+       bookingDate) so this keeps working even if the DataTable's exact
+       column names differ slightly from these guesses.
+     - Uses window.secureFetch / S2HSHelper / hsAfterSaveMessages when present
+       (the shared application.js toolkit), and falls back to a plain
+       fetch + CSRF-meta-tag reader / native alerts if they aren't loaded,
+       so this file is safe to drop in even outside the usual shell.
+   ══════════════════════════════════════════════════════════════════════ */
+
+  (function () {
+    'use strict';
+
+    // ── ENDPOINTS ───────────────────────────────────────────────────────────
+    var ENDPOINTS = {
+      customerSearch: '/accounts/sub-accounts/search',
+      hotelSearch:    '/travel/hotels/search',
+      packageSearch:  '/travel/packages/search',
+      tourSearch:     '/travel/tours/search',
+      save:           '/travel/bookings/save',
+      confirm:        function (id) { return '/travel/bookings/confirm/' + id; },
+      recentList:     '/travel/bookings/list?length=8'
+    };
+
+    // ── SERVICE TYPE CONFIG ─────────────────────────────────────────────────
+    var REF_CONFIG = {
+      HOTEL:   { label: 'Hotel',   placeholder: 'Search hotels…',   url: ENDPOINTS.hotelSearch,   searchable: true,  icon: 'fa-hotel',              colorVar: '--fd-accent' },
+      AIR:     { label: 'Air',     placeholder: '',                 url: null,                     searchable: false, icon: 'fa-plane',              colorVar: '--fd-blue-lt',
+        note: 'Enter a description below — the ticket is issued in Air Tickets after confirming.' },
+      PACKAGE: { label: 'Package', placeholder: 'Search packages…', url: ENDPOINTS.packageSearch, searchable: true,  icon: 'fa-box-open',           colorVar: '--fd-accent2' },
+      TOUR:    { label: 'Tour',    placeholder: 'Search tours…',    url: ENDPOINTS.tourSearch,    searchable: true,  icon: 'fa-map-location-dot',   colorVar: '--fd-teal' },
+      VISA:    { label: 'Visa',    placeholder: '',                 url: null,                     searchable: false, icon: 'fa-passport',           colorVar: '--fd-orange',
+        note: 'Enter a description below — visa fulfilment happens on its own ops screen after confirming.' }
+    };
+
+    // ── STATE ───────────────────────────────────────────────────────────────
+    var state = {
+      customerMode: 'registered',  // 'registered' | 'walkin'
+      activeType:   'HOTEL',
+      lines:        [],
+      lineSeq:      0
+    };
+
+    // ── INIT ────────────────────────────────────────────────────────────────
+    document.addEventListener('DOMContentLoaded', function () {
+      startClock();
+      decorateTabs();
+      initCustomerSelect2();
+      initRefSelect2('HOTEL');
+      renderCart();
+      loadRecentActivity();
+    });
+
+    // ── CLOCK ───────────────────────────────────────────────────────────────
+    function startClock() {
+      var el = document.getElementById('fdClock');
+      if (!el) return;
+      var tick = function () {
+        el.textContent = new Date().toLocaleString('en-GB', {
+          weekday: 'short', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true
+        });
+      };
+      tick();
+      setInterval(tick, 1000);
+    }
+
+    // ── ONE-TIME TAB ICON DECORATION (no structural HTML change needed) ─────
+    function decorateTabs() {
+      var tabs = document.querySelectorAll('#fdServiceTabs .nav-link');
+      for (var i = 0; i < tabs.length; i++) {
+        var btn = tabs[i];
+        var cfg = REF_CONFIG[btn.dataset.type];
+        if (!cfg || btn.querySelector('.fd-tab-ic')) continue;
+        var icon = document.createElement('i');
+        icon.className = 'fa ' + cfg.icon + ' fd-tab-ic';
+        btn.insertBefore(icon, btn.firstChild);
+      }
+    }
+
+    // ── SELECT2 WIRING ──────────────────────────────────────────────────────
+    function initCustomerSelect2() {
+      if (typeof S2HSHelper !== 'undefined' && S2HSHelper.init) {
+        S2HSHelper.init('#fdPartyId', ENDPOINTS.customerSearch, 'Search customer…', null, null, { subAccountType: 'CUSTOMER' });
+        return;
+      }
+      if (window.jQuery && jQuery.fn.select2) {
+        jQuery('#fdPartyId').select2({
+          width: '100%',
+          placeholder: 'Search customer…',
+          minimumInputLength: 1,
+          ajax: {
+            url: ENDPOINTS.customerSearch,
+            dataType: 'json',
+            delay: 250,
+            data: function (params) { return { search: params.term, subAccountType: 'CUSTOMER' }; },
+            processResults: function (data) {
+              return {
+                results: (data.items || []).map(function (it) { return { id: it.id, text: it.text }; }),
+                pagination: { more: !!data.hasMore }
+              };
+            }
+          }
+        });
+      }
+    }
+
+    function initRefSelect2(type) {
+      var cfg = REF_CONFIG[type];
+      var $sel = window.jQuery ? jQuery('#fdRefSelect') : null;
+
+      if ($sel && $sel.data && $sel.data('select2')) {
+        $sel.select2('destroy');
+      }
+      var native = document.getElementById('fdRefSelect');
+      if (native) native.innerHTML = '';
+
+      if (!cfg || !cfg.searchable) return; // AIR / VISA — no lookup, note shown instead
+
+      if (typeof S2HSHelper !== 'undefined' && S2HSHelper.init) {
+        S2HSHelper.init('#fdRefSelect', cfg.url, cfg.placeholder);
+        return;
+      }
+      if ($sel && jQuery.fn.select2) {
+        $sel.select2({
+          width: '100%',
+          placeholder: cfg.placeholder,
+          minimumInputLength: 1,
+          ajax: {
+            url: cfg.url,
+            dataType: 'json',
+            delay: 250,
+            data: function (params) { return { search: params.term }; },
+            processResults: function (data) {
+              return { results: (data.items || []).map(function (it) { return { id: it.id, text: it.text }; }) };
+            }
+          }
+        });
+      }
+    }
+
+    // ── CUSTOMER MODE TOGGLE ────────────────────────────────────────────────
+    window.fdSetCustomerMode = function (mode) {
+      state.customerMode = mode;
+      var isReg = mode === 'registered';
+      document.getElementById('fdModeRegistered').classList.toggle('active', isReg);
+      document.getElementById('fdModeWalkin').classList.toggle('active', !isReg);
+      document.getElementById('fdRegisteredFields').style.display = isReg ? '' : 'none';
+      document.getElementById('fdWalkinFields').style.display = isReg ? 'none' : '';
+    };
+
+    // ── SERVICE TAB SWITCH ──────────────────────────────────────────────────
+    window.fdSwitchTab = function (el) {
+      var type = el.dataset.type;
+      var cfg = REF_CONFIG[type];
+      if (!cfg) return;
+
+      var tabs = document.querySelectorAll('#fdServiceTabs .nav-link');
+      for (var i = 0; i < tabs.length; i++) tabs[i].classList.remove('active');
+      el.classList.add('active');
+      state.activeType = type;
+
+      document.getElementById('fdRefLabel').textContent = cfg.label;
+
+      var refWrap = document.getElementById('fdRefWrap');
+      var refNote = document.getElementById('fdRefNote');
+      var refNoteText = document.getElementById('fdRefNoteText');
+
+      if (cfg.searchable) {
+        refWrap.style.display = '';
+        refNote.style.display = 'none';
+      } else {
+        refWrap.style.display = 'none';
+        refNote.style.display = '';
+        refNoteText.textContent = cfg.note;
+      }
+
+      initRefSelect2(type);
+
+      var descField = document.getElementById('fdLineDesc');
+      if (descField) descField.focus();
+    };
+
+    // ── ADD LINE ────────────────────────────────────────────────────────────
+    window.fdAddLine = function () {
+      var type = state.activeType;
+      var cfg = REF_CONFIG[type];
+      var descField = document.getElementById('fdLineDesc');
+      var desc = descField.value.trim();
+      var qty = parseFloat(document.getElementById('fdLineQty').value) || 0;
+      var price = parseFloat(document.getElementById('fdLinePrice').value) || 0;
+
+      if (!desc) {
+        fdWarn('Enter a description for this line before adding it to the quote.');
+        descField.focus();
+        return;
+      }
+      if (qty <= 0) {
+        fdWarn('Quantity must be greater than zero.');
+        return;
+      }
+      if (price < 0) {
+        fdWarn('Unit price can\'t be negative.');
+        return;
+      }
+
+      var refId = null, refText = null;
+      if (cfg.searchable) {
+        var sel = document.getElementById('fdRefSelect');
+        if (sel && sel.value) {
+          refId = sel.value;
+          refText = sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].text : null;
+        }
+      }
+
+      state.lines.push({
+        key: ++state.lineSeq,
+        type: type, refId: refId, refText: refText,
+        desc: desc, qty: qty, price: price
+      });
+
+      renderCart();
+
+      descField.value = '';
+      document.getElementById('fdLineQty').value = '1';
+      document.getElementById('fdLinePrice').value = '0';
+      descField.focus();
+    };
+
+    window.fdRemoveLine = function (key) {
+      state.lines = state.lines.filter(function (l) { return l.key !== key; });
+      renderCart();
+    };
+
+    // ── CART / TOTALS RENDER ────────────────────────────────────────────────
+    function renderCart() {
+      var body = document.getElementById('fdCartBody');
+      if (!body) return;
+
+      if (!state.lines.length) {
+        body.innerHTML = '<tr id="fdCartEmpty"><td colspan="6" class="text-center text-muted py-4">No services added yet.</td></tr>';
+        updateTotals();
+        return;
+      }
+
+      var rows = state.lines.map(function (line) {
+        var cfg = REF_CONFIG[line.type];
+        var total = line.qty * line.price;
+        return '' +
+                '<tr>' +
+                '<td><span class="fd-badge fd-badge-' + line.type.toLowerCase() + '">' + esc(cfg.label) + '</span></td>' +
+                '<td>' +
+                '<span class="fd-line-desc">' + esc(line.desc) + '</span>' +
+                (line.refText ? '<span class="fd-line-ref">' + esc(line.refText) + '</span>' : '') +
+                '</td>' +
+                '<td class="text-end">' + line.qty + '</td>' +
+                '<td class="text-end">' + fdMoney(line.price) + '</td>' +
+                '<td class="text-end fd-line-total">' + fdMoney(total) + '</td>' +
+                '<td class="text-center">' +
+                '<button type="button" class="fd-line-remove" onclick="fdRemoveLine(' + line.key + ')" title="Remove line">' +
+                '<i class="fa fa-xmark"></i>' +
+                '</button>' +
+                '</td>' +
+                '</tr>';
+      }).join('');
+
+      body.innerHTML = rows;
+      updateTotals();
+    }
+
+    function updateTotals() {
+      var count = state.lines.length;
+      var subtotal = state.lines.reduce(function (sum, l) { return sum + (l.qty * l.price); }, 0);
+      document.getElementById('fdSumCount').textContent = count;
+      document.getElementById('fdSumSubtotal').textContent = fdMoney(subtotal);
+      document.getElementById('fdSumTotal').textContent = fdMoney(subtotal);
+    }
+
+    // ── SAVE / CONFIRM ──────────────────────────────────────────────────────
+    function deriveBookingType() {
+      if (!state.lines.length) return null;
+      var types = {};
+      state.lines.forEach(function (l) { types[l.type] = true; });
+      var keys = Object.keys(types);
+      if (keys.length === 1) {
+        var only = keys[0];
+        if (only === 'HOTEL' || only === 'AIR' || only === 'PACKAGE') return only;
+        return 'COMBINED'; // TOUR-only / VISA-only — see ★ note at top of file
+      }
+      return 'COMBINED';
+    }
+
+    function buildPayload() {
+      var payload = {
+        bookingType: deriveBookingType(),
+        remarks: document.getElementById('fdRemarks').value.trim(),
+        lines: state.lines.map(function (l) {
+          return {
+            serviceType: l.type,
+            referenceId: l.refId,
+            description: l.desc,
+            qty: l.qty,
+            unitPrice: l.price
+          };
+        })
+      };
+
+      if (state.customerMode === 'registered') {
+        payload.partyId = document.getElementById('fdPartyId').value || null;
+        payload.travelDate = document.getElementById('fdTravelDate').value || null;
+      } else {
+        var guestName = document.getElementById('fdGuestName').value.trim();
+        var guestPhone = document.getElementById('fdGuestPhone').value.trim();
+        var guestEmail = document.getElementById('fdGuestEmail').value.trim();
+
+        payload.partyId = null;
+        payload.guestName = guestName;
+        payload.guestPhone = guestPhone;
+        payload.guestEmail = guestEmail || null;
+        payload.travelDate = document.getElementById('fdTravelDateW').value || null;
+
+        // Folded into remarks too, per this page's own "walk-in guests save as
+        // Draft" note — keeps the guest identity readable even if the backend
+        // doesn't (yet) persist dedicated guest columns.
+        var guestLine = 'Walk-in guest: ' + guestName + (guestPhone ? ' / ' + guestPhone : '') + (guestEmail ? ' / ' + guestEmail : '');
+        payload.remarks = payload.remarks ? (guestLine + '\n' + payload.remarks) : guestLine;
+      }
+
+      return payload;
+    }
+
+    function validateForSave(confirmNow) {
+      if (!state.lines.length) {
+        fdWarn('Add at least one service line before saving.');
+        return false;
+      }
+      if (state.customerMode === 'registered') {
+        var partyId = document.getElementById('fdPartyId').value;
+        if (confirmNow && !partyId) {
+          fdWarn('Attach a registered customer to Save & Confirm — walk-in guests can only be saved as a draft.');
+          return false;
+        }
+      } else {
+        var name = document.getElementById('fdGuestName').value.trim();
+        var phone = document.getElementById('fdGuestPhone').value.trim();
+        if (!name || !phone) {
+          fdWarn('Enter the guest\u2019s full name and phone number.');
+          return false;
+        }
+        if (confirmNow) {
+          fdWarn('Walk-in guests save as a draft. Attach a registered customer to Save & Confirm.');
+          return false;
+        }
+      }
+      return true;
+    }
+
+    window.fdSave = function (confirmNow) {
+      if (!validateForSave(confirmNow)) return;
+
+      var btn      = confirmNow ? document.getElementById('fdSaveConfirmBtn') : document.getElementById('fdSaveDraftBtn');
+      var otherBtn = confirmNow ? document.getElementById('fdSaveDraftBtn')   : document.getElementById('fdSaveConfirmBtn');
+      var spin     = confirmNow ? document.getElementById('fdConfirmSpin')   : document.getElementById('fdDraftSpin');
+      var txt      = confirmNow ? document.getElementById('fdConfirmTxt')    : document.getElementById('fdDraftTxt');
+
+      fdBusy(btn, spin, txt, confirmNow ? 'Confirming…' : 'Saving…', true);
+      if (otherBtn) otherBtn.disabled = true;
+
+      fdFetch(ENDPOINTS.save, { method: 'POST', body: JSON.stringify(buildPayload()) })
+              .then(function (res) {
+                if (!res || !res.success) {
+                  throw new Error((res && res.message) || 'Could not save the booking.');
+                }
+                if (!confirmNow) return res;
+                return fdFetch(ENDPOINTS.confirm(res.id), { method: 'POST' }).then(function (confirmRes) {
+                  return {
+                    success: confirmRes && confirmRes.success,
+                    message: (confirmRes && confirmRes.message) || res.message,
+                    id: res.id,
+                    bookingNo: res.bookingNo
+                  };
+                });
+              })
+              .then(function (res) {
+                fdShowMessage(res.message || ('Booking ' + (res.bookingNo || '') + ' saved.'), true);
+                window.fdNew();
+                loadRecentActivity();
+              })
+              .catch(function (err) {
+                fdShowMessage((err && err.message) || 'Something went wrong while saving.', false);
+              })
+              .finally(function () {
+                fdBusy(btn, spin, txt, confirmNow ? 'Save & Confirm' : 'Save as Draft', false);
+                if (otherBtn) otherBtn.disabled = false;
+              });
+    };
+
+    // ── RESET ───────────────────────────────────────────────────────────────
+    window.fdNew = function () {
+      state.lines = [];
+      state.lineSeq = 0;
+
+      window.fdSetCustomerMode('registered');
+
+      var partySel = document.getElementById('fdPartyId');
+      if (window.jQuery && jQuery(partySel).data('select2')) {
+        jQuery(partySel).val(null).trigger('change');
+      } else if (partySel) {
+        partySel.value = '';
+      }
+      document.getElementById('fdTravelDate').value = '';
+
+      document.getElementById('fdGuestName').value = '';
+      document.getElementById('fdGuestPhone').value = '';
+      document.getElementById('fdGuestEmail').value = '';
+      document.getElementById('fdTravelDateW').value = '';
+
+      var hotelTab = document.querySelector('#fdServiceTabs .nav-link[data-type="HOTEL"]');
+      if (hotelTab) window.fdSwitchTab(hotelTab);
+
+      document.getElementById('fdLineDesc').value = '';
+      document.getElementById('fdLineQty').value = '1';
+      document.getElementById('fdLinePrice').value = '0';
+      document.getElementById('fdRemarks').value = '';
+
+      renderCart();
+
+      var msgBox = document.getElementById('fdMessages');
+      if (msgBox) msgBox.innerHTML = '';
+    };
+
+    // ── RECENT ACTIVITY FEED ────────────────────────────────────────────────
+    function loadRecentActivity() {
+      var box = document.getElementById('fdRecentList');
+      if (!box) return;
+      box.innerHTML = '<p class="text-muted small mb-0">Loading…</p>';
+
+      fdFetch(ENDPOINTS.recentList, { method: 'GET' })
+              .then(function (res) {
+                var rows = (res && res.data) || [];
+                if (!rows.length) {
+                  box.innerHTML = '<div class="fd-activity-empty">No bookings yet today.</div>';
+                  return;
+                }
+                box.innerHTML = rows.map(renderActivityItem).join('');
+              })
+              .catch(function () {
+                box.innerHTML = '<div class="fd-activity-error">Couldn\u2019t load recent activity.</div>';
+              });
+    }
+
+    function renderActivityItem(row) {
+      var type = String(row.bookingType || row.type || 'PACKAGE').toUpperCase();
+      var cfg = REF_CONFIG[type] || REF_CONFIG.PACKAGE;
+      var bookingNo = row.bookingNo || row.bookingNumber || row.refNo || '—';
+      var name = row.partyName || row.customerName || row.guestName || 'Walk-in guest';
+      var status = String(row.status || 'DRAFT').toUpperCase();
+      var amount = (row.totalAmount != null) ? fdMoney(row.totalAmount) : null;
+      var date = row.createdAt || row.bookingDate || row.travelDate;
+
+      var statusClass = 'fd-status-other';
+      if (status === 'CONFIRMED') statusClass = 'fd-status-confirmed';
+      else if (status === 'CANCELLED') statusClass = 'fd-status-cancelled';
+      else if (status === 'DRAFT') statusClass = 'fd-status-draft';
+
+      return '' +
+              '<div class="fd-activity-item" style="--fd-tab-color:var(' + cfg.colorVar + ')">' +
+              '<div class="fd-activity-icon"><i class="fa ' + cfg.icon + '"></i></div>' +
+              '<div class="fd-activity-body">' +
+              '<div class="fd-activity-top">' +
+              '<span class="fd-activity-ref">' + esc(bookingNo) + '</span>' +
+              '<span class="fd-status-pill ' + statusClass + '">' + esc(status) + '</span>' +
+              '</div>' +
+              '<div class="fd-activity-name">' + esc(name) + '</div>' +
+              '<div class="fd-activity-meta">' +
+              (amount ? '<span>' + amount + '</span>' : '') +
+              (date ? '<span>' + esc(fdShortDate(date)) + '</span>' : '') +
+              '</div>' +
+              '</div>' +
+              '</div>';
+    }
+
+    // ── HELPERS ─────────────────────────────────────────────────────────────
+    function fdMoney(n) {
+      var v = Number(n) || 0;
+      return '\u09F3' + v.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    function fdShortDate(d) {
+      var dt = new Date(d);
+      if (isNaN(dt.getTime())) return String(d);
+      return dt.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) + ' ' +
+              dt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+    }
+
+    function esc(str) {
+      if (str === null || str === undefined) return '';
+      return String(str).replace(/[&<>"']/g, function (ch) {
+        return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch];
+      });
+    }
+
+    function fdWarn(message) {
+      if (typeof Swal !== 'undefined') {
+        Swal.fire({ icon: 'warning', title: 'Check the form', text: message, confirmButtonColor: '#00c8ff' });
+      } else {
+        alert(message);
+      }
+    }
+
+    function fdBusy(btn, spinEl, txtEl, label, isBusy) {
+      if (!btn) return;
+      if (isBusy) {
+        if (txtEl) {
+          if (!txtEl.dataset.originalText) txtEl.dataset.originalText = txtEl.textContent;
+          txtEl.textContent = label;
+        }
+        if (spinEl) spinEl.classList.remove('d-none');
+        btn.disabled = true;
+      } else {
+        if (txtEl && txtEl.dataset.originalText) txtEl.textContent = txtEl.dataset.originalText;
+        else if (txtEl) txtEl.textContent = label;
+        if (spinEl) spinEl.classList.add('d-none');
+        btn.disabled = false;
+      }
+    }
+
+    function fdShowMessage(message, success) {
+      if (typeof hsAfterSaveMessages === 'function') {
+        try {
+          hsAfterSaveMessages(message, success, null, null, 'fdMessages');
+          return;
+        } catch (e) { /* fall through to manual render below */ }
+      }
+      var box = document.getElementById('fdMessages');
+      if (!box) return;
+      box.innerHTML = '<div class="alert ' + (success ? 'alert-success' : 'alert-danger') + ' alert-dismissible fade show" role="alert">' +
+              esc(message) +
+              '<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>' +
+              '</div>';
+    }
+
+    function fdFetch(url, options) {
+      options = options || {};
+      options.headers = Object.assign({ 'Content-Type': 'application/json' }, options.headers || {});
+
+      if (typeof secureFetch === 'function') {
+        return secureFetch(url, options).then(function (r) { return r.json(); });
+      }
+
+      // Fallback when application.js isn't loaded: read Spring Security's
+      // CSRF meta tags directly (standard Thymeleaf layout convention).
+      var tokenMeta = document.querySelector('meta[name="_csrf"]');
+      var headerMeta = document.querySelector('meta[name="_csrf_header"]');
+      if (tokenMeta && headerMeta) {
+        options.headers[headerMeta.content] = tokenMeta.content;
+      }
+      return fetch(url, options).then(function (r) { return r.json(); });
+    }
+
+  })();
+</script>
 </body>
 </html>

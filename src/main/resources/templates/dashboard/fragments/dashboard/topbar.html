@@ -100,7 +100,14 @@
             <div class="up-link" onclick="location.href='/my-approval-requests'"><i class="fa fa-check-square"></i> My Approval Requests</div>
             <div class="up-link" onclick="location.href='/users/change-password'"><i class="fa fa-key"></i> Change Password</div>
             <div class="up-link" onclick="openSettings();closeAllPanels();"><i class="fa fa-gear"></i> Settings</div>
-            <div class="up-link danger" onclick="location.href='/logout'"><i class="fa fa-right-from-bracket"></i> Logout</div>
+            <form th:action="@{/logout}" method="post" class="m-0">
+              <input type="hidden"
+                     th:name="${_csrf.parameterName}"
+                     th:value="${_csrf.token}">
+              <button type="submit" class="up-link danger border-0 bg-transparent w-100 text-start">
+                <i class="fa-solid fa-right-from-bracket"></i> Logout
+              </button>
+            </form>
           </div>
         </div>
       </div>

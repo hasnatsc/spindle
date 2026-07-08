@@ -757,26 +757,10 @@ ON CONFLICT (menu_code) DO NOTHING;
 -- INVENTORY groups
 INSERT INTO app_menus (menu_code, menu_name, menu_url, icon, parent_id, display_order, menu_type, module_name,
                        required_permission, target, active, visible, deleted, created_at, updated_at)
-SELECT 'GRP_INV_MASTER',
-       'Item Master',
-       NULL,
-       'fa fa-layer-group',
-       m.id,
-       10,
-       'GROUP',
-       'INVENTORY',
-       NULL,
-       '_self',
-       true,
-       true,
-       false,
-       NOW(),
-       NOW()
+SELECT 'GRP_INV_MASTER', 'Item Master', NULL, 'fa fa-layer-group', m.id, 10, 'GROUP', 'INVENTORY', NULL, '_self', true, true, false, NOW(), NOW()
 FROM app_menus m
-WHERE m.menu_code = 'MOD_INVENTORY'
-ON CONFLICT (menu_code) DO NOTHING;
-INSERT INTO app_menus (menu_code, menu_name, menu_url, icon, parent_id, display_order, menu_type, module_name,
-                       required_permission, target, active, visible, deleted, created_at, updated_at)
+WHERE m.menu_code = 'MOD_INVENTORY' ON CONFLICT (menu_code) DO NOTHING;
+INSERT INTO app_menus (menu_code, menu_name, menu_url, icon, parent_id, display_order, menu_type, module_name, required_permission, target, active, visible, deleted, created_at, updated_at)
 SELECT 'GRP_INV_STOCK',
        'Stock Management',
        NULL,
