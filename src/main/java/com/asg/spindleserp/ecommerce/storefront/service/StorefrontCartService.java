@@ -8,7 +8,6 @@ import com.asg.spindleserp.ecommerce.productSupport.entity.EcProductCatalog;
 import com.asg.spindleserp.ecommerce.productSupport.entity.EcProductVariant;
 import com.asg.spindleserp.ecommerce.productSupport.repository.EcProductCatalogRepository;
 import com.asg.spindleserp.ecommerce.storefront.dto.SfCartDTO;
-import com.asg.spindleserp.inventory.transaction.service.StockLedgerService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
@@ -44,7 +43,6 @@ public class StorefrontCartService {
 
     private final EcCartRepository cartRepository;
     private final EcProductCatalogRepository productRepository;
-    private final StockLedgerService         stockLedgerService;
 
     // ── GET OR CREATE CART ───────────────────────────────────────────────────
     @Transactional
@@ -151,9 +149,29 @@ public class StorefrontCartService {
     }
 
     // ── VIEW ─────────────────────────────────────────────────────────────────
-    @Transactional
+    /**
+     * v3 OPTIMIZATION — read-only view. Previously this called getOrCreateCart(),
+     * so every anonymous visitor who opened /cart, or merely hovered the header
+     * bag icon (which lazy-fetches /cart/view), spawned an ec_carts row AND an
+     * HTTP session. Now it peeks; no cart → a transient empty DTO, zero writes.
+     * Carts are only created on the first actual /cart/add.
+     */
+    @Transactional(readOnly = true)
     public SfCartDTO viewCart(HttpServletRequest request, EcCustomer customer) {
-        return toDTO(getOrCreateCart(request, customer));
+        return peekCart(request, customer).map(this::toDTO).orElseGet(StorefrontCartService::emptyCartDTO);
+    }
+
+    private static SfCartDTO emptyCartDTO() {
+        return SfCartDTO.builder()
+                .totalItems(0)
+                .subtotal(BigDecimal.ZERO)
+                .discountAmount(BigDecimal.ZERO)
+                .couponDiscount(BigDecimal.ZERO)
+                .shippingCharge(BigDecimal.ZERO)
+                .taxAmount(BigDecimal.ZERO)
+                .grandTotal(BigDecimal.ZERO)
+                .items(List.of())
+                .build();
     }
 
     @Transactional(readOnly = true)
@@ -256,19 +274,38 @@ public class StorefrontCartService {
         return product.getItem().getUnitPrice() != null ? product.getItem().getUnitPrice() : BigDecimal.ZERO;
     }
 
+    /**
+     * v3 OPTIMIZATION — the previous version ran stockLedgerService.balanceByItem()
+     * on EVERY add/update and then discarded the result (always returned null).
+     * That was one wasted ledger query per cart mutation. The dead call and the
+     * StockLedgerService dependency are removed.
+     *
+     * ★ Stock-blocking seam: to enforce stock at add-to-cart time, sum available
+     *   qty from StockLedgerService.balanceByItem(itemId) here (variant-aware via
+     *   the variant's item), and return it — the callers already handle the
+     *   "Only N left in stock" rejection path. Returning null = never block.
+     */
     private BigDecimal resolveAvailableStock(EcProductCatalog product, Long variantId) {
-        try {
-            List<?> balances = stockLedgerService.balanceByItem(product.getItem().getId());
-            // Aggregate available qty across warehouses via reflection-free simple sum fallback.
-            // StockBalanceDTO is read elsewhere in the codebase; we keep this defensive.
-            return null; // null = "don't block on stock" if ledger service shape differs; UI shows "Check availability"
-        } catch (Exception e) {
-            return null;
-        }
+        return null;
     }
 
     private EcProductVariant findVariant(EcProductCatalog product, Long variantId) {
         return product.getVariants().stream().filter(v -> v.getId().equals(variantId)).findFirst().orElse(null);
+    }
+
+    /** Same ordering as the card query: is_primary DESC, display_order, id. */
+    private static String primaryImageUrl(EcProductCatalog product) {
+        return product.getImages().stream()
+                .sorted((a, b) -> {
+                    int byPrimary = Boolean.compare(Boolean.TRUE.equals(b.isPrimary()), Boolean.TRUE.equals(a.isPrimary()));
+                    if (byPrimary != 0) return byPrimary;
+                    int ao = a.getDisplayOrder() != null ? a.getDisplayOrder() : Integer.MAX_VALUE;
+                    int bo = b.getDisplayOrder() != null ? b.getDisplayOrder() : Integer.MAX_VALUE;
+                    if (ao != bo) return Integer.compare(ao, bo);
+                    return Long.compare(a.getId(), b.getId());
+                })
+                .map(img -> img.getImageUrl())
+                .findFirst().orElse(null);
     }
 
     private SfCartDTO toDTO(EcCart cart) {
@@ -278,7 +315,7 @@ public class StorefrontCartService {
                 .productId(i.getProduct().getId())
                 .productTitle(i.getProduct().getProductTitle())
                 .productSlug(i.getProduct().getSlug())
-                .productImage(i.getProduct().getImages().isEmpty() ? null : i.getProduct().getImages().get(0).getImageUrl())
+                .productImage(primaryImageUrl(i.getProduct()))
                 .variantId(i.getVariant() != null ? i.getVariant().getId() : null)
                 .variantName(i.getVariant() != null ? i.getVariant().getVariantName() : null)
                 .quantity(i.getQuantity())

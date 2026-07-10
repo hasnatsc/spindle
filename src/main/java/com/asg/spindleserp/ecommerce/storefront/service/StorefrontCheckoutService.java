@@ -1,6 +1,7 @@
 // Path: com/asg/spindleserp/ecommerce/storefront/service/StorefrontCheckoutService.java
 package com.asg.spindleserp.ecommerce.storefront.service;
 
+//import com.asg.spindleserp.common.service.DocumentSequenceService;   // ★ adjust import if your DocumentSequenceService lives elsewhere
 import com.asg.spindleserp.ecommerce.cart.entity.EcCart;
 import com.asg.spindleserp.ecommerce.cart.entity.EcCartItem;
 import com.asg.spindleserp.ecommerce.customerSupport.entity.EcCustomer;
@@ -24,7 +25,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.sql.Timestamp;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -182,8 +185,8 @@ public class StorefrontCheckoutService {
                     Long.class, ContextProvider.getOrganizationId(), couponCode);
         }
         BigDecimal grand = subtotal.subtract(couponDiscount).add(shipping).max(BigDecimal.ZERO);
+        String orderNo   = documentSequenceService.nextDocumentNumber(ContextProvider.getOrganizationId(), "EC-ORDER", LocalDate.now().format(DateTimeFormatter.ofPattern("yy")));
 
-        String orderNo = documentSequenceService.nextDocumentNumber(ContextProvider.getOrganizationId(),"EC-ORDER", String.valueOf(LocalDateTime.now().getYear()));   // ★ confirm method signature
         EcOrder order = EcOrder.builder()
                 .orderNo(orderNo)
                 .orderDate(LocalDateTime.now())
@@ -246,13 +249,14 @@ public class StorefrontCheckoutService {
         cartService.markOrdered(cart);
         if (session != null) session.removeAttribute(SESSION_COUPON);
 
-        // customer running totals + loyalty points
-        customer.setTotalOrders(customer.getTotalOrders() + 1);
+        // customer running totals + loyalty points (v3: null-safe — a customer row
+        // created before these columns existed carries NULLs, which was an NPE here)
+        customer.setTotalOrders((customer.getTotalOrders() != null ? customer.getTotalOrders() : 0) + 1);
         customer.setTotalPurchase((customer.getTotalPurchase() != null
                 ? customer.getTotalPurchase() : BigDecimal.ZERO).add(grand));
         int points = earnPoints(grand);
         if (points > 0) {
-            customer.setRewardPoints(customer.getRewardPoints() + points);
+            customer.setRewardPoints((customer.getRewardPoints() != null ? customer.getRewardPoints() : 0) + points);
             jdbcTemplate.update("""
                     INSERT INTO ec_reward_points
                         (customer_id, points, transaction_type, reference_type, reference_id, remarks, created_at)

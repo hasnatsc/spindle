@@ -1,4 +1,4 @@
-// Path: com/asg/spindleserp/ecommerce/storefront/config/StorefrontOrgContextFilter.java
+// Path: com/asg/spindleserp/ecommerce/storefront/StorefrontOrgContextFilter.java
 package com.asg.spindleserp.ecommerce.storefront;
 
 import com.asg.spindleserp.organization.entity.Organization;
@@ -82,6 +82,7 @@ public class StorefrontOrgContextFilter extends OncePerRequestFilter {
             "/cart", "/cart/**", "/checkout", "/checkout/**",
             "/account", "/account/**", "/wishlist", "/wishlist/**",
             "/page/**", "/newsletter/**",
+            "/about", "/contact", "/contact/**", "/faq",
             "/travel-site", "/travel-site/**"
     };
 

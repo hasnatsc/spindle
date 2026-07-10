@@ -175,7 +175,7 @@ public class StorefrontAuthService {
             String ip = (fwd != null && !fwd.isBlank()) ? fwd.split(",")[0].trim() : request.getRemoteAddr();
             jdbcTemplate.update("""
                     INSERT INTO ec_customer_login_history
-                        (customer_id, login_at, ip_address, browser, login_source, status)
+                        (customer_id, login_time, ip_address, browser, login_source, login_status)
                     VALUES (?, now(), ?, ?, 'WEB', ?)
                     """, customerId, ip, ua, status);
         } catch (Exception e) {
