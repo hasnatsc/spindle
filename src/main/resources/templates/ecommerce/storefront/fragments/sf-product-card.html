@@ -1,39 +1,37 @@
 <!DOCTYPE html>
-<!-- ecommerce/storefront/fragments/sf-product-card.html — reusable product card
-     v2: wishlist heart toggle. The `wishlistIds` model attribute (Set<Long>|null)
-     drives the initial "active" state; storefront.js handles the toggle. -->
+<!-- ecommerce/storefront/fragments/sf-product-card.html — theme .item.item-thumbnail
+     card + wishlist heart & quick-add overlays (storefront-ca-overrides.css). -->
 <html xmlns:th="http://www.thymeleaf.org">
 <body>
-<div th:fragment="card(p)" class="sf-card">
-  <a th:href="@{'/product/' + ${p.slug}}">
-    <div class="sf-card-img-wrap">
-      <img th:if="${p.primaryImageUrl}" th:src="${p.primaryImageUrl}" th:alt="${p.productTitle}" loading="lazy">
-      <img th:unless="${p.primaryImageUrl}" src="https://placehold.co/500x650/E8E1D3/8A8275?text=ASG" th:alt="${p.productTitle}" loading="lazy">
-      <span th:if="${p.discountPercent != null and p.discountPercent > 0}" class="sf-card-badge sf-card-badge--sale" th:text="'-' + ${p.discountPercent} + '%'">-20%</span>
-      <span th:if="${p.discountPercent == null and p.newArrival}" class="sf-card-badge">New</span>
-    </div>
+<div th:fragment="card(p)" class="item item-thumbnail">
+  <a th:href="@{'/product/' + ${p?.slug}}" class="item-image">
+    <img th:src="${p?.primaryImageUrl ?: 'https://placehold.co/500x500/f4f4f4/999999?text=ASG'}" th:alt="${p?.productTitle}" loading="lazy" />
+    <div class="discount" th:if="${p?.discountPercent != null and p.discountPercent > 0}"
+         th:text="${p.discountPercent} + '% OFF'">15% OFF</div>
   </a>
-  <button class="sf-card-wish" data-sf-wishlist
-          th:attr="data-product-id=${p.id}"
-          th:classappend="${wishlistIds != null and wishlistIds.contains(p.id)} ? 'active'"
+  <button type="button" class="sf-card-wish" data-sf-wishlist
+          th:attr="data-product-id=${p?.id}"
+          th:classappend="${wishlistIds != null and p != null and wishlistIds.contains(p.id)} ? 'active'"
           title="Save to wishlist">
-    <i class="fa-heart" th:classappend="${wishlistIds != null and wishlistIds.contains(p.id)} ? 'fa-solid' : 'fa-regular'"></i>
+    <i class="fa-heart" th:classappend="${wishlistIds != null and p != null and wishlistIds.contains(p.id)} ? 'fas' : 'far'"></i>
   </button>
-  <button class="sf-card-quickadd" th:attr="data-product-id=${p.id}" data-sf-add-to-cart title="Quick add to cart">
-    <i class="fa-solid fa-bag-shopping" style="font-size:0.85rem"></i>
-  </button>
-  <div class="sf-card-body">
-    <div class="sf-card-cat" th:text="${p.categoryName}">Category</div>
-    <a th:href="@{'/product/' + ${p.slug}}"><div class="sf-card-title" th:text="${p.productTitle}">Product Title</div></a>
-    <div class="sf-card-price">
-      <span class="now" th:text="'৳' + ${#numbers.formatDecimal(p.sellingPrice, 0, 'COMMA', 0, 'POINT')}">৳1,200</span>
-      <span th:if="${p.comparePrice != null and p.comparePrice > p.sellingPrice}" class="compare" th:text="'৳' + ${#numbers.formatDecimal(p.comparePrice, 0, 'COMMA', 0, 'POINT')}">৳1,500</span>
-    </div>
-    <div class="sf-card-rating" th:if="${p.reviewCount != null and p.reviewCount > 0}">
-      <i class="fa-solid fa-star"></i>
+  <div class="item-info">
+    <h4 class="item-title">
+      <a th:href="@{'/product/' + ${p?.slug}}" th:text="${p?.productTitle}">Product Title</a>
+    </h4>
+    <p class="item-desc" th:text="${p?.categoryName}">Category</p>
+    <div class="item-price" th:text="'৳' + ${#numbers.formatDecimal(p?.sellingPrice != null ? p.sellingPrice : 0, 0, 'COMMA', 0, 'POINT')}">৳649</div>
+    <div class="item-discount-price" th:if="${p?.comparePrice != null and p.comparePrice > p.sellingPrice}"
+         th:text="'৳' + ${#numbers.formatDecimal(p.comparePrice, 0, 'COMMA', 0, 'POINT')}">৳739</div>
+    <div class="sf-card-rating" th:if="${p?.reviewCount != null and p.reviewCount > 0}">
+      <i class="fa fa-star"></i>
       <span th:text="${#numbers.formatDecimal(p.avgRating, 1, 1)}">4.5</span>
-      <span class="cnt" th:text="'(' + ${p.reviewCount} + ')'">(12)</span>
+      <span class="text-muted" th:text="'(' + ${p.reviewCount} + ')'">(12)</span>
     </div>
+    <button type="button" class="btn btn-sm btn-dark btn-theme sf-quickadd" data-sf-add-to-cart
+            th:attr="data-product-id=${p?.id}">
+      <i class="fa fa-shopping-bag me-1"></i> Add to Cart
+    </button>
   </div>
 </div>
 </body>

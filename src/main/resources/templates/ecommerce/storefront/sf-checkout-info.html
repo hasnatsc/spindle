@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<!-- ecommerce/storefront/sf-checkout-info.html  GET /checkout/info — theme
+     checkout step 2: shipping address in the theme's label-left form layout,
+     with saved-address selection on top. CONTINUE posts to /checkout/info. -->
+<html th:replace="~{ecommerce/storefront/layout/sf-base :: layout('Shipping Address', ~{::main})}" xmlns:th="http://www.thymeleaf.org">
+<main>
+  <div class="section-container" id="checkout-info">
+    <div class="container">
+      <div class="checkout">
+        <div th:replace="~{ecommerce/storefront/fragments/sf-checkout-steps :: steps(2)}"></div>
+
+        <div class="checkout-body">
+
+          <!-- saved addresses -->
+          <th:block th:if="${addresses != null and !addresses.isEmpty()}">
+            <h4 class="checkout-title">Deliver to a saved address</h4>
+            <div class="mb-4">
+              <div class="form-check mb-2" th:each="a, st : ${addresses}">
+                <input class="form-check-input sf-addr-radio" type="radio" name="sfAddrSel" th:id="'addr' + ${a.id}" th:value="${a.id}"
+                       th:checked="${(a.defaultShipping != null and a.defaultShipping) or (st.index == 0 and !#lists.contains(addresses.![defaultShipping != null and defaultShipping], true))}">
+                <label class="form-check-label" th:for="'addr' + ${a.id}">
+                  <b th:text="${a.contactPerson}">Name</b>
+                  <span class="badge bg-dark ms-1" th:if="${a.defaultShipping != null and a.defaultShipping}">Default</span><br>
+                  <span class="text-muted">
+                    <span th:text="${a.addressLine1}">Line 1</span><span th:if="${a.addressLine2}" th:text="', ' + ${a.addressLine2}"></span>,
+                    <span th:if="${a.area}" th:text="${a.area} + ', '"></span><span th:if="${a.upazila}" th:text="${a.upazila} + ', '"></span><span th:text="${a.district}">Dhaka</span><span th:if="${a.postCode}" th:text="' — ' + ${a.postCode}"></span>
+                    · <span th:text="${a.contactPhone}">017…</span>
+                  </span>
+                </label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input sf-addr-radio" type="radio" name="sfAddrSel" id="addrNew" value="new">
+                <label class="form-check-label" for="addrNew"><b><i class="fa fa-plus me-1"></i> Deliver to a new address</b></label>
+              </div>
+            </div>
+            <hr />
+          </th:block>
+
+          <!-- new address (theme label-left layout) -->
+          <div id="sfNewAddr" th:style="${addresses != null and !addresses.isEmpty()} ? 'display:none' : ''">
+            <h4 class="checkout-title">Shipping address</h4>
+            <div class="mb-2 row">
+              <label class="col-form-label col-md-4 text-lg-end">Full Name <span class="text-danger">*</span></label>
+              <div class="col-md-4"><input type="text" class="form-control" id="sfCoName" th:value="${customer.fullName}" /></div>
+            </div>
+            <div class="mb-2 row">
+              <label class="col-form-label col-md-4 text-lg-end">Primary Phone <span class="text-danger">*</span></label>
+              <div class="col-md-4"><input type="tel" class="form-control" id="sfCoPhone" th:value="${customer.phone}" /></div>
+            </div>
+            <div class="mb-2 row">
+              <label class="col-form-label col-md-4 text-lg-end">Street Address <span class="text-danger">*</span></label>
+              <div class="col-md-4">
+                <input type="text" class="form-control mb-10px" id="sfCoLine1" placeholder="House, road, block…" />
+                <input type="text" class="form-control" id="sfCoLine2" placeholder="Apartment, floor (optional)" />
+              </div>
+            </div>
+            <div class="mb-2 row">
+              <label class="col-form-label col-md-4 text-lg-end">Area</label>
+              <div class="col-md-4"><input type="text" class="form-control" id="sfCoArea" placeholder="e.g. Dhanmondi" /></div>
+            </div>
+            <div class="mb-2 row">
+              <label class="col-form-label col-md-4 text-lg-end">Upazila / Thana</label>
+              <div class="col-md-4"><input type="text" class="form-control" id="sfCoUpazila" /></div>
+            </div>
+            <div class="mb-2 row">
+              <label class="col-form-label col-md-4 text-lg-end">District <span class="text-danger">*</span></label>
+              <div class="col-md-4"><input type="text" class="form-control" id="sfCoDistrict" placeholder="e.g. Dhaka" /></div>
+            </div>
+            <div class="mb-2 row">
+              <label class="col-form-label col-md-4 text-lg-end">Division</label>
+              <div class="col-md-4"><input type="text" class="form-control" id="sfCoDivision" placeholder="e.g. Dhaka" /></div>
+            </div>
+            <div class="mb-2 row">
+              <label class="col-form-label col-md-4 text-lg-end">Post Code</label>
+              <div class="col-md-4">
+                <input type="text" class="form-control" id="sfCoPostCode" />
+              </div>
+            </div>
+            <div class="mb-2 row">
+              <label class="col-form-label col-md-4">&nbsp;</label>
+              <div class="col-md-4">
+                <div class="form-check">
+                  <input type="checkbox" class="form-check-input" id="sfCoSaveAddr" checked />
+                  <label class="form-check-label" for="sfCoSaveAddr">Save this address to my address book</label>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <hr />
+          <div class="mb-5px"><b>Shipping Policy</b></div>
+          <ul class="checkout-info-list">
+            <li>Free shipping on orders over ৳2,000</li>
+            <li>Standard delivery 3–5 business days across Bangladesh</li>
+            <li>Final shipping charge is confirmed by delivery district at order placement</li>
+          </ul>
+
+          <div id="sfCoError" class="alert alert-danger mt-3" style="display:none"></div>
+        </div>
+
+        <div class="checkout-footer d-flex">
+          <a href="/cart" class="btn btn-white btn-theme me-auto">BACK</a>
+          <button type="button" class="btn btn-dark btn-theme ms-10px" id="sfInfoContinueBtn" onclick="sfSubmitInfo()">CONTINUE</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script th:inline="none">
+    document.addEventListener('DOMContentLoaded', function () {
+      document.querySelectorAll('.sf-addr-radio').forEach(function (radio) {
+        radio.addEventListener('change', function () {
+          var sel = document.querySelector('.sf-addr-radio:checked');
+          document.getElementById('sfNewAddr').style.display = (sel && sel.value === 'new') ? '' : 'none';
+        });
+      });
+    });
+
+    function v(id) { var el = document.getElementById(id); return el ? el.value.trim() : ''; }
+
+    function sfSubmitInfo() {
+      var err = document.getElementById('sfCoError');
+      err.style.display = 'none';
+
+      var sel = document.querySelector('.sf-addr-radio:checked');
+      var payload = {};
+      if (sel && sel.value !== 'new') {
+        payload.addressId = parseInt(sel.value, 10);
+      } else {
+        payload.fullName = v('sfCoName');
+        payload.phone = v('sfCoPhone');
+        payload.addressLine1 = v('sfCoLine1');
+        payload.addressLine2 = v('sfCoLine2');
+        payload.area = v('sfCoArea');
+        payload.upazila = v('sfCoUpazila');
+        payload.district = v('sfCoDistrict');
+        payload.division = v('sfCoDivision');
+        payload.postCode = v('sfCoPostCode');
+        payload.saveAddress = document.getElementById('sfCoSaveAddr').checked;
+        if (!payload.fullName || !payload.phone || !payload.addressLine1 || !payload.district) {
+          err.textContent = 'Please fill in your name, phone, street address and district.';
+          err.style.display = '';
+          return;
+        }
+      }
+
+      var btn = document.getElementById('sfInfoContinueBtn');
+      btn.disabled = true;
+      sfFetch('/checkout/info', { method: 'POST', body: JSON.stringify(payload) })
+        .then(function (d) {
+          if (d.success) { window.location.href = '/checkout/payment'; }
+          else { btn.disabled = false; err.textContent = d.message || 'Could not save shipping info.'; err.style.display = ''; }
+        })
+        .catch(function () { btn.disabled = false; err.textContent = 'Something went wrong.'; err.style.display = ''; });
+    }
+  </script>
+</main>
+</html>

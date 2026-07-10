@@ -1,0 +1,94 @@
+/* =============================================================================
+   storefront-ca-overrides.css — the few storefront widgets the Color Admin
+   E-Commerce Frontend theme doesn't ship. Loaded AFTER vendor.min.css +
+   app.min.css in sf-base.html; everything else is pure theme.
+   ============================================================================= */
+
+/* ── toast ─────────────────────────────────────────────────────────────── */
+.sf-toast {
+  position: fixed; bottom: 24px; left: 50%;
+  transform: translateX(-50%) translateY(16px);
+  background: #212837; color: #fff;
+  padding: 12px 22px; border-radius: 4px;
+  font-size: 13px; z-index: 1090;
+  opacity: 0; pointer-events: none;
+  transition: opacity .25s, transform .25s;
+  max-width: 90vw;
+}
+.sf-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+.sf-toast.error { background: #dc3545; }
+
+/* ── product card extras (wishlist heart + quick-add + rating) ─────────── */
+.item.item-thumbnail { position: relative; }
+.sf-card-wish {
+  position: absolute; top: 10px; right: 10px; z-index: 5;
+  width: 34px; height: 34px; border-radius: 50%;
+  border: 1px solid #dee2e6; background: #fff; color: #6c757d;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; transition: color .15s, border-color .15s;
+}
+.sf-card-wish:hover { color: #dc3545; border-color: #dc3545; }
+.sf-card-wish.active { color: #dc3545; border-color: #dc3545; }
+.sf-card-rating { font-size: 12px; margin-top: 4px; }
+.sf-card-rating .fa-star { color: #f59c1a; }
+.sf-quickadd { margin-top: 10px; width: 100%; }
+
+/* PDP wishlist heart in product-social */
+.sf-pd-wish.active, .sf-pd-wish.active i { color: #dc3545 !important; }
+
+/* ── PDP purchase row ──────────────────────────────────────────────────── */
+.sf-pd-qty {
+  display: inline-flex; width: 150px;
+  vertical-align: middle; margin: 0 12px 10px 0;
+}
+
+/* variant chips */
+.sf-variant-chip.active {
+  background: #212837 !important; color: #fff !important;
+  border-color: #212837 !important;
+}
+
+/* ── shop grid — theme .item-row assumes fixed children; make it fluid ─── */
+.sf-item-grid { display: flex; flex-wrap: wrap; margin: 0 -8px; }
+.sf-item-grid > .item { width: calc(25% - 16px); margin: 0 8px 16px; }
+@media (max-width: 1199px) { .sf-item-grid > .item { width: calc(33.333% - 16px); } }
+@media (max-width: 767px)  { .sf-item-grid > .item { width: calc(50% - 16px); } }
+
+/* ── cover art (theme ships cover images we don't have) ────────────────── */
+.sf-header-cover  { background: linear-gradient(135deg, #1a2035, #3d4977); }
+.sf-about-cover   { background: linear-gradient(135deg, #1a2035, #3d4977); color: #fff; }
+.sf-about-cover h1, .sf-about-cover p { color: #fff; }
+.sf-account-cover { background: linear-gradient(135deg, #1a2035, #3d4977); min-height: 100px; }
+
+/* ── account portal nav ────────────────────────────────────────────────── */
+.sf-account-nav li a { display: block; padding: 6px 0; color: inherit; }
+.sf-account-nav li.active > a { font-weight: 700; }
+.sf-logout-btn {
+  background: none; border: none; padding: 6px 0;
+  color: #dc3545; cursor: pointer; font: inherit;
+}
+.sf-stat-card {
+  border: 1px solid #dee2e6; border-radius: 6px;
+  padding: 18px 12px; text-align: center; background: #fff;
+}
+.sf-stat-card .num { font-size: 22px; font-weight: 700; }
+.sf-stat-card .lbl { font-size: 12px; color: #6c757d; text-transform: uppercase; letter-spacing: .03em; }
+.sf-addr-tile { border: 1px solid #dee2e6; border-radius: 6px; padding: 16px; height: 100%; background: #fff; }
+
+/* ── auth card ─────────────────────────────────────────────────────────── */
+.sf-auth-card {
+  background: #fff; border: 1px solid #dee2e6; border-radius: 6px;
+  padding: 32px; box-shadow: 0 2px 8px rgba(0,0,0,.04);
+  margin: 30px 0;
+}
+
+/* ── checkout payment icons ────────────────────────────────────────────── */
+.sf-pay-disabled { opacity: .45; }
+.sf-pay-disabled a { pointer-events: none; cursor: default; }
+
+/* ── CMS body ──────────────────────────────────────────────────────────── */
+.sf-cms-body { line-height: 1.75; }
+.sf-cms-body img { max-width: 100%; height: auto; }
+
+/* helpers the theme sometimes lacks */
+.fs-13px { font-size: 13px !important; }

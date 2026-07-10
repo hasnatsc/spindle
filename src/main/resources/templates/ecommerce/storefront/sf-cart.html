@@ -1,85 +1,133 @@
 <!DOCTYPE html>
-<!-- ecommerce/storefront/sf-cart.html  GET /cart
-     v2: coupon box (apply/remove), coupon row in summary. -->
-<html th:replace="~{ecommerce/storefront/layout/sf-base :: layout('Your Cart', ~{::main})}" xmlns:th="http://www.thymeleaf.org">
+<!-- ecommerce/storefront/sf-cart.html  GET /cart — theme checkout step 1:
+     wizard header + table-cart with qty steppers + coupon + summary. -->
+<html th:replace="~{ecommerce/storefront/layout/sf-base :: layout('Shopping Cart', ~{::main})}" xmlns:th="http://www.thymeleaf.org">
 <main>
-  <section class="sf-cart-page">
+  <div class="section-container" id="checkout-cart">
     <div class="container">
-      <h1 class="mb-4">Your Cart</h1>
+      <div class="checkout">
+        <div th:replace="~{ecommerce/storefront/fragments/sf-checkout-steps :: steps(1)}"></div>
 
-      <div th:if="${cart.items == null or cart.items.isEmpty()}" class="sf-cart-empty">
-        <i class="fa-solid fa-bag-shopping" style="font-size:2.4rem;color:var(--linen);margin-bottom:16px;display:block"></i>
-        <p>Your cart is empty.</p>
-        <a href="/shop" class="sf-btn sf-btn--primary mt-2">Start Shopping</a>
-      </div>
-
-      <div class="row g-5" th:unless="${cart.items == null or cart.items.isEmpty()}" id="sfCartContainer">
-        <div class="col-lg-8">
-          <div id="sfCartLines">
-            <div class="sf-cart-line" th:each="item : ${cart.items}" th:attr="data-item-id=${item.id}">
-              <img th:src="${item.productImage ?: 'https://placehold.co/200x240/E8E1D3/8A8275?text=ASG'}" th:alt="${item.productTitle}">
-              <div class="sf-cart-line-info">
-                <a th:href="@{'/product/' + ${item.productSlug}}"><div class="sf-cart-line-title" th:text="${item.productTitle}">Product</div></a>
-                <div class="sf-cart-line-variant" th:if="${item.variantName}" th:text="${item.variantName}">Variant</div>
-                <div class="sf-cart-line-price">
-                  ৳<span th:text="${#numbers.formatDecimal(item.unitPrice, 0, 'COMMA', 0, 'POINT')}">600</span> ×
-                  <input type="number" class="sf-cart-qty-input" min="1" th:value="${item.quantity}" style="width:50px;border:1px solid var(--linen);border-radius:3px;text-align:center;font-family:var(--font-mono)">
-                </div>
-                <span class="sf-cart-remove" onclick="sfRemoveCartItem(this)">Remove</span>
-              </div>
-              <div style="font-family:var(--font-mono);font-weight:600;align-self:flex-start" th:text="'৳' + ${#numbers.formatDecimal(item.lineTotal, 0, 'COMMA', 0, 'POINT')}">৳600</div>
-            </div>
+        <!-- empty -->
+        <div class="checkout-body" th:if="${cart.items == null or cart.items.isEmpty()}">
+          <div class="text-center py-5">
+            <i class="fa fa-shopping-bag fa-3x text-muted mb-3 d-block"></i>
+            <h4>Your cart is empty.</h4>
+            <a href="/shop" class="btn btn-dark btn-theme mt-3">START SHOPPING</a>
           </div>
         </div>
 
-        <div class="col-lg-4">
-          <!-- Coupon -->
-          <div class="sf-coupon-box">
-            <div th:if="${appliedCoupon == null}" class="sf-coupon-form">
-              <input type="text" id="sfCouponInput" class="sf-input" placeholder="Coupon code" autocomplete="off"
-                     style="text-transform:uppercase">
-              <button type="button" class="sf-btn sf-btn--primary" id="sfCouponBtn" onclick="sfApplyCoupon()">Apply</button>
-            </div>
-            <div th:if="${appliedCoupon != null}" class="sf-coupon-applied">
-              <span><i class="fa-solid fa-tag"></i>
-                <strong th:text="${appliedCoupon['code']}">SAVE10</strong> applied
-                — −৳<span th:text="${#numbers.formatDecimal(appliedCoupon['discount'], 0, 'COMMA', 0, 'POINT')}">100</span></span>
-              <a href="javascript:void(0)" onclick="sfRemoveCoupon()">Remove</a>
+        <th:block th:unless="${cart.items == null or cart.items.isEmpty()}">
+          <div class="checkout-body">
+            <div class="table-responsive">
+              <table class="table table-cart">
+                <thead>
+                  <tr>
+                    <th>Product Name</th>
+                    <th class="text-center">Price</th>
+                    <th class="text-center">Quantity</th>
+                    <th class="text-center">Total</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr th:each="item : ${cart.items}" th:attr="data-item-id=${item.id}" class="sf-cart-line">
+                    <td class="cart-product">
+                      <div class="d-flex">
+                        <div class="product-img h-100px w-80px d-flex align-items-center justify-content-center">
+                          <img th:src="${item.productImage ?: 'https://placehold.co/160x200/f4f4f4/999999?text=ASG'}" class="mw-100 mh-100" alt="" />
+                        </div>
+                        <div class="product-info ms-3">
+                          <div class="title"><a th:href="@{'/product/' + ${item.productSlug}}" th:text="${item.productTitle}" class="text-dark">Product</a></div>
+                          <div class="desc" th:if="${item.variantName}" th:text="${item.variantName}">Variant</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td class="cart-price text-center" th:text="'৳' + ${#numbers.formatDecimal(item.unitPrice, 0, 'COMMA', 0, 'POINT')}">৳999</td>
+                    <td class="cart-qty text-center">
+                      <div class="cart-qty-input">
+                        <a href="javascript:;" class="qty-control left sf-qty-minus"><i class="fa fa-minus"></i></a>
+                        <input type="text" th:value="${item.quantity.intValue()}" class="form-control sf-cart-qty-input" />
+                        <a href="javascript:;" class="qty-control right sf-qty-plus"><i class="fa fa-plus"></i></a>
+                      </div>
+                    </td>
+                    <td class="cart-total text-center sf-line-total" th:text="'৳' + ${#numbers.formatDecimal(item.lineTotal, 0, 'COMMA', 0, 'POINT')}">৳999</td>
+                    <td class="text-center">
+                      <a href="javascript:;" class="text-danger" onclick="sfRemoveCartItem(this)">&times;</a>
+                    </td>
+                  </tr>
+
+                  <tr>
+                    <td class="cart-summary" colspan="5">
+                      <!-- coupon -->
+                      <div class="sf-coupon-wrap mb-3">
+                        <div th:if="${appliedCoupon == null}" class="input-group w-300px ms-auto">
+                          <input type="text" id="sfCouponInput" class="form-control text-uppercase" placeholder="Coupon code" />
+                          <button type="button" class="btn btn-dark" id="sfCouponBtn" onclick="sfApplyCoupon()">APPLY</button>
+                        </div>
+                        <div th:if="${appliedCoupon != null}" class="text-end">
+                          <span class="badge bg-success fs-12px">
+                            <i class="fa fa-tag me-1"></i>
+                            <span th:text="${appliedCoupon['code']}">SAVE10</span> applied —
+                            −৳<span th:text="${#numbers.formatDecimal(appliedCoupon['discount'], 0, 'COMMA', 0, 'POINT')}">100</span>
+                          </span>
+                          <a href="javascript:;" class="text-danger ms-2 fs-12px" onclick="sfRemoveCoupon()">Remove</a>
+                        </div>
+                      </div>
+
+                      <div class="summary-container">
+                        <div class="summary-row">
+                          <div class="field">Cart Subtotal</div>
+                          <div class="value" id="sfSumSubtotal" th:text="'৳' + ${#numbers.formatDecimal(cart.subtotal, 0, 'COMMA', 0, 'POINT')}">৳999</div>
+                        </div>
+                        <div class="summary-row text-success" id="sfSumCouponRow"
+                             th:style="${cart.couponDiscount == null or cart.couponDiscount == 0} ? 'display:none' : ''">
+                          <div class="field">Coupon Discount</div>
+                          <div class="value" id="sfSumCoupon" th:text="'−৳' + ${#numbers.formatDecimal(cart.couponDiscount ?: 0, 0, 'COMMA', 0, 'POINT')}">−৳100</div>
+                        </div>
+                        <div class="summary-row text-danger">
+                          <div class="field">Shipping</div>
+                          <div class="value" id="sfSumShipping" th:text="${cart.shippingCharge != null and cart.shippingCharge == 0} ? 'Free' : ('৳' + ${#numbers.formatDecimal(cart.shippingCharge, 0, 'COMMA', 0, 'POINT')})">Free</div>
+                        </div>
+                        <div class="summary-row total">
+                          <div class="field">Total</div>
+                          <div class="value" id="sfSumTotal" th:text="'৳' + ${#numbers.formatDecimal(cart.grandTotal, 0, 'COMMA', 0, 'POINT')}">৳999</div>
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
           </div>
 
-          <div class="sf-cart-summary">
-            <div class="sf-summary-row"><span>Subtotal</span><span id="sfSumSubtotal" th:text="'৳' + ${#numbers.formatDecimal(cart.subtotal, 0, 'COMMA', 0, 'POINT')}">৳1,800</span></div>
-            <div class="sf-summary-row sf-summary-row--discount" id="sfSumCouponRow"
-                 th:style="${cart.couponDiscount == null or cart.couponDiscount == 0} ? 'display:none' : ''">
-              <span>Coupon</span>
-              <span id="sfSumCoupon" th:text="'−৳' + ${#numbers.formatDecimal(cart.couponDiscount ?: 0, 0, 'COMMA', 0, 'POINT')}">−৳100</span>
-            </div>
-            <div class="sf-summary-row"><span>Shipping</span><span id="sfSumShipping" th:text="${cart.shippingCharge != null and cart.shippingCharge == 0} ? 'Free' : ('৳' + ${#numbers.formatDecimal(cart.shippingCharge, 0, 'COMMA', 0, 'POINT')})">Free</span></div>
-            <div class="sf-summary-row total"><span>Total</span><span id="sfSumTotal" th:text="'৳' + ${#numbers.formatDecimal(cart.grandTotal, 0, 'COMMA', 0, 'POINT')}">৳1,800</span></div>
-            <a href="/checkout" class="sf-btn sf-btn--accent sf-btn--block mt-3">Proceed to Checkout <i class="fa fa-arrow-right"></i></a>
-            <a href="/shop" class="sf-btn sf-btn--outline sf-btn--block mt-2">Continue Shopping</a>
+          <div class="checkout-footer d-flex">
+            <a href="/shop" class="btn btn-white btn-lg me-auto btn-theme w-250px">CONTINUE SHOPPING</a>
+            <a href="/checkout/info" class="btn btn-dark btn-lg btn-theme w-250px">CHECKOUT</a>
           </div>
-        </div>
+        </th:block>
       </div>
     </div>
-  </section>
+  </div>
 
   <script th:inline="none">
     document.addEventListener('DOMContentLoaded', function () {
-      document.querySelectorAll('.sf-cart-qty-input').forEach(function (input) {
-        var debounce;
-        input.addEventListener('change', function () {
-          clearTimeout(debounce);
-          var itemId = input.closest('.sf-cart-line').dataset.itemId;
-          var qty = Math.max(1, parseInt(input.value || '1'));
+      document.querySelectorAll('.sf-cart-line').forEach(function (row) {
+        var input = row.querySelector('.sf-cart-qty-input');
+        var send = function () {
+          var qty = Math.max(1, parseInt(input.value || '1', 10));
           input.value = qty;
-          sfFetch('/cart/update/' + itemId, { method: 'POST', body: JSON.stringify({ quantity: qty }) })
+          sfFetch('/cart/update/' + row.dataset.itemId, { method: 'POST', body: JSON.stringify({ quantity: qty }) })
             .then(function (d) {
-              if (d.success) { sfRefreshCartSummary(d.cart); }
-              else { sfToast(d.message, true); }
+              if (!d.success) { sfToast(d.message, true); return; }
+              var it = (d.cart.items || []).find(function (x) { return String(x.id) === String(row.dataset.itemId); });
+              if (it) row.querySelector('.sf-line-total').textContent = '৳' + Math.round(it.lineTotal).toLocaleString();
+              sfRefreshCartSummary(d.cart);
             });
-        });
+        };
+        input.addEventListener('change', send);
+        row.querySelector('.sf-qty-minus').addEventListener('click', function () { input.value = Math.max(1, (parseInt(input.value,10)||1) - 1); send(); });
+        row.querySelector('.sf-qty-plus').addEventListener('click', function () { input.value = (parseInt(input.value,10)||1) + 1; send(); });
       });
       var couponInput = document.getElementById('sfCouponInput');
       if (couponInput) couponInput.addEventListener('keydown', function (e) {
@@ -88,17 +136,16 @@
     });
 
     function sfRemoveCartItem(el) {
-      var itemId = el.closest('.sf-cart-line').dataset.itemId;
-      sfFetch('/cart/remove/' + itemId, { method: 'DELETE' }).then(function (d) {
+      var row = el.closest('.sf-cart-line');
+      sfFetch('/cart/remove/' + row.dataset.itemId, { method: 'DELETE' }).then(function (d) {
         if (d.success) {
-          el.closest('.sf-cart-line').remove();
+          row.remove();
           sfRefreshCartSummary(d.cart);
           sfToast('Removed from cart.');
-          if (!d.cart.items || d.cart.items.length === 0) setTimeout(function () { location.reload(); }, 600);
+          if (!d.cart.items || d.cart.items.length === 0) setTimeout(function () { location.reload(); }, 500);
         }
       });
     }
-
     function sfApplyCoupon() {
       var input = document.getElementById('sfCouponInput');
       var code = (input.value || '').trim();
@@ -110,31 +157,25 @@
           btn.disabled = false;
           if (d.success) { sfToast(d.message); setTimeout(function () { location.reload(); }, 500); }
           else { sfToast(d.message || 'Could not apply coupon.', true); }
-        }).catch(function () { btn.disabled = false; sfToast('Could not apply coupon.', true); });
+        }).catch(function () { btn.disabled = false; });
     }
-
     function sfRemoveCoupon() {
       sfFetch('/cart/remove-coupon', { method: 'POST' }).then(function (d) {
         if (d.success) { sfToast(d.message); setTimeout(function () { location.reload(); }, 400); }
-        else { sfToast(d.message || 'Could not remove coupon.', true); }
       });
     }
-
     function sfRefreshCartSummary(cart) {
       document.getElementById('sfSumSubtotal').textContent = '৳' + Math.round(cart.subtotal).toLocaleString();
-      var couponRow = document.getElementById('sfSumCouponRow');
-      if (couponRow) {
+      var row = document.getElementById('sfSumCouponRow');
+      if (row) {
         if (cart.couponDiscount && cart.couponDiscount > 0) {
-          couponRow.style.display = '';
+          row.style.display = '';
           document.getElementById('sfSumCoupon').textContent = '−৳' + Math.round(cart.couponDiscount).toLocaleString();
-        } else {
-          couponRow.style.display = 'none';
-        }
+        } else row.style.display = 'none';
       }
       document.getElementById('sfSumShipping').textContent = cart.shippingCharge == 0 ? 'Free' : '৳' + Math.round(cart.shippingCharge).toLocaleString();
       document.getElementById('sfSumTotal').textContent = '৳' + Math.round(cart.grandTotal).toLocaleString();
-      var badge = document.getElementById('sfCartCount');
-      if (badge) badge.textContent = cart.totalItems || 0;
+      sfUpdateCartBadge(cart.totalItems || 0);
     }
   </script>
 </main>

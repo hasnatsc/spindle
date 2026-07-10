@@ -2,66 +2,75 @@
 <!-- ecommerce/storefront/sf-register.html  GET /account/register -->
 <html th:replace="~{ecommerce/storefront/layout/sf-base :: layout('Create Account', ~{::main})}" xmlns:th="http://www.thymeleaf.org">
 <main>
-  <div class="sf-auth-wrap">
-    <div class="sf-auth-card">
-      <h2 class="mb-1">Create your account</h2>
-      <p style="color:var(--grey);font-size:0.9rem;margin-bottom:24px">Track orders, save addresses, check out in seconds.</p>
+  <div class="section-container">
+    <div class="container">
+      <div class="row justify-content-center">
+        <div class="col-lg-5 col-md-7">
+          <div class="sf-auth-card">
+            <h3 class="mb-1">Create Account</h3>
+            <p class="text-muted mb-4">One account for orders, wishlist, and faster checkout.</p>
 
-      <form id="sfRegisterForm">
-        <div class="row g-2">
-          <div class="col-6 sf-field">
-            <label>First Name</label>
-            <input type="text" id="sfFirstName" placeholder="Rahim" required autofocus>
+            <div class="row g-2 mb-3">
+              <div class="col-6">
+                <label class="form-label">First Name *</label>
+                <input type="text" id="sfRegFirst" class="form-control" />
+              </div>
+              <div class="col-6">
+                <label class="form-label">Last Name</label>
+                <input type="text" id="sfRegLast" class="form-control" />
+              </div>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Phone *</label>
+              <input type="tel" id="sfRegPhone" class="form-control" placeholder="01712345678" />
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Email</label>
+              <input type="email" id="sfRegEmail" class="form-control" placeholder="optional" />
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Password *</label>
+              <input type="password" id="sfRegPass" class="form-control" placeholder="At least 6 characters" />
+            </div>
+            <div id="sfRegError" class="alert alert-danger" style="display:none"></div>
+            <button type="button" class="btn btn-dark btn-theme btn-lg w-100" id="sfRegBtn" onclick="sfDoRegister()">CREATE ACCOUNT</button>
+            <p class="text-center mt-3 mb-0">
+              Already have an account? <a th:href="@{/account/login(redirect=${redirectUrl})}" class="fw-bold text-dark">Sign in</a>
+            </p>
           </div>
-          <div class="col-6 sf-field">
-            <label>Last Name</label>
-            <input type="text" id="sfLastName" placeholder="Ahmed">
-          </div>
         </div>
-        <div class="sf-field">
-          <label>Phone Number</label>
-          <input type="text" id="sfPhone" placeholder="01XXXXXXXXX" required>
-        </div>
-        <div class="sf-field">
-          <label>Email <span style="color:var(--grey);font-weight:400">(optional)</span></label>
-          <input type="email" id="sfEmail" placeholder="you@example.com">
-        </div>
-        <div class="sf-field">
-          <label>Password</label>
-          <input type="password" id="sfRegPassword" placeholder="At least 6 characters" required minlength="6">
-          <div class="sf-field-error" id="sfRegisterError"></div>
-        </div>
-        <button type="submit" class="sf-btn sf-btn--primary sf-btn--block" id="sfRegisterBtn">Create Account</button>
-      </form>
-
-      <div class="sf-auth-switch">
-        Already have an account? <a th:href="@{/account/login(redirect=${redirectUrl})}">Sign in</a>
       </div>
     </div>
   </div>
 
   <script th:inline="javascript">
     var sfRedirectUrl = /*[[${redirectUrl}]]*/ '/account/dashboard';
-    document.getElementById('sfRegisterForm').addEventListener('submit', function (e) {
-      e.preventDefault();
-      var btn = document.getElementById('sfRegisterBtn');
-      var errEl = document.getElementById('sfRegisterError');
-      errEl.textContent = '';
-      btn.disabled = true; btn.textContent = 'Creating account…';
-      sfFetch('/account/register', {
-        method: 'POST',
-        body: JSON.stringify({
-          firstName: document.getElementById('sfFirstName').value,
-          lastName: document.getElementById('sfLastName').value,
-          phone: document.getElementById('sfPhone').value,
-          email: document.getElementById('sfEmail').value,
-          password: document.getElementById('sfRegPassword').value
-        })
-      }).then(function (d) {
-        if (d.success) { window.location.href = (sfRedirectUrl && sfRedirectUrl.charAt(0) === '/') ? sfRedirectUrl : '/account/dashboard'; }
-        else { errEl.textContent = d.message; btn.disabled = false; btn.textContent = 'Create Account'; }
-      }).catch(function () { errEl.textContent = 'Something went wrong. Please try again.'; btn.disabled = false; btn.textContent = 'Create Account'; });
-    });
+    function sfDoRegister() {
+      var err = document.getElementById('sfRegError');
+      err.style.display = 'none';
+      var payload = {
+        firstName: document.getElementById('sfRegFirst').value.trim(),
+        lastName: document.getElementById('sfRegLast').value.trim(),
+        phone: document.getElementById('sfRegPhone').value.trim(),
+        email: document.getElementById('sfRegEmail').value.trim(),
+        password: document.getElementById('sfRegPass').value
+      };
+      if (!payload.firstName || !payload.phone || !payload.password) {
+        err.textContent = 'Please fill in your name, phone, and password.'; err.style.display = ''; return;
+      }
+      var btn = document.getElementById('sfRegBtn');
+      btn.disabled = true;
+      sfFetch('/account/register', { method: 'POST', body: JSON.stringify(payload) })
+        .then(function (d) {
+          if (d.success) {
+            window.location.href = (sfRedirectUrl && sfRedirectUrl.charAt(0) === '/') ? sfRedirectUrl : '/account/dashboard';
+          } else {
+            btn.disabled = false;
+            err.textContent = d.message || 'Registration failed.';
+            err.style.display = '';
+          }
+        }).catch(function () { btn.disabled = false; err.textContent = 'Something went wrong.'; err.style.display = ''; });
+    }
   </script>
 </main>
 </html>

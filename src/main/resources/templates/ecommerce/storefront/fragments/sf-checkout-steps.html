@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<!-- ecommerce/storefront/fragments/sf-checkout-steps.html — the theme's 4-step
+     wizard header. step param: 1=Cart 2=Shipping 3=Payment 4=Complete. -->
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+<div th:fragment="steps(step)" class="checkout-header">
+  <div class="row">
+    <div class="col-lg-3">
+      <div class="step" th:classappend="${step >= 1} ? 'active'">
+        <a href="/cart">
+          <div class="number">1</div>
+          <div class="info">
+            <div class="title">Shopping Cart</div>
+            <div class="desc">Review your items</div>
+          </div>
+        </a>
+      </div>
+    </div>
+    <div class="col-lg-3">
+      <div class="step" th:classappend="${step >= 2} ? 'active'">
+        <a th:href="${step >= 2} ? '/checkout/info' : '#'">
+          <div class="number">2</div>
+          <div class="info">
+            <div class="title">Shipping Address</div>
+            <div class="desc">Where should it go</div>
+          </div>
+        </a>
+      </div>
+    </div>
+    <div class="col-lg-3">
+      <div class="step" th:classappend="${step >= 3} ? 'active'">
+        <a th:href="${step >= 3} ? '/checkout/payment' : '#'">
+          <div class="number">3</div>
+          <div class="info">
+            <div class="title">Payment</div>
+            <div class="desc">How you'll pay</div>
+          </div>
+        </a>
+      </div>
+    </div>
+    <div class="col-lg-3">
+      <div class="step" th:classappend="${step >= 4} ? 'active'">
+        <a href="#">
+          <div class="number">4</div>
+          <div class="info">
+            <div class="title">Complete</div>
+            <div class="desc">Order confirmed</div>
+          </div>
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

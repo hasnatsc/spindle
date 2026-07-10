@@ -1,72 +1,65 @@
 <!DOCTYPE html>
 <!-- ecommerce/storefront/sf-account-profile.html  GET /account/profile -->
-<html th:replace="~{ecommerce/storefront/layout/sf-base :: layout('My Profile', ~{::main})}" xmlns:th="http://www.thymeleaf.org">
+<html th:replace="~{ecommerce/storefront/layout/sf-base :: layout('Profile', ~{::main})}" xmlns:th="http://www.thymeleaf.org">
 <main>
-  <section class="sf-portal">
+  <div id="my-account" class="section-container pt-20px">
     <div class="container">
-      <div class="row g-4">
-        <div class="col-lg-3">
-          <div th:replace="~{ecommerce/storefront/fragments/sf-account-sidebar :: sidebar('profile')}"></div>
-        </div>
-        <div class="col-lg-9">
-          <h1 class="mb-4">My Profile</h1>
-
-          <div style="background:var(--white);border:1px solid var(--linen);border-radius:6px;padding:28px;max-width:520px">
-            <form id="sfProfileForm">
-              <div class="row g-2">
-                <div class="col-6 sf-field">
-                  <label>First Name</label>
-                  <input type="text" id="sfPFirstName" th:value="${customer.firstName}" required>
-                </div>
-                <div class="col-6 sf-field">
-                  <label>Last Name</label>
-                  <input type="text" id="sfPLastName" th:value="${customer.lastName}">
-                </div>
-              </div>
-              <div class="sf-field">
-                <label>Phone Number</label>
-                <input type="text" th:value="${customer.phone}" disabled style="opacity:0.6">
-              </div>
-              <div class="sf-field">
-                <label>Email</label>
-                <input type="email" id="sfPEmail" th:value="${customer.email}" placeholder="you@example.com">
-              </div>
-              <div class="sf-field">
-                <label>Customer Code</label>
-                <input type="text" th:value="${customer.customerCode}" disabled style="opacity:0.6;font-family:var(--font-mono)">
-              </div>
-              <div id="sfProfileMsg" style="font-size:0.85rem;margin-bottom:14px"></div>
-              <button type="submit" class="sf-btn sf-btn--primary" id="sfProfileSaveBtn">Save Changes</button>
-            </form>
-          </div>
-
-        </div>
-      </div>
+      <ul class="breadcrumb mb-2">
+        <li class="breadcrumb-item"><a href="/account/dashboard">My Account</a></li>
+        <li class="breadcrumb-item active">Profile</li>
+      </ul>
+      <div th:replace="~{ecommerce/storefront/fragments/sf-account-shell :: shell('profile', ~{::#sfBody})}"></div>
+      
     </div>
-  </section>
+  </div>
 
   <script th:inline="none">
-    document.getElementById('sfProfileForm').addEventListener('submit', function (e) {
-      e.preventDefault();
-      var btn = document.getElementById('sfProfileSaveBtn');
-      var msg = document.getElementById('sfProfileMsg');
-      btn.disabled = true; btn.textContent = 'Saving…';
+    function sfSaveProfile() {
+      var btn = document.getElementById('sfPfSaveBtn');
+      btn.disabled = true;
       sfFetch('/account/profile', {
         method: 'POST',
         body: JSON.stringify({
-          firstName: document.getElementById('sfPFirstName').value,
-          lastName: document.getElementById('sfPLastName').value,
-          email: document.getElementById('sfPEmail').value
+          firstName: document.getElementById('sfPfFirst').value.trim(),
+          lastName: document.getElementById('sfPfLast').value.trim(),
+          email: document.getElementById('sfPfEmail').value.trim()
         })
       }).then(function (d) {
-        msg.style.color = d.success ? 'var(--sage)' : 'var(--rust)';
-        msg.textContent = d.message;
-        btn.disabled = false; btn.textContent = 'Save Changes';
-      }).catch(function () {
-        msg.style.color = 'var(--rust)'; msg.textContent = 'Something went wrong.';
-        btn.disabled = false; btn.textContent = 'Save Changes';
-      });
-    });
+        btn.disabled = false;
+        sfToast(d.message || (d.success ? 'Profile updated.' : 'Could not update.'), !d.success);
+      }).catch(function () { btn.disabled = false; sfToast('Could not update.', true); });
+    }
   </script>
 </main>
+
+<!-- account body — selected by ::#sfBody, rendered only inside the shell -->
+<th:block id="sfBody">
+        <h4><i class="fa fa-user fa-fw text-theme"></i> Profile</h4>
+        <div class="row">
+          <div class="col-md-8">
+            <div class="mb-3 row">
+              <label class="col-form-label col-md-3">First Name <span class="text-danger">*</span></label>
+              <div class="col-md-9"><input type="text" class="form-control" id="sfPfFirst" th:value="${customer.firstName}" /></div>
+            </div>
+            <div class="mb-3 row">
+              <label class="col-form-label col-md-3">Last Name</label>
+              <div class="col-md-9"><input type="text" class="form-control" id="sfPfLast" th:value="${customer.lastName}" /></div>
+            </div>
+            <div class="mb-3 row">
+              <label class="col-form-label col-md-3">Email</label>
+              <div class="col-md-9"><input type="email" class="form-control" id="sfPfEmail" th:value="${customer.email}" /></div>
+            </div>
+            <div class="mb-3 row">
+              <label class="col-form-label col-md-3">Phone</label>
+              <div class="col-md-9"><input type="text" class="form-control" th:value="${customer.phone}" disabled /></div>
+            </div>
+            <div class="row">
+              <div class="col-md-9 offset-md-3">
+                <button type="button" class="btn btn-dark btn-theme" id="sfPfSaveBtn" onclick="sfSaveProfile()">SAVE CHANGES</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </th:block>
+
 </html>

@@ -1,69 +1,86 @@
 <!DOCTYPE html>
 <!-- ecommerce/storefront/sf-account-order-detail.html  GET /account/orders/{orderNo}
-     v2: EcOrder has no discountAmount field — summary now shows couponDiscount
-         and productDiscount separately (and taxAmount when present). -->
+     — table-payment-summary style. couponDiscount + productDiscount rows
+     (EcOrder has no discountAmount). -->
 <html th:replace="~{ecommerce/storefront/layout/sf-base :: layout('Order Details', ~{::main})}" xmlns:th="http://www.thymeleaf.org">
 <main>
-  <section class="sf-portal">
+  <div id="my-account" class="section-container pt-20px">
     <div class="container">
-      <div class="row g-4">
-        <div class="col-lg-3">
-          <div th:replace="~{ecommerce/storefront/fragments/sf-account-sidebar :: sidebar('orders')}"></div>
-        </div>
-        <div class="col-lg-9">
-
-          <div th:if="${notFound}" class="sf-empty-state">
-            <i class="fa-solid fa-circle-exclamation"></i>
-            <p>We couldn't find that order, or it doesn't belong to your account.</p>
-            <a href="/account/orders" class="sf-btn sf-btn--primary mt-2">Back to Order History</a>
-          </div>
-
-          <div th:unless="${notFound}">
-            <div class="d-flex justify-content-between align-items-start mb-1 flex-wrap gap-2">
-              <h1 th:text="'Order ' + ${order.orderNo}">Order EC-ORDER-25-000001</h1>
-              <span class="sf-status-pill"
-                    th:classappend="${order.orderStatus.name() == 'COMPLETED'} ? 'completed' : (${order.orderStatus.name() == 'CANCELLED'} ? 'cancelled' : '')"
-                    th:text="${order.orderStatus}" style="font-size:0.78rem;padding:6px 14px">PENDING</span>
-            </div>
-            <p style="color:var(--grey);font-size:0.88rem;margin-bottom:28px" th:text="'Placed on ' + ${#temporals.format(order.orderDate, 'dd MMMM yyyy, h:mm a')}">Placed on 01 Jan 2026</p>
-
-            <div style="background:var(--white);border:1px solid var(--linen);border-radius:6px;padding:20px;margin-bottom:24px">
-              <h6 style="font-family:var(--font-mono);font-size:0.75rem;text-transform:uppercase;color:var(--sage);margin-bottom:14px">Items</h6>
-              <div class="sf-cart-line" th:each="item : ${order.orderItems}" style="border-bottom:1px solid var(--linen)">
-                <div class="sf-cart-line-info">
-                  <div class="sf-cart-line-title" th:text="${item.product != null ? item.product.productTitle : item.item.itemName}">Product</div>
-                  <div class="sf-cart-line-variant" th:if="${item.variant != null}" th:text="${item.variant.variantName}">Variant</div>
-                  <div class="sf-cart-line-price" th:text="${item.quantity} + ' × ৳' + ${#numbers.formatDecimal(item.unitPrice, 0, 'COMMA', 0, 'POINT')}">2 × ৳600</div>
-                </div>
-                <div style="font-family:var(--font-mono);font-weight:600" th:text="'৳' + ${#numbers.formatDecimal(item.lineTotal, 0, 'COMMA', 0, 'POINT')}">৳1,200</div>
-              </div>
-            </div>
-
-            <div class="row g-4">
-              <div class="col-md-6">
-                <div style="background:var(--white);border:1px solid var(--linen);border-radius:6px;padding:20px">
-                  <h6 style="font-family:var(--font-mono);font-size:0.75rem;text-transform:uppercase;color:var(--sage);margin-bottom:14px">Order Summary</h6>
-                  <div class="sf-summary-row"><span>Subtotal</span><span th:text="'৳' + ${#numbers.formatDecimal(order.subtotal, 0, 'COMMA', 0, 'POINT')}">৳1,800</span></div>
-                  <div class="sf-summary-row sf-summary-row--discount" th:if="${order.productDiscount != null and order.productDiscount.signum() > 0}"><span>Discount</span><span th:text="'−৳' + ${#numbers.formatDecimal(order.productDiscount, 0, 'COMMA', 0, 'POINT')}">−৳50</span></div>
-                  <div class="sf-summary-row sf-summary-row--discount" th:if="${order.couponDiscount != null and order.couponDiscount.signum() > 0}"><span>Coupon</span><span th:text="'−৳' + ${#numbers.formatDecimal(order.couponDiscount, 0, 'COMMA', 0, 'POINT')}">−৳100</span></div>
-                  <div class="sf-summary-row"><span>Shipping</span><span th:text="'৳' + ${#numbers.formatDecimal(order.shippingCharge, 0, 'COMMA', 0, 'POINT')}">৳80</span></div>
-                  <div class="sf-summary-row" th:if="${order.taxAmount != null and order.taxAmount.signum() > 0}"><span>Tax</span><span th:text="'৳' + ${#numbers.formatDecimal(order.taxAmount, 0, 'COMMA', 0, 'POINT')}">৳0</span></div>
-                  <div class="sf-summary-row total"><span>Total</span><span th:text="'৳' + ${#numbers.formatDecimal(order.grandTotal, 0, 'COMMA', 0, 'POINT')}">৳1,780</span></div>
-                </div>
-              </div>
-              <div class="col-md-6">
-                <div style="background:var(--white);border:1px solid var(--linen);border-radius:6px;padding:20px">
-                  <h6 style="font-family:var(--font-mono);font-size:0.75rem;text-transform:uppercase;color:var(--sage);margin-bottom:14px">Status</h6>
-                  <div class="sf-summary-row"><span>Payment</span><span th:text="${order.paymentStatus}">PENDING</span></div>
-                  <div class="sf-summary-row"><span>Shipping</span><span th:text="${order.shippingStatus}">PENDING</span></div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-        </div>
-      </div>
+      <ul class="breadcrumb mb-2">
+        <li class="breadcrumb-item"><a href="/account/orders">Order History</a></li>
+        <li class="breadcrumb-item active" th:text="${order != null ? order.orderNo : 'Order'}">Order</li>
+      </ul>
+      <div th:replace="~{ecommerce/storefront/fragments/sf-account-shell :: shell('orders', ~{::#sfBody})}"></div>
+      
     </div>
-  </section>
+  </div>
 </main>
+
+<!-- account body — selected by ::#sfBody, rendered only inside the shell -->
+<th:block id="sfBody">
+        <div th:if="${notFound}" class="text-center py-5">
+          <i class="fa fa-exclamation-circle fa-2x text-muted mb-3 d-block"></i>
+          <p>We couldn't find that order, or it doesn't belong to your account.</p>
+          <a href="/account/orders" class="btn btn-dark btn-theme">Back to Order History</a>
+        </div>
+
+        <th:block th:unless="${notFound}">
+          <div class="d-flex justify-content-between align-items-center flex-wrap mb-3">
+            <h4 class="mb-0" th:text="'Order ' + ${order.orderNo}">Order EC-ORDER-26-000001</h4>
+            <span class="badge bg-dark fs-12px" th:text="${order.orderStatus}">PENDING</span>
+          </div>
+          <p class="text-muted" th:text="'Placed on ' + ${#temporals.format(order.orderDate, 'dd MMMM yyyy, h:mm a')}">Placed on…</p>
+
+          <div class="table-responsive mb-4">
+            <table class="table table-cart">
+              <thead><tr><th>Item</th><th class="text-center">Qty</th><th class="text-end">Unit</th><th class="text-end">Total</th></tr></thead>
+              <tbody>
+                <tr th:each="item : ${order.orderItems}">
+                  <td>
+                    <div class="title" th:text="${item.product != null ? item.product.productTitle : item.item.itemName}">Product</div>
+                    <div class="desc text-muted" th:if="${item.variant != null}" th:text="${item.variant.variantName}">Variant</div>
+                  </td>
+                  <td class="text-center" th:text="${item.quantity}">2</td>
+                  <td class="text-end" th:text="'৳' + ${#numbers.formatDecimal(item.unitPrice, 0, 'COMMA', 0, 'POINT')}">৳600</td>
+                  <td class="text-end" th:text="'৳' + ${#numbers.formatDecimal(item.lineTotal, 0, 'COMMA', 0, 'POINT')}">৳1,200</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="row">
+            <div class="col-md-6">
+              <div class="table-responsive">
+                <table class="table table-payment-summary">
+                  <tbody>
+                    <tr><td class="field">Subtotal</td><td class="value" th:text="'৳' + ${#numbers.formatDecimal(order.subtotal, 0, 'COMMA', 0, 'POINT')}">৳1,800</td></tr>
+                    <tr th:if="${order.productDiscount != null and order.productDiscount.signum() > 0}">
+                      <td class="field">Discount</td><td class="value text-success" th:text="'−৳' + ${#numbers.formatDecimal(order.productDiscount, 0, 'COMMA', 0, 'POINT')}">−৳50</td>
+                    </tr>
+                    <tr th:if="${order.couponDiscount != null and order.couponDiscount.signum() > 0}">
+                      <td class="field">Coupon</td><td class="value text-success" th:text="'−৳' + ${#numbers.formatDecimal(order.couponDiscount, 0, 'COMMA', 0, 'POINT')}">−৳100</td>
+                    </tr>
+                    <tr><td class="field">Shipping</td><td class="value" th:text="'৳' + ${#numbers.formatDecimal(order.shippingCharge, 0, 'COMMA', 0, 'POINT')}">৳80</td></tr>
+                    <tr th:if="${order.taxAmount != null and order.taxAmount.signum() > 0}">
+                      <td class="field">Tax</td><td class="value" th:text="'৳' + ${#numbers.formatDecimal(order.taxAmount, 0, 'COMMA', 0, 'POINT')}">৳0</td>
+                    </tr>
+                    <tr><td class="field"><b>Total</b></td><td class="value"><b th:text="'৳' + ${#numbers.formatDecimal(order.grandTotal, 0, 'COMMA', 0, 'POINT')}">৳1,780</b></td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="table-responsive">
+                <table class="table table-payment-summary">
+                  <tbody>
+                    <tr><td class="field">Payment</td><td class="value" th:text="${order.paymentStatus}">UNPAID</td></tr>
+                    <tr><td class="field">Shipping</td><td class="value" th:text="${order.shippingStatus}">PENDING</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </th:block>
+      </th:block>
+
 </html>

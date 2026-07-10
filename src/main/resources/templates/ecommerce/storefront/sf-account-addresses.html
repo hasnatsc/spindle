@@ -1,103 +1,17 @@
 <!DOCTYPE html>
-<!-- ecommerce/storefront/sf-account-addresses.html  GET /account/addresses  (NEW in v2) -->
+<!-- ecommerce/storefront/sf-account-addresses.html  GET /account/addresses -->
 <html th:replace="~{ecommerce/storefront/layout/sf-base :: layout('My Addresses', ~{::main})}" xmlns:th="http://www.thymeleaf.org">
 <main>
-  <section class="sf-portal">
+  <div id="my-account" class="section-container pt-20px">
     <div class="container">
-      <h1 class="mb-4">My Account</h1>
-      <div class="row g-4">
-        <div class="col-lg-3">
-          <div th:replace="~{ecommerce/storefront/fragments/sf-account-sidebar :: sidebar('addresses')}"></div>
-        </div>
-        <div class="col-lg-9">
-
-          <div class="sf-portal-card mb-4">
-            <div class="d-flex justify-content-between align-items-center mb-3">
-              <h5 class="mb-0">Saved Addresses</h5>
-              <button type="button" class="sf-btn sf-btn--primary" onclick="sfToggleAddrForm(true)">
-                <i class="fa-solid fa-plus"></i> Add Address
-              </button>
-            </div>
-
-            <div th:if="${addresses == null or addresses.isEmpty()}" class="sf-empty-state">
-              <i class="fa-solid fa-location-dot"></i>
-              <p>No addresses saved yet — add one to breeze through checkout.</p>
-            </div>
-
-            <div class="sf-addr-grid" th:unless="${addresses == null or addresses.isEmpty()}">
-              <div class="sf-addr-tile" th:each="a : ${addresses}">
-                <div class="sf-addr-name">
-                  <span th:text="${a.contactPerson}">Abul Hasnat</span>
-                  <span class="sf-addr-badge" th:if="${a.defaultShipping != null and a.defaultShipping}">Default</span>
-                </div>
-                <div class="sf-addr-lines">
-                  <span th:text="${a.addressLine1}">House 12, Road 5</span><span th:if="${a.addressLine2}" th:text="', ' + ${a.addressLine2}"></span><br>
-                  <span th:if="${a.area}" th:text="${a.area} + ', '"></span><span th:if="${a.upazila}" th:text="${a.upazila} + ', '"></span><span th:text="${a.district}">Dhaka</span><span th:if="${a.division}" th:text="', ' + ${a.division}"></span><span th:if="${a.postCode}" th:text="' — ' + ${a.postCode}"></span>
-                </div>
-                <div class="sf-addr-phone" th:text="${a.contactPhone}">01712345678</div>
-                <div class="sf-addr-tile-actions">
-                  <a href="javascript:void(0)" th:if="${a.defaultShipping == null or !a.defaultShipping}"
-                     th:attr="onclick='sfSetDefaultAddr(' + ${a.id} + ')'">Set as default</a>
-                  <a href="javascript:void(0)" class="danger" th:attr="onclick='sfDeleteAddr(' + ${a.id} + ')'">Remove</a>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Add address form -->
-          <div class="sf-portal-card" id="sfAddrForm" style="display:none">
-            <h5 class="mb-3">New Address</h5>
-            <div class="row g-3">
-              <div class="col-md-6">
-                <label class="sf-label">Contact Person *</label>
-                <input type="text" id="sfAdName" class="sf-input" th:value="${customer.fullName}">
-              </div>
-              <div class="col-md-6">
-                <label class="sf-label">Phone *</label>
-                <input type="tel" id="sfAdPhone" class="sf-input" th:value="${customer.phone}">
-              </div>
-              <div class="col-12">
-                <label class="sf-label">Address Line 1 *</label>
-                <input type="text" id="sfAdLine1" class="sf-input" placeholder="House, road, block…">
-              </div>
-              <div class="col-12">
-                <label class="sf-label">Address Line 2</label>
-                <input type="text" id="sfAdLine2" class="sf-input" placeholder="Apartment, floor (optional)">
-              </div>
-              <div class="col-md-6">
-                <label class="sf-label">Area</label>
-                <input type="text" id="sfAdArea" class="sf-input" placeholder="e.g. Dhanmondi">
-              </div>
-              <div class="col-md-6">
-                <label class="sf-label">Upazila / Thana</label>
-                <input type="text" id="sfAdUpazila" class="sf-input">
-              </div>
-              <div class="col-md-4">
-                <label class="sf-label">District *</label>
-                <input type="text" id="sfAdDistrict" class="sf-input" placeholder="e.g. Dhaka">
-              </div>
-              <div class="col-md-4">
-                <label class="sf-label">Division</label>
-                <input type="text" id="sfAdDivision" class="sf-input" placeholder="e.g. Dhaka">
-              </div>
-              <div class="col-md-4">
-                <label class="sf-label">Post Code</label>
-                <input type="text" id="sfAdPostCode" class="sf-input">
-              </div>
-              <div class="col-12">
-                <label class="sf-check"><input type="checkbox" id="sfAdDefault"> Make this my default shipping address</label>
-              </div>
-              <div class="col-12 d-flex gap-2">
-                <button type="button" class="sf-btn sf-btn--accent" id="sfAdSaveBtn" onclick="sfSaveAddr()">Save Address</button>
-                <button type="button" class="sf-btn sf-btn--outline" onclick="sfToggleAddrForm(false)">Cancel</button>
-              </div>
-            </div>
-          </div>
-
-        </div>
-      </div>
+      <ul class="breadcrumb mb-2">
+        <li class="breadcrumb-item"><a href="/account/dashboard">My Account</a></li>
+        <li class="breadcrumb-item active">Addresses</li>
+      </ul>
+      <div th:replace="~{ecommerce/storefront/fragments/sf-account-shell :: shell('addresses', ~{::#sfBody})}"></div>
+      
     </div>
-  </section>
+  </div>
 
   <script th:inline="none">
     function sfToggleAddrForm(show) {
@@ -105,20 +19,14 @@
       f.style.display = show ? '' : 'none';
       if (show) f.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
-    function sfAdVal(id) { var el = document.getElementById(id); return el ? el.value.trim() : ''; }
-
+    function av(id) { var el = document.getElementById(id); return el ? el.value.trim() : ''; }
     function sfSaveAddr() {
       var payload = {
         addressType: 'SHIPPING',
-        contactPerson: sfAdVal('sfAdName'),
-        contactPhone: sfAdVal('sfAdPhone'),
-        addressLine1: sfAdVal('sfAdLine1'),
-        addressLine2: sfAdVal('sfAdLine2'),
-        area: sfAdVal('sfAdArea'),
-        upazila: sfAdVal('sfAdUpazila'),
-        district: sfAdVal('sfAdDistrict'),
-        division: sfAdVal('sfAdDivision'),
-        postCode: sfAdVal('sfAdPostCode'),
+        contactPerson: av('sfAdName'), contactPhone: av('sfAdPhone'),
+        addressLine1: av('sfAdLine1'), addressLine2: av('sfAdLine2'),
+        area: av('sfAdArea'), upazila: av('sfAdUpazila'),
+        district: av('sfAdDistrict'), division: av('sfAdDivision'), postCode: av('sfAdPostCode'),
         defaultShipping: document.getElementById('sfAdDefault').checked
       };
       if (!payload.contactPerson || !payload.contactPhone || !payload.addressLine1 || !payload.district) {
@@ -132,25 +40,81 @@
           btn.disabled = false;
           if (d.success) { sfToast(d.message); setTimeout(function () { location.reload(); }, 500); }
           else { sfToast(d.message || 'Could not save address.', true); }
-        }).catch(function () { btn.disabled = false; sfToast('Could not save address.', true); });
+        }).catch(function () { btn.disabled = false; });
     }
-
     function sfDeleteAddr(id) {
       if (!confirm('Remove this address?')) return;
       sfFetch('/account/addresses/' + id, { method: 'DELETE' })
         .then(function (d) {
           if (d.success) { sfToast(d.message); setTimeout(function () { location.reload(); }, 400); }
-          else { sfToast(d.message || 'Could not remove address.', true); }
+          else { sfToast(d.message || 'Could not remove.', true); }
         });
     }
-
     function sfSetDefaultAddr(id) {
       sfFetch('/account/addresses/' + id + '/default', { method: 'POST' })
         .then(function (d) {
           if (d.success) { sfToast(d.message); setTimeout(function () { location.reload(); }, 400); }
-          else { sfToast(d.message || 'Could not update default.', true); }
+          else { sfToast(d.message || 'Could not update.', true); }
         });
     }
   </script>
 </main>
+
+<!-- account body — selected by ::#sfBody, rendered only inside the shell -->
+<th:block id="sfBody">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h4 class="mb-0"><i class="fa fa-map-marker-alt fa-fw text-theme"></i> Saved Addresses</h4>
+          <button type="button" class="btn btn-dark btn-theme btn-sm" onclick="sfToggleAddrForm(true)"><i class="fa fa-plus me-1"></i> ADD ADDRESS</button>
+        </div>
+
+        <p class="text-muted" th:if="${addresses == null or addresses.isEmpty()}">No addresses saved yet — add one to breeze through checkout.</p>
+
+        <div class="row" th:unless="${addresses == null or addresses.isEmpty()}">
+          <div class="col-md-6 mb-3" th:each="a : ${addresses}">
+            <div class="sf-addr-tile">
+              <div class="fw-bold">
+                <span th:text="${a.contactPerson}">Name</span>
+                <span class="badge bg-dark ms-1" th:if="${a.defaultShipping != null and a.defaultShipping}">Default</span>
+              </div>
+              <div class="text-muted fs-13px my-1">
+                <span th:text="${a.addressLine1}">Line 1</span><span th:if="${a.addressLine2}" th:text="', ' + ${a.addressLine2}"></span><br>
+                <span th:if="${a.area}" th:text="${a.area} + ', '"></span><span th:if="${a.upazila}" th:text="${a.upazila} + ', '"></span><span th:text="${a.district}">Dhaka</span><span th:if="${a.division}" th:text="', ' + ${a.division}"></span><span th:if="${a.postCode}" th:text="' — ' + ${a.postCode}"></span>
+              </div>
+              <div class="fs-13px" th:text="${a.contactPhone}">017…</div>
+              <div class="mt-2">
+                <a href="javascript:;" class="fs-12px me-3" th:if="${a.defaultShipping == null or !a.defaultShipping}"
+                   th:attr="onclick='sfSetDefaultAddr(' + ${a.id} + ')'">Set as default</a>
+                <a href="javascript:;" class="fs-12px text-danger" th:attr="onclick='sfDeleteAddr(' + ${a.id} + ')'">Remove</a>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- add form -->
+        <div id="sfAddrForm" style="display:none" class="mt-3 p-3 bg-light rounded">
+          <h5 class="mb-3">New Address</h5>
+          <div class="row g-2">
+            <div class="col-md-6"><label class="form-label">Contact Person *</label><input type="text" id="sfAdName" class="form-control" th:value="${customer.fullName}"></div>
+            <div class="col-md-6"><label class="form-label">Phone *</label><input type="tel" id="sfAdPhone" class="form-control" th:value="${customer.phone}"></div>
+            <div class="col-12"><label class="form-label">Address Line 1 *</label><input type="text" id="sfAdLine1" class="form-control" placeholder="House, road, block…"></div>
+            <div class="col-12"><label class="form-label">Address Line 2</label><input type="text" id="sfAdLine2" class="form-control"></div>
+            <div class="col-md-6"><label class="form-label">Area</label><input type="text" id="sfAdArea" class="form-control"></div>
+            <div class="col-md-6"><label class="form-label">Upazila / Thana</label><input type="text" id="sfAdUpazila" class="form-control"></div>
+            <div class="col-md-4"><label class="form-label">District *</label><input type="text" id="sfAdDistrict" class="form-control"></div>
+            <div class="col-md-4"><label class="form-label">Division</label><input type="text" id="sfAdDivision" class="form-control"></div>
+            <div class="col-md-4"><label class="form-label">Post Code</label><input type="text" id="sfAdPostCode" class="form-control"></div>
+            <div class="col-12">
+              <div class="form-check">
+                <input type="checkbox" class="form-check-input" id="sfAdDefault">
+                <label class="form-check-label" for="sfAdDefault">Make this my default shipping address</label>
+              </div>
+            </div>
+            <div class="col-12 d-flex gap-2">
+              <button type="button" class="btn btn-dark btn-theme" id="sfAdSaveBtn" onclick="sfSaveAddr()">SAVE ADDRESS</button>
+              <button type="button" class="btn btn-white btn-theme" onclick="sfToggleAddrForm(false)">CANCEL</button>
+            </div>
+          </div>
+        </div>
+      </th:block>
+
 </html>

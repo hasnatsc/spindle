@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<!-- ecommerce/storefront/sf-contact.html  GET /contact — theme contact layout:
+     form left, address block right. Form posts to /contact/send. -->
+<html th:replace="~{ecommerce/storefront/layout/sf-base :: layout('Contact Us', ~{::main})}" xmlns:th="http://www.thymeleaf.org">
+<main>
+  <div id="page-header" class="section-container page-header-container bg-dark">
+    <div class="page-header-cover sf-header-cover"></div>
+    <div class="container"><h1 class="page-header"><b>Contact</b> Us</h1></div>
+  </div>
+
+  <div class="section-container pt-20px">
+    <div class="container">
+      <div class="row">
+        <div class="col-md-7 mb-4 mb-md-0">
+          <h4>Send us a message</h4>
+          <div class="mb-3">
+            <label class="form-label">Name <span class="text-danger">*</span></label>
+            <input type="text" class="form-control" id="sfCtName" />
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Email or Phone <span class="text-danger">*</span></label>
+            <input type="text" class="form-control" id="sfCtContact" />
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Subject</label>
+            <input type="text" class="form-control" id="sfCtSubject" />
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Message <span class="text-danger">*</span></label>
+            <textarea class="form-control" rows="8" id="sfCtMessage"></textarea>
+          </div>
+          <div id="sfCtError" class="alert alert-danger" style="display:none"></div>
+          <button type="button" class="btn btn-dark btn-theme btn-lg" id="sfCtBtn" onclick="sfSendContact()">SEND MESSAGE</button>
+        </div>
+        <div class="col-md-5">
+          <h4>Reach us directly</h4>
+          <p class="mb-2"><i class="fa fa-fw fa-map-marker-alt me-1"></i> ASG Group, Narayanganj, Dhaka, Bangladesh</p>
+          <p class="mb-2"><i class="fa fa-fw fa-phone me-1"></i> +880 1700-000000 (9am–9pm, Sat–Thu)</p>
+          <p class="mb-2"><i class="fa fa-fw fa-envelope me-1"></i> store@asggroup.com</p>
+          <p class="mb-0"><i class="fab fa-fw fa-whatsapp me-1"></i> WhatsApp us for order updates</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script th:inline="none">
+    function sfSendContact() {
+      var err = document.getElementById('sfCtError');
+      err.style.display = 'none';
+      var payload = {
+        name: document.getElementById('sfCtName').value.trim(),
+        contact: document.getElementById('sfCtContact').value.trim(),
+        subject: document.getElementById('sfCtSubject').value.trim(),
+        message: document.getElementById('sfCtMessage').value.trim()
+      };
+      if (!payload.name || !payload.contact || !payload.message) {
+        err.textContent = 'Please fill in your name, contact and message.';
+        err.style.display = '';
+        return;
+      }
+      var btn = document.getElementById('sfCtBtn');
+      btn.disabled = true;
+      sfFetch('/contact/send', { method: 'POST', body: JSON.stringify(payload) })
+        .then(function (d) {
+          btn.disabled = false;
+          if (d.success) {
+            sfToast(d.message || 'Message sent!');
+            document.getElementById('sfCtName').value = '';
+            document.getElementById('sfCtContact').value = '';
+            document.getElementById('sfCtSubject').value = '';
+            document.getElementById('sfCtMessage').value = '';
+          } else {
+            err.textContent = d.message || 'Could not send message.'; err.style.display = '';
+          }
+        }).catch(function () { btn.disabled = false; err.textContent = 'Something went wrong.'; err.style.display = ''; });
+    }
+  </script>
+</main>
+</html>

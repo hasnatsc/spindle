@@ -1,106 +1,135 @@
 <!DOCTYPE html>
-<!-- ecommerce/storefront/sf-home.html  GET /
-     v2: banner slider (ec_banners HOME_SLIDER) with static-hero fallback,
-         dynamic home sections (ec_home_sections) with featured/new-arrival fallback. -->
+<!-- ecommerce/storefront/sf-home.html  GET /  — theme home: #slider carousel
+     (ec_banners), dynamic home sections as trending-item rows, #policy strip. -->
 <html th:replace="~{ecommerce/storefront/layout/sf-base :: layout('Home', ~{::main})}" xmlns:th="http://www.thymeleaf.org">
 <main>
 
-  <!-- ════════════════════ HERO / BANNER SLIDER ════════════════════ -->
-  <section th:if="${banners != null and !banners.isEmpty()}" class="sf-hero-slider" id="sfHeroSlider">
-    <div th:each="b, st : ${banners}" class="sf-slide" th:classappend="${st.index == 0} ? 'active'"
-         th:style="${b.imageUrl != null} ? 'background-image:url(' + ${b.imageUrl} + ')' : ''">
-      <div class="sf-slide-scrim"></div>
-      <div class="container sf-slide-inner">
-        <span class="sf-hero-eyebrow" th:if="${b.subTitle}" th:text="${b.subTitle}">Eyebrow</span>
-        <h1 th:text="${b.title}">Banner Title</h1>
-        <p th:if="${b.description}" th:text="${b.description}">Description</p>
-        <a th:if="${b.buttonUrl}" th:href="${b.buttonUrl}"
-           th:target="${b.openInNewTab != null and b.openInNewTab} ? '_blank' : '_self'"
-           class="sf-btn sf-btn--primary">
-          <span th:text="${b.buttonText != null ? b.buttonText : 'Shop Now'}">Shop Now</span> <i class="fa fa-arrow-right"></i>
-        </a>
-      </div>
-    </div>
-    <div class="sf-slider-dots" th:if="${banners.size() > 1}">
-      <button th:each="b, st : ${banners}" th:attr="data-slide=${st.index}"
-              th:classappend="${st.index == 0} ? 'active'" type="button" aria-label="Go to slide"></button>
-    </div>
-  </section>
-
-  <!-- Static hero fallback when no banners configured -->
-  <section th:if="${banners == null or banners.isEmpty()}" class="sf-hero">
-    <div class="container">
-      <span class="sf-hero-eyebrow">Spring/Summer Collection — Fresh off the loom</span>
-      <h1>Cloth that's<br>cut to last.</h1>
-      <p>Garments and fabric direct from our Narayanganj mills — no middlemen, no markup games. Just honest cotton, finished right.</p>
-      <a href="/shop" class="sf-btn sf-btn--primary">Shop the Collection <i class="fa fa-arrow-right"></i></a>
-    </div>
-  </section>
-
-  <div class="sf-selvage" aria-hidden="true"><span th:each="i : ${#numbers.sequence(1, 60)}"></span></div>
-
-  <!-- ════════════════════ CATEGORY CHIPS ════════════════════ -->
-  <section class="sf-section pb-0">
-    <div class="container">
-      <div class="sf-chip-row">
-        <a th:each="cat : ${categories}" th:href="@{'/category/' + ${cat.slug}}" class="sf-chip" th:text="${cat.categoryName}">Category</a>
-      </div>
-    </div>
-  </section>
-
-  <!-- ════════════════════ DYNAMIC HOME SECTIONS (ec_home_sections) ════════════════════ -->
-  <th:block th:if="${homeSections != null and !homeSections.isEmpty()}">
-    <th:block th:each="sec, st : ${homeSections}">
-      <div th:if="${st.index > 0}" class="sf-selvage" aria-hidden="true"><span th:each="i : ${#numbers.sequence(1, 60)}"></span></div>
-      <section class="sf-section">
-        <div class="container">
-          <div class="sf-section-head">
-            <div>
-              <h2 th:text="${sec.sectionTitle != null ? sec.sectionTitle : sec.sectionName}">Section Title</h2>
-              <p th:if="${sec.sectionSubtitle}" class="sf-section-sub" th:text="${sec.sectionSubtitle}">Subtitle</p>
+  <!-- BEGIN #slider -->
+  <div id="slider" class="section-container p-0 bg-dark">
+    <div id="main-carousel" class="carousel slide" data-bs-ride="carousel">
+      <div class="carousel-inner">
+        <th:block th:if="${banners != null and !banners.isEmpty()}">
+          <div th:each="b, st : ${banners}" class="carousel-item" th:classappend="${st.index == 0} ? 'active'"
+               th:style="${b.imageUrl != null} ? 'background: url(' + ${b.imageUrl} + ') center 0 / cover no-repeat;' : 'background: linear-gradient(135deg,#1a2035,#3d4977);'">
+            <div class="carousel-caption carousel-caption-left text-white">
+              <h3 class="title mb-5px" th:text="${b.title}">Banner Title</h3>
+              <p class="mb-15px" th:if="${b.description}" th:text="${b.description}">Description</p>
+              <a th:if="${b.buttonUrl}" th:href="${b.buttonUrl}" class="btn btn-outline-white btn-theme"
+                 th:text="${b.buttonText != null ? b.buttonText : 'SHOP NOW'}">SHOP NOW</a>
             </div>
-            <a href="/shop">View all <i class="fa fa-arrow-right ms-1"></i></a>
           </div>
-          <div class="sf-product-grid">
-            <th:block th:each="p : ${sec.products}"><div th:replace="~{ecommerce/storefront/fragments/sf-product-card :: card(${p})}"></div></th:block>
+        </th:block>
+        <th:block th:if="${banners == null or banners.isEmpty()}">
+          <div class="carousel-item active" style="background: linear-gradient(135deg,#1a2035,#3d4977);">
+            <div class="carousel-caption text-white">
+              <h3 class="title mb-5px">Cloth that's cut to last.</h3>
+              <p class="mb-15px">Garments and fabric direct from our Narayanganj mills.</p>
+              <a href="/shop" class="btn btn-outline-white btn-theme">SHOP THE COLLECTION</a>
+            </div>
           </div>
+        </th:block>
+      </div>
+      <a class="carousel-control-prev" href="#main-carousel" data-bs-slide="prev"><span class="carousel-control-prev-icon"></span></a>
+      <a class="carousel-control-next" href="#main-carousel" data-bs-slide="next"><span class="carousel-control-next-icon"></span></a>
+    </div>
+  </div>
+  <!-- END #slider -->
+
+  <!-- DYNAMIC HOME SECTIONS (ec_home_sections) -->
+  <th:block th:if="${homeSections != null and !homeSections.isEmpty()}">
+    <div th:each="sec, st : ${homeSections}" class="section-container" th:classappend="${st.even} ? 'bg-component'">
+      <div class="container">
+        <h4 class="section-title clearfix">
+          <span class="flex-1">
+            <span th:text="${sec.sectionTitle != null ? sec.sectionTitle : sec.sectionName}">Section</span>
+            <small th:if="${sec.sectionSubtitle}" th:text="${sec.sectionSubtitle}">Subtitle</small>
+          </span>
+          <a href="/shop" class="btn">View All <i class="fa fa-angle-right fs-16px"></i></a>
+        </h4>
+        <div class="row gx-2">
+          <th:block th:each="p : ${sec.products}">
+            <div class="col-lg-2 col-md-4 col-sm-6">
+              <div th:replace="~{ecommerce/storefront/fragments/sf-product-card :: card(${p})}"></div>
+            </div>
+          </th:block>
         </div>
-      </section>
-    </th:block>
+      </div>
+    </div>
   </th:block>
 
-  <!-- ════════════════════ FALLBACK SHELVES (no sections configured) ════════════════════ -->
+  <!-- FALLBACK SHELVES -->
   <th:block th:if="${homeSections == null or homeSections.isEmpty()}">
-    <section class="sf-section">
+    <div class="section-container">
       <div class="container">
-        <div class="sf-section-head">
-          <h2>Featured Pieces</h2>
-          <a href="/shop?sort=featured">View all <i class="fa fa-arrow-right ms-1"></i></a>
+        <h4 class="section-title clearfix">
+          <span class="flex-1">Trending Items<small>Shop and get your favourite pieces at honest prices!</small></span>
+          <a href="/shop?sort=featured" class="btn">View All <i class="fa fa-angle-right fs-16px"></i></a>
+        </h4>
+        <div class="row gx-2">
+          <th:block th:each="p : ${featured}">
+            <div class="col-lg-2 col-md-4 col-sm-6">
+              <div th:replace="~{ecommerce/storefront/fragments/sf-product-card :: card(${p})}"></div>
+            </div>
+          </th:block>
         </div>
-        <div class="sf-product-grid">
-          <th:block th:each="p : ${featured}"><div th:replace="~{ecommerce/storefront/fragments/sf-product-card :: card(${p})}"></div></th:block>
-          <div th:if="${featured == null or featured.isEmpty()}" class="sf-empty-state" style="grid-column: 1/-1;">
-            <i class="fa-regular fa-image"></i>
-            <p>No featured products yet. Check back soon.</p>
+        <div th:if="${featured == null or featured.isEmpty()}" class="text-center text-muted py-5">
+          No featured products yet — check back soon.
+        </div>
+      </div>
+    </div>
+
+    <div class="section-container bg-component">
+      <div class="container">
+        <h4 class="section-title clearfix">
+          <span class="flex-1">Just Arrived<small>Fresh off the loom.</small></span>
+          <a href="/shop?sort=newest" class="btn">View All <i class="fa fa-angle-right fs-16px"></i></a>
+        </h4>
+        <div class="row gx-2">
+          <th:block th:each="p : ${newArrivals}">
+            <div class="col-lg-2 col-md-4 col-sm-6">
+              <div th:replace="~{ecommerce/storefront/fragments/sf-product-card :: card(${p})}"></div>
+            </div>
+          </th:block>
+        </div>
+      </div>
+    </div>
+  </th:block>
+
+  <!-- BEGIN #policy -->
+  <div id="policy" class="section-container bg-component">
+    <div class="container">
+      <div class="row">
+        <div class="col-lg-4 col-md-4 mb-4 mb-md-0">
+          <div class="policy">
+            <div class="policy-icon"><i class="fa fa-truck"></i></div>
+            <div class="policy-info">
+              <h4>Free Delivery Over ৳2,000</h4>
+              <p>Standard delivery 3–5 business days across Bangladesh.</p>
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-4 col-md-4 mb-4 mb-md-0">
+          <div class="policy">
+            <div class="policy-icon"><i class="fa fa-undo"></i></div>
+            <div class="policy-info">
+              <h4>7-Day Easy Returns</h4>
+              <p>Unused items in original packaging, no questions asked.</p>
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-4 col-md-4">
+          <div class="policy">
+            <div class="policy-icon"><i class="fa fa-hand-holding-usd"></i></div>
+            <div class="policy-info">
+              <h4>Cash on Delivery</h4>
+              <p>Pay when your order arrives at your door.</p>
+            </div>
           </div>
         </div>
       </div>
-    </section>
-
-    <div class="sf-selvage" aria-hidden="true"><span th:each="i : ${#numbers.sequence(1, 60)}"></span></div>
-
-    <section class="sf-section">
-      <div class="container">
-        <div class="sf-section-head">
-          <h2>Just Arrived</h2>
-          <a href="/shop?sort=newest">View all <i class="fa fa-arrow-right ms-1"></i></a>
-        </div>
-        <div class="sf-product-grid">
-          <th:block th:each="p : ${newArrivals}"><div th:replace="~{ecommerce/storefront/fragments/sf-product-card :: card(${p})}"></div></th:block>
-        </div>
-      </div>
-    </section>
-  </th:block>
+    </div>
+  </div>
+  <!-- END #policy -->
 
 </main>
 </html>

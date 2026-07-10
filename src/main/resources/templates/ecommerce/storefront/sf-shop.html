@@ -1,54 +1,122 @@
 <!DOCTYPE html>
-<!-- ecommerce/storefront/sf-shop.html  GET /shop, /category/{slug} -->
+<!-- ecommerce/storefront/sf-shop.html  GET /shop, /category/{slug} — theme
+     search-results layout: page-header, filter sidebar (keyword + price +
+     categories), toolbar with sort-list, item grid, pagination. -->
 <html th:replace="~{ecommerce/storefront/layout/sf-base :: layout('Shop', ~{::main})}" xmlns:th="http://www.thymeleaf.org">
 <main>
-  <section class="sf-section">
+
+  <!-- BEGIN #page-header -->
+  <div id="page-header" class="section-container page-header-container bg-dark">
+    <div class="page-header-cover sf-header-cover"></div>
     <div class="container">
-
-      <h1 class="mb-1" th:text="${currentCategory != null ? currentCategory.categoryName : (query != null and !query.isEmpty() ? 'Results for &quot;' + query + '&quot;' : 'All Products')}">All Products</h1>
-      <p th:if="${currentCategory != null and currentCategory.shortDescription != null}" class="text-muted mb-4" style="color:var(--grey)" th:text="${currentCategory.shortDescription}"></p>
-
-      <div class="sf-chip-row mb-4">
-        <a href="/shop" class="sf-chip" th:classappend="${selectedCategory == null} ? 'active'">All</a>
-        <a th:each="cat : ${categories}" th:href="@{'/category/' + ${cat.slug}}"
-           class="sf-chip" th:classappend="${currentCategory != null and currentCategory.slug == cat.slug} ? 'active'"
-           th:text="${cat.categoryName}">Category</a>
-      </div>
-
-      <div class="sf-shop-toolbar">
-        <span class="sf-results-count" th:text="${result.total} + ' item' + (${result.total} == 1 ? '' : 's')">24 items</span>
-        <form action="/shop" method="get" class="d-flex gap-2">
-          <input type="hidden" name="category" th:if="${selectedCategory}" th:value="${selectedCategory}">
-          <input type="hidden" name="q" th:if="${query}" th:value="${query}">
-          <select name="sort" onchange="this.form.submit()">
-            <option value="featured" th:selected="${sort == null or sort == 'featured'}">Featured</option>
-            <option value="newest" th:selected="${sort == 'newest'}">Newest</option>
-            <option value="best_seller" th:selected="${sort == 'best_seller'}">Best Selling</option>
-            <option value="price_asc" th:selected="${sort == 'price_asc'}">Price: Low to High</option>
-            <option value="price_desc" th:selected="${sort == 'price_desc'}">Price: High to Low</option>
-          </select>
-        </form>
-      </div>
-
-      <div class="sf-product-grid">
-        <th:block th:each="p : ${result.items}"><div th:replace="~{ecommerce/storefront/fragments/sf-product-card :: card(${p})}"></div></th:block>
-      </div>
-
-      <div th:if="${result.items.isEmpty()}" class="sf-empty-state">
-        <i class="fa-solid fa-shirt"></i>
-        <p>No products match your search.<br>Try a different category or search term.</p>
-        <a href="/shop" class="sf-btn sf-btn--outline mt-2">Browse all products</a>
-      </div>
-
-      <!-- Pagination -->
-      <div class="sf-pagination" th:if="${result.totalPages != null and result.totalPages > 1}">
-        <a th:each="pg : ${#numbers.sequence(1, result.totalPages)}"
-           th:href="@{/shop(category=${selectedCategory}, q=${query}, sort=${sort}, page=${pg})}"
-           th:class="${pg == result.page} ? 'active' : ''"
-           th:text="${pg}">1</a>
-      </div>
-
+      <h1 class="page-header">
+        <b th:text="${currentCategory != null ? currentCategory.categoryName : 'Our'}">Our</b>
+        <span th:text="${currentCategory != null ? '' : 'Store'}">Store</span>
+      </h1>
     </div>
-  </section>
+  </div>
+  <!-- END #page-header -->
+
+  <!-- BEGIN search-results -->
+  <div id="search-results" class="section-container">
+    <div class="container">
+      <div class="search-container">
+
+        <!-- sidebar -->
+        <div class="search-sidebar">
+          <h4 class="title">Filter By</h4>
+          <form action="/shop" method="get" name="filter_form">
+            <input type="hidden" name="category" th:if="${selectedCategory != null}" th:value="${selectedCategory}">
+            <input type="hidden" name="sort" th:if="${sort != null}" th:value="${sort}">
+            <div class="mb-3">
+              <label class="form-label">Keywords</label>
+              <input type="text" class="form-control input-sm" name="q" th:value="${query}" placeholder="Enter Keywords" />
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Price (৳)</label>
+              <div class="row row-space-0">
+                <div class="col-md-5"><input type="number" class="form-control input-sm" name="minPrice" th:value="${minPrice}" placeholder="From" /></div>
+                <div class="col-md-2 text-center pt-5px fs-12px text-muted">to</div>
+                <div class="col-md-5"><input type="number" class="form-control input-sm" name="maxPrice" th:value="${maxPrice}" placeholder="To" /></div>
+              </div>
+            </div>
+            <div class="mb-30px">
+              <button type="submit" class="btn btn-sm btn-theme btn-dark w-100"><i class="fa fa-search fa-fw me-1 ms-n3"></i> FILTER</button>
+            </div>
+          </form>
+          <h4 class="title mb-0">Categories</h4>
+          <ul class="search-category-list">
+            <li><a href="/shop" th:classappend="${selectedCategory == null and currentCategory == null} ? 'text-dark fw-bold'">All Products</a></li>
+            <li th:each="c : ${categories}">
+              <a th:href="@{'/category/' + ${c.slug}}"
+                 th:classappend="${currentCategory != null and currentCategory.id == c.id} ? 'text-dark fw-bold'"
+                 th:text="${c.categoryName}">Category</a>
+            </li>
+          </ul>
+        </div>
+
+        <!-- content -->
+        <div class="search-content">
+          <div class="search-toolbar">
+            <div class="row">
+              <div class="col-lg-6">
+                <h4 th:if="${query != null and !query.isBlank()}"
+                    th:text="'We found ' + ${result['total']} + ' items for &quot;' + ${query} + '&quot;'">We found 65 items</h4>
+                <h4 th:unless="${query != null and !query.isBlank()}"
+                    th:text="${result['total']} + ' items'">65 items</h4>
+              </div>
+              <div class="col-lg-6 text-end">
+                <ul class="sort-list">
+                  <li class="text"><i class="fa fa-filter"></i> Sort by:</li>
+                  <li th:classappend="${sort == null or sort == 'featured'} ? 'active'">
+                    <a th:href="@{/shop(q=${query},category=${selectedCategory},minPrice=${minPrice},maxPrice=${maxPrice},sort='featured')}">Popular</a>
+                  </li>
+                  <li th:classappend="${sort == 'newest'} ? 'active'">
+                    <a th:href="@{/shop(q=${query},category=${selectedCategory},minPrice=${minPrice},maxPrice=${maxPrice},sort='newest')}">New Arrival</a>
+                  </li>
+                  <li th:classappend="${sort == 'price_asc'} ? 'active'">
+                    <a th:href="@{/shop(q=${query},category=${selectedCategory},minPrice=${minPrice},maxPrice=${maxPrice},sort='price_asc')}">Price ↑</a>
+                  </li>
+                  <li th:classappend="${sort == 'price_desc'} ? 'active'">
+                    <a th:href="@{/shop(q=${query},category=${selectedCategory},minPrice=${minPrice},maxPrice=${maxPrice},sort='price_desc')}">Price ↓</a>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <div class="search-item-container">
+            <div class="item-row sf-item-grid">
+              <th:block th:each="p : ${result['items']}">
+                <div th:replace="~{ecommerce/storefront/fragments/sf-product-card :: card(${p})}"></div>
+              </th:block>
+            </div>
+            <div th:if="${result['items'] == null or result['items'].isEmpty()}" class="text-center text-muted py-5">
+              <i class="fa fa-search fa-2x mb-3 d-block"></i>
+              No products match your filters.
+            </div>
+          </div>
+
+          <!-- pagination -->
+          <div class="d-flex justify-content-center mt-4" th:if="${result['totalPages'] != null and result['totalPages'] > 1}">
+            <ul class="pagination">
+              <li class="page-item" th:classappend="${result['page'] <= 1} ? 'disabled'">
+                <a class="page-link" th:href="@{/shop(q=${query},category=${selectedCategory},minPrice=${minPrice},maxPrice=${maxPrice},sort=${sort},page=${result['page'] - 1})}">«</a>
+              </li>
+              <li class="page-item" th:each="i : ${#numbers.sequence(1, result['totalPages'])}"
+                  th:classappend="${i == result['page']} ? 'active'">
+                <a class="page-link" th:href="@{/shop(q=${query},category=${selectedCategory},minPrice=${minPrice},maxPrice=${maxPrice},sort=${sort},page=${i})}" th:text="${i}">1</a>
+              </li>
+              <li class="page-item" th:classappend="${result['page'] >= result['totalPages']} ? 'disabled'">
+                <a class="page-link" th:href="@{/shop(q=${query},category=${selectedCategory},minPrice=${minPrice},maxPrice=${maxPrice},sort=${sort},page=${result['page'] + 1})}">»</a>
+              </li>
+            </ul>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+  <!-- END search-results -->
 </main>
 </html>

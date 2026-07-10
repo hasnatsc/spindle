@@ -1,47 +1,62 @@
 <!DOCTYPE html>
-<!-- ecommerce/storefront/sf-login.html  GET /account/login -->
+<!-- ecommerce/storefront/sf-login.html  GET /account/login — the theme has no
+     dedicated auth page; this is a centered section-container card using the
+     theme's form classes. redirectUrl injected via th:inline="javascript". -->
 <html th:replace="~{ecommerce/storefront/layout/sf-base :: layout('Sign In', ~{::main})}" xmlns:th="http://www.thymeleaf.org">
 <main>
-  <div class="sf-auth-wrap">
-    <div class="sf-auth-card">
-      <h2 class="mb-1">Welcome back</h2>
-      <p style="color:var(--grey);font-size:0.9rem;margin-bottom:24px">Sign in to track orders and check out faster.</p>
+  <div class="section-container">
+    <div class="container">
+      <div class="row justify-content-center">
+        <div class="col-lg-5 col-md-7">
+          <div class="sf-auth-card">
+            <h3 class="mb-1">Sign In</h3>
+            <p class="text-muted mb-4">Welcome back — sign in with your phone or email.</p>
 
-      <form id="sfLoginForm">
-        <div class="sf-field">
-          <label>Phone or Email</label>
-          <input type="text" id="sfIdentifier" placeholder="01XXXXXXXXX or you@example.com" required autofocus>
+            <div class="mb-3">
+              <label class="form-label">Phone or Email</label>
+              <input type="text" id="sfLoginId" class="form-control form-control-lg" placeholder="01712345678 or you@example.com" />
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Password</label>
+              <input type="password" id="sfLoginPass" class="form-control form-control-lg" />
+            </div>
+            <div id="sfLoginError" class="alert alert-danger" style="display:none"></div>
+            <button type="button" class="btn btn-dark btn-theme btn-lg w-100" id="sfLoginBtn" onclick="sfDoLogin()">SIGN IN</button>
+            <p class="text-center mt-3 mb-0">
+              New here? <a th:href="@{/account/register(redirect=${redirectUrl})}" class="fw-bold text-dark">Create an account</a>
+            </p>
+          </div>
         </div>
-        <div class="sf-field">
-          <label>Password</label>
-          <input type="password" id="sfPassword" placeholder="••••••••" required>
-          <div class="sf-field-error" id="sfLoginError"></div>
-        </div>
-        <button type="submit" class="sf-btn sf-btn--primary sf-btn--block" id="sfLoginBtn">Sign In</button>
-      </form>
-
-      <div class="sf-auth-switch">
-        New here? <a th:href="@{/account/register(redirect=${redirectUrl})}">Create an account</a>
       </div>
     </div>
   </div>
 
   <script th:inline="javascript">
     var sfRedirectUrl = /*[[${redirectUrl}]]*/ '/account/dashboard';
-    document.getElementById('sfLoginForm').addEventListener('submit', function (e) {
-      e.preventDefault();
-      var btn = document.getElementById('sfLoginBtn');
-      var errEl = document.getElementById('sfLoginError');
-      errEl.textContent = '';
-      btn.disabled = true; btn.textContent = 'Signing in…';
-      sfFetch('/account/login', {
-        method: 'POST',
-        body: JSON.stringify({ identifier: document.getElementById('sfIdentifier').value, password: document.getElementById('sfPassword').value })
-      }).then(function (d) {
-        if (d.success) { window.location.href = (sfRedirectUrl && sfRedirectUrl.charAt(0) === '/') ? sfRedirectUrl : '/account/dashboard'; }
-        else { errEl.textContent = d.message; btn.disabled = false; btn.textContent = 'Sign In'; }
-      }).catch(function () { errEl.textContent = 'Something went wrong. Please try again.'; btn.disabled = false; btn.textContent = 'Sign In'; });
+    document.addEventListener('DOMContentLoaded', function () {
+      document.getElementById('sfLoginPass').addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') sfDoLogin();
+      });
     });
+    function sfDoLogin() {
+      var err = document.getElementById('sfLoginError');
+      err.style.display = 'none';
+      var id = document.getElementById('sfLoginId').value.trim();
+      var pass = document.getElementById('sfLoginPass').value;
+      if (!id || !pass) { err.textContent = 'Please enter your phone/email and password.'; err.style.display = ''; return; }
+      var btn = document.getElementById('sfLoginBtn');
+      btn.disabled = true;
+      sfFetch('/account/login', { method: 'POST', body: JSON.stringify({ identifier: id, password: pass }) })
+        .then(function (d) {
+          if (d.success) {
+            window.location.href = (sfRedirectUrl && sfRedirectUrl.charAt(0) === '/') ? sfRedirectUrl : '/account/dashboard';
+          } else {
+            btn.disabled = false;
+            err.textContent = d.message || 'Sign in failed.';
+            err.style.display = '';
+          }
+        }).catch(function () { btn.disabled = false; err.textContent = 'Something went wrong.'; err.style.display = ''; });
+    }
   </script>
 </main>
 </html>

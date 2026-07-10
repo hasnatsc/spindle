@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<!-- ecommerce/storefront/fragments/sf-account-shell.html — the theme's
+     account-container: left cover sidebar with portal nav, right body slot. -->
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+<div th:fragment="shell(active, body)" class="account-container">
+  <div class="account-sidebar">
+    <div class="account-sidebar-cover sf-account-cover"></div>
+    <div class="account-sidebar-content">
+      <h4 class="mb-1 mb-lg-3">Your Account</h4>
+      <p class="mb-0 mb-lg-3" th:if="${customer != null}">
+        Signed in as <b th:text="${customer.fullName}">Customer</b>
+      </p>
+      <ul class="nav nav-list sf-account-nav">
+        <li th:classappend="${active == 'dashboard'} ? 'active'"><a href="/account/dashboard"><i class="fa fa-fw fa-home"></i> Dashboard</a></li>
+        <li th:classappend="${active == 'orders'} ? 'active'"><a href="/account/orders"><i class="fa fa-fw fa-box"></i> Order History</a></li>
+        <li th:classappend="${active == 'wishlist'} ? 'active'"><a href="/account/wishlist"><i class="fa fa-fw fa-heart"></i> Wishlist</a></li>
+        <li th:classappend="${active == 'addresses'} ? 'active'"><a href="/account/addresses"><i class="fa fa-fw fa-map-marker-alt"></i> Addresses</a></li>
+        <li th:classappend="${active == 'profile'} ? 'active'"><a href="/account/profile"><i class="fa fa-fw fa-user"></i> Profile</a></li>
+        <li><a href="/cart"><i class="fa fa-fw fa-shopping-bag"></i> Cart</a></li>
+        <li>
+          <form action="/account/logout" method="post" class="m-0">
+            <button type="submit" class="sf-logout-btn"><i class="fa fa-fw fa-sign-out-alt"></i> Sign Out</button>
+          </form>
+        </li>
+      </ul>
+    </div>
+  </div>
+  <div class="account-body" th:insert="${body}"></div>
+</div>
+</body>
+</html>

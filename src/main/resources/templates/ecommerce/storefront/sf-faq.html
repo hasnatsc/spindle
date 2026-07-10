@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<!-- ecommerce/storefront/sf-faq.html  GET /faq — theme accordion FAQ (static content). -->
+<html th:replace="~{ecommerce/storefront/layout/sf-base :: layout('FAQ', ~{::main})}" xmlns:th="http://www.thymeleaf.org">
+<main>
+  <div id="page-header" class="section-container page-header-container bg-dark">
+    <div class="page-header-cover sf-header-cover"></div>
+    <div class="container"><h1 class="page-header">Frequently Asked <b>Questions</b></h1></div>
+  </div>
+
+  <div id="faq" class="section-container">
+    <div class="container">
+      <div class="accordion faq" id="faq-list">
+
+        <div class="accordion-item border-0 mb-2">
+          <div class="accordion-header">
+            <a href="#" class="accordion-button bg-gray-400 text-gray-800 fw-bold shadow-none" data-bs-toggle="collapse" data-bs-target="#faq-1">How long does delivery take?</a>
+          </div>
+          <div id="faq-1" class="accordion-collapse collapse show" data-bs-parent="#faq-list">
+            <div class="accordion-body bg-component">Standard delivery is 3–5 business days across Bangladesh. Dhaka metro orders usually arrive within 2–3 days. We'll call or WhatsApp you before the rider heads out.</div>
+          </div>
+        </div>
+
+        <div class="accordion-item border-0 mb-2">
+          <div class="accordion-header">
+            <a href="#" class="accordion-button bg-gray-400 text-gray-800 fw-bold shadow-none collapsed" data-bs-toggle="collapse" data-bs-target="#faq-2">What does shipping cost?</a>
+          </div>
+          <div id="faq-2" class="accordion-collapse collapse" data-bs-parent="#faq-list">
+            <div class="accordion-body bg-component">Shipping is free on orders over ৳2,000. Below that, a flat charge (typically ৳80, confirmed by delivery district) is added at checkout.</div>
+          </div>
+        </div>
+
+        <div class="accordion-item border-0 mb-2">
+          <div class="accordion-header">
+            <a href="#" class="accordion-button bg-gray-400 text-gray-800 fw-bold shadow-none collapsed" data-bs-toggle="collapse" data-bs-target="#faq-3">How do I pay?</a>
+          </div>
+          <div id="faq-3" class="accordion-collapse collapse" data-bs-parent="#faq-list">
+            <div class="accordion-body bg-component">Cash on Delivery everywhere in Bangladesh — pay the rider when your order arrives. bKash, Nagad and card payments via SSLCommerz are coming soon.</div>
+          </div>
+        </div>
+
+        <div class="accordion-item border-0 mb-2">
+          <div class="accordion-header">
+            <a href="#" class="accordion-button bg-gray-400 text-gray-800 fw-bold shadow-none collapsed" data-bs-toggle="collapse" data-bs-target="#faq-4">Can I return an item?</a>
+          </div>
+          <div id="faq-4" class="accordion-collapse collapse" data-bs-parent="#faq-list">
+            <div class="accordion-body bg-component">Yes — 7-day easy returns for unused items in original packaging. Contact us with your order number and we'll arrange the pickup.</div>
+          </div>
+        </div>
+
+        <div class="accordion-item border-0 mb-2">
+          <div class="accordion-header">
+            <a href="#" class="accordion-button bg-gray-400 text-gray-800 fw-bold shadow-none collapsed" data-bs-toggle="collapse" data-bs-target="#faq-5">How do I track my order?</a>
+          </div>
+          <div id="faq-5" class="accordion-collapse collapse" data-bs-parent="#faq-list">
+            <div class="accordion-body bg-component">Sign in and open Order History in My Account. Each order shows its current status, payment state and shipping state.</div>
+          </div>
+        </div>
+
+        <div class="accordion-item border-0 mb-2">
+          <div class="accordion-header">
+            <a href="#" class="accordion-button bg-gray-400 text-gray-800 fw-bold shadow-none collapsed" data-bs-toggle="collapse" data-bs-target="#faq-6">Can I change or cancel an order?</a>
+          </div>
+          <div id="faq-6" class="accordion-collapse collapse" data-bs-parent="#faq-list">
+            <div class="accordion-body bg-component">You can cancel or change an order any time before our team confirms it — call us or use the contact form with your order number.</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</main>
+</html>

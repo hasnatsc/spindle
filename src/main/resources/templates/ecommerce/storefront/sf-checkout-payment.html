@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<!-- ecommerce/storefront/sf-checkout-payment.html  GET /checkout/payment —
+     theme checkout step 3: payment-type icon list (COD active, bKash/Nagad/
+     card marked coming soon), order note, order summary. PROCEED places order. -->
+<html th:replace="~{ecommerce/storefront/layout/sf-base :: layout('Payment', ~{::main})}" xmlns:th="http://www.thymeleaf.org">
+<main>
+  <div class="section-container" id="checkout-payment">
+    <div class="container">
+      <div class="checkout">
+        <div th:replace="~{ecommerce/storefront/fragments/sf-checkout-steps :: steps(3)}"></div>
+
+        <div class="checkout-body">
+          <h4 class="checkout-title">Choose a payment method</h4>
+
+          <div class="mb-2 row">
+            <label class="col-md-4 col-form-label text-lg-end">Payment Types <span class="text-danger">*</span></label>
+            <div class="col-md-8">
+              <ul class="list-inline payment-type">
+                <li class="active"><a href="javascript:;" data-bs-toggle="tooltip" data-bs-title="Cash on Delivery"><i class="fa fa-hand-holding-usd"></i></a></li>
+                <li class="sf-pay-disabled"><a href="javascript:;" data-bs-toggle="tooltip" data-bs-title="bKash / Nagad — coming soon"><i class="fa fa-mobile-alt"></i></a></li>
+                <li class="sf-pay-disabled"><a href="javascript:;" data-bs-toggle="tooltip" data-bs-title="Card (SSLCommerz) — coming soon"><i class="fab fa-cc-visa"></i></a></li>
+                <li class="sf-pay-disabled"><a href="javascript:;" data-bs-toggle="tooltip" data-bs-title="Card (SSLCommerz) — coming soon"><i class="fab fa-cc-mastercard"></i></a></li>
+              </ul>
+              <p class="text-muted fs-12px mb-0">Cash on Delivery — pay when your order arrives. Online payments are coming soon.</p>
+            </div>
+          </div>
+
+          <div class="mb-2 row">
+            <label class="col-md-4 col-form-label text-lg-end">Deliver to</label>
+            <div class="col-md-6">
+              <div class="p-3 bg-light rounded">
+                <b th:text="${shipTo['fullName']}">Name</b><br>
+                <span class="text-muted" th:text="${shipTo['addressText']}">Address</span><br>
+                <span class="text-muted" th:text="${shipTo['phone']}">Phone</span>
+                <a href="/checkout/info" class="ms-2 fs-12px">Change</a>
+              </div>
+            </div>
+          </div>
+
+          <div class="mb-2 row">
+            <label class="col-md-4 col-form-label text-lg-end">Order Note <span class="text-muted fw-normal">(optional)</span></label>
+            <div class="col-md-6">
+              <textarea class="form-control" rows="3" id="sfCoNote" placeholder="Anything the delivery rider or our team should know?"></textarea>
+            </div>
+          </div>
+
+          <hr />
+
+          <h4 class="checkout-title">Order Summary</h4>
+          <div class="table-responsive">
+            <table class="table table-cart">
+              <tbody>
+                <tr th:each="item : ${cart.items}">
+                  <td class="cart-product">
+                    <div class="d-flex align-items-center">
+                      <div class="product-img h-60px w-50px d-flex align-items-center justify-content-center">
+                        <img th:src="${item.productImage ?: 'https://placehold.co/100x120/f4f4f4/999999?text=ASG'}" class="mw-100 mh-100" alt="" />
+                      </div>
+                      <div class="product-info ms-3">
+                        <div class="title" th:text="${item.productTitle}">Product</div>
+                        <div class="desc">
+                          <span th:if="${item.variantName}" th:text="${item.variantName} + ' · '"></span>
+                          <span th:text="'× ' + ${item.quantity.intValue()}">× 2</span>
+                        </div>
+                      </div>
+                    </div>
+                  </td>
+                  <td class="cart-total text-end" th:text="'৳' + ${#numbers.formatDecimal(item.lineTotal, 0, 'COMMA', 0, 'POINT')}">৳999</td>
+                </tr>
+                <tr>
+                  <td class="cart-summary" colspan="2">
+                    <div class="summary-container">
+                      <div class="summary-row">
+                        <div class="field">Subtotal</div>
+                        <div class="value" th:text="'৳' + ${#numbers.formatDecimal(cart.subtotal, 0, 'COMMA', 0, 'POINT')}">৳999</div>
+                      </div>
+                      <div class="summary-row text-success" th:if="${appliedCoupon != null}">
+                        <div class="field">Coupon (<span th:text="${appliedCoupon['code']}">SAVE10</span>)</div>
+                        <div class="value" th:text="'−৳' + ${#numbers.formatDecimal(appliedCoupon['discount'], 0, 'COMMA', 0, 'POINT')}">−৳100</div>
+                      </div>
+                      <div class="summary-row text-danger">
+                        <div class="field">Shipping <span class="fs-12px text-muted">(confirmed by district)</span></div>
+                        <div class="value" th:text="${cart.shippingCharge != null and cart.shippingCharge == 0} ? 'Free' : ('৳' + ${#numbers.formatDecimal(cart.shippingCharge, 0, 'COMMA', 0, 'POINT')})">Free</div>
+                      </div>
+                      <div class="summary-row total">
+                        <div class="field">Total</div>
+                        <div class="value" th:text="'৳' + ${#numbers.formatDecimal(cart.grandTotal, 0, 'COMMA', 0, 'POINT')}">৳999</div>
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div id="sfCoError" class="alert alert-danger mt-3" style="display:none"></div>
+        </div>
+
+        <div class="checkout-footer d-flex">
+          <a href="/checkout/info" class="btn btn-white btn-theme me-auto">BACK</a>
+          <button type="button" class="btn btn-dark btn-theme" id="sfPlaceOrderBtn" onclick="sfPlaceOrder()">
+            <i class="fa fa-lock me-1"></i> PLACE ORDER
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script th:inline="none">
+    function sfPlaceOrder() {
+      var err = document.getElementById('sfCoError');
+      err.style.display = 'none';
+      var btn = document.getElementById('sfPlaceOrderBtn');
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fa fa-spinner fa-spin me-1"></i> PLACING YOUR ORDER…';
+
+      sfFetch('/checkout/place-order', {
+        method: 'POST',
+        body: JSON.stringify({
+          paymentMethod: 'COD',
+          customerNote: (document.getElementById('sfCoNote').value || '').trim()
+        })
+      }).then(function (d) {
+        if (d.success && d.orderNo) {
+          window.location.href = '/checkout/success/' + encodeURIComponent(d.orderNo);
+        } else {
+          btn.disabled = false;
+          btn.innerHTML = '<i class="fa fa-lock me-1"></i> PLACE ORDER';
+          err.textContent = d.message || 'Could not place your order. Please try again.';
+          err.style.display = '';
+        }
+      }).catch(function () {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa fa-lock me-1"></i> PLACE ORDER';
+        err.textContent = 'Something went wrong. Please try again.';
+        err.style.display = '';
+      });
+    }
+  </script>
+</main>
+</html>

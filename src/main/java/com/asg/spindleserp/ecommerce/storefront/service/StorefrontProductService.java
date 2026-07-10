@@ -65,8 +65,17 @@ public class StorefrontProductService {
             "p.published = true AND p.active = true AND p.deleted = false";
 
     // ── GRID / LISTING (JDBC for performance — storefront traffic is read-heavy) ─
+    /** 5-arg overload kept for existing callers (featured/newArrivals/related). */
     @Transactional(readOnly = true)
     public Map<String, Object> browse(Long categoryId, String search, String sort, int page, int pageSize) {
+        return browse(categoryId, search, sort, null, null, page, pageSize);
+    }
+
+    /** v3: adds optional price-range filtering for the theme's sidebar filter. */
+    @Transactional(readOnly = true)
+    public Map<String, Object> browse(Long categoryId, String search, String sort,
+                                      BigDecimal minPrice, BigDecimal maxPrice,
+                                      int page, int pageSize) {
         Long orgId = ContextProvider.getOrganizationId();
         int offset = Math.max(0, page - 1) * pageSize;
 
@@ -76,6 +85,10 @@ public class StorefrontProductService {
         if (categoryId != null) where.append(" AND p.category_id = ").append(categoryId);
         if (search != null && !search.isBlank())
             where.append(CommonUtils.searchILike(search, List.of("p.product_title", "i.item_code", "i.sku")));
+        if (minPrice != null && minPrice.signum() >= 0)
+            where.append(" AND i.unit_price >= ").append(minPrice.toPlainString());
+        if (maxPrice != null && maxPrice.signum() > 0)
+            where.append(" AND i.unit_price <= ").append(maxPrice.toPlainString());
 
         String orderBy = switch (sort == null ? "" : sort) {
             case "price_asc"  -> "i.unit_price ASC";
@@ -228,7 +241,8 @@ public class StorefrontProductService {
 
         // Real review stats from summary table
         double avgRating = 0.0; int reviewCount = 0;
-        List<Map<String, Object>> rs = jdbcTemplate.queryForList("SELECT average_rating AS avg_rating, total_reviews FROM ec_review_summary WHERE product_id = ?", p.getId());
+        List<Map<String, Object>> rs = jdbcTemplate.queryForList(
+                "SELECT average_rating AS avg_rating, total_reviews FROM ec_review_summary WHERE product_id = ?", p.getId());
         if (!rs.isEmpty()) {
             Object ar = rs.getFirst().get("avg_rating");
             Object tr = rs.getFirst().get("total_reviews");

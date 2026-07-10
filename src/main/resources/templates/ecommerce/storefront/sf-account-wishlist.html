@@ -1,32 +1,36 @@
 <!DOCTYPE html>
-<!-- ecommerce/storefront/sf-account-wishlist.html  GET /account/wishlist  (NEW in v2) -->
+<!-- ecommerce/storefront/sf-account-wishlist.html  GET /account/wishlist -->
 <html th:replace="~{ecommerce/storefront/layout/sf-base :: layout('My Wishlist', ~{::main})}" xmlns:th="http://www.thymeleaf.org">
 <main>
-  <section class="sf-portal">
+  <div id="my-account" class="section-container pt-20px">
     <div class="container">
-      <h1 class="mb-4">My Account</h1>
-      <div class="row g-4">
-        <div class="col-lg-3">
-          <div th:replace="~{ecommerce/storefront/fragments/sf-account-sidebar :: sidebar('wishlist')}"></div>
-        </div>
-        <div class="col-lg-9">
-          <div class="sf-portal-card">
-            <h5 class="mb-3">Wishlist</h5>
-
-            <div th:if="${items == null or items.isEmpty()}" class="sf-empty-state">
-              <i class="fa-regular fa-heart"></i>
-              <p>Nothing saved yet. Tap the heart on any product to keep it here.</p>
-              <a href="/shop" class="sf-btn sf-btn--primary mt-2">Browse the Collection</a>
-            </div>
-
-            <div class="sf-product-grid sf-product-grid--wishlist" id="sfWishlistGrid"
-                 th:unless="${items == null or items.isEmpty()}">
-              <th:block th:each="p : ${items}"><div th:replace="~{ecommerce/storefront/fragments/sf-product-card :: card(${p})}"></div></th:block>
-            </div>
-          </div>
-        </div>
-      </div>
+      <ul class="breadcrumb mb-2">
+        <li class="breadcrumb-item"><a href="/account/dashboard">My Account</a></li>
+        <li class="breadcrumb-item active">Wishlist</li>
+      </ul>
+      <div th:replace="~{ecommerce/storefront/fragments/sf-account-shell :: shell('wishlist', ~{::#sfBody})}"></div>
+      
     </div>
-  </section>
+  </div>
 </main>
+
+<!-- account body — selected by ::#sfBody, rendered only inside the shell -->
+<th:block id="sfBody">
+        <h4><i class="fa fa-heart fa-fw text-theme"></i> Wishlist</h4>
+
+        <div th:if="${items == null or items.isEmpty()}" class="text-center text-muted py-5">
+          <i class="far fa-heart fa-2x mb-3 d-block"></i>
+          Nothing saved yet. Tap the heart on any product to keep it here.
+          <div class="mt-3"><a href="/shop" class="btn btn-dark btn-theme">BROWSE THE COLLECTION</a></div>
+        </div>
+
+        <div class="row gx-2" id="sfWishlistGrid" th:unless="${items == null or items.isEmpty()}">
+          <th:block th:each="p : ${items}">
+            <div class="col-lg-3 col-md-4 col-sm-6 sf-wish-col">
+              <div th:replace="~{ecommerce/storefront/fragments/sf-product-card :: card(${p})}"></div>
+            </div>
+          </th:block>
+        </div>
+      </th:block>
+
 </html>

@@ -1,27 +1,63 @@
 <!DOCTYPE html>
-<!-- ecommerce/storefront/sf-order-success.html  GET /checkout/success/{orderNo}  (NEW in v2) -->
+<!-- ecommerce/storefront/sf-order-success.html  GET /checkout/success/{orderNo}
+     — theme checkout step 4: checkout-message + table-payment-summary. -->
 <html th:replace="~{ecommerce/storefront/layout/sf-base :: layout('Order Placed', ~{::main})}" xmlns:th="http://www.thymeleaf.org">
 <main>
-  <section class="sf-cart-page">
+  <div class="section-container" id="checkout-complete">
     <div class="container">
-      <div class="sf-success">
-        <div class="sf-success-icon"><i class="fa-solid fa-check"></i></div>
-        <h1>Order placed. Nice pick.</h1>
-        <p class="sf-success-sub">
-          Your order number is <span class="sf-mono" th:text="${order.orderNo}">EC-ORDER-26-000001</span>.
-          We'll confirm it shortly and get it moving from the mill floor to your door.
-        </p>
-        <div class="sf-success-total">
-          <span>Amount to pay on delivery</span>
-          <strong th:text="'৳' + ${#numbers.formatDecimal(order.grandTotal, 0, 'COMMA', 0, 'POINT')}">৳1,880</strong>
-        </div>
-        <p class="sf-success-note"><i class="fa-solid fa-hand-holding-dollar"></i> Cash on Delivery — please keep the amount ready when the rider arrives.</p>
-        <div class="sf-success-actions">
-          <a th:href="@{'/account/orders/' + ${order.orderNo}}" class="sf-btn sf-btn--primary">View Order</a>
-          <a href="/shop" class="sf-btn sf-btn--outline">Continue Shopping</a>
+      <div class="checkout">
+        <div th:replace="~{ecommerce/storefront/fragments/sf-checkout-steps :: steps(4)}"></div>
+
+        <div class="checkout-body">
+          <div class="checkout-message">
+            <h1>Thank you! <small>Your order has been placed with the following details.</small></h1>
+            <div class="table-responsive">
+              <table class="table table-payment-summary">
+                <tbody>
+                  <tr>
+                    <td class="field">Order Status</td>
+                    <td class="value" th:text="${order.orderStatus}">PENDING</td>
+                  </tr>
+                  <tr>
+                    <td class="field">Order Reference No.</td>
+                    <td class="value" th:text="${order.orderNo}">EC-ORDER-26-000001</td>
+                  </tr>
+                  <tr>
+                    <td class="field">Order Date and Time</td>
+                    <td class="value" th:text="${#temporals.format(order.orderDate, 'dd MMM yyyy hh:mma')}">05 JUL 2026 07:30PM</td>
+                  </tr>
+                  <tr>
+                    <td class="field">Orders</td>
+                    <td class="value product-summary">
+                      <th:block th:each="item : ${order.orderItems}">
+                        <div class="d-flex align-items-center mb-2">
+                          <div class="product-summary-info">
+                            <div class="title" th:text="${item.product != null ? item.product.productTitle : item.item.itemName}">Product</div>
+                            <div class="desc" th:text="${item.quantity} + ' × ৳' + ${#numbers.formatDecimal(item.unitPrice, 0, 'COMMA', 0, 'POINT')}">1 × ৳999</div>
+                          </div>
+                        </div>
+                      </th:block>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td class="field">Payment Method</td>
+                    <td class="value">Cash on Delivery — please keep <b th:text="'৳' + ${#numbers.formatDecimal(order.grandTotal, 0, 'COMMA', 0, 'POINT')}">৳999</b> ready when the rider arrives.</td>
+                  </tr>
+                  <tr>
+                    <td class="field">Payment Amount</td>
+                    <td class="value"><b th:text="'৳' + ${#numbers.formatDecimal(order.grandTotal, 0, 'COMMA', 0, 'POINT')}">৳999</b></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="text-center mt-4">
+              <a th:href="@{'/account/orders/' + ${order.orderNo}}" class="btn btn-dark btn-theme w-200px me-2">VIEW ORDER</a>
+              <a href="/shop" class="btn btn-white btn-theme w-200px">CONTINUE SHOPPING</a>
+            </div>
+          </div>
         </div>
       </div>
     </div>
-  </section>
+  </div>
 </main>
 </html>

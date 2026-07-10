@@ -50,6 +50,7 @@ public class StorefrontCatalogController {
             model.addAttribute("newArrivals", productService.newArrivals(8));
         }
         model.addAttribute("categories", productService.activeCategories());
+        model.addAttribute("activeNav", "home");
         model.addAttribute("wishlistIds", customer != null ? wishlistService.productIds(customer.getId()) : null);
         return "ecommerce/storefront/sf-home";
     }
@@ -58,15 +59,20 @@ public class StorefrontCatalogController {
     public String shop(@RequestParam(required = false) Long category,
                         @RequestParam(required = false) String q,
                         @RequestParam(required = false) String sort,
+                        @RequestParam(required = false) java.math.BigDecimal minPrice,
+                        @RequestParam(required = false) java.math.BigDecimal maxPrice,
                         @RequestParam(defaultValue = "1") int page,
                         Model model, HttpServletRequest request) {
         EcCustomer customer = authService.currentCustomerOrNull(request);
-        Map<String, Object> result = productService.browse(category, q, sort, page, 24);
+        Map<String, Object> result = productService.browse(category, q, sort, minPrice, maxPrice, page, 24);
         model.addAttribute("result", result);
         model.addAttribute("categories", productService.activeCategories());
         model.addAttribute("selectedCategory", category);
         model.addAttribute("query", q);
         model.addAttribute("sort", sort);
+        model.addAttribute("minPrice", minPrice);
+        model.addAttribute("maxPrice", maxPrice);
+        model.addAttribute("activeNav", "shop");
         model.addAttribute("wishlistIds", customer != null ? wishlistService.productIds(customer.getId()) : null);
         return "ecommerce/storefront/sf-shop";
     }
@@ -80,10 +86,11 @@ public class StorefrontCatalogController {
         var match = categories.stream().filter(c -> slug.equals(c.getSlug())).findFirst();
         Long catId = match.map(c -> c.getId()).orElse(null);
 
-        Map<String, Object> result = productService.browse(catId, null, "featured", page, 24);
+        Map<String, Object> result = productService.browse(catId, null, "featured", null, null, page, 24);
         model.addAttribute("result", result);
         model.addAttribute("categories", categories);
         model.addAttribute("currentCategory", match.orElse(null));
+        model.addAttribute("activeNav", "shop");
         model.addAttribute("wishlistIds", customer != null ? wishlistService.productIds(customer.getId()) : null);
         return "ecommerce/storefront/sf-shop";
     }

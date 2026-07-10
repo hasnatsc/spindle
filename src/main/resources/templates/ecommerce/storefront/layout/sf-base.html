@@ -1,139 +1,275 @@
 <!DOCTYPE html>
 <!--
-  ecommerce/storefront/layout/sf-base.html
-  Storefront layout shell — NOT Color Admin. Fresh theme for ASG Group's
-  direct-to-consumer storefront.
+  ecommerce/storefront/layout/sf-base.html — Color Admin "E-Commerce Frontend"
+  theme shell (purchased template), wired to the Spindle storefront backend.
 
-  DESIGN TOKENS
-  Color:  --ink #1B1F1C (near-black, green cast) · --cotton #F7F3EC (warm bg)
-          --rust #C44536 (price/CTA accent, used sparingly) · --sage #5C7A6E
-          (secondary accent) · --linen #E8E1D3 (card/divider bg) · --grey #8A8275
-  Type:   Display = Fraunces (headings) · Body = Inter (UI/price/buttons)
-          Utility = JetBrains Mono (SKU/price-in-table/stock counts)
-  Signature: woven "selvage" divider between sections + pinking-shears
-             clipped top edge on product cards — both literal references
-             to garment cutting/finishing, the subject's own vernacular.
+  Theme assets expected at /ecommerce-frontend/{css,js}/ (copied from the
+  purchased package: vendor.min.css, app.min.css, vendor.min.js, app.min.js).
+  storefront-ca-overrides.css layers the few storefront-specific widgets the
+  theme lacks (toast, wishlist heart, quick-add, star picker, coupon box).
 
-  v2: wishlist icon in header, working newsletter form, footer links for
-      Wishlist/Addresses, storefront-additions.css, single account icon
-      (removed the duplicate sec:authorize="false" anchor — customer auth
-      is session-based, not Spring Security).
+  Contract preserved from v2: CSRF metas, #sfCartCount badge, #sfToast,
+  #sfNewsletterForm/#sfNewsletterEmail, data-sf-add-to-cart / data-sf-wishlist,
+  storefront.js globals (sfFetch/sfToast/sfAddToCart/sfQtyStepper/…).
 -->
-<html xmlns:th="http://www.thymeleaf.org" xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout">
+<html xmlns:th="http://www.thymeleaf.org">
 <head>
 <th:block th:fragment="sfHead(title)">
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title th:text="${title} ? ${title} + ' — ASG Group' : 'ASG Group'">ASG Group</title>
+  <meta charset="utf-8" />
+  <title th:text="${title} ? ${title} + ' — ASG Store' : 'ASG Store'">ASG Store</title>
+  <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport" />
   <meta name="_csrf" th:content="${_csrf?.token}">
   <meta name="_csrf_header" th:content="${_csrf?.headerName}">
-
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300..900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-  <link rel="stylesheet" th:href="@{/css/ecommerce/storefront/storefront.css}">
-  <link rel="stylesheet" th:href="@{/css/ecommerce/storefront/storefront-additions.css}">
+  <link th:href="@{/css/storefront/vendor.min.css}" rel="stylesheet" />
+  <link th:href="@{/css/storefront/app.min.css}" rel="stylesheet" />
+  <link th:href="@{/css/storefront/storefront-ca-overrides.css}" rel="stylesheet" />
 </th:block>
 </head>
 <body>
 
 <th:block th:fragment="layout(title, content)">
 <head th:replace="~{::sfHead(${title})}"></head>
-<body class="sf-body">
+<body>
+  <!-- BEGIN #app -->
+  <div id="app" class="fade show">
 
-  <!-- ════════════════════ ANNOUNCEMENT BAR ════════════════════ -->
-  <div class="sf-announce">
-    <span>Free shipping on orders over ৳2,000 · Made in Bangladesh, worn everywhere</span>
-  </div>
-
-  <!-- ════════════════════ HEADER ════════════════════ -->
-  <header class="sf-header">
-    <div class="container">
-      <div class="sf-header-row">
-        <a href="/" class="sf-logo">ASG<span>.</span></a>
-
-        <form action="/shop" method="get" class="sf-search d-none d-md-flex">
-          <input type="search" name="q" placeholder="Search fabric, fit, or item code…" autocomplete="off">
-          <button type="submit"><i class="fa fa-search"></i></button>
-        </form>
-
-        <nav class="sf-header-actions">
-          <a href="/account/wishlist" class="sf-icon-btn" title="Wishlist">
-            <i class="fa-regular fa-heart"></i>
-          </a>
-          <a href="/account/dashboard" class="sf-icon-btn" title="My Account">
-            <i class="fa-regular fa-user"></i>
-          </a>
-          <a href="/cart" class="sf-icon-btn sf-cart-btn" title="Cart">
-            <i class="fa-solid fa-bag-shopping"></i>
-            <span class="sf-cart-count" id="sfCartCount">0</span>
-          </a>
-        </nav>
-      </div>
-
-      <nav class="sf-nav d-none d-lg-flex">
-        <a href="/shop">All Products</a>
-        <a href="/category/mens-wear">Men's</a>
-        <a href="/category/womens-wear">Women's</a>
-        <a href="/category/fabric-by-yard">Fabric by the Yard</a>
-        <a href="/shop?sort=newest">New Arrivals</a>
-      </nav>
-    </div>
-  </header>
-
-  <!-- ════════════════════ MAIN ════════════════════ -->
-  <main th:replace="${content}"></main>
-
-  <!-- ════════════════════ SELVAGE DIVIDER ════════════════════ -->
-  <div class="sf-selvage" aria-hidden="true">
-    <span th:each="i : ${#numbers.sequence(1, 60)}"></span>
-  </div>
-
-  <!-- ════════════════════ FOOTER ════════════════════ -->
-  <footer class="sf-footer">
-    <div class="container">
-      <div class="row g-4">
-        <div class="col-md-4">
-          <div class="sf-logo sf-logo--footer">ASG<span>.</span></div>
-          <p class="sf-footer-tag">Woven in Narayanganj. Cut, sewn, and finished by hand since day one.</p>
+    <!-- BEGIN #top-nav -->
+    <div id="top-nav" class="top-nav">
+      <div class="container">
+        <div class="collapse navbar-collapse">
+          <ul class="nav navbar-nav">
+            <li><a href="/page/shipping-policy">Shipping</a></li>
+            <li><a href="/faq">FAQ</a></li>
+            <li><a href="/contact">Customer Care</a></li>
+          </ul>
+          <ul class="nav navbar-nav navbar-end">
+            <li><a href="/about">About Us</a></li>
+            <li><a href="/account/orders">Order Tracker</a></li>
+            <li><a href="#"><i class="fab fa-facebook-f f-s-14"></i></a></li>
+            <li><a href="#"><i class="fab fa-instagram f-s-14"></i></a></li>
+          </ul>
         </div>
-        <div class="col-md-2 col-6">
-          <h6>Shop</h6>
-          <a href="/shop">All Products</a>
-          <a href="/shop?sort=best_seller">Best Sellers</a>
-          <a href="/shop?sort=newest">New Arrivals</a>
-        </div>
-        <div class="col-md-2 col-6">
-          <h6>Account</h6>
-          <a href="/account/dashboard">My Account</a>
-          <a href="/account/orders">Order History</a>
-          <a href="/account/wishlist">Wishlist</a>
-          <a href="/account/addresses">Addresses</a>
-          <a href="/cart">Cart</a>
-        </div>
-        <div class="col-md-4">
-          <h6>Stay in the loop</h6>
-          <form class="sf-newsletter" id="sfNewsletterForm">
-            <input type="email" id="sfNewsletterEmail" placeholder="you@example.com" required>
-            <button type="submit"><i class="fa fa-arrow-right"></i></button>
-          </form>
-          <p class="sf-newsletter-note">New drops, mill stories, and member-only pricing. No spam — ever.</p>
-        </div>
-      </div>
-      <div class="sf-footer-bottom">
-        <span>&copy; <span th:text="${#calendars.format(#calendars.createNow(),'yyyy')}">2026</span> ASG Group. All rights reserved.</span>
-        <span class="sf-footer-bottom-meta">৳ BDT · Dhaka, Bangladesh</span>
       </div>
     </div>
-  </footer>
+    <!-- END #top-nav -->
 
-  <!-- ════════════════════ TOAST ════════════════════ -->
+    <!-- BEGIN #header -->
+    <div id="header" class="header" data-bs-theme="dark">
+      <div class="container">
+        <div class="header-container">
+          <button type="button" class="navbar-toggle collapsed" data-bs-toggle="collapse" data-bs-target="#navbar-collapse">
+            <span class="icon-bar"></span><span class="icon-bar"></span><span class="icon-bar"></span>
+          </button>
+
+          <div class="header-logo">
+            <a href="/">
+              <span class="brand-logo"></span>
+              <span class="brand-text"><span>ASG</span>Store<small>woven in narayanganj</small></span>
+            </a>
+          </div>
+
+          <!-- centre nav -->
+          <div class="header-nav">
+            <div class="collapse navbar-collapse" id="navbar-collapse">
+              <ul class="nav justify-content-center">
+                <li th:classappend="${activeNav == 'home'} ? 'active'"><a href="/">Home</a></li>
+                <li class="dropdown dropdown-hover" th:classappend="${activeNav == 'shop'} ? 'active'">
+                  <a href="/shop" data-bs-toggle="dropdown">Our Store <b class="caret"></b><span class="arrow top"></span></a>
+                  <div class="dropdown-menu p-0">
+                    <div class="dropdown-menu-container">
+                      <div class="dropdown-menu-sidebar">
+                        <h4 class="title">Shop By Categories</h4>
+                        <ul class="dropdown-menu-list" th:if="${navCategories != null}">
+                          <li th:each="c : ${navCategories}">
+                            <a th:href="@{'/category/' + ${c.slug}}" th:text="${c.categoryName}">Category</a>
+                          </li>
+                        </ul>
+                        <ul class="dropdown-menu-list" th:if="${navCategories == null}">
+                          <li><a href="/shop">All Products</a></li>
+                        </ul>
+                      </div>
+                      <div class="dropdown-menu-content">
+                        <h4 class="title">Quick Links</h4>
+                        <div class="row">
+                          <div class="col-lg-6">
+                            <ul class="dropdown-menu-list">
+                              <li><a href="/shop?sort=newest"><i class="fa fa-fw fa-angle-right text-muted"></i> New Arrivals</a></li>
+                              <li><a href="/shop?sort=best_seller"><i class="fa fa-fw fa-angle-right text-muted"></i> Best Sellers</a></li>
+                              <li><a href="/shop?sort=featured"><i class="fa fa-fw fa-angle-right text-muted"></i> Featured</a></li>
+                            </ul>
+                          </div>
+                          <div class="col-lg-6">
+                            <ul class="dropdown-menu-list">
+                              <li><a href="/account/wishlist"><i class="fa fa-fw fa-angle-right text-muted"></i> My Wishlist</a></li>
+                              <li><a href="/account/orders"><i class="fa fa-fw fa-angle-right text-muted"></i> My Orders</a></li>
+                              <li><a href="/cart"><i class="fa fa-fw fa-angle-right text-muted"></i> My Cart</a></li>
+                            </ul>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </li>
+                <li th:classappend="${activeNav == 'about'} ? 'active'"><a href="/about">About</a></li>
+                <li th:classappend="${activeNav == 'contact'} ? 'active'"><a href="/contact">Contact</a></li>
+                <li class="dropdown dropdown-hover">
+                  <a href="#" data-bs-toggle="dropdown"><i class="fa fa-search search-btn"></i><span class="arrow top"></span></a>
+                  <div class="dropdown-menu p-15px">
+                    <form action="/shop" method="get" name="search_form">
+                      <div class="input-group">
+                        <input type="text" name="q" placeholder="Search" class="form-control bg-light" />
+                        <button class="btn btn-dark" type="submit"><i class="fa fa-search"></i></button>
+                      </div>
+                    </form>
+                  </div>
+                </li>
+              </ul>
+            </div>
+          </div>
+
+          <!-- right nav: cart + account -->
+          <div class="header-nav">
+            <ul class="nav justify-content-end">
+              <li class="dropdown dropdown-hover">
+                <a href="#" class="header-cart" data-bs-toggle="dropdown" id="sfCartDropdownToggle">
+                  <i class="fa fa-shopping-bag"></i>
+                  <span class="total" id="sfCartCount">0</span>
+                  <span class="arrow top"></span>
+                </a>
+                <div class="dropdown-menu dropdown-menu-cart p-0">
+                  <div class="cart-header"><h4 class="cart-title" id="sfCartDdTitle">Shopping Bag</h4></div>
+                  <div class="cart-body">
+                    <ul class="cart-item" id="sfCartDdItems">
+                      <li><div class="cart-item-info"><h4 class="text-muted">Your bag is empty.</h4></div></li>
+                    </ul>
+                  </div>
+                  <div class="cart-footer">
+                    <div class="row gx-2">
+                      <div class="col-6"><a href="/cart" class="btn btn-default btn-theme d-block">View Cart</a></div>
+                      <div class="col-6"><a href="/checkout/info" class="btn btn-dark btn-theme d-block">Checkout</a></div>
+                    </div>
+                  </div>
+                </div>
+              </li>
+              <li class="divider"></li>
+              <li>
+                <a href="/account/dashboard">
+                  <i class="fa fa-user-circle fa-lg me-1"></i>
+                  <span class="d-none d-xl-inline">My Account</span>
+                </a>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- END #header -->
+
+    <!-- ═══════════ PAGE CONTENT ═══════════ -->
+    <main th:replace="${content}"></main>
+
+    <!-- BEGIN #subscribe -->
+    <div id="subscribe" class="section-container">
+      <div class="container">
+        <div class="row">
+          <div class="col-md-6 mb-4 mb-md-0">
+            <div class="subscription">
+              <div class="subscription-intro">
+                <h4>LET'S STAY IN TOUCH</h4>
+                <p>Get updates on new drops, mill stories and member-only pricing</p>
+              </div>
+              <div class="subscription-form">
+                <form id="sfNewsletterForm">
+                  <div class="input-group">
+                    <input type="email" class="form-control" id="sfNewsletterEmail" placeholder="Enter Email Address" required />
+                    <button type="submit" class="btn btn-dark"><i class="fa fa-angle-right"></i></button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="social">
+              <div class="social-intro">
+                <h4>FOLLOW US</h4>
+                <p>We want to hear from you!</p>
+              </div>
+              <div class="social-list">
+                <a href="#"><i class="fab fa-facebook"></i></a>
+                <a href="#"><i class="fab fa-instagram"></i></a>
+                <a href="#"><i class="fab fa-twitter"></i></a>
+                <a href="#"><i class="fab fa-youtube"></i></a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- END #subscribe -->
+
+    <!-- BEGIN #footer -->
+    <div id="footer" class="footer">
+      <div class="container">
+        <div class="row">
+          <div class="col-lg-3">
+            <h4 class="footer-header">ABOUT US</h4>
+            <p>Garments and fabric direct from our Narayanganj mills — no middlemen, no markup games. Just honest cotton, finished right.</p>
+            <p class="mb-lg-4 mb-0">Cut, sewn, and finished by hand since day one.</p>
+          </div>
+          <div class="col-lg-3">
+            <h4 class="footer-header">RELATED LINKS</h4>
+            <ul class="fa-ul mb-lg-4 mb-0 p-0">
+              <li><i class="fa fa-fw fa-angle-right"></i> <a href="/shop">All Products</a></li>
+              <li><i class="fa fa-fw fa-angle-right"></i> <a href="/account/orders">Order History</a></li>
+              <li><i class="fa fa-fw fa-angle-right"></i> <a href="/account/wishlist">Wishlist</a></li>
+              <li><i class="fa fa-fw fa-angle-right"></i> <a href="/account/addresses">Addresses</a></li>
+              <li><i class="fa fa-fw fa-angle-right"></i> <a href="/faq">FAQ</a></li>
+              <li><i class="fa fa-fw fa-angle-right"></i> <a href="/contact">Contact Us</a></li>
+              <li><i class="fa fa-fw fa-angle-right"></i> <a href="/about">About Us</a></li>
+            </ul>
+          </div>
+          <div class="col-lg-3" th:if="${footerProducts != null and !footerProducts.isEmpty()}">
+            <h4 class="footer-header">LATEST PRODUCT</h4>
+            <ul class="list-unstyled list-product mb-lg-4 mb-0 p-0">
+              <li th:each="fp : ${footerProducts}">
+                <div class="image">
+                  <img th:src="${fp.primaryImageUrl ?: 'https://placehold.co/80x80/eeeeee/999999?text=ASG'}" alt="" />
+                </div>
+                <div class="info">
+                  <h4 class="info-title"><a th:href="@{'/product/' + ${fp.slug}}" th:text="${fp.productTitle}">Product</a></h4>
+                  <div class="price" th:text="'৳' + ${#numbers.formatDecimal(fp.sellingPrice, 0, 'COMMA', 0, 'POINT')}">৳1,200</div>
+                </div>
+              </li>
+            </ul>
+          </div>
+          <div class="col-lg-3">
+            <h4 class="footer-header">CONTACT</h4>
+            <p class="mb-1"><i class="fa fa-fw fa-map-marker-alt"></i> Narayanganj, Dhaka, Bangladesh</p>
+            <p class="mb-1"><i class="fa fa-fw fa-phone"></i> +880 1700-000000</p>
+            <p class="mb-0"><i class="fa fa-fw fa-envelope"></i> store@asggroup.com</p>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- END #footer -->
+
+    <!-- BEGIN #footer-copyright -->
+    <div id="footer-copyright" class="footer-copyright">
+      <div class="container">
+        <div class="copyright">
+          Copyright &copy; <span th:text="${#calendars.format(#calendars.createNow(),'yyyy')}">2026</span> ASG Group. All rights reserved. · ৳ BDT
+        </div>
+      </div>
+    </div>
+    <!-- END #footer-copyright -->
+  </div>
+  <!-- END #app -->
+
   <div id="sfToast" class="sf-toast"></div>
 
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-  <script th:src="@{/js/ecommerce/storefront/storefront.js}"></script>
+  <script th:src="@{/js/storefront/vendor.min.js}"></script>
+  <script th:src="@{/js/storefront/app.min.js}"></script>
+  <script th:src="@{/js/storefront/storefront.js}"></script>
 </body>
 </th:block>
 </body>
