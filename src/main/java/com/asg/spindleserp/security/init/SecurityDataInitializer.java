@@ -57,7 +57,7 @@ public class SecurityDataInitializer implements ApplicationRunner {
         ensureRole("ROLE_BUDGET_MANAGER", "Budget Manager");
         ensureRole("ROLE_FIXED_ASSET_MANAGER", "Fixed Asset Manager");
         ensureSuperAdminUser(organization, superAdminRole);
-        ensureDefaultUsers(organization);
+//        ensureDefaultUsers(organization);
     }
 
 // ============================================================
