@@ -122,14 +122,13 @@ public class SecurityDataInitializer implements ApplicationRunner {
 // ============================================================
 
     private void ensureDefaultUsers(Organization org) {
-        createUserIfNotExists(org, "admin", "Admin@2025", "System Administrator", "admin@spindle.local", roleRepository.findByName("ROLE_ADMIN").orElseThrow());
-        createUserIfNotExists(org, "accounts", "Accounts@2025", "Accounts Manager", "accounts@spindle.local", roleRepository.findByName("ROLE_ACCOUNTS_MANAGER").orElseThrow());
-        createUserIfNotExists(org, "hr", "Hr@2025", "HR Manager", "hr@spindle.local", roleRepository.findByName("ROLE_HR_MANAGER").orElseThrow());
-        createUserIfNotExists(org, "purchase", "Purchase@2025", "Purchase Manager", "purchase@spindle.local", roleRepository.findByName("ROLE_PURCHASE_MANAGER").orElseThrow());
-        createUserIfNotExists(org, "inventory", "Inventory@2025", "Inventory Manager", "inventory@spindle.local", roleRepository.findByName("ROLE_INVENTORY_MANAGER").orElseThrow());
-        createUserIfNotExists(org, "production", "Production@2025", "Production Manager", "production@spindle.local", roleRepository.findByName("ROLE_PRODUCTION_MANAGER").orElseThrow());
-        createUserIfNotExists(org, "sales", "Sales@2025", "Sales Manager", "sales@spindle.local", roleRepository.findByName("ROLE_SALES_MANAGER").orElseThrow());
-        createUserIfNotExists(org, "quality", "Quality@2025", "Quality Manager", "quality@spindle.local", roleRepository.findByName("ROLE_QUALITY_MANAGER").orElseThrow());
+        createUserIfNotExists(org, "admin", "Admin@2025", "System Administrator", "admin@spindle.local", roleRepository.findByName("ROLE_ADMIN").orElseThrow(() -> new IllegalStateException("ROLE_ADMIN not found")));
+        createUserIfNotExists(org, "accounts", "Accounts@2025", "Finance Manager", "accounts@spindle.local", roleRepository.findByName("ROLE_FINANCE_MANAGER").orElseThrow(() -> new IllegalStateException("ROLE_FINANCE_MANAGER not found")));
+        createUserIfNotExists(org, "hr", "Hr@2025", "HR Manager", "hr@spindle.local", roleRepository.findByName("ROLE_HRM_MANAGER").orElseThrow(() -> new IllegalStateException("ROLE_HRM_MANAGER not found")));
+        createUserIfNotExists(org, "purchase", "Purchase@2025", "Purchase Manager", "purchase@spindle.local", roleRepository.findByName("ROLE_PURCHASE_MANAGER").orElseThrow(() -> new IllegalStateException("ROLE_PURCHASE_MANAGER not found")));
+        createUserIfNotExists(org, "inventory", "Inventory@2025", "Inventory Manager", "inventory@spindle.local", roleRepository.findByName("ROLE_INVENTORY_MANAGER").orElseThrow(() -> new IllegalStateException("ROLE_INVENTORY_MANAGER not found")));
+        createUserIfNotExists(org, "production", "Production@2025", "Production Manager", "production@spindle.local", roleRepository.findByName("ROLE_PRODUCTION_MANAGER").orElseThrow(() -> new IllegalStateException("ROLE_PRODUCTION_MANAGER not found")));
+        createUserIfNotExists(org, "sales", "Sales@2025", "Sales Manager", "sales@spindle.local", roleRepository.findByName("ROLE_SALES_MANAGER").orElseThrow(() -> new IllegalStateException("ROLE_SALES_MANAGER not found")));
     }
 
 // ============================================================
