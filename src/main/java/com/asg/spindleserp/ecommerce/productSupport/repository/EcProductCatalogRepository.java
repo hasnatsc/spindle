@@ -71,6 +71,5 @@ public interface EcProductCatalogRepository
      *
      * If a product is not visible in the catalogue, it cannot be put in a cart.
      */
-    Optional<EcProductCatalog> findByIdAndOrganizationIdAndPublishedTrueAndActiveTrueAndDeletedFalse(
-            Long id, Long organizationId);
+    Optional<EcProductCatalog> findByIdAndOrganizationIdAndPublishedTrueAndActiveTrueAndDeletedFalse(Long id, Long organizationId);
 }
