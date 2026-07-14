@@ -390,8 +390,7 @@ public class VoucherServiceImpl implements VoucherService {
                 length   // %4$d
         );
 
-        System.out.println("Generated SQL:");
-        System.out.println(sql);
+        log.debug("Voucher datatable SQL: {}", sql);
         List<Map<String, Object>> rows = jdbcTemplate.queryForList(sql);
         long total = rows.isEmpty() ? 0L : CommonUtils.toLong(rows.getFirst().get("full_count"));
         return DataTableResponse.of(draw, total, total, rows);

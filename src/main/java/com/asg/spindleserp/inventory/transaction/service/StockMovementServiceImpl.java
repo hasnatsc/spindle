@@ -421,9 +421,17 @@ public class StockMovementServiceImpl implements StockMovementService {
     // ═════════════════════════════════════════════════════════════════════════
 
     private DataTableResponse docDatatable(int draw, int start, int length, String search, String docType, String fnShow, String fnEdit, String fnConfirm, String fnDelete) {
+        // SECURITY: validate docType against enum to prevent SQL injection
+        if (docType != null && !docType.isBlank()) {
+            DocumentType.valueOf(docType); // throws IllegalArgumentException if invalid
+        }
+
         Long orgId = SecurityHelper.currentOrgId().orElse(null);
         Long warehouseId = ContextProvider.getWarehouseId();
-        String where = "WHERE d.document_type = '" + docType + "' AND d.is_deleted = false AND "+(Objects.equals(docType, DocumentType.STOCK_TRANSFER.name()) ? " d.source_warehouse_id = " : " d.warehouse_id = ")  + warehouseId + "  AND d.organization_id = " + orgId + CommonUtils.searchILike(search, Arrays.asList("d.document_no", "d.reference_no", "w.warehouse_name"));
+        String whCondition = Objects.equals(docType, DocumentType.STOCK_TRANSFER.name())
+            ? " d.source_warehouse_id = " + warehouseId
+            : " d.warehouse_id = " + warehouseId;
+        String where = "WHERE d.document_type = '" + docType + "' AND d.is_deleted = false AND " + whCondition + " AND d.organization_id = " + (orgId != null ? orgId : "0") + (search != null && !search.isBlank() ? CommonUtils.searchILike(search, Arrays.asList("d.document_no", "d.reference_no", "w.warehouse_name")) : "");
 
         String sql = String.format("""
                 SELECT

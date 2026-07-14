@@ -8,6 +8,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.*;
 
@@ -969,10 +970,12 @@ public class DashboardService {
         return v == null ? 0L : CommonUtils.toLong(v);
     }
 
-    private static double toBD(Map<String, Object> row, String col) {
+    private static BigDecimal toBD(Map<String, Object> row, String col) {
         Object v = row.get(col);
-        if (v == null) return 0.0;
-        try { return Double.parseDouble(v.toString()); }
-        catch (NumberFormatException e) { return 0.0; }
+        if (v == null) return BigDecimal.ZERO;
+        if (v instanceof BigDecimal bd) return bd;
+        if (v instanceof Number n) return BigDecimal.valueOf(n.doubleValue());
+        try { return new BigDecimal(v.toString()); }
+        catch (NumberFormatException e) { return BigDecimal.ZERO; }
     }
 }

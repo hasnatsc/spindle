@@ -508,6 +508,11 @@ public class PurchaseServiceImpl implements PurchaseService {
     @Transactional(readOnly = true)
     public DataTableResponse datatableList(String documentType, int draw, int start,
                                             int length, String search) {
+        // SECURITY: validate documentType against enum to prevent SQL injection
+        if (documentType != null && !documentType.isBlank()) {
+            DocumentType.valueOf(documentType); // throws IllegalArgumentException if invalid
+        }
+
         Long   orgId = SecurityHelper.currentOrgId().orElse(null);
         String fn    = jsFnPrefix(documentType);
 

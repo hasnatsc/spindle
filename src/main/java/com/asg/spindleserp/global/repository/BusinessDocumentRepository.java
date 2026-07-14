@@ -17,6 +17,8 @@ import java.util.Optional;
 public interface BusinessDocumentRepository extends JpaRepository<BusinessDocument, Long>, JpaSpecificationExecutor<BusinessDocument> {
     Optional<BusinessDocument> findByDocumentNo(String documentNo);
 
+    Optional<BusinessDocument> findByOrganizationIdAndReferenceNo(Long orgId, String referenceNo);
+
     List<BusinessDocument> findByOrganizationIdAndDocumentTypeAndIsDeletedFalse(
             Long orgId, DocumentType type);
 
