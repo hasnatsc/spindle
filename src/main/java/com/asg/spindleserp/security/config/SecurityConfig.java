@@ -1,9 +1,13 @@
 package com.asg.spindleserp.security.config;
 
+import com.asg.spindleserp.ecommerce.storefront.StorefrontPaths;
 import com.asg.spindleserp.security.auth.CustomAccessDeniedHandler;
 import com.asg.spindleserp.security.auth.DynamicAuthorizationManager;
+import com.asg.spindleserp.security.auth.LoginAttemptService;
 import com.asg.spindleserp.security.auth.LoginFailureHandler;
 import com.asg.spindleserp.security.auth.LoginSuccessHandler;
+import com.asg.spindleserp.security.auth.LoginThrottleFilter;
+import com.asg.spindleserp.security.auth.WebSecurityUtils;
 import com.asg.spindleserp.security.service.UserDetailsServiceImpl;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -18,173 +22,133 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter;
+import org.springframework.security.web.header.writers.StaticHeadersWriter;
 import org.springframework.security.web.csrf.XorCsrfTokenRequestAttributeHandler;
 import org.springframework.session.FindByIndexNameSessionRepository;
 import org.springframework.session.Session;
 import org.springframework.session.security.SpringSessionBackedSessionRegistry;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * Spring Security 7.x / Spring Boot 4.x — complete configuration.
  *
- * ══════════════════════════════════════════════════════════════════════
- * FIX — "Session expired" / "not authorized" on FIRST login after logout
- * ══════════════════════════════════════════════════════════════════════
+ * ══════════════════════════════════════════════════════════════════════════
+ * PART 1 — ALL SEVEN SESSION FIXES FROM THE PREVIOUS ITERATION ARE RETAINED
+ * ══════════════════════════════════════════════════════════════════════════
+ * They were correct, they are load-bearing, and none of them are touched here.
+ * Restated in one line each so nobody re-introduces the bug they solved:
  *
- * SYMPTOMS:
- *   After logout, OR on the very first login of a browser session:
- *     1st login attempt → "Your session has expired. Please sign in again."
- *                          (sometimes 403 "access denied" on /dashboard instead)
- *     2nd login attempt → success
+ *   ✅ sessionFixation(changeSessionId)  — NOT migrateSession(). migrateSession()
+ *      creates a new session object and a new cookie; the browser can still be
+ *      carrying the old ID on the very next request → no JDBC row → "expired".
+ *   ✅ NO invalidSessionUrl              — it intercepts the post-login redirect
+ *      itself and bounces the user back to /login before auth is even checked.
+ *   ✅ maximumSessions > 1               — during login there are briefly TWO
+ *      live sessions for one principal (the anonymous pre-auth one and the new
+ *      authenticated one); a limit of 1 expires the new one.
+ *   ✅ deleteCookies("SESSION")          — with store-type=jdbc, Spring Session
+ *      issues a cookie named SESSION, not JSESSIONID. The old config deleted
+ *      "JSESSIONID", a cookie that does not exist in this app — a total no-op,
+ *      so logout never actually cleared the browser's session cookie.
+ *   ✅ SpringSessionBackedSessionRegistry — HttpSessionEventPublisher listens for
+ *      SERVLET-container session events, which never fire for Spring Session, so
+ *      the in-memory SessionRegistryImpl accumulated ghost sessions forever.
+ *   ✅ XorCsrfTokenRequestAttributeHandler — the non-Xor handler resolves the CSRF
+ *      token EAGERLY on every request that reaches CsrfFilter, including the dozen
+ *      parallel /css + /js requests on first page load, each generating its own
+ *      competing token. Lazy resolution = no race = no first-submit CSRF failure.
+ *   ✅ DaoAuthenticationProvider(userDetailsService) constructor injection (SS7).
  *
- * Bugs 1–3 below (changeSessionId, removing invalidSessionUrl, raising
- * maximumSessions) were a correct partial fix but did NOT fully resolve
- * the issue — bugs 4 and 5 were still live, and they are the ones that
- * actually reproduce the symptom deterministically on every logout →
- * login cycle.
+ * ══════════════════════════════════════════════════════════════════════════
+ * PART 2 — WHAT THIS REVISION CHANGES
+ * ══════════════════════════════════════════════════════════════════════════
  *
- * BUG 1 — migrateSession() causes a lost-session window.            [FIXED]
- *   migrateSession() creates a BRAND-NEW session object and issues a
- *   new Set-Cookie: JSESSIONID. The browser must receive and store that
- *   cookie before any subsequent request fires. If the first request
- *   after the login-redirect still carries the OLD JSESSIONID (cookie
- *   hasn't settled yet, or browser sends it on the redirect itself),
- *   Spring Session JDBC finds no row for that ID → fires invalidSessionUrl
- *   → /login?expired.
+ * ╔═══════════════════════════════════════════════════════════════════════╗
+ * ║ [HIGH] A. remember-me key was a hard-coded secret in source control   ║
+ * ╚═══════════════════════════════════════════════════════════════════════╝
+ *     .key("spindleErpRememberMeKey2026")
  *
- *   FIX: changeSessionId() keeps the SAME session object on the server;
- *   only the ID changes in-place. The JDBC session store still has a row
- *   for the session — the ID update is atomic. No lost-session window.
+ *   TokenBasedRememberMeServices builds its cookie as
+ *       base64( username : expiry : md5(username : expiry : password : KEY) )
+ *   The KEY is the ONLY thing standing between an attacker and a forged
+ *   remember-me cookie for an arbitrary user. It sat in a Git-tracked .java
+ *   file — known to every developer who ever cloned the repo, every CI runner
+ *   that ever built it, and anyone who ever gains read access to the source.
+ *   It is a credential, and it now lives in the environment:
+ *       APP_REMEMBER_ME_KEY=$(openssl rand -base64 48)
+ *   A loud WARN fires at boot if the old default is still in use, and the whole
+ *   feature can be switched off with app.security.remember-me.enabled=false.
  *
- * BUG 2 — invalidSessionUrl fires on the login redirect itself.     [FIXED]
- *   When Spring Security's session-fixation protection runs migrateSession()
- *   and the browser sends the old JSESSIONID on the very next request
- *   (the redirect to /dashboard), invalidSessionUrl("/login?expired")
- *   intercepts that request and bounces the user back to the login page
- *   before authentication is even checked.
+ * ╔═══════════════════════════════════════════════════════════════════════╗
+ * ║ [HIGH] B. No brute-force protection on POST /login                    ║
+ * ╚═══════════════════════════════════════════════════════════════════════╝
+ *   sec_users.account_non_locked existed and was checked — and NOTHING in the
+ *   codebase ever set it to false. Unlimited password guessing, forever.
+ *   Now: LoginAttemptService, wired through LoginFailureHandler (count) and
+ *   LoginSuccessHandler (reset). See that class for why BCrypt(12) is not,
+ *   by itself, a rate limit.
  *
- *   FIX: Remove invalidSessionUrl entirely. The authenticationEntryPoint
- *   already handles truly-unauthenticated requests by redirecting to
- *   /login?expired. Duplicate coverage from invalidSessionUrl is what
- *   triggers the false positive.
+ * ╔═══════════════════════════════════════════════════════════════════════╗
+ * ║ [HIGH] C. Public storefront pages were unreachable → /login?expired   ║
+ * ╚═══════════════════════════════════════════════════════════════════════╝
+ *   PUBLIC_URLS listed the storefront prefixes but MISSED /about, /contact,
+ *   /faq, /page/** and /newsletter/** — all of which are real mapped endpoints
+ *   (StorefrontSiteController, StorefrontContentController) linked from the
+ *   storefront footer. They fell through to
+ *   .anyRequest().access(dynamicAuthorizationManager), which denies anonymous
+ *   principals unconditionally, so clicking "About Us" on a PUBLIC SHOP sent
+ *   the visitor to the ERP login page.
  *
- * BUG 3 — maximumSessions(1) expires the just-created session.      [FIXED]
- *   With maxSessionsPreventsLogin(false), when a second login arrives
- *   Spring expires the OLDER session. But during the first-ever login
- *   flow there can briefly be TWO live sessions for the same user:
- *   the anonymous pre-auth session (which carried the username through
- *   the login form) and the new authenticated session. maximumSessions(1)
- *   sees "2 sessions" and expires one → the new one loses its row in
- *   SPRING_SESSION → next request → 401/expired.
+ *   Root cause was structural: the list was hand-maintained in two files
+ *   (here and in StorefrontOrgContextFilter), one of which carried a comment
+ *   claiming they were kept in sync. They were not. There is now ONE list —
+ *   StorefrontPaths — imported by both.
  *
- *   FIX: Raise maximumSessions to 3 (comfortable for multi-tab ERP
- *   usage). In a single-user ERP org-admin scenario this is fine.
- *   True single-device enforcement belongs in a login-audit log, not
- *   in concurrent session limits which are too coarse for Spring JDBC
- *   sessions during auth.
+ * ╔═══════════════════════════════════════════════════════════════════════╗
+ * ║ [MEDIUM] D. hideUserNotFoundExceptions(false) → account enumeration   ║
+ * ╚═══════════════════════════════════════════════════════════════════════╝
+ *   With it false, a nonexistent username throws UsernameNotFoundException
+ *   while a wrong password throws BadCredentialsException. Those are two
+ *   distinguishable outcomes for an attacker probing which staff accounts
+ *   exist. Now true: both collapse to BadCredentialsException.
  *
- * BUG 4 — deleteCookies() names the WRONG cookie, so logout never
- *         actually clears the browser's session cookie.        [NEW FIX]
- *   application.properties sets spring.session.store-type=jdbc with no
- *   cookie-name override. In that mode Spring Session's own
- *   DefaultCookieSerializer issues a cookie literally named "SESSION" —
- *   NOT the servlet container's native "JSESSIONID". The logout config
- *   below was calling:
- *       .deleteCookies("JSESSIONID", "XSRF-TOKEN", "remember-me")
- *   "JSESSIONID" never exists as a cookie in this app, so that call is a
- *   complete no-op. The browser keeps the real "SESSION" cookie after
- *   logout — pointing at a row that invalidateHttpSession(true) just
- *   deleted server-side — and sends that dead cookie on every request
- *   that follows, including the next /login page load and the next
- *   POST /login. THAT stale cookie is what creates the inconsistent
- *   session state the very next login has to fight through. Bugs 1–3
- *   were really just papering over the fallout from this.
+ * ╔═══════════════════════════════════════════════════════════════════════╗
+ * ║ [MEDIUM] E. No security response headers at all                       ║
+ * ╚═══════════════════════════════════════════════════════════════════════╝
+ *   There was no .headers(...) block, so the app shipped Spring's bare
+ *   defaults and NOTHING else. Added:
+ *     Content-Security-Policy   frame-ancestors / base-uri / form-action /
+ *                               object-src — see SpindleSecurityProperties for
+ *                               why script-src is deliberately NOT restricted
+ *                               (the Color Admin theme is wall-to-wall inline JS
+ *                               and a script-src policy would white-screen the
+ *                               entire admin).
+ *     Referrer-Policy           stops full ERP URLs — which contain document
+ *                               numbers and record ids — leaking to third-party
+ *                               hosts in the Referer header.
+ *     Permissions-Policy        camera/mic/geolocation off.
+ *     HSTS                      only emitted over HTTPS, gated on require-https.
+ *     X-Frame-Options SAMEORIGIN + CSP frame-ancestors — clickjacking.
  *
- *   FIX: delete "SESSION" (the cookie Spring Session actually issues),
- *   not "JSESSIONID". Also pin the cookie name explicitly in
- *   application.properties (server.servlet.session.cookie.name=SESSION)
- *   so the two can never silently drift apart again.
+ * ╔═══════════════════════════════════════════════════════════════════════╗
+ * ║ [LOW] F. Hard-coded maximumSessions(3)                                ║
+ * ╚═══════════════════════════════════════════════════════════════════════╝
+ *   Now app.security.max-sessions-per-user.
  *
- * BUG 5 — HttpSessionEventPublisher does not work with Spring Session,
- *         so SessionRegistry never learns a session has ended.  [NEW FIX]
- *   HttpSessionEventPublisher listens for the SERVLET CONTAINER's native
- *   HttpSessionListener callbacks. Spring Session (JDBC-backed) replaces
- *   the container's session mechanism with its own filter and its own
- *   repository — container-level listener events never fire for it.
- *   Result: the in-memory SessionRegistryImpl that maximumSessions(3)
- *   relies on never removes an entry when a session logs out or times
- *   out. Every login/logout cycle (the norm during active dev/QA
- *   testing) leaves one more "ghost" SessionInformation behind. Once the
- *   ghost count reaches the configured limit, ConcurrentSessionControl-
- *   AuthenticationStrategy starts expiring entries on the very NEXT
- *   login — and because the registry's bookkeeping is divorced from the
- *   real JDBC-backed store, it can end up expiring the brand-new session
- *   in that same request. ConcurrentSessionFilter then reports exactly
- *   that as "expired" on the next page load (/dashboard) via expiredUrl.
- *
- *   FIX: replace SessionRegistryImpl + HttpSessionEventPublisher with
- *   SpringSessionBackedSessionRegistry, which reads concurrent-session
- *   state directly from the same JDBC-backed SPRING_SESSION table Spring
- *   Session itself uses — always accurate, no listener events needed,
- *   and still correct if this is ever scaled to multiple app instances
- *   (the in-memory registry is per-JVM and silently wrong the moment
- *   there's more than one).
- *
- * BUG 6 — application.properties documented FIX 1 (initialize-schema=never)
- *         but the value was still literally "always".              [NEW FIX]
- *   This was the actual live, reproducible cause of "need to submit the
- *   login form twice": spring-boot-devtools restarts the app context on
- *   nearly every save during development, and "always" drops + recreates
- *   SPRING_SESSION / SPRING_SESSION_ATTRIBUTES on every one of those
- *   restarts — wiping the very session that was just created moments
- *   earlier for the /login page. Bugs 1–5 above were real and worth
- *   fixing, but none of them could survive the session table itself
- *   getting wiped out from under a request in flight.
- *
- *   FIX: application.properties now genuinely sets
- *   spring.session.jdbc.initialize-schema=never (tables already exist
- *   via Flyway V1, so this is safe from first deploy onward).
- *
- * BUG 7 — Storefront / travel-site were completely unreachable by
- *         anonymous visitors — home page, product pages, add-to-cart,
- *         all of it 401/redirected to /login.                  [NEW FIX]
- *   The eCommerce storefront (StorefrontCatalogController "/", "/shop",
- *   "/product/**", "/category/**"; StorefrontCartController "/cart/**";
- *   StorefrontCheckoutController "/checkout/**"; StorefrontAuthController
- *   / StorefrontAccountController "/account/**"; StorefrontWishlistController
- *   "/wishlist/**") and the public Travel portal ("/travel-site/**") are
- *   ALL deliberately built OUTSIDE Spring Security's Authentication model.
- *   Customer identity there is StorefrontAuthService's own lightweight
- *   session key (SF_CUSTOMER_ID) — there is no sec_users row, no
- *   GrantedAuthority, nothing DynamicAuthorizationManager can ever see.
- *
- *   Because none of those prefixes were in PUBLIC_URLS, every single
- *   request to them fell through to
- *   ".anyRequest().access(dynamicAuthorizationManager)". An anonymous
- *   visitor has zero ERP permissions, so DynamicAuthorizationManager
- *   denied everything before the controller's own
- *   authService.currentCustomerOrNull(request) guest/login logic ever
- *   ran — the home page (and its configured home sections), product
- *   browsing, and even guest add-to-cart were all blocked.
- *
- *   FIX: add every storefront + travel-site prefix to PUBLIC_URLS as
- *   permitAll. This does NOT make checkout/account/wishlist anonymous —
- *   those still redirect to /account/login (or return {login:true}) at
- *   the controller level via authService.currentCustomerOrNull(request).
- *   It only stops Spring Security's ERP-staff authorization layer from
- *   intercepting a completely separate, intentionally-public customer
- *   surface before that controller-level check gets a chance to run.
- *
- * ══════════════════════════════════════════════════════════════════════
- * ALL PRIOR FIXES RETAINED:
- *   ✅ CsrfTokenRequestAttributeHandler + meta-tag approach (FIX 3 from
- *      prior iteration — secureFetch reads from <meta name="_csrf">,
- *      not from the cookie, so the first-submit CSRF error is gone)
- *   ✅ PathRequest.toStaticResources() for static asset permitAll
- *   ✅ DaoAuthenticationProvider(userDetailsService) constructor (SS7)
- *   ✅ DynamicAuthorizationManager.authorize() wildcard signature
- *   ✅ LoginFailureHandler throws IOException, ServletException
- * ══════════════════════════════════════════════════════════════════════
+ * ── A note on why the storefront is permitAll ─────────────────────────────
+ *   /account/**, /checkout/** and /wishlist/** are permitAll here. That is NOT
+ *   a hole. Storefront customers are EcCustomer rows with a session attribute —
+ *   they have no sec_users row, no Authentication, no GrantedAuthority, so
+ *   DynamicAuthorizationManager literally cannot see them and would deny every
+ *   real customer. The login gate for those paths is StorefrontAuthInterceptor
+ *   (registered in WebMvcConfig), backed by the controllers' own checks.
+ *   Spring Security's job here is to get out of the way of a surface it does
+ *   not model — not to authorise it.
+ * ══════════════════════════════════════════════════════════════════════════
  */
 @Configuration
 @EnableWebSecurity
@@ -197,39 +161,49 @@ public class SecurityConfig {
     private final DynamicAuthorizationManager dynamicAuthorizationManager;
     private final LoginSuccessHandler         loginSuccessHandler;
     private final LoginFailureHandler         loginFailureHandler;
+    private final LoginAttemptService         loginAttemptService;
     private final CustomAccessDeniedHandler   accessDeniedHandler;
+    private final SpindleSecurityProperties   props;
 
-    // ── Explicit public URL patterns ──────────────────────────────────────────
-    private static final String[] PUBLIC_URLS = {
+    /** ERP-side public endpoints. Storefront paths come from StorefrontPaths. */
+    private static final String[] ERP_PUBLIC_URLS = {
             "/login", "/login/**",
             "/error",
             "/access-denied",
-            "/actuator/health",
+            "/actuator/health", "/actuator/health/**",
             "/favicon.ico",
-            "/favicon.svg",
-
-            // ── eCommerce storefront (public customer-facing site) ────────────
-            // Auth here is StorefrontAuthService's own SF_CUSTOMER_ID session
-            // attribute, entirely separate from Spring Security's Authentication.
-            // Login-gating for account-only actions (checkout, /account/**,
-            // wishlist) happens in the controllers themselves via
-            // authService.currentCustomerOrNull(request) — NOT here. Browsing
-            // and guest add-to-cart must stay open, or the home page (and its
-            // configured home sections) never renders for an anonymous visitor.
-            "/",
-            "/shop", "/shop/**",
-            "/product/**",
-            "/category/**",
-            "/cart", "/cart/**",
-            "/checkout", "/checkout/**",
-            "/account", "/account/**",
-            "/wishlist", "/wishlist/**",
-
-            // ── Public travel portal — no login at all, lead-capture only ─────
-            "/travel-site", "/travel-site/**"
+            "/favicon.svg"
     };
 
+    /** Static assets — permitAll and CSRF-exempt. */
+    private static final String[] STATIC_URLS = {
+            "/css/**", "/js/**", "/img/**", "/images/**",
+            "/fonts/**", "/webjars/**",
+            "/favicon.ico", "/favicon.svg"
+    };
+
+    /**
+     * ✅ ONE list, assembled from ONE source of truth.
+     * StorefrontPaths.PUBLIC is the same array StorefrontOrgContextFilter uses,
+     * so the two can never drift apart again.
+     */
+    private static String[] publicUrls() {
+        List<String> all = new ArrayList<>(List.of(ERP_PUBLIC_URLS));
+        all.addAll(List.of(StorefrontPaths.PUBLIC));
+        return all.toArray(String[]::new);
+    }
+
     // ── Password encoder ──────────────────────────────────────────────────────
+    /**
+     * The single PasswordEncoder for the whole app. StorefrontAuthService now
+     * INJECTS this bean instead of doing `new BCryptPasswordEncoder(12)` in a
+     * field initialiser — so raising the cost factor here actually raises it
+     * everywhere, instead of silently leaving customer passwords at the old cost.
+     *
+     * BCrypt hashes are self-describing ($2a$12$…), so changing this strength
+     * does not invalidate any existing hash: old hashes keep verifying at their
+     * own recorded cost, new ones are written at the new cost.
+     */
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder(12);
@@ -238,28 +212,28 @@ public class SecurityConfig {
     // ── Authentication provider ───────────────────────────────────────────────
     @Bean
     public DaoAuthenticationProvider authenticationProvider() {
-        // ✅ SS7: constructor-injection of UserDetailsService (not setter)
+        // ✅ SS7: constructor-injection of UserDetailsService (not setter).
         DaoAuthenticationProvider provider =
                 new DaoAuthenticationProvider(userDetailsService);
         provider.setPasswordEncoder(passwordEncoder());
-        provider.setHideUserNotFoundExceptions(false);
+
+        // ✅ FIX D — was false, which let an attacker distinguish "no such user"
+        //    (UsernameNotFoundException) from "wrong password"
+        //    (BadCredentialsException). true collapses both into
+        //    BadCredentialsException. DaoAuthenticationProvider still runs its
+        //    own dummy-hash timing mitigation on the not-found path, so the two
+        //    are indistinguishable by clock as well as by exception type.
+        provider.setHideUserNotFoundExceptions(true);
         return provider;
     }
 
-    // NOTE: no standalone AuthenticationManager @Bean here on purpose.
-    // .authenticationProvider(authenticationProvider()) below (on HttpSecurity
-    // itself) is what actually builds the AuthenticationManager formLogin uses.
-    // A previous standalone `authenticationManager()` bean built a second,
-    // separate ProviderManager instance that nothing ever called — dead code
-    // that just risked someone later autowiring the unused one by mistake.
+    // NOTE: no standalone AuthenticationManager @Bean on purpose.
+    // .authenticationProvider(...) on HttpSecurity is what builds the
+    // AuthenticationManager formLogin actually uses. A separate bean would be a
+    // second, unused ProviderManager that someone will eventually autowire by
+    // mistake.
 
-    // ── Spring-Session-aware concurrent session registry ───────────────────────
-    // ✅ FIX BUG 5: HttpSessionEventPublisher (a servlet HttpSessionListener)
-    //    never fires for Spring-Session-backed sessions, so the old in-memory
-    //    SessionRegistryImpl silently never removed an entry on logout/expiry.
-    //    SpringSessionBackedSessionRegistry reads concurrent-session state
-    //    straight from the JDBC-backed SPRING_SESSION table instead — always
-    //    accurate, no listener events required.
+    // ── Spring-Session-aware concurrent session registry ──────────────────────
     @Bean
     public SpringSessionBackedSessionRegistry<?> sessionRegistry(
             FindByIndexNameSessionRepository<? extends Session> sessionRepository) {
@@ -269,66 +243,78 @@ public class SecurityConfig {
     // ── Main security filter chain ────────────────────────────────────────────
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http,
-                                           SpringSessionBackedSessionRegistry<?> sessionRegistry) throws Exception {
+                                           SpringSessionBackedSessionRegistry<?> sessionRegistry)
+            throws Exception {
 
         http
-                // ── CSRF ──────────────────────────────────────────────────────────
+                // ══ CSRF ═══════════════════════════════════════════════════════
                 .csrf(csrf -> csrf
-//                        .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+                        // ✅ RETAINED: lazy token resolution. The non-Xor handler
+                        //    resolves eagerly on every request reaching CsrfFilter —
+                        //    including the ~12 parallel asset requests on first page
+                        //    load, each generating and Set-Cookie-ing its own token.
+                        //    Last response to land wins the cookie jar, at random,
+                        //    while the login form's hidden field was rendered from a
+                        //    different token → MissingCsrfTokenException on first
+                        //    submit, deterministically. Lazy = no race.
+                        .csrfTokenRequestHandler(new XorCsrfTokenRequestAttributeHandler())
 
-                                // BUG 7 — CsrfTokenRequestAttributeHandler resolves the token EAGERLY
-                                // (calls .get() on every request that reaches CsrfFilter, including
-                                // /css/**, /js/**, /img/** etc, even though those are in
-                                // ignoringRequestMatchers below — that matcher only skips VALIDATION,
-                                // not the eager load-or-generate-and-save step that runs first).
-                                // The login page fires a dozen+ parallel asset requests on first
-                                // load; none of them carry the XSRF-TOKEN cookie yet, so EACH ONE
-                                // independently generates its own new token and sets its own
-                                // competing Set-Cookie. Whichever response the browser processes
-                                // last wins the cookie jar — essentially at random — while the
-                                // login page's own hidden _csrf field was rendered from a DIFFERENT
-                                // independently-generated token. Result: MissingCsrfTokenException
-                                // on first submit, every time, deterministically. On retry the
-                                // assets are already cached (no race), so it works.
-                                //
-                                // FIX: XorCsrfTokenRequestAttributeHandler (Spring's default) is
-                                // LAZY — it only resolves when something actually reads _csrf,
-                                // which for asset requests never happens. Only the login page's own
-                                // Thymeleaf render (${_csrf.token}) triggers resolution, once, for
-                                // that one response — no race. Still fully compatible with the
-                                // meta-tag / secureFetch AJAX read elsewhere in the app.
-                                .csrfTokenRequestHandler(new XorCsrfTokenRequestAttributeHandler())
-
-                                // Static resources never need a CSRF token
-                                .ignoringRequestMatchers(
-                                        "/css/**", "/js/**", "/img/**", "/images/**",
-                                        "/fonts/**", "/webjars/**"
-                                )
+                        // Static resources never need a token.
+                        // NOTE: the storefront's POST endpoints (/cart/add,
+                        // /account/login, /checkout/place-order, /wishlist/toggle …)
+                        // are deliberately NOT exempt. They are permitAll, but
+                        // permitAll ≠ CSRF-exempt — a cross-site POST that adds items
+                        // to a victim's cart or changes their delivery address is a
+                        // real attack, and the storefront JS already sends the token
+                        // via secureFetch()'s <meta name="_csrf"> read.
+                        .ignoringRequestMatchers(STATIC_URLS)
                 )
 
-                // ── Authorization ─────────────────────────────────────────────────
+                // ══ SECURITY HEADERS (FIX E — there were none) ═════════════════
+                .headers(headers -> {
+                    headers
+                            // Clickjacking. CSP frame-ancestors below is the modern
+                            // control; X-Frame-Options is kept for old browsers.
+                            .frameOptions(frame -> frame.sameOrigin())
+
+                            // Do not leak "/purchase/orders/PO-25-000417" to any
+                            // third-party host the browser happens to call.
+                            .referrerPolicy(referrer -> referrer.policy(
+                                    ReferrerPolicyHeaderWriter.ReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN));
+
+                    // Emitted by Spring only over HTTPS — safe to always configure.
+                    if (props.isRequireHttps()) {
+                        headers.httpStrictTransportSecurity(hsts -> hsts
+                                .includeSubDomains(true)
+                                .preload(false)
+                                .maxAgeInSeconds(31_536_000L));   // 1 year
+                    }
+
+                    String csp = props.getContentSecurityPolicy();
+                    if (csp != null && !csp.isBlank()) {
+                        headers.contentSecurityPolicy(policy -> policy.policyDirectives(csp));
+                    }
+
+                    String permissions = props.getPermissionsPolicy();
+                    if (permissions != null && !permissions.isBlank()) {
+                        headers.addHeaderWriter(
+                                new StaticHeadersWriter("Permissions-Policy", permissions));
+                    }
+                })
+
+                // ══ AUTHORIZATION ══════════════════════════════════════════════
                 .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(PathRequest.toStaticResources().atCommonLocations()).permitAll()
+                        .requestMatchers(STATIC_URLS).permitAll()
 
-                        // Spring Boot's built-in static resource locations
-                        .requestMatchers(
-                                PathRequest.toStaticResources().atCommonLocations()
-                        ).permitAll()
+                        // ✅ FIX C — ERP public URLs + the single shared storefront list.
+                        .requestMatchers(publicUrls()).permitAll()
 
-                        // Belt-and-suspenders explicit patterns
-                        .requestMatchers(
-                                "/css/**", "/js/**", "/img/**", "/images/**",
-                                "/fonts/**", "/webjars/**",
-                                "/favicon.ico", "/favicon.svg"
-                        ).permitAll()
-
-                        // Public endpoints
-                        .requestMatchers(PUBLIC_URLS).permitAll()
-
-                        // Everything else → DynamicAuthorizationManager (DB-driven, cached)
+                        // Everything else → DynamicAuthorizationManager (DB-driven, cached).
                         .anyRequest().access(dynamicAuthorizationManager)
                 )
 
-                // ── Form login ────────────────────────────────────────────────────
+                // ══ FORM LOGIN ═════════════════════════════════════════════════
                 .formLogin(form -> form
                         .loginPage("/login")
                         .loginProcessingUrl("/login")
@@ -339,91 +325,102 @@ public class SecurityConfig {
                         .permitAll()
                 )
 
-                // ── Remember-me ───────────────────────────────────────────────────
-                .rememberMe(rm -> rm
-                        .userDetailsService(userDetailsService)
-                        .tokenValiditySeconds(7 * 24 * 60 * 60)
-                        .rememberMeParameter("remember-me")
-                        .key("spindleErpRememberMeKey2026")
-                )
-
-                // ── Logout ────────────────────────────────────────────────────────
+                // ══ LOGOUT ═════════════════════════════════════════════════════
                 .logout(logout -> logout
                         .logoutUrl("/logout")
                         .logoutSuccessUrl("/login?logout")
-                        .invalidateHttpSession(true)
-                        .deleteCookies("SESSION", "XSRF-TOKEN", "remember-me")
+                        .invalidateHttpSession(true)      // nukes SF_* keys too
                         .clearAuthentication(true)
+                        // ✅ RETAINED: with store-type=jdbc the cookie is SESSION, not
+                        //    JSESSIONID. The old config deleted "JSESSIONID" — a cookie
+                        //    that never exists in this app — so logout was a no-op on
+                        //    the browser side and the dead cookie was replayed on the
+                        //    next request, including the next login.
+                        .deleteCookies("SESSION", "XSRF-TOKEN",
+                                "remember-me", props.getRememberMe().getCookieName())
                 )
 
-                // ── Session management ─────────────────────────────────────────────
+                // ══ SESSION MANAGEMENT ═════════════════════════════════════════
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED)
 
-                        // ✅ FIX BUG 1 + 2: changeSessionId() instead of migrateSession().
-                        //    - Same session object, only the ID rotates in-place.
-                        //    - JDBC store updates the primary key atomically.
-                        //    - No "lost session" window between old and new JSESSIONID.
-                        //    - migrateSession() was causing the browser to carry the old
-                        //      JSESSIONID on the login redirect → JDBC row not found →
-                        //      Spring fires invalidSessionUrl → /login?expired.
+                        // ✅ RETAINED: same session object, ID rotates in place, JDBC
+                        //    primary key updated atomically. No lost-session window.
+                        //    (StorefrontAuthService now does the equivalent by hand for
+                        //    the customer login, which never passes through here.)
                         .sessionFixation(fix -> fix.changeSessionId())
 
-                        // ✅ FIX BUG 2: DO NOT set invalidSessionUrl here.
-                        //    invalidSessionUrl intercepts ANY request with an unrecognised
-                        //    JSESSIONID — including the redirect immediately after login
-                        //    when the old cookie is still in flight.
-                        //    Removed: .invalidSessionUrl("/login?expired")
-                        //    The authenticationEntryPoint below handles all truly-unauth
-                        //    requests (including real expired sessions) correctly.
+                        // ✅ RETAINED: NO invalidSessionUrl. It fires on the post-login
+                        //    redirect while the old cookie is still in flight, and
+                        //    bounces the user back to /login before auth is checked.
+                        //    The authenticationEntryPoint below is the single
+                        //    authoritative handler for genuinely-unauthenticated
+                        //    requests, including real expiries.
 
-                        // ✅ FIX BUG 3: maximumSessions raised from 1 → 3.
-                        //    During login there can briefly be 2 live sessions:
-                        //    the anonymous pre-auth session + the new authenticated one.
-                        //    With limit=1 + maxSessionsPreventsLogin=false, Spring
-                        //    expires the oldest session (which might be the new one)
-                        //    → JDBC row gone → first request fails → /login?expired.
-                        //    Limit=3 gives comfortable multi-tab ERP headroom and
-                        //    eliminates this race entirely.
-                        .maximumSessions(3)
+                        .maximumSessions(props.getMaxSessionsPerUser())   // ✅ FIX F
                         .maxSessionsPreventsLogin(false)
                         .expiredUrl("/login?expired")
-                        // ✅ FIX BUG 5: Spring-Session-aware registry (bean above)
-                        //    instead of the default in-memory SessionRegistryImpl.
-                        .sessionRegistry(sessionRegistry)
+                        .sessionRegistry(sessionRegistry)                 // ✅ RETAINED
                 )
 
-                // ── Exception handling ─────────────────────────────────────────────
+                // ══ EXCEPTION HANDLING ═════════════════════════════════════════
                 .exceptionHandling(ex -> ex
                         .accessDeniedHandler(accessDeniedHandler)
                         .authenticationEntryPoint((req, res, e) -> {
-                            // This is the single authoritative handler for unauthenticated
-                            // requests (covers truly expired sessions, not the login race).
-                            log.warn("AUTH REQUIRED  uri='{}' method='{}' type='{}' reason='{}'",
-                                    req.getRequestURI(), req.getMethod(),
-                                    e.getClass().getSimpleName(), e.getMessage());
-                            if (isAjax(req)) {
+                            log.warn("AUTH REQUIRED  uri='{}' method='{}' type='{}'",
+                                    WebSecurityUtils.sanitizeForLog(req.getRequestURI()),
+                                    WebSecurityUtils.sanitizeForLog(req.getMethod()),
+                                    e.getClass().getSimpleName());
+
+                            if (WebSecurityUtils.isAjax(req)) {
                                 res.setStatus(401);
                                 res.setContentType("application/json;charset=UTF-8");
-                                res.getWriter().write(
-                                        """
-                                        {"success":false,"message":"Session expired. Please log in again."}
-                                        """);
+                                res.getWriter().write("""
+                                        {"success":false,"message":"Session expired. Please log in again."}""");
                             } else {
                                 res.sendRedirect(req.getContextPath() + "/login?expired");
                             }
                         })
                 )
 
-                .authenticationProvider(authenticationProvider());
+                .authenticationProvider(authenticationProvider())
+
+                // ══ BRUTE-FORCE THROTTLE (FIX B) ═══════════════════════════════
+                // MUST sit ahead of UsernamePasswordAuthenticationFilter: the whole
+                // point is to refuse a locked-out attempt BEFORE the BCrypt(12)
+                // comparison spends ~250ms of our CPU and one Hikari connection on
+                // it. Placing it in the failure handler instead would mean paying
+                // exactly the cost the throttle exists to avoid, on every guess.
+                //
+                // Constructed here rather than injected as a @Component: Spring Boot
+                // auto-registers every Filter BEAN into the servlet chain as well, which
+                // would put this filter in the request path a second time, at
+                // LOWEST_PRECEDENCE — i.e. after the whole security chain, uselessly late
+                // for a pre-auth check. Not a bean, no double registration.
+                .addFilterBefore(new LoginThrottleFilter(loginAttemptService, props),
+                                 UsernamePasswordAuthenticationFilter.class);
+
+        // ══ REMEMBER-ME (FIX A) ════════════════════════════════════════════════
+        // Registered only when enabled, and only ever with an externalised key.
+        if (props.getRememberMe().isEnabled()) {
+            var rm = props.getRememberMe();
+            http.rememberMe(remember -> remember
+                    .userDetailsService(userDetailsService)
+                    .key(rm.getKey())                                   // ✅ from env, not source
+                    .rememberMeParameter("remember-me")
+                    .rememberMeCookieName(rm.getCookieName())
+                    .tokenValiditySeconds(rm.getValiditySeconds())
+                    .useSecureCookie(props.isRequireHttps())            // ✅ Secure flag in prod
+            );
+        } else {
+            log.info("SECURITY: remember-me is DISABLED (app.security.remember-me.enabled=false).");
+        }
+
+        // ══ HTTPS CHANNEL (optional — leave off if the proxy terminates TLS) ═══
+        if (props.isRedirectToHttps()) {
+            http.requiresChannel(channel -> channel.anyRequest().requiresSecure());
+        }
 
         return http.build();
-    }
-
-    private boolean isAjax(jakarta.servlet.http.HttpServletRequest req) {
-        String accept = req.getHeader("Accept");
-        String xhr    = req.getHeader("X-Requested-With");
-        return "XMLHttpRequest".equals(xhr)
-                || (accept != null && accept.contains("application/json"));
     }
 }
