@@ -14,6 +14,7 @@ public interface TravelPackageService {
     void deletePackage(Long id);
     List<Map<String, Object>> listPackages(String search);
     List<Map<String, Object>> searchPackages(String search); // Select2
+    List<TrvPackageDTO> findAllActive(); // For portal frontend
 
     // ── Package Bookings (fulfillment for PACKAGE service lines) ────────────
     TrvPackageBookingDTO savePackageBooking(TrvPackageBookingDTO dto);

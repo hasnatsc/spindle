@@ -268,6 +268,8 @@ public class SecurityConfig {
                         // real attack, and the storefront JS already sends the token
                         // via secureFetch()'s <meta name="_csrf"> read.
                         .ignoringRequestMatchers(STATIC_URLS)
+                        // Travel portal — public enquiry form, no login required.
+                        .ignoringRequestMatchers("/travel-site/**")
                 )
 
                 // ══ SECURITY HEADERS (FIX E — there were none) ═════════════════

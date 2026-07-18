@@ -34,7 +34,7 @@
   </div>
 
   <button type="button" class="tf-btn tf-btn--primary tf-btn--block" id="tfEnquireBtn"
-          th:onclick="|tfSubmitEnquiry('${type}', ${refId})|">
+          th:attr="data-type=${type}, data-ref-id=${refId}">
     Request a Callback
   </button>
   <div id="tfEnquiryMsg" class="mt-2"></div>

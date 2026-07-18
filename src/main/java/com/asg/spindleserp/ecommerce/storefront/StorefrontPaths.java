@@ -80,7 +80,10 @@ public final class StorefrontPaths {
             "/contact", "/contact/**",
 
             // Public travel portal — no login at all, lead capture only
-            "/travel-site", "/travel-site/**"
+            "/travel-site", "/travel-site/**",
+
+            // Travel customer portal — gated by StorefrontAuthInterceptor
+            "/travel-portal", "/travel-portal/**"
     };
 
     /**

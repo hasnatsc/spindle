@@ -23,6 +23,20 @@
     toastTimer = setTimeout(function () { el.classList.remove('show'); }, 3500);
   }
 
+  // Bind enquiry button immediately — script is at bottom of <body>, DOM is ready.
+  // (Do NOT use DOMContentLoaded — if that event fires before this script loads,
+  //  the listener never runs and the button does nothing.)
+  (function bindEnquiryBtn() {
+    var btn = document.getElementById('tfEnquireBtn');
+    if (btn) {
+      btn.addEventListener('click', function () {
+        var type = btn.getAttribute('data-type');
+        var refId = btn.getAttribute('data-ref-id');
+        if (type && refId) window.tfSubmitEnquiry(type, Number(refId));
+      });
+    }
+  })();
+
   window.tfSubmitEnquiry = function (type, refId) {
     var msgBox = document.getElementById('tfEnquiryMsg');
     msgBox.innerHTML = '';

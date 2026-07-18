@@ -19,6 +19,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * TravelPortalController — the public, no-login-required customer site.
@@ -64,17 +65,20 @@ public class TravelPortalController {
     // ── HOME ─────────────────────────────────────────────────────────────────
     @GetMapping
     public String home(Model model) {
-        model.addAttribute("featuredPackages", limit(packageService.listPackages(""), FEATURED_LIMIT));
-        model.addAttribute("featuredTours", limit(tourService.listTours(""), FEATURED_LIMIT));
+        model.addAttribute("featuredPackages", limit(packageService.findAllActive(), FEATURED_LIMIT));
+        model.addAttribute("featuredTours", limit(tourService.findAllActive(), FEATURED_LIMIT));
         return "travel-site/tf-home";
     }
 
     // ── PACKAGES ─────────────────────────────────────────────────────────────
     @GetMapping("/packages")
     public String packages(@RequestParam(required = false) String q, Model model) {
-        List<?> items = (q != null && !q.isBlank())
-                ? packageService.searchPackages(q)
-                : packageService.listPackages("");
+        List<TrvPackageDTO> items = (q != null && !q.isBlank())
+                ? packageService.findAllActive().stream()
+                    .filter(p -> p.getPackageName() != null
+                        && p.getPackageName().toLowerCase().contains(q.toLowerCase()))
+                    .collect(Collectors.toList())
+                : packageService.findAllActive();
         model.addAttribute("packages", items);
         model.addAttribute("query", q);
         return "travel-site/tf-packages";
@@ -96,9 +100,12 @@ public class TravelPortalController {
     // ── TOURS ────────────────────────────────────────────────────────────────
     @GetMapping("/tours")
     public String tours(@RequestParam(required = false) String q, Model model) {
-        List<?> items = (q != null && !q.isBlank())
-                ? tourService.searchTours(q)
-                : tourService.listTours("");
+        List<TrvTourDTO> items = (q != null && !q.isBlank())
+                ? tourService.findAllActive().stream()
+                    .filter(t -> t.getTourName() != null
+                        && t.getTourName().toLowerCase().contains(q.toLowerCase()))
+                    .collect(Collectors.toList())
+                : tourService.findAllActive();
         model.addAttribute("tours", items);
         model.addAttribute("query", q);
         return "travel-site/tf-tours";

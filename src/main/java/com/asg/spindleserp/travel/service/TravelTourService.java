@@ -15,6 +15,7 @@ public interface TravelTourService {
     void deleteTour(Long id);
     List<Map<String, Object>> listTours(String search);
     List<Map<String, Object>> searchTours(String search); // Select2
+    List<TrvTourDTO> findAllActive(); // For portal frontend
 
     // ── Tour Guides (lookup) ─────────────────────────────────────────────────
     TrvTourGuideDTO saveGuide(TrvTourGuideDTO dto);

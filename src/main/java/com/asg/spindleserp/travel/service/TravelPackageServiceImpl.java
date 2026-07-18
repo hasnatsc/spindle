@@ -95,6 +95,14 @@ public class TravelPackageServiceImpl implements TravelPackageService {
 
     @Override
     @Transactional(readOnly = true)
+    public List<TrvPackageDTO> findAllActive() {
+        return packageRepo.findByIsActiveTrue().stream()
+                .map(p -> findPackageById(p.getId()))
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public List<Map<String, Object>> listPackages(String search) {
         Long orgId = SecurityHelper.requireOrgId();
         String like = "%" + (search == null ? "" : search.trim()) + "%";

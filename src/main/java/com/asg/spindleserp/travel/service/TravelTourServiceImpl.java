@@ -17,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -94,6 +95,14 @@ public class TravelTourServiceImpl implements TravelTourService {
               AND  (t.tour_name ILIKE ? OR t.tour_code ILIKE ? OR t.destination ILIKE ?)
             ORDER  BY t.id DESC
             """, orgId, like, like, like);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<TrvTourDTO> findAllActive() {
+        return tourRepo.findByIsActiveTrue().stream()
+                .map(p -> findTourById(p.getId()))
+                .collect(Collectors.toList());
     }
 
     @Override
