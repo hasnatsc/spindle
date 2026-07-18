@@ -73,12 +73,7 @@ public class TravelPortalController {
     // ── PACKAGES ─────────────────────────────────────────────────────────────
     @GetMapping("/packages")
     public String packages(@RequestParam(required = false) String q, Model model) {
-        List<TrvPackageDTO> items = (q != null && !q.isBlank())
-                ? packageService.findAllActive().stream()
-                    .filter(p -> p.getPackageName() != null
-                        && p.getPackageName().toLowerCase().contains(q.toLowerCase()))
-                    .collect(Collectors.toList())
-                : packageService.findAllActive();
+        List<TrvPackageDTO> items = (q != null && !q.isBlank()) ? packageService.findAllActive().stream().filter(p -> p.getPackageName() != null && p.getPackageName().toLowerCase().contains(q.toLowerCase())).collect(Collectors.toList()) : packageService.findAllActive();
         model.addAttribute("packages", items);
         model.addAttribute("query", q);
         return "travel-site/tf-packages";

@@ -109,7 +109,7 @@ public class SpindleSecurityProperties {
             "font-src 'self' data: https:; " +
             "object-src 'none'; " +
             "base-uri 'self'; " +
-            "form-action 'self'; " +
+            "form-action 'self' https:; " +
             "frame-ancestors 'self'";
 
     /** Value for the Permissions-Policy header. Blank/null disables the header. */
