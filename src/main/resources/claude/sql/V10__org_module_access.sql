@@ -88,7 +88,9 @@ BEGIN
             (v_org_id, 'COMMERCIAL',                 false, 'system', NOW(), 'Disabled by default'),
             (v_org_id, 'REPORTS_ANALYTICS',          false, 'system', NOW(), 'Disabled by default'),
             (v_org_id, 'BUDGET',                     false, 'system', NOW(), 'Disabled by default'),
-            (v_org_id, 'FIXED_ASSETS',               false, 'system', NOW(), 'Disabled by default')
+            (v_org_id, 'FIXED_ASSETS',               false, 'system', NOW(), 'Disabled by default'),
+            (v_org_id, 'TRAVEL',                     false, 'system', NOW(), 'Disabled by default'),
+            (v_org_id, 'ECOMMERCE',                  false, 'system', NOW(), 'Disabled by default')
         ON CONFLICT (organization_id, module_key) DO NOTHING;
     END IF;
 END $$;

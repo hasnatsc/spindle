@@ -93,6 +93,8 @@ public class OrgModuleService {
         MODULE_DISPLAY.put("REPORTS_ANALYTICS",           "Reports");
         MODULE_DISPLAY.put("BUDGET",                      "Budget");
         MODULE_DISPLAY.put("FIXED_ASSETS",                "Fixed Assets");
+        MODULE_DISPLAY.put("TRAVEL",                      "Travel");
+        MODULE_DISPLAY.put("ECOMMERCE",                   "eCommerce");
     }
 
     // ═══════════════════════════════════════════════════════════════════════

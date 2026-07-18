@@ -99,6 +99,8 @@ public class OrgModule {
         COMMERCIAL,
         REPORTS_ANALYTICS,
         BUDGET,
-        FIXED_ASSETS
+        FIXED_ASSETS,
+        TRAVEL,
+        ECOMMERCE
     }
 }

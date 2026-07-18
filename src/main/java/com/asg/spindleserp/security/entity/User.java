@@ -73,7 +73,8 @@ public class User implements Serializable {
     @Column(nullable = false, unique = true, length = 150)
     private String email;
 
-    @Column(nullable = false, unique = true, length = 30)
+    // phone is optional — nullable = true so users can be created without it
+    @Column(nullable = true, unique = true, length = 30)
     private String phone;
 
     @Column(nullable = false, length = 255)

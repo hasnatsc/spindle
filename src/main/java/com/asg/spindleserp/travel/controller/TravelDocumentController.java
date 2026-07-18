@@ -76,6 +76,20 @@ public class TravelDocumentController {
             .body(payload.resource());
     }
 
+    /**
+     * GET /travel/documents/show/{id} — inline preview (image, PDF) in the browser.
+     */
+    @GetMapping("/show/{id}")
+    public ResponseEntity<org.springframework.core.io.Resource> show(@PathVariable Long id) {
+        TravelDocumentService.DownloadPayload payload = documentService.download(id);
+        String encodedName = URLEncoder.encode(payload.originalFileName(), StandardCharsets.UTF_8).replace("+", "%20");
+        return ResponseEntity.ok()
+            .contentType(payload.contentType() != null
+                ? MediaType.parseMediaType(payload.contentType()) : MediaType.APPLICATION_OCTET_STREAM)
+            .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename*=UTF-8''" + encodedName)
+            .body(payload.resource());
+    }
+
     @DeleteMapping("/delete/{id}")
     public Map<String, Object> delete(@PathVariable Long id) {
         Map<String, Object> res = new HashMap<>();
