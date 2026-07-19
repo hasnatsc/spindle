@@ -247,6 +247,199 @@ FROM acc_chart_of_accounts_sub cust WHERE cust.sub_account_code = 'CUST-0001' AN
 COMMIT;
 
 -- =============================================================================
+--  APPENDED: Additional CRM seed data (leads, opportunities, contacts, activities, feedback)
+-- =============================================================================
+
+BEGIN;
+
+-- =============================================================================
+-- 1a. ADDITIONAL LEADS
+-- =============================================================================
+
+-- ── Lead 5: New lead (website inquiry) ───────────────────────────────────────
+INSERT INTO crm_leads
+(lead_no, contact_name, designation, company_name, contact_email, contact_phone,
+ city, country, lead_type, source, status, estimated_qty_kg, product_interest, remarks,
+ organization_id, assigned_to_id, converted_to_id, created_at, updated_at, created_by, updated_by)
+SELECT
+    'LEAD-0005', 'Mehedi Hasan', 'Operations Director', 'Jamuna Fisheries Ltd.', 'mehedi@jamunafisheries.com', '+8801712005001',
+    'Dhaka', 'Bangladesh', 'DOMESTIC', 'WEBSITE', 'NEW', 8000.00, 'Cold storage equipment and packaging materials', 'Inbound inquiry via company website — requested product catalog',
+    1, u.id, NULL, NOW(), NOW(), 'system', 'system'
+FROM sec_users u WHERE u.username = 'sales.manager'
+ON CONFLICT ON CONSTRAINT uq_crl_org_no DO NOTHING;
+
+-- ── Lead 6: Qualified lead (referral) ────────────────────────────────────────
+INSERT INTO crm_leads
+(lead_no, contact_name, designation, company_name, contact_email, contact_phone,
+ city, country, lead_type, source, status, estimated_qty_kg, product_interest, remarks,
+ organization_id, assigned_to_id, converted_to_id, created_at, updated_at, created_by, updated_by)
+SELECT
+    'LEAD-0006', 'Shahina Begum', 'Managing Director', 'Bengal Steel Works', 'shahina@bengalsteel.com', '+8801712005002',
+    'Chattogram', 'Bangladesh', 'DOMESTIC', 'REFERRAL', 'QUALIFIED', 15000.00, 'Industrial lubricants and cutting fluids', 'Referred by Bangladesh Chamber of Commerce — high potential lead',
+    1, u.id, NULL, NOW(), NOW(), 'system', 'system'
+FROM sec_users u WHERE u.username = 'sales.executive'
+ON CONFLICT ON CONSTRAINT uq_crl_org_no DO NOTHING;
+
+-- ── Lead 7: Contacted lead (cold call) ───────────────────────────────────────
+INSERT INTO crm_leads
+(lead_no, contact_name, designation, company_name, contact_email, contact_phone,
+ city, country, lead_type, source, status, estimated_qty_kg, product_interest, remarks,
+ organization_id, assigned_to_id, converted_to_id, created_at, updated_at, created_by, updated_by)
+SELECT
+    'LEAD-0007', 'Rafiqul Islam', 'Plant Manager', 'Rahim Textile Mills', 'rafiqul@rahimtextile.com', '+8801712005003',
+    'Gazipur', 'Bangladesh', 'DOMESTIC', 'COLD_CALL', 'CONTACTED', 6000.00, 'Dyes and chemical fixatives', 'Initial phone conversation completed — sent quotation via email',
+    1, u.id, NULL, NOW(), NOW(), 'system', 'system'
+FROM sec_users u WHERE u.username = 'sales.executive'
+ON CONFLICT ON CONSTRAINT uq_crl_org_no DO NOTHING;
+
+-- ── Lead 8: Lost lead (pricing issue) ────────────────────────────────────────
+INSERT INTO crm_leads
+(lead_no, contact_name, designation, company_name, contact_email, contact_phone,
+ city, country, lead_type, source, status, estimated_qty_kg, product_interest, remarks,
+ organization_id, assigned_to_id, converted_to_id, created_at, updated_at, created_by, updated_by)
+SELECT
+    'LEAD-0008', 'Nasrin Sultana', 'Owner', 'Sultana Agro Products', 'nasrin@sultanaagro.com', '+8801712005004',
+    'Rajshahi', 'Bangladesh', 'DOMESTIC', 'TRADE_FAIR', 'LOST', 3000.00, 'Agricultural processing machinery', 'Not interested at this time — pricing above budget',
+    1, u.id, NULL, NOW(), NOW(), 'system', 'system'
+FROM sec_users u WHERE u.username = 'sales.manager'
+ON CONFLICT ON CONSTRAINT uq_crl_org_no DO NOTHING;
+
+
+-- =============================================================================
+-- 2a. ADDITIONAL OPPORTUNITIES
+-- =============================================================================
+
+-- ── Opportunity 4: WON with actual close date (from Lead 5) ──────────────────
+INSERT INTO crm_opportunities
+(opportunity_no, title, description, stage, estimated_value, currency, probability,
+ expected_close_date, actual_close_date, lost_reason, remarks,
+ organization_id, assigned_to_id, customer_id, lead_id, created_at, updated_at, created_by, updated_by)
+SELECT
+    'OPP-0004', 'Jamuna Fisheries — Cold Storage Equipment Contract', 'Supply and installation of cold storage units for fish processing plant',
+    'WON', 780000.00, 'BDT', 100.00,
+    DATE '2026-07-15', DATE '2026-07-12', NULL, 'Closed won — contract signed for full equipment package',
+    1, u.id, cust.id, ld.id, NOW(), NOW(), 'system', 'system'
+FROM sec_users u, acc_chart_of_accounts_sub cust, crm_leads ld
+WHERE u.username = 'sales.manager'
+  AND cust.sub_account_code = 'CUST-0001' AND cust.organization_id = 1
+  AND ld.lead_no = 'LEAD-0005' AND ld.organization_id = 1
+ON CONFLICT ON CONSTRAINT uq_cro_org_no DO NOTHING;
+
+-- ── Opportunity 5: NEGOTIATION stage (from Lead 6) ───────────────────────────
+INSERT INTO crm_opportunities
+(opportunity_no, title, description, stage, estimated_value, currency, probability,
+ expected_close_date, actual_close_date, lost_reason, remarks,
+ organization_id, assigned_to_id, customer_id, lead_id, created_at, updated_at, created_by, updated_by)
+SELECT
+    'OPP-0005', 'Bengal Steel Works — Lubricant Supply Contract', 'Quarterly supply contract for industrial lubricants and cutting fluids',
+    'NEGOTIATION', 950000.00, 'BDT', 65.00,
+    DATE '2026-08-15', NULL, NULL, 'Negotiating pricing and delivery terms — positive traction',
+    1, u.id, NULL, ld.id, NOW(), NOW(), 'system', 'system'
+FROM sec_users u, crm_leads ld
+WHERE u.username = 'sales.executive'
+  AND ld.lead_no = 'LEAD-0006' AND ld.organization_id = 1
+ON CONFLICT ON CONSTRAINT uq_cro_org_no DO NOTHING;
+
+
+-- =============================================================================
+-- 3a. ADDITIONAL CONTACTS  (linked to existing customer CUST-0001)
+-- =============================================================================
+
+INSERT INTO crm_contacts
+(first_name, last_name, designation, department, email, phone, mobile, whatsapp,
+ is_primary, is_active, notes, organization_id, customer_id, created_at, updated_at, created_by, updated_by)
+SELECT 'Rakib', 'Hasan', 'Logistics Manager', 'Supply Chain', 'rakib@abctrading.com', '+8801711000113', '+8801711000113', NULL,
+       false, true, 'Handles logistics, warehousing, and shipment coordination', 1, cust.id, NOW(), NOW(), 'system', 'system'
+FROM acc_chart_of_accounts_sub cust WHERE cust.sub_account_code = 'CUST-0001' AND cust.organization_id = 1;
+
+INSERT INTO crm_contacts
+(first_name, last_name, designation, department, email, phone, mobile, whatsapp,
+ is_primary, is_active, notes, organization_id, customer_id, created_at, updated_at, created_by, updated_by)
+SELECT 'Nusrat', 'Jahan', 'Quality Control Manager', 'Quality Assurance', 'nusrat@abctrading.com', '+8801711000114', '+8801711000114', NULL,
+       false, true, 'Oversees incoming product inspections and supplier certifications', 1, cust.id, NOW(), NOW(), 'system', 'system'
+FROM acc_chart_of_accounts_sub cust WHERE cust.sub_account_code = 'CUST-0001' AND cust.organization_id = 1;
+
+INSERT INTO crm_contacts
+(first_name, last_name, designation, department, email, phone, mobile, whatsapp,
+ is_primary, is_active, notes, organization_id, customer_id, created_at, updated_at, created_by, updated_by)
+SELECT 'Tanvir', 'Ahmed', 'IT Manager', 'Information Technology', 'tanvir@abctrading.com', '+8801711000115', '+8801711000115', NULL,
+       false, true, 'Point of contact for digital procurement systems and IT purchases', 1, cust.id, NOW(), NOW(), 'system', 'system'
+FROM acc_chart_of_accounts_sub cust WHERE cust.sub_account_code = 'CUST-0001' AND cust.organization_id = 1;
+
+
+-- =============================================================================
+-- 4a. ADDITIONAL ACTIVITIES
+-- =============================================================================
+
+-- ── Activity 5: On-site meeting with Lead 7 (Contacted) ──────────────────────
+INSERT INTO crm_activities
+(subject, activity_type, activity_date, description, outcome, status,
+ duration_minutes, next_action, next_action_date,
+ organization_id, assigned_to_id, customer_id, lead_id, opportunity_id,
+ created_at, updated_at, created_by, updated_by)
+SELECT
+    'On-site product demo — Rahim Textile Mills', 'MEETING', DATE '2026-06-20', 'Demonstrated dye samples and discussed application process at their Gazipur plant',
+    'Positive — client requested trial batch of 200 kg for testing', 'COMPLETED',
+    90, 'Prepare trial batch samples and schedule follow-up', DATE '2026-06-30',
+    1, u.id, NULL, ld.id, NULL,
+    NOW(), NOW(), 'system', 'system'
+FROM sec_users u, crm_leads ld
+WHERE u.username = 'sales.executive'
+  AND ld.lead_no = 'LEAD-0007' AND ld.organization_id = 1;
+
+-- ── Activity 6: Closing call with OPP-0004 (WON) ─────────────────────────────
+INSERT INTO crm_activities
+(subject, activity_type, activity_date, description, outcome, status,
+ duration_minutes, next_action, next_action_date,
+ organization_id, assigned_to_id, customer_id, lead_id, opportunity_id,
+ created_at, updated_at, created_by, updated_by)
+SELECT
+    'Contract finalisation call', 'CALL', DATE '2026-07-10', 'Final call to confirm contract terms, pricing, and delivery schedule for cold storage equipment',
+    'Contract agreed and signed electronically — deal closed', 'COMPLETED',
+    35, 'Hand over to operations team for installation scheduling', DATE '2026-07-14',
+    1, u.id, cust.id, NULL, opp.id,
+    NOW(), NOW(), 'system', 'system'
+FROM sec_users u, acc_chart_of_accounts_sub cust, crm_opportunities opp
+WHERE u.username = 'sales.manager'
+  AND cust.sub_account_code = 'CUST-0001' AND cust.organization_id = 1
+  AND opp.opportunity_no = 'OPP-0004' AND opp.organization_id = 1;
+
+-- ── Activity 7: Email follow-up with existing customer ───────────────────────
+INSERT INTO crm_activities
+(subject, activity_type, activity_date, description, outcome, status,
+ duration_minutes, next_action, next_action_date,
+ organization_id, assigned_to_id, customer_id, lead_id, opportunity_id,
+ created_at, updated_at, created_by, updated_by)
+SELECT
+    'Quarterly business review email', 'FOLLOW_UP', DATE '2026-06-28', 'Sent quarterly account review summary and information about new product lines',
+    'Customer opened email and requested a call to discuss new offerings', 'COMPLETED',
+    10, 'Schedule discovery call with accounts team', DATE '2026-07-05',
+    1, u.id, cust.id, NULL, opp.id,
+    NOW(), NOW(), 'system', 'system'
+FROM sec_users u, acc_chart_of_accounts_sub cust, crm_opportunities opp
+WHERE u.username = 'sales.manager'
+  AND cust.sub_account_code = 'CUST-0001' AND cust.organization_id = 1
+  AND opp.opportunity_no = 'OPP-0003' AND opp.organization_id = 1;
+
+
+-- =============================================================================
+-- 5a. ADDITIONAL CUSTOMER FEEDBACK
+-- =============================================================================
+
+INSERT INTO crm_customer_feedback
+(subject, feedback_type, feedback_date, description, rating, status,
+ resolution, resolved_by, resolved_at, business_document_id,
+ organization_id, customer_id, created_at, updated_at, created_by, updated_by)
+SELECT
+    'Excellent after-sales technical support', 'COMPLIMENT', DATE '2026-07-01', 'Customer praised the quick response from technical support team during recent equipment troubleshooting — resolved within 2 hours',
+    5, 'CLOSED',
+    'Thanked customer and shared positive feedback with support team lead', 'sales.manager', NOW(), NULL,
+    1, cust.id, NOW(), NOW(), 'system', 'system'
+FROM acc_chart_of_accounts_sub cust WHERE cust.sub_account_code = 'CUST-0001' AND cust.organization_id = 1;
+
+COMMIT;
+
+-- =============================================================================
 --  VERIFICATION QUERIES
 -- =============================================================================
 -- SELECT 'Leads',         COUNT(*) FROM crm_leads

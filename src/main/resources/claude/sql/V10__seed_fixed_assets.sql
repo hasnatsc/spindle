@@ -268,6 +268,228 @@ WHERE r.run_date = DATE '2026-05-31' AND r.organization_id = 1
 COMMIT;
 
 -- =============================================================================
+--  APPENDED: Additional fixed asset categories and assets
+-- =============================================================================
+
+BEGIN;
+
+-- =============================================================================
+-- 1a. ADDITIONAL ASSET CATEGORIES
+-- =============================================================================
+
+-- ── Office Equipment ─────────────────────────────────────────────────────────
+INSERT INTO fa_asset_categories
+(code, name, description, is_active, default_dep_method, default_dep_rate,
+ default_useful_life_years, default_residual_pct,
+ gl_asset_account_id, gl_accum_dep_account_id, gl_dep_exp_account_id, gl_disposal_account_id,
+ organization_id, parent_id, created_at, updated_at, created_by, updated_by)
+VALUES
+    ('FAC-OFEQ', 'Office Equipment', 'Office equipment including air conditioners, appliances, and furnishings beyond standard fixtures', true,
+     'STRAIGHT_LINE', 15.00, 6, 5.00,
+     NULL, NULL, NULL, NULL,
+     1, NULL, NOW(), NOW(), 'system', 'system')
+    ON CONFLICT ON CONSTRAINT uq_fac_org_code DO NOTHING;
+
+-- ── Lab Equipment ────────────────────────────────────────────────────────────
+INSERT INTO fa_asset_categories
+(code, name, description, is_active, default_dep_method, default_dep_rate,
+ default_useful_life_years, default_residual_pct,
+ gl_asset_account_id, gl_accum_dep_account_id, gl_dep_exp_account_id, gl_disposal_account_id,
+ organization_id, parent_id, created_at, updated_at, created_by, updated_by)
+VALUES
+    ('FAC-LAB', 'Lab Equipment', 'Laboratory and quality control testing equipment', true,
+     'STRAIGHT_LINE', 20.00, 5, 5.00,
+     NULL, NULL, NULL, NULL,
+     1, NULL, NOW(), NOW(), 'system', 'system')
+    ON CONFLICT ON CONSTRAINT uq_fac_org_code DO NOTHING;
+
+-- ── Building & Infrastructure (uses subquery for GL account lookup) ──────────
+INSERT INTO fa_asset_categories
+(code, name, description, is_active, default_dep_method, default_dep_rate,
+ default_useful_life_years, default_residual_pct,
+ gl_asset_account_id, gl_accum_dep_account_id, gl_dep_exp_account_id, gl_disposal_account_id,
+ organization_id, parent_id, created_at, updated_at, created_by, updated_by)
+SELECT 'FAC-BLDG', 'Building & Infrastructure', 'Company-owned buildings, floors, and infrastructure assets', true,
+       'STRAIGHT_LINE', 2.00, 50, 10.00,
+       a.id, NULL, NULL, NULL,
+       1, NULL, NOW(), NOW(), 'system', 'system'
+FROM acc_chart_of_accounts a
+WHERE a.account_code = '1200' AND a.organization_id = 1
+    ON CONFLICT ON CONSTRAINT uq_fac_org_code DO NOTHING;
+
+
+-- =============================================================================
+-- 2a. ADDITIONAL FIXED ASSETS
+-- =============================================================================
+
+-- ── Asset 5: Toyota Hilux Pickup ─────────────────────────────────────────────
+INSERT INTO fa_assets
+(asset_code, asset_name, description, serial_number, manufacturer, model, barcode,
+ acquisition_date, capitalisation_date, depreciation_start_date,
+ purchase_cost, installation_cost, residual_value, accumulated_depreciation, current_book_value,
+ currency, exchange_rate, depreciation_method, depreciation_rate, useful_life_years,
+ status, condition, location, insurance_policy_no, insurance_expiry_date,
+ organization_id, asset_category_id, cost_center_id, department_id, warehouse_id,
+ responsible_employee_id, supplier_id,
+ created_at, updated_at, created_by, updated_by)
+SELECT
+    'AST-004', 'Toyota Hilux Pickup', 'Double-cab pickup truck for management transport and field operations',
+    'JTDKB-22U-6-0945321', 'Toyota', 'Hilux 2.8L GD-6', NULL,
+    DATE '2026-01-15', DATE '2026-01-20', DATE '2026-02-01',
+    4500000.00, 0.00, 450000.00, 337500.00, 4162500.00,
+    'BDT', 1.0000, 'STRAIGHT_LINE', 20.00, 5,
+    'ACTIVE', 'NEW', 'Head Office, Gulshan, Dhaka', 'INS-2026-1122', DATE '2027-01-20',
+    1, fc.id, cc.id, dpt.id, NULL,
+    emp.id, supp.id,
+    NOW(), NOW(), 'system', 'system'
+FROM fa_asset_categories fc, org_cost_centers cc, org_departments dpt, hrm_employees emp, acc_chart_of_accounts_sub supp
+WHERE fc.code = 'FAC-VEH' AND fc.organization_id = 1
+  AND cc.cost_center_code = 'CC-HO'
+  AND dpt.code = 'DEPT-OPS' AND dpt.organization_id = 1
+  AND emp.employee_code = 'EMP-0001' AND emp.organization_id = 1
+  AND supp.sub_account_code = 'SUPP-0001' AND supp.organization_id = 1
+    ON CONFLICT ON CONSTRAINT uq_fa_org_code DO NOTHING;
+
+-- ── Asset 6: Dell Server PowerEdge ───────────────────────────────────────────
+INSERT INTO fa_assets
+(asset_code, asset_name, description, serial_number, manufacturer, model, barcode,
+ acquisition_date, capitalisation_date, depreciation_start_date,
+ purchase_cost, installation_cost, residual_value, accumulated_depreciation, current_book_value,
+ currency, exchange_rate, depreciation_method, depreciation_rate, useful_life_years,
+ status, condition, location, warranty_expiry_date,
+ organization_id, asset_category_id, cost_center_id, department_id, warehouse_id,
+ responsible_employee_id, supplier_id,
+ created_at, updated_at, created_by, updated_by)
+SELECT
+    'AST-005', 'Dell PowerEdge R750 Server', 'Enterprise server for ERP system, database hosting, and network services',
+    'PE-R750-87654321', 'Dell', 'PowerEdge R750', NULL,
+    DATE '2026-03-01', DATE '2026-03-05', DATE '2026-04-01',
+    850000.00, 25000.00, 0.00, 54687.50, 820312.50,
+    'BDT', 1.0000, 'DECLINING_BALANCE', 25.00, 4,
+    'ACTIVE', 'NEW', 'Server Room, Head Office, Gulshan, Dhaka', DATE '2029-03-05',
+    1, fc.id, cc.id, dpt.id, NULL,
+    NULL, supp.id,
+    NOW(), NOW(), 'system', 'system'
+FROM fa_asset_categories fc, org_cost_centers cc, org_departments dpt, acc_chart_of_accounts_sub supp
+WHERE fc.code = 'FAC-IT' AND fc.organization_id = 1
+  AND cc.cost_center_code = 'CC-HO'
+  AND dpt.code = 'DEPT-OPS' AND dpt.organization_id = 1
+  AND supp.sub_account_code = 'SUPP-0001' AND supp.organization_id = 1
+    ON CONFLICT ON CONSTRAINT uq_fa_org_code DO NOTHING;
+
+-- ── Asset 7: Office Building (Floor 3 & 4) ───────────────────────────────────
+INSERT INTO fa_assets
+(asset_code, asset_name, description, serial_number, manufacturer, model, barcode,
+ acquisition_date, capitalisation_date, depreciation_start_date,
+ purchase_cost, installation_cost, residual_value, accumulated_depreciation, current_book_value,
+ currency, exchange_rate, depreciation_method, depreciation_rate, useful_life_years,
+ status, condition, location, insurance_policy_no, insurance_expiry_date,
+ organization_id, asset_category_id, cost_center_id, department_id, warehouse_id,
+ responsible_employee_id, supplier_id,
+ created_at, updated_at, created_by, updated_by)
+SELECT
+    'AST-006', 'Office Building (Floor 3 & 4)', 'Third and fourth floor of corporate head office building — fully owned',
+    'BLDG-DHK-PLOT-12A', 'Mirza Construction Ltd.', 'Commercial Tower A', NULL,
+    DATE '2024-01-01', DATE '2024-01-15', DATE '2024-02-01',
+    25000000.00, 0.00, 2500000.00, 1087500.00, 23912500.00,
+    'BDT', 1.0000, 'STRAIGHT_LINE', 2.00, 50,
+    'ACTIVE', 'GOOD', 'Corporate Head Office, Gulshan Avenue, Dhaka', 'INS-2024-001', DATE '2027-01-15',
+    1, fc.id, cc.id, dpt.id, NULL,
+    NULL, supp.id,
+    NOW(), NOW(), 'system', 'system'
+FROM fa_asset_categories fc, org_cost_centers cc, org_departments dpt, acc_chart_of_accounts_sub supp
+WHERE fc.code = 'FAC-BLDG' AND fc.organization_id = 1
+  AND cc.cost_center_code = 'CC-HO'
+  AND dpt.code = 'DEPT-MGT' AND dpt.organization_id = 1
+  AND supp.sub_account_code = 'SUPP-0001' AND supp.organization_id = 1
+    ON CONFLICT ON CONSTRAINT uq_fa_org_code DO NOTHING;
+
+-- ── Asset 8: Air Conditioner 3-Ton ───────────────────────────────────────────
+INSERT INTO fa_assets
+(asset_code, asset_name, description, serial_number, manufacturer, model, barcode,
+ acquisition_date, capitalisation_date, depreciation_start_date,
+ purchase_cost, installation_cost, residual_value, accumulated_depreciation, current_book_value,
+ currency, exchange_rate, depreciation_method, depreciation_rate, useful_life_years,
+ status, condition, location, warranty_expiry_date,
+ organization_id, asset_category_id, cost_center_id, department_id, warehouse_id,
+ responsible_employee_id, supplier_id,
+ created_at, updated_at, created_by, updated_by)
+SELECT
+    'AST-007', 'Air Conditioner 3-Ton', 'Central air conditioning unit for executive floor cooling',
+    'AC-3T-2026-441', 'General Electronics', 'GAC-36T Inverter', NULL,
+    DATE '2026-05-01', DATE '2026-05-10', DATE '2026-06-01',
+    120000.00, 0.00, 6000.00, 1583.33, 118416.67,
+    'BDT', 1.0000, 'STRAIGHT_LINE', 15.00, 6,
+    'ACTIVE', 'NEW', 'Head Office, 4th Floor, Gulshan, Dhaka', DATE '2028-05-10',
+    1, fc.id, cc.id, dpt.id, NULL,
+    emp.id, NULL,
+    NOW(), NOW(), 'system', 'system'
+FROM fa_asset_categories fc, org_cost_centers cc, org_departments dpt, hrm_employees emp
+WHERE fc.code = 'FAC-OFEQ' AND fc.organization_id = 1
+  AND cc.cost_center_code = 'CC-HO'
+  AND dpt.code = 'DEPT-MGT' AND dpt.organization_id = 1
+  AND emp.employee_code = 'EMP-0001' AND emp.organization_id = 1
+    ON CONFLICT ON CONSTRAINT uq_fa_org_code DO NOTHING;
+
+-- ── Asset 9: UPS System 20KVA ────────────────────────────────────────────────
+INSERT INTO fa_assets
+(asset_code, asset_name, description, serial_number, manufacturer, model, barcode,
+ acquisition_date, capitalisation_date, depreciation_start_date,
+ purchase_cost, installation_cost, residual_value, accumulated_depreciation, current_book_value,
+ currency, exchange_rate, depreciation_method, depreciation_rate, useful_life_years,
+ status, condition, location, warranty_expiry_date,
+ organization_id, asset_category_id, cost_center_id, department_id, warehouse_id,
+ responsible_employee_id, supplier_id,
+ created_at, updated_at, created_by, updated_by)
+SELECT
+    'AST-008', 'UPS System 20KVA', 'Uninterruptible power supply for data center and server room equipment',
+    'UPS-20K-2026-112', 'APC by Schneider Electric', 'Smart-UPS 20KVA', NULL,
+    DATE '2026-04-01', DATE '2026-04-05', DATE '2026-05-01',
+    350000.00, 0.00, 0.00, 14583.33, 335416.67,
+    'BDT', 1.0000, 'DECLINING_BALANCE', 25.00, 4,
+    'ACTIVE', 'NEW', 'Server Room, Head Office, Gulshan, Dhaka', DATE '2029-04-05',
+    1, fc.id, cc.id, dpt.id, NULL,
+    NULL, supp.id,
+    NOW(), NOW(), 'system', 'system'
+FROM fa_asset_categories fc, org_cost_centers cc, org_departments dpt, acc_chart_of_accounts_sub supp
+WHERE fc.code = 'FAC-IT' AND fc.organization_id = 1
+  AND cc.cost_center_code = 'CC-HO'
+  AND dpt.code = 'DEPT-OPS' AND dpt.organization_id = 1
+  AND supp.sub_account_code = 'SUPP-0001' AND supp.organization_id = 1
+    ON CONFLICT ON CONSTRAINT uq_fa_org_code DO NOTHING;
+
+-- ── Asset 10: Laboratory Spectrometer ────────────────────────────────────────
+INSERT INTO fa_assets
+(asset_code, asset_name, description, serial_number, manufacturer, model, barcode,
+ acquisition_date, capitalisation_date, depreciation_start_date,
+ purchase_cost, installation_cost, residual_value, accumulated_depreciation, current_book_value,
+ currency, exchange_rate, depreciation_method, depreciation_rate, useful_life_years,
+ status, condition, location, warranty_expiry_date,
+ organization_id, asset_category_id, cost_center_id, department_id, warehouse_id,
+ responsible_employee_id, supplier_id,
+ created_at, updated_at, created_by, updated_by)
+SELECT
+    'AST-009', 'Laboratory Spectrometer', 'High-precision UV-Vis spectrometer for quality control laboratory',
+    'SPEC-2026-77234', 'Shimadzu Corporation', 'UV-2600i', NULL,
+    DATE '2026-02-01', DATE '2026-02-10', DATE '2026-03-01',
+    2800000.00, 50000.00, 140000.00, 180666.67, 2669333.33,
+    'BDT', 1.0000, 'STRAIGHT_LINE', 20.00, 5,
+    'ACTIVE', 'NEW', 'QC Laboratory, Manufacturing Plant, Chattogram', DATE '2029-02-10',
+    1, fc.id, cc.id, dpt.id, wh.id,
+    emp.id, supp.id,
+    NOW(), NOW(), 'system', 'system'
+FROM fa_asset_categories fc, org_cost_centers cc, org_departments dpt, org_warehouses wh, hrm_employees emp, acc_chart_of_accounts_sub supp
+WHERE fc.code = 'FAC-LAB' AND fc.organization_id = 1
+  AND cc.cost_center_code = 'CC-PRD-A'
+  AND dpt.code = 'DEPT-PRD' AND dpt.organization_id = 1
+  AND wh.warehouse_code = 'WH-MFG-RM'
+  AND emp.employee_code = 'EMP-0003' AND emp.organization_id = 1
+  AND supp.sub_account_code = 'SUPP-0001' AND supp.organization_id = 1
+    ON CONFLICT ON CONSTRAINT uq_fa_org_code DO NOTHING;
+
+COMMIT;
+
+-- =============================================================================
 --  VERIFICATION QUERIES
 -- =============================================================================
 -- SELECT 'Categories',  COUNT(*) FROM fa_asset_categories

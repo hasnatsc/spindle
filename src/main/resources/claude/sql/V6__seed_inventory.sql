@@ -1115,3 +1115,564 @@ COMMIT;
 -- UNION ALL SELECT 'Models',     COUNT(*) FROM inv_item_models
 -- UNION ALL SELECT 'UOM',        COUNT(*) FROM inv_item_uom
 -- UNION ALL SELECT 'Items',      COUNT(*) FROM inv_items;
+
+-- =============================================================================
+--  ADDITIONAL SEED DATA — UOMs, Models, and Items (appended after initial seed)
+-- =============================================================================
+BEGIN;
+
+-- =============================================================================
+--  ADDITIONAL UOMs (idempotent — existing rows are skipped via ON CONFLICT)
+-- =============================================================================
+INSERT INTO inv_item_uom (code, name, symbol, category, is_base_unit, conversion_factor, active, organization_id, created_at, updated_at, created_by, updated_by)
+VALUES
+('KG', 'Kilogram', 'kg', 'WEIGHT', true, 1.000000, true, 1, NOW(), NOW(), 'system', 'system'),
+('G', 'Gram', 'g', 'WEIGHT', false, 0.001000, true, 1, NOW(), NOW(), 'system', 'system'),
+('LTR', 'Liter', 'L', 'VOLUME', true, 1.000000, true, 1, NOW(), NOW(), 'system', 'system'),
+('MTR', 'Meter', 'm', 'LENGTH', true, 1.000000, true, 1, NOW(), NOW(), 'system', 'system'),
+('BOX', 'Box', 'box', 'PACKING', true, 1.000000, true, 1, NOW(), NOW(), 'system', 'system'),
+('PCS', 'Pieces', 'pcs', 'COUNT', true, 1.000000, true, 1, NOW(), NOW(), 'system', 'system'),
+('RLL', 'Roll', 'roll', 'UNIT', true, 1.000000, true, 1, NOW(), NOW(), 'system', 'system')
+ON CONFLICT ON CONSTRAINT uq_uom_org_code DO NOTHING;
+
+-- =============================================================================
+--  ADDITIONAL ITEM MODELS
+-- =============================================================================
+
+-- =============================================================================
+-- Generic raw material models (BRD-GEN)
+-- =============================================================================
+INSERT INTO inv_item_models
+(model_code, model_name, description, is_active, organization_id, brand_id, created_at, updated_at, created_by, updated_by)
+SELECT v.model_code, v.model_name, v.description, TRUE, 1, b.id, NOW(), NOW(), 'system', 'system'
+FROM inv_item_brands b
+         CROSS JOIN (
+    VALUES
+        ('YARN-NE30', 'Cotton Yarn NE-30', 'Cotton Yarn Count NE-30'),
+        ('PET-RESIN', 'PET Resin Grade', 'PET Resin for manufacturing'),
+        ('STEEL-R12', 'Steel Rod 12mm', 'Mild Steel Rod 12mm diameter'),
+        ('RUBBER-CPD', 'Rubber Compound', 'Synthetic Rubber Compound'),
+        ('COPPER-W25', 'Copper Wire 2.5mm', 'Copper Wire 2.5mm diameter')
+) v(model_code, model_name, description)
+WHERE b.brand_code='BRD-GEN'
+ON CONFLICT ON CONSTRAINT uq_model_org_brand_code DO NOTHING;
+
+-- =============================================================================
+-- Generic spare part models (BRD-GEN)
+-- =============================================================================
+INSERT INTO inv_item_models
+(model_code, model_name, description, is_active, organization_id, brand_id, created_at, updated_at, created_by, updated_by)
+SELECT v.model_code, v.model_name, v.description, TRUE, 1, b.id, NOW(), NOW(), 'system', 'system'
+FROM inv_item_brands b
+         CROSS JOIN (
+    VALUES
+        ('VBELT-B55', 'V-Belt B-55', 'Industrial V-Belt Section B Length 55'),
+        ('OIL-SEAL-35528', 'Oil Seal 35x52x8', 'Oil Seal 35mm ID x 52mm OD x 8mm'),
+        ('HYD-FLTR-100', 'Hydraulic Filter 10 micron', 'Hydraulic Oil Filter 10 micron'),
+        ('FAN-48IN', 'Industrial Fan 48 inch', 'Heavy Duty Industrial Exhaust Fan 48"'),
+        ('SUB-ASM-001', 'Sub-Assembly Unit Type A', 'Mechanical sub-assembly unit')
+) v(model_code, model_name, description)
+WHERE b.brand_code='BRD-GEN'
+ON CONFLICT ON CONSTRAINT uq_model_org_brand_code DO NOTHING;
+
+-- =============================================================================
+-- Bosch cutting blade model (BRD-BOSCH)
+-- =============================================================================
+INSERT INTO inv_item_models
+(model_code, model_name, description, is_active, organization_id, brand_id, created_at, updated_at, created_by, updated_by)
+SELECT v.model_code, v.model_name, v.description, TRUE, 1, b.id, NOW(), NOW(), 'system', 'system'
+FROM inv_item_brands b
+         CROSS JOIN (
+    VALUES
+        ('CB-200', 'Cutting Blade 200mm', 'Industrial Cutting Blade 200mm diameter')
+) v(model_code, model_name, description)
+WHERE b.brand_code='BRD-BOSCH'
+ON CONFLICT ON CONSTRAINT uq_model_org_brand_code DO NOTHING;
+
+-- =============================================================================
+-- Generic consumable models (BRD-GEN)
+-- =============================================================================
+INSERT INTO inv_item_models
+(model_code, model_name, description, is_active, organization_id, brand_id, created_at, updated_at, created_by, updated_by)
+SELECT v.model_code, v.model_name, v.description, TRUE, 1, b.id, NOW(), NOW(), 'system', 'system'
+FROM inv_item_brands b
+         CROSS JOIN (
+    VALUES
+        ('LUBE-S68', 'Lubricating Oil Shell 68', 'Shell Tellus 68 Hydraulic Oil'),
+        ('WELD-E315', 'Welding Electrode 3.15mm', 'Mild Steel Welding Electrode 3.15mm'),
+        ('GLOVES-LATEX', 'Safety Gloves Latex', 'Industrial Safety Gloves Latex Coated'),
+        ('THINNER-PT', 'Paint Thinner', 'General Purpose Paint Thinner')
+) v(model_code, model_name, description)
+WHERE b.brand_code='BRD-GEN'
+ON CONFLICT ON CONSTRAINT uq_model_org_brand_code DO NOTHING;
+
+-- =============================================================================
+--  15 INVENTORY ITEMS
+-- =============================================================================
+
+-- =============================================================================
+-- ITEM 11 : Cotton Yarn NE-30 (Raw Material)
+-- =============================================================================
+INSERT INTO inv_items
+(item_code,item_name,description,item_type,is_active,is_approved,is_hazardous,
+ has_lot_tracking,has_serial,unit_of_measure,purchase_unit_code,sales_unit_code,
+ cost_price,standard_cost,unit_price,minimum_stock,maximum_stock,reorder_level,
+ organization_id,category_id,brand_id,model_id,
+ purchase_unit_id,sales_unit_id,operation_unit_id,
+ created_at,updated_at,created_by,updated_by)
+SELECT
+    'ITM-YARN-NE30',
+    'Cotton Yarn NE-30',
+    '100% Cotton Yarn Count NE-30 for weaving',
+    'RAW_MATERIAL',
+    TRUE,TRUE,FALSE,
+    TRUE,FALSE,
+    'KG','KG','KG',
+    450,450,550,
+    500,5000,1000,
+    1,c.id,b.id,m.id,
+    u.id,u.id,u.id,
+    NOW(),NOW(),'system','system'
+FROM inv_item_categories c
+         JOIN inv_item_brands b ON b.brand_code='BRD-GEN'
+         JOIN inv_item_models m ON m.brand_id=b.id AND m.model_code='YARN-NE30'
+         JOIN inv_item_uom u ON u.code='KG'
+WHERE c.category_code='CAT-RAW-TEXT'
+  AND c.organization_id=1
+ON CONFLICT ON CONSTRAINT uq_item_org_code DO NOTHING;
+
+-- =============================================================================
+-- ITEM 12 : PET Resin (Raw Material)
+-- =============================================================================
+INSERT INTO inv_items
+(item_code,item_name,description,item_type,is_active,is_approved,is_hazardous,
+ has_lot_tracking,has_serial,unit_of_measure,purchase_unit_code,sales_unit_code,
+ cost_price,standard_cost,unit_price,minimum_stock,maximum_stock,reorder_level,
+ organization_id,category_id,brand_id,model_id,
+ purchase_unit_id,sales_unit_id,operation_unit_id,
+ created_at,updated_at,created_by,updated_by)
+SELECT
+    'ITM-PET-RESIN',
+    'PET Resin',
+    'Polyethylene Terephthalate Resin for packaging manufacturing',
+    'RAW_MATERIAL',
+    TRUE,TRUE,FALSE,
+    TRUE,FALSE,
+    'KG','KG','KG',
+    120,120,150,
+    1000,10000,2000,
+    1,c.id,b.id,m.id,
+    u.id,u.id,u.id,
+    NOW(),NOW(),'system','system'
+FROM inv_item_categories c
+         JOIN inv_item_brands b ON b.brand_code='BRD-GEN'
+         JOIN inv_item_models m ON m.brand_id=b.id AND m.model_code='PET-RESIN'
+         JOIN inv_item_uom u ON u.code='KG'
+WHERE c.category_code='CAT-RAW-PLAS'
+  AND c.organization_id=1
+ON CONFLICT ON CONSTRAINT uq_item_org_code DO NOTHING;
+
+-- =============================================================================
+-- ITEM 13 : Steel Rod 12mm (Raw Material)
+-- =============================================================================
+INSERT INTO inv_items
+(item_code,item_name,description,item_type,is_active,is_approved,is_hazardous,
+ has_lot_tracking,has_serial,unit_of_measure,purchase_unit_code,sales_unit_code,
+ cost_price,standard_cost,unit_price,minimum_stock,maximum_stock,reorder_level,
+ organization_id,category_id,brand_id,model_id,
+ purchase_unit_id,sales_unit_id,operation_unit_id,
+ created_at,updated_at,created_by,updated_by)
+SELECT
+    'ITM-STEEL-R12',
+    'Steel Rod 12mm',
+    'Mild Steel Rod 12mm diameter x 6m length',
+    'RAW_MATERIAL',
+    TRUE,TRUE,FALSE,
+    TRUE,FALSE,
+    'KG','KG','KG',
+    85,85,110,
+    500,5000,1000,
+    1,c.id,b.id,m.id,
+    u.id,u.id,u.id,
+    NOW(),NOW(),'system','system'
+FROM inv_item_categories c
+         JOIN inv_item_brands b ON b.brand_code='BRD-GEN'
+         JOIN inv_item_models m ON m.brand_id=b.id AND m.model_code='STEEL-R12'
+         JOIN inv_item_uom u ON u.code='KG'
+WHERE c.category_code='CAT-RAW-METAL'
+  AND c.organization_id=1
+ON CONFLICT ON CONSTRAINT uq_item_org_code DO NOTHING;
+
+-- =============================================================================
+-- ITEM 14 : Rubber Compound (Raw Material)
+-- =============================================================================
+INSERT INTO inv_items
+(item_code,item_name,description,item_type,is_active,is_approved,is_hazardous,
+ has_lot_tracking,has_serial,unit_of_measure,purchase_unit_code,sales_unit_code,
+ cost_price,standard_cost,unit_price,minimum_stock,maximum_stock,reorder_level,
+ organization_id,category_id,brand_id,model_id,
+ purchase_unit_id,sales_unit_id,operation_unit_id,
+ created_at,updated_at,created_by,updated_by)
+SELECT
+    'ITM-RUBBER-CPD',
+    'Rubber Compound',
+    'Synthetic Rubber Compound for industrial gasket manufacturing',
+    'RAW_MATERIAL',
+    TRUE,TRUE,FALSE,
+    TRUE,FALSE,
+    'KG','KG','KG',
+    200,200,250,
+    300,3000,600,
+    1,c.id,b.id,m.id,
+    u.id,u.id,u.id,
+    NOW(),NOW(),'system','system'
+FROM inv_item_categories c
+         JOIN inv_item_brands b ON b.brand_code='BRD-GEN'
+         JOIN inv_item_models m ON m.brand_id=b.id AND m.model_code='RUBBER-CPD'
+         JOIN inv_item_uom u ON u.code='KG'
+WHERE c.category_code='CAT-RAW-CHEM'
+  AND c.organization_id=1
+ON CONFLICT ON CONSTRAINT uq_item_org_code DO NOTHING;
+
+-- =============================================================================
+-- ITEM 15 : Copper Wire 2.5mm (Raw Material)
+-- =============================================================================
+INSERT INTO inv_items
+(item_code,item_name,description,item_type,is_active,is_approved,is_hazardous,
+ has_lot_tracking,has_serial,unit_of_measure,purchase_unit_code,sales_unit_code,
+ cost_price,standard_cost,unit_price,minimum_stock,maximum_stock,reorder_level,
+ organization_id,category_id,brand_id,model_id,
+ purchase_unit_id,sales_unit_id,operation_unit_id,
+ created_at,updated_at,created_by,updated_by)
+SELECT
+    'ITM-COPPER-W25',
+    'Copper Wire 2.5mm',
+    'Electrical Grade Copper Wire 2.5mm diameter',
+    'RAW_MATERIAL',
+    TRUE,TRUE,FALSE,
+    TRUE,FALSE,
+    'KG','KG','KG',
+    750,750,900,
+    200,2000,400,
+    1,c.id,b.id,m.id,
+    u.id,u.id,u.id,
+    NOW(),NOW(),'system','system'
+FROM inv_item_categories c
+         JOIN inv_item_brands b ON b.brand_code='BRD-GEN'
+         JOIN inv_item_models m ON m.brand_id=b.id AND m.model_code='COPPER-W25'
+         JOIN inv_item_uom u ON u.code='KG'
+WHERE c.category_code='CAT-RAW-METAL'
+  AND c.organization_id=1
+ON CONFLICT ON CONSTRAINT uq_item_org_code DO NOTHING;
+
+-- =============================================================================
+-- ITEM 16 : Bearing SKF 6205 (Spare Part)
+-- =============================================================================
+INSERT INTO inv_items
+(item_code,item_name,description,item_type,is_active,is_approved,is_hazardous,
+ has_lot_tracking,has_serial,unit_of_measure,purchase_unit_code,sales_unit_code,
+ cost_price,standard_cost,unit_price,minimum_stock,maximum_stock,reorder_level,
+ organization_id,category_id,brand_id,model_id,
+ purchase_unit_id,sales_unit_id,operation_unit_id,
+ created_at,updated_at,created_by,updated_by)
+SELECT
+    'ITM-SKF-6205',
+    'SKF Bearing 6205-2RS',
+    'Deep Groove Ball Bearing 6205-2RS',
+    'SPARE_PART',
+    TRUE,TRUE,FALSE,
+    FALSE,FALSE,
+    'PCS','PCS','PCS',
+    450,450,580,
+    40,400,80,
+    1,c.id,b.id,m.id,
+    u.id,u.id,u.id,
+    NOW(),NOW(),'system','system'
+FROM inv_item_categories c
+         JOIN inv_item_brands b ON b.brand_code='BRD-SKF'
+         JOIN inv_item_models m ON m.brand_id=b.id AND m.model_code='6205-2RS'
+         JOIN inv_item_uom u ON u.code='PCS'
+WHERE c.category_code='CAT-SPARE-MECH-BRG'
+  AND c.organization_id=1
+ON CONFLICT ON CONSTRAINT uq_item_org_code DO NOTHING;
+
+-- =============================================================================
+-- ITEM 17 : V-Belt B-55 (Spare Part)
+-- =============================================================================
+INSERT INTO inv_items
+(item_code,item_name,description,item_type,is_active,is_approved,is_hazardous,
+ has_lot_tracking,has_serial,unit_of_measure,purchase_unit_code,sales_unit_code,
+ cost_price,standard_cost,unit_price,minimum_stock,maximum_stock,reorder_level,
+ organization_id,category_id,brand_id,model_id,
+ purchase_unit_id,sales_unit_id,operation_unit_id,
+ created_at,updated_at,created_by,updated_by)
+SELECT
+    'ITM-VBELT-B55',
+    'V-Belt B-55',
+    'Industrial V-Belt Section B Length 55 inches',
+    'SPARE_PART',
+    TRUE,TRUE,FALSE,
+    FALSE,FALSE,
+    'PCS','PCS','PCS',
+    350,350,450,
+    20,200,40,
+    1,c.id,b.id,m.id,
+    u.id,u.id,u.id,
+    NOW(),NOW(),'system','system'
+FROM inv_item_categories c
+         JOIN inv_item_brands b ON b.brand_code='BRD-GEN'
+         JOIN inv_item_models m ON m.brand_id=b.id AND m.model_code='VBELT-B55'
+         JOIN inv_item_uom u ON u.code='PCS'
+WHERE c.category_code='CAT-SPARE-MECH'
+  AND c.organization_id=1
+ON CONFLICT ON CONSTRAINT uq_item_org_code DO NOTHING;
+
+-- =============================================================================
+-- ITEM 18 : Oil Seal 35x52x8 (Spare Part)
+-- =============================================================================
+INSERT INTO inv_items
+(item_code,item_name,description,item_type,is_active,is_approved,is_hazardous,
+ has_lot_tracking,has_serial,unit_of_measure,purchase_unit_code,sales_unit_code,
+ cost_price,standard_cost,unit_price,minimum_stock,maximum_stock,reorder_level,
+ organization_id,category_id,brand_id,model_id,
+ purchase_unit_id,sales_unit_id,operation_unit_id,
+ created_at,updated_at,created_by,updated_by)
+SELECT
+    'ITM-OIL-SEAL-35528',
+    'Oil Seal 35x52x8',
+    'Oil Seal 35mm ID x 52mm OD x 8mm for rotating shafts',
+    'SPARE_PART',
+    TRUE,TRUE,FALSE,
+    FALSE,FALSE,
+    'PCS','PCS','PCS',
+    180,180,250,
+    30,300,60,
+    1,c.id,b.id,m.id,
+    u.id,u.id,u.id,
+    NOW(),NOW(),'system','system'
+FROM inv_item_categories c
+         JOIN inv_item_brands b ON b.brand_code='BRD-GEN'
+         JOIN inv_item_models m ON m.brand_id=b.id AND m.model_code='OIL-SEAL-35528'
+         JOIN inv_item_uom u ON u.code='PCS'
+WHERE c.category_code='CAT-SPARE-MECH'
+  AND c.organization_id=1
+ON CONFLICT ON CONSTRAINT uq_item_org_code DO NOTHING;
+
+-- =============================================================================
+-- ITEM 19 : Cutting Blade 200mm (Spare Part)
+-- =============================================================================
+INSERT INTO inv_items
+(item_code,item_name,description,item_type,is_active,is_approved,is_hazardous,
+ has_lot_tracking,has_serial,unit_of_measure,purchase_unit_code,sales_unit_code,
+ cost_price,standard_cost,unit_price,minimum_stock,maximum_stock,reorder_level,
+ organization_id,category_id,brand_id,model_id,
+ purchase_unit_id,sales_unit_id,operation_unit_id,
+ created_at,updated_at,created_by,updated_by)
+SELECT
+    'ITM-CB-200',
+    'Cutting Blade 200mm',
+    'Bosch Industrial Cutting Blade 200mm diameter for metal cutting',
+    'SPARE_PART',
+    TRUE,TRUE,FALSE,
+    FALSE,FALSE,
+    'PCS','PCS','PCS',
+    1200,1200,1500,
+    10,100,20,
+    1,c.id,b.id,m.id,
+    u.id,u.id,u.id,
+    NOW(),NOW(),'system','system'
+FROM inv_item_categories c
+         JOIN inv_item_brands b ON b.brand_code='BRD-BOSCH'
+         JOIN inv_item_models m ON m.brand_id=b.id AND m.model_code='CB-200'
+         JOIN inv_item_uom u ON u.code='PCS'
+WHERE c.category_code='CAT-SPARE-MECH'
+  AND c.organization_id=1
+ON CONFLICT ON CONSTRAINT uq_item_org_code DO NOTHING;
+
+-- =============================================================================
+-- ITEM 20 : Hydraulic Filter 10 Micron (Spare Part)
+-- =============================================================================
+INSERT INTO inv_items
+(item_code,item_name,description,item_type,is_active,is_approved,is_hazardous,
+ has_lot_tracking,has_serial,unit_of_measure,purchase_unit_code,sales_unit_code,
+ cost_price,standard_cost,unit_price,minimum_stock,maximum_stock,reorder_level,
+ organization_id,category_id,brand_id,model_id,
+ purchase_unit_id,sales_unit_id,operation_unit_id,
+ created_at,updated_at,created_by,updated_by)
+SELECT
+    'ITM-HYD-FLTR-100',
+    'Hydraulic Filter 10 Micron',
+    'Hydraulic Oil Filter 10 micron for industrial machinery',
+    'SPARE_PART',
+    TRUE,TRUE,FALSE,
+    FALSE,FALSE,
+    'PCS','PCS','PCS',
+    2500,2500,3200,
+    5,50,10,
+    1,c.id,b.id,m.id,
+    u.id,u.id,u.id,
+    NOW(),NOW(),'system','system'
+FROM inv_item_categories c
+         JOIN inv_item_brands b ON b.brand_code='BRD-GEN'
+         JOIN inv_item_models m ON m.brand_id=b.id AND m.model_code='HYD-FLTR-100'
+         JOIN inv_item_uom u ON u.code='PCS'
+WHERE c.category_code='CAT-SPARE-MECH'
+  AND c.organization_id=1
+ON CONFLICT ON CONSTRAINT uq_item_org_code DO NOTHING;
+
+-- =============================================================================
+-- ITEM 21 : Lubricating Oil Shell 68 (Consumable)
+-- =============================================================================
+INSERT INTO inv_items
+(item_code,item_name,description,item_type,is_active,is_approved,is_hazardous,
+ has_lot_tracking,has_serial,unit_of_measure,purchase_unit_code,sales_unit_code,
+ cost_price,standard_cost,unit_price,minimum_stock,maximum_stock,reorder_level,
+ organization_id,category_id,brand_id,model_id,
+ purchase_unit_id,sales_unit_id,operation_unit_id,
+ created_at,updated_at,created_by,updated_by)
+SELECT
+    'ITM-LUBE-S68',
+    'Lubricating Oil Shell 68',
+    'Shell Tellus 68 Hydraulic Lubricating Oil',
+    'CONSUMABLE',
+    TRUE,TRUE,TRUE,
+    TRUE,FALSE,
+    'LTR','LTR','LTR',
+    400,400,520,
+    50,500,100,
+    1,c.id,b.id,m.id,
+    u.id,u.id,u.id,
+    NOW(),NOW(),'system','system'
+FROM inv_item_categories c
+         JOIN inv_item_brands b ON b.brand_code='BRD-GEN'
+         JOIN inv_item_models m ON m.brand_id=b.id AND m.model_code='LUBE-S68'
+         JOIN inv_item_uom u ON u.code='LTR'
+WHERE c.category_code='CAT-CONS-CLEAN'
+  AND c.organization_id=1
+ON CONFLICT ON CONSTRAINT uq_item_org_code DO NOTHING;
+
+-- =============================================================================
+-- ITEM 22 : Welding Electrode 3.15mm (Consumable)
+-- =============================================================================
+INSERT INTO inv_items
+(item_code,item_name,description,item_type,is_active,is_approved,is_hazardous,
+ has_lot_tracking,has_serial,unit_of_measure,purchase_unit_code,sales_unit_code,
+ cost_price,standard_cost,unit_price,minimum_stock,maximum_stock,reorder_level,
+ organization_id,category_id,brand_id,model_id,
+ purchase_unit_id,sales_unit_id,operation_unit_id,
+ created_at,updated_at,created_by,updated_by)
+SELECT
+    'ITM-WELD-E315',
+    'Welding Electrode 3.15mm',
+    'Mild Steel Welding Electrode 3.15mm x 350mm AWS E6013',
+    'CONSUMABLE',
+    TRUE,TRUE,FALSE,
+    TRUE,FALSE,
+    'KG','KG','KG',
+    180,180,230,
+    100,1000,200,
+    1,c.id,b.id,m.id,
+    u.id,u.id,u.id,
+    NOW(),NOW(),'system','system'
+FROM inv_item_categories c
+         JOIN inv_item_brands b ON b.brand_code='BRD-GEN'
+         JOIN inv_item_models m ON m.brand_id=b.id AND m.model_code='WELD-E315'
+         JOIN inv_item_uom u ON u.code='KG'
+WHERE c.category_code='CAT-CONS-CLEAN'
+  AND c.organization_id=1
+ON CONFLICT ON CONSTRAINT uq_item_org_code DO NOTHING;
+
+-- =============================================================================
+-- ITEM 23 : Safety Gloves Latex Coated (Consumable)
+-- =============================================================================
+INSERT INTO inv_items
+(item_code,item_name,description,item_type,is_active,is_approved,is_hazardous,
+ has_lot_tracking,has_serial,unit_of_measure,purchase_unit_code,sales_unit_code,
+ cost_price,standard_cost,unit_price,minimum_stock,maximum_stock,reorder_level,
+ organization_id,category_id,brand_id,model_id,
+ purchase_unit_id,sales_unit_id,operation_unit_id,
+ created_at,updated_at,created_by,updated_by)
+SELECT
+    'ITM-GLOVES-LTX',
+    'Safety Gloves Latex Coated',
+    'Industrial Safety Gloves Latex Coated, Size L',
+    'CONSUMABLE',
+    TRUE,TRUE,FALSE,
+    TRUE,FALSE,
+    'PCS','PCS','PCS',
+    85,85,120,
+    200,2000,400,
+    1,c.id,b.id,m.id,
+    u.id,u.id,u.id,
+    NOW(),NOW(),'system','system'
+FROM inv_item_categories c
+         JOIN inv_item_brands b ON b.brand_code='BRD-GEN'
+         JOIN inv_item_models m ON m.brand_id=b.id AND m.model_code='GLOVES-LATEX'
+         JOIN inv_item_uom u ON u.code='PCS'
+WHERE c.category_code='CAT-CONS-CLEAN'
+  AND c.organization_id=1
+ON CONFLICT ON CONSTRAINT uq_item_org_code DO NOTHING;
+
+-- =============================================================================
+-- ITEM 24 : Paint Thinner (Consumable)
+-- =============================================================================
+INSERT INTO inv_items
+(item_code,item_name,description,item_type,is_active,is_approved,is_hazardous,
+ has_lot_tracking,has_serial,unit_of_measure,purchase_unit_code,sales_unit_code,
+ cost_price,standard_cost,unit_price,minimum_stock,maximum_stock,reorder_level,
+ organization_id,category_id,brand_id,model_id,
+ purchase_unit_id,sales_unit_id,operation_unit_id,
+ created_at,updated_at,created_by,updated_by)
+SELECT
+    'ITM-THINNER-PT',
+    'Paint Thinner',
+    'General Purpose Paint Thinner',
+    'CONSUMABLE',
+    TRUE,TRUE,TRUE,
+    TRUE,FALSE,
+    'LTR','LTR','LTR',
+    250,250,320,
+    30,300,60,
+    1,c.id,b.id,m.id,
+    u.id,u.id,u.id,
+    NOW(),NOW(),'system','system'
+FROM inv_item_categories c
+         JOIN inv_item_brands b ON b.brand_code='BRD-GEN'
+         JOIN inv_item_models m ON m.brand_id=b.id AND m.model_code='THINNER-PT'
+         JOIN inv_item_uom u ON u.code='LTR'
+WHERE c.category_code='CAT-CONS-CLEAN'
+  AND c.organization_id=1
+ON CONFLICT ON CONSTRAINT uq_item_org_code DO NOTHING;
+
+-- =============================================================================
+-- ITEM 25 : Industrial Fan 48" (Finished Good)
+-- =============================================================================
+INSERT INTO inv_items
+(item_code,item_name,description,item_type,is_active,is_approved,is_hazardous,
+ has_lot_tracking,has_serial,unit_of_measure,purchase_unit_code,sales_unit_code,
+ cost_price,standard_cost,unit_price,minimum_stock,maximum_stock,reorder_level,
+ organization_id,category_id,brand_id,model_id,
+ purchase_unit_id,sales_unit_id,operation_unit_id,
+ created_at,updated_at,created_by,updated_by)
+SELECT
+    'ITM-FAN-48IN',
+    'Industrial Fan 48 Inch',
+    'Heavy Duty Industrial Exhaust Fan 48 inch with motor',
+    'FINISHED_GOOD',
+    TRUE,TRUE,FALSE,
+    FALSE,TRUE,
+    'PCS','PCS','PCS',
+    8500,8500,11000,
+    2,20,5,
+    1,c.id,b.id,m.id,
+    u.id,u.id,u.id,
+    NOW(),NOW(),'system','system'
+FROM inv_item_categories c
+         JOIN inv_item_brands b ON b.brand_code='BRD-GEN'
+         JOIN inv_item_models m ON m.brand_id=b.id AND m.model_code='FAN-48IN'
+         JOIN inv_item_uom u ON u.code='PCS'
+WHERE c.category_code='CAT-FG-HARD-ELEC'
+  AND c.organization_id=1
+ON CONFLICT ON CONSTRAINT uq_item_org_code DO NOTHING;
+
+COMMIT;
