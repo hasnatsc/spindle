@@ -2482,37 +2482,5 @@ JOIN org_cost_centers cc ON cc.id = hcca.cost_center_id
 GROUP BY hcca.organization_id, hcca.cost_center_id, cc.cost_center_name, hcca.allocation_month;
 
 -- ═══════════════════════════════════════════════════════════════════════════
--- SEED DATA
--- ═══════════════════════════════════════════════════════════════════════════
-
-INSERT INTO stp_currencies (code, name, symbol, decimal_places) VALUES
-    ('BDT','Bangladeshi Taka','৳',2),
-    ('USD','US Dollar','$',2),
-    ('EUR','Euro','€',2),
-    ('GBP','British Pound','£',2),
-    ('CNY','Chinese Yuan','¥',2),
-    ('INR','Indian Rupee','₹',2),
-    ('JPY','Japanese Yen','¥',0),
-    ('AED','UAE Dirham','د.إ',2),
-    ('SAR','Saudi Riyal','﷼',2),
-    ('SGD','Singapore Dollar','S$',2)
-ON CONFLICT (code) DO NOTHING;
-
--- ═══════════════════════════════════════════════════════════════════════════
--- SUMMARY
--- Total Tables  : 103
--- Total Indexes : ~220
--- Total Views   :   8  (6 existing + v_production_cost_sheet + v_cogs_summary
---                       + v_labor_cost_by_month)
--- Modules       :  15
---
--- REMOVED (vs v1):
---   yrn_types, yrn_counts, yarn_products, yarn_blend_items
---   prd_orders, prd_recipes, prd_recipe_items, prd_recipe_item_lots
---
--- ADDED (vs v1):
---   prd_bom, prd_bom_items
---   prd_productions, prd_production_inputs, prd_production_outputs
---   hrm_cost_center_allocations
---   v_production_cost_sheet, v_cogs_summary, v_labor_cost_by_month
+-- END OF SCHEMA
 -- ═══════════════════════════════════════════════════════════════════════════

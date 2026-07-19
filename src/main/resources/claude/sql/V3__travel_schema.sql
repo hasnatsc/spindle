@@ -1,6 +1,6 @@
 -- =============================================================================
 -- Travel Module Schema (trv_*)
--- Version: V8
+-- Version: V3 -- renamed from V8
 -- Description: Core travel schema including airlines, airports, hotels,
 --              packages, tours, bookings, air tickets, visa applications,
 --              and related entities.
