@@ -1,6 +1,7 @@
 package com.asg.spindleserp.travel.entity;
 
 import com.asg.spindleserp.BaseEntity;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -46,4 +47,14 @@ public class TrvPackageBooking extends BaseEntity implements Serializable {
 
     @Column(name = "package_id", nullable = false)
     private Long packageId;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "booking_service_id", insertable = false, updatable = false)
+    @JsonIgnore
+    private TrvBookingService bookingService;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "package_id", insertable = false, updatable = false)
+    @JsonIgnore
+    private TrvPackage packageEntity;
 }

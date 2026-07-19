@@ -1,10 +1,13 @@
 package com.asg.spindleserp.travel.entity;
 
 import com.asg.spindleserp.BaseEntity;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "trv_room_types")
@@ -33,4 +36,14 @@ public class TrvRoomType extends BaseEntity {
 
     @Column(name = "hotel_id", nullable = false)
     private Long hotelId;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "hotel_id", insertable = false, updatable = false)
+    @JsonIgnore
+    private TrvHotel hotel;
+
+    @Builder.Default
+    @OneToMany(mappedBy = "roomType", fetch = FetchType.LAZY)
+    @JsonIgnore
+    private List<TrvRoomFacility> facilities = new ArrayList<>();
 }

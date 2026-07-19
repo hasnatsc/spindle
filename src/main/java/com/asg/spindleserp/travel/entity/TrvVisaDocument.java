@@ -1,5 +1,6 @@
 package com.asg.spindleserp.travel.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -24,4 +25,9 @@ public class TrvVisaDocument {
 
     @Column(name = "visa_application_id", nullable = false)
     private Long visaApplicationId;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "visa_application_id", insertable = false, updatable = false)
+    @JsonIgnore
+    private TrvVisaApplication visaApplication;
 }

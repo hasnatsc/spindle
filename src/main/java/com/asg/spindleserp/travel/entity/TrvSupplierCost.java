@@ -1,6 +1,7 @@
 package com.asg.spindleserp.travel.entity;
 
 import com.asg.spindleserp.BaseEntity;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -41,4 +42,9 @@ public class TrvSupplierCost extends BaseEntity implements Serializable {
     /** Soft FK → acc_chart_of_accounts_sub (SUPPLIER sub-type). */
     @Column(name = "supplier_id")
     private Long supplierId;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "booking_service_id", insertable = false, updatable = false)
+    @JsonIgnore
+    private TrvBookingService bookingService;
 }

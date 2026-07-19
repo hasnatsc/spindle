@@ -1,12 +1,15 @@
 package com.asg.spindleserp.travel.entity;
 
 import com.asg.spindleserp.BaseEntity;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 
 import java.io.Serializable;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "trv_visa_applications")
@@ -52,4 +55,26 @@ public class TrvVisaApplication extends BaseEntity implements Serializable {
 
     @Column(name = "visa_type_id", nullable = false)
     private Long visaTypeId;
+
+    // ── JPA object mappings ────────────────────────────────────────────────
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "booking_service_id", insertable = false, updatable = false)
+    @JsonIgnore
+    private TrvBookingService bookingService;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "passenger_id", insertable = false, updatable = false)
+    @JsonIgnore
+    private TrvPassenger passenger;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "visa_type_id", insertable = false, updatable = false)
+    @JsonIgnore
+    private TrvVisaType visaType;
+
+    @Builder.Default
+    @OneToMany(mappedBy = "visaApplication", fetch = FetchType.LAZY)
+    @JsonIgnore
+    private List<TrvVisaDocument> documents = new ArrayList<>();
 }

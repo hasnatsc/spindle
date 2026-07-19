@@ -1,5 +1,6 @@
 package com.asg.spindleserp.travel.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -22,6 +23,11 @@ public class TrvRoomFacility {
 
     @Column(name = "room_type_id", nullable = false)
     private Long roomTypeId;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "room_type_id", insertable = false, updatable = false)
+    @JsonIgnore
+    private TrvRoomType roomType;
 
     @PrePersist
     void onCreate() { createdAt = LocalDateTime.now(); }

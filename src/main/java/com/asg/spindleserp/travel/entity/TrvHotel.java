@@ -1,8 +1,12 @@
 package com.asg.spindleserp.travel.entity;
 
 import com.asg.spindleserp.BaseEntity;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
+
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "trv_hotels", uniqueConstraints = @UniqueConstraint(
@@ -48,4 +52,14 @@ public class TrvHotel extends BaseEntity {
     /** Soft FK to trv_hotel_categories — same-module reference kept plain to avoid lazy-init issues. */
     @Column(name = "category_id")
     private Long categoryId;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "category_id", insertable = false, updatable = false)
+    @JsonIgnore
+    private TrvHotelCategory category;
+
+    @Builder.Default
+    @OneToMany(mappedBy = "hotel", fetch = FetchType.LAZY)
+    @JsonIgnore
+    private List<TrvRoomType> roomTypes = new ArrayList<>();
 }

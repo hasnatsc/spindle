@@ -1,5 +1,6 @@
 package com.asg.spindleserp.travel.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -29,4 +30,9 @@ public class TrvPassengerPreference {
 
     @Column(name = "passenger_id", nullable = false, unique = true)
     private Long passengerId;
+
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "passenger_id", insertable = false, updatable = false)
+    @JsonIgnore
+    private TrvPassenger passenger;
 }
