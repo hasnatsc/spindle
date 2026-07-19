@@ -2,9 +2,8 @@
 --  Spindle ERP  —  Travel Module Menu + Permission + Role Seed  v1.0 (Phase 1)
 --  File   : V101__seed_travel_menu_permission.sql
 --  Target : PostgreSQL
---  Depends on: 00_seed_menu_permission_complete.sql (must run first —
---              this file only adds new rows, never modifies existing ones)
---              and V100__create_travel_module.sql (Phase 1 schema)
+--  Depends on: V00__seed_access_control_complete.sql (consolidated seed)
+--              and V8__travel_schema.sql (travel module schema)
 --
 --  Covers:
 --    Permissions  — dashboard + Phase 1 Travel entities

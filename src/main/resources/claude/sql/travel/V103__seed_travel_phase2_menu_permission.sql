@@ -4,7 +4,7 @@
 --  Target : PostgreSQL
 --  Depends on: V101__seed_travel_menu_permission.sql (Phase 1 seed — MOD_TRAVEL,
 --              ROLE_TRAVEL_MANAGER/EXECUTIVE must already exist)
---              and V102__create_travel_phase2_packages_visa_tours.sql (schema)
+--              and V8__travel_schema.sql (travel module schema)
 --
 --  Covers:
 --    Permissions  — package, tour, visa entities

@@ -1,22 +1,21 @@
 -- ╔══════════════════════════════════════════════════════════════════════════════╗
--- ║  OPTIMUM ERP  ·  GENERIC EDITION  ·  v2.0                                  ║
--- ║  Package   : com.hasnat.optimum                                              ║
+-- ║  SPINDLE ERP  ·  CORE SCHEMA  ·  v3.0                                      ║
+-- ║  Package   : com.spindle.erp                                                ║
 -- ║  Database  : PostgreSQL 15+                                                  ║
--- ║  Modules   : 15  (Yarn/Spinning REMOVED, Generic Production ADDED)          ║
--- ║  Tables    : 103  Indexes: ~220  Views: 8                                    ║
+-- ║  Modules   : Core Security, Org Masters, Location/Reference,                ║
+-- ║              Inventory, Accounting (GL/AP/AR), HRM, Production,             ║
+-- ║              Fixed Assets, Budget, CRM, Commercial, Notifications, Audit    ║
+-- ║  Tables    : ~105  Indexes: ~260  Views: 8                                  ║
 -- ║                                                                              ║
--- ║  CHANGES FROM v1:                                                            ║
--- ║  ✗ REMOVED  yrn_types, yrn_counts, yarn_products, yarn_blend_items          ║
--- ║  ✗ REMOVED  prd_orders, prd_recipes, prd_recipe_items, prd_recipe_item_lots ║
--- ║  ✗ REMOVED  fiber-specific columns from inv_items                            ║
--- ║  ✗ REMOVED  yarn QC columns from global_inv_lots                            ║
--- ║  ✓ UPDATED  item_type enum → generic (RAW_MATERIAL, FINISHED_GOOD, etc.)    ║
--- ║  ✓ ADDED    prd_bom, prd_bom_items (reusable Bill of Materials)             ║
--- ║  ✓ ADDED    prd_productions (generic work order + cost sheet)               ║
--- ║  ✓ ADDED    prd_production_inputs (materials consumed + lots)               ║
--- ║  ✓ ADDED    prd_production_outputs (finished goods produced + lots)         ║
--- ║  ✓ ADDED    hrm_cost_center_allocations (labor cost → production)           ║
--- ║  ✓ ADDED    v_production_cost_sheet, v_cogs_summary views                  ║
+-- ║  NOTE: Ecommerce (ec_*) and Travel (trv_*) schema tables are in            ║
+-- ║        separate migration files: V7__ecommerce_schema.sql and               ║
+-- ║        V8__travel_schema.sql respectively.                                  ║
+-- ║                                                                              ║
+-- ║  MERGED FROM:                                                               ║
+-- ║    - V2__sec_user_access_scopes.sql → sec_user_access_scopes table          ║
+-- ║    - V10__org_module_access.sql     → sec_org_modules, sec_org_admin_scopes ║
+-- ║    - (New) sec_user_org_business_units, sec_user_org_cost_centers,          ║
+-- ║            sec_user_organizations, sec_user_warehouses                       ║
 -- ╚══════════════════════════════════════════════════════════════════════════════╝
 
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
@@ -157,6 +156,72 @@ CREATE TABLE sec_mrole_menus (
 );
 CREATE INDEX idx_rma_role ON sec_mrole_menus(role_id);
 CREATE INDEX idx_rma_menu ON sec_mrole_menus(menu_id);
+
+CREATE TABLE sec_user_access_scopes (
+    id              BIGSERIAL    PRIMARY KEY,
+    user_id         BIGINT       NOT NULL REFERENCES sec_users(id) ON DELETE CASCADE,
+    scope_type      VARCHAR(30)  NOT NULL
+        CONSTRAINT chk_uas_scope_type CHECK (scope_type IN ('ORGANIZATION','BUSINESS_UNIT','COST_CENTER','WAREHOUSE')),
+    reference_id    BIGINT       NOT NULL,
+    created_at      TIMESTAMP(6),
+    CONSTRAINT uq_uas_user_scope_ref UNIQUE (user_id, scope_type, reference_id)
+);
+CREATE INDEX idx_uas_user  ON sec_user_access_scopes(user_id);
+CREATE INDEX idx_uas_scope ON sec_user_access_scopes(scope_type);
+CREATE INDEX idx_uas_ref   ON sec_user_access_scopes(reference_id);
+
+CREATE TABLE sec_org_modules (
+    id              BIGSERIAL    PRIMARY KEY,
+    organization_id BIGINT       NOT NULL REFERENCES org_organizations(id),
+    module_key      VARCHAR(60)  NOT NULL,
+    active          BOOLEAN      NOT NULL DEFAULT TRUE,
+    granted_by      VARCHAR(100),
+    granted_at      TIMESTAMP(6),
+    revoked_by      VARCHAR(100),
+    revoked_at      TIMESTAMP(6),
+    notes           VARCHAR(500),
+    CONSTRAINT uq_org_module UNIQUE (organization_id, module_key)
+);
+CREATE INDEX idx_om_org    ON sec_org_modules(organization_id);
+CREATE INDEX idx_om_module ON sec_org_modules(module_key);
+CREATE INDEX idx_om_active ON sec_org_modules(active);
+
+CREATE TABLE sec_org_admin_scopes (
+    id              BIGSERIAL    PRIMARY KEY,
+    user_id         BIGINT       NOT NULL REFERENCES sec_users(id),
+    organization_id BIGINT       NOT NULL REFERENCES org_organizations(id),
+    active          BOOLEAN      NOT NULL DEFAULT TRUE,
+    granted_by      VARCHAR(100),
+    granted_at      TIMESTAMP(6),
+    notes           VARCHAR(500),
+    CONSTRAINT uq_oas_user_org UNIQUE (user_id, organization_id)
+);
+CREATE INDEX idx_oas_user ON sec_org_admin_scopes(user_id);
+CREATE INDEX idx_oas_org  ON sec_org_admin_scopes(organization_id);
+
+CREATE TABLE sec_user_org_business_units (
+    user_id          BIGINT NOT NULL REFERENCES sec_users(id),
+    business_unit_id BIGINT NOT NULL REFERENCES org_business_units(id),
+    PRIMARY KEY (user_id, business_unit_id)
+);
+
+CREATE TABLE sec_user_org_cost_centers (
+    user_id        BIGINT NOT NULL REFERENCES sec_users(id),
+    cost_center_id BIGINT NOT NULL REFERENCES org_cost_centers(id),
+    PRIMARY KEY (user_id, cost_center_id)
+);
+
+CREATE TABLE sec_user_organizations (
+    user_id         BIGINT NOT NULL REFERENCES sec_users(id),
+    organization_id BIGINT NOT NULL REFERENCES org_organizations(id),
+    PRIMARY KEY (user_id, organization_id)
+);
+
+CREATE TABLE sec_user_warehouses (
+    user_id      BIGINT NOT NULL REFERENCES sec_users(id),
+    warehouse_id BIGINT NOT NULL REFERENCES org_warehouses(id),
+    PRIMARY KEY (user_id, warehouse_id)
+);
 
 CREATE TABLE sec_password_reset_tokens (
     id          BIGSERIAL    PRIMARY KEY,

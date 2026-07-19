@@ -3,12 +3,14 @@
 --  File   : V00__seed_access_control_complete.sql
 --  Target : PostgreSQL 15+
 --
---  CONSOLIDATED from:
+--  CONSOLIDATED seed for all modules (core ERP + eCommerce + Travel).
+--  Supersedes the following individual files (now deleted):
 --    • 00_seed_menu_permission_complete.sql   (core modules v4.0)
 --    • 01_seed_ecommerce_menu_permission.sql  (eCommerce module)
+--    • V2__menu_permission_seed_v2.sql        (obsolete v2.0)
+--    • V3__accounts_menu_seed.sql             (obsolete accounts seed)
 --    • V101__seed_travel_menu_permission.sql  (Travel Phase 1)
 --    • V103__seed_travel_phase2_menu_permission.sql (Travel Phase 2)
---    • V10__org_module_access.sql             (Org module licensing)
 --
 --  ORGANIZATION:
 --    SECTION 1 — PERMISSIONS    (grouped by module)
