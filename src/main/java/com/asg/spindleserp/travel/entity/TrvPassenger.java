@@ -1,11 +1,14 @@
 package com.asg.spindleserp.travel.entity;
 
 import com.asg.spindleserp.BaseEntity;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 
 import java.io.Serializable;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "trv_passengers")
@@ -66,4 +69,15 @@ public class TrvPassenger extends BaseEntity implements Serializable {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "booking_id", nullable = false)
     private TrvBooking booking;
+
+    // ── Child collections ─────────────────────────────────────────────────
+
+    @Builder.Default
+    @OneToMany(mappedBy = "passenger", fetch = FetchType.LAZY)
+    @JsonIgnore
+    private List<TrvPassengerTicket> tickets = new ArrayList<>();
+
+    @OneToOne(mappedBy = "passenger", fetch = FetchType.LAZY)
+    @JsonIgnore
+    private TrvPassengerPreference preference;
 }

@@ -1,5 +1,6 @@
 package com.asg.spindleserp.travel.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -33,4 +34,16 @@ public class TrvPassengerTicket {
 
     @Column(name = "passenger_id", nullable = false)
     private Long passengerId;
+
+    // ── JPA object mappings ────────────────────────────────────────────────
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "air_ticket_id", insertable = false, updatable = false)
+    @JsonIgnore
+    private TrvAirTicket airTicket;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "passenger_id", insertable = false, updatable = false)
+    @JsonIgnore
+    private TrvPassenger passenger;
 }

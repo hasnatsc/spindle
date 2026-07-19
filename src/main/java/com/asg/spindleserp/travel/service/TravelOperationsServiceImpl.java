@@ -24,12 +24,16 @@ public class TravelOperationsServiceImpl implements TravelOperationsService {
     private final TrvHotelBookingRepository   hotelBookingRepo;
     private final TrvHotelRoomRepository      hotelRoomRepo;
     private final TrvHotelGuestRepository     hotelGuestRepo;
-    private final TrvAirTicketRepository      airTicketRepo;
-    private final TrvPassengerTicketRepository passengerTicketRepo;
-    private final TrvSupplierCostRepository   supplierCostRepo;
-    private final TrvBookingServiceRepository bookingServiceRepo;
-    private final TrvPassengerRepository      passengerRepo;
-    private final JdbcTemplate                jdbcTemplate;
+    private final TrvAirTicketRepository         airTicketRepo;
+    private final TrvAirTicketSegmentRepository  airTicketSegmentRepo;
+    private final TrvPassengerTicketRepository   passengerTicketRepo;
+    private final TrvSupplierCostRepository      supplierCostRepo;
+    private final TrvBookingServiceRepository    bookingServiceRepo;
+    private final TrvPassengerRepository         passengerRepo;
+    private final TrvAirlineRepository           airlineRepo;
+    private final TrvAirportRepository           airportRepo;
+    private final TrvCabinClassRepository        cabinClassRepo;
+    private final JdbcTemplate                   jdbcTemplate;
 
     // =========================================================================
     // HOTEL BOOKINGS
@@ -182,17 +186,68 @@ public class TravelOperationsServiceImpl implements TravelOperationsService {
         e.setTaxAmount(dto.getTaxAmount());
         e.setTotalAmount(dto.getTotalAmount());
         e.setSupplierReference(dto.getSupplierReference());
+
+        // ── Vendor / Agent header fields ──────────────────────────────────────
+        e.setIssueDate(dto.getIssueDate());
+        e.setBookingReference(dto.getBookingReference());
+        e.setAgentVendorName(dto.getAgentVendorName());
+        e.setAgentVendorAddress(dto.getAgentVendorAddress());
+        e.setAgentVendorEmail(dto.getAgentVendorEmail());
+        e.setAgentVendorMocatNo(dto.getAgentVendorMocatNo());
+
         if (e.getStatus() == null) e.setStatus(TrvAirTicket.Status.ISSUED);
         e.setBookingServiceId(dto.getBookingServiceId());
-        e.setAirlineId(dto.getAirlineId());
-        e.setOriginAirportId(dto.getOriginAirportId());
-        e.setDestinationAirportId(dto.getDestinationAirportId());
-        e.setCabinClassId(dto.getCabinClassId());
+
+        // If segments are provided, use segment[0] to populate single-segment columns (backward compat)
+        List<TrvAirTicketDTO.SegmentDTO> segs = dto.getSegments();
+        if (segs != null && !segs.isEmpty()) {
+            TrvAirTicketDTO.SegmentDTO first = segs.get(0);
+            e.setAirlineId(first.getAirlineId());
+            e.setOriginAirportId(first.getOriginAirportId());
+            e.setDestinationAirportId(first.getDestinationAirportId());
+            e.setDepartureDate(first.getDepartureDate());
+            e.setDepartureTime(first.getDepartureTime());
+            e.setArrivalDate(first.getArrivalDate());
+            e.setArrivalTime(first.getArrivalTime());
+            e.setCabinClassId(first.getCabinClassId());
+        } else {
+            e.setAirlineId(dto.getAirlineId());
+            e.setOriginAirportId(dto.getOriginAirportId());
+            e.setDestinationAirportId(dto.getDestinationAirportId());
+            e.setCabinClassId(dto.getCabinClassId());
+        }
         e.setCreatedBy(e.getCreatedBy() == null ? SecurityHelper.currentUsername().orElse("system") : e.getCreatedBy());
         e.setUpdatedBy(SecurityHelper.currentUsername().orElse("system"));
 
         TrvAirTicket saved = airTicketRepo.save(e);
 
+        // ── Sync segments (clear/rebuild) ─────────────────────────────────────
+        airTicketSegmentRepo.deleteByAirTicketId(saved.getId());
+        if (segs != null) {
+            int order = 1;
+            for (TrvAirTicketDTO.SegmentDTO sd : segs) {
+                airTicketSegmentRepo.save(TrvAirTicketSegment.builder()
+                    .airTicketId(saved.getId())
+                    .segmentOrder(order++)
+                    .flightNumber(sd.getFlightNumber())
+                    .aircraftModel(sd.getAircraftModel())
+                    .airlineId(sd.getAirlineId())
+                    .originAirportId(sd.getOriginAirportId())
+                    .destinationAirportId(sd.getDestinationAirportId())
+                    .departureDate(sd.getDepartureDate())
+                    .departureTime(sd.getDepartureTime())
+                    .departureTerminal(sd.getDepartureTerminal())
+                    .arrivalDate(sd.getArrivalDate())
+                    .arrivalTime(sd.getArrivalTime())
+                    .arrivalTerminal(sd.getArrivalTerminal())
+                    .flightDurationMinutes(sd.getFlightDurationMinutes())
+                    .cabinClassId(sd.getCabinClassId())
+                    .baggageAllowance(sd.getBaggageAllowance())
+                    .build());
+            }
+        }
+
+        // ── Sync passenger tickets (clear/rebuild) ────────────────────────────
         passengerTicketRepo.findByAirTicketId(saved.getId())
             .forEach(pt -> passengerTicketRepo.deleteById(pt.getId()));
         if (dto.getPassengerTickets() != null) {
@@ -223,12 +278,46 @@ public class TravelOperationsServiceImpl implements TravelOperationsService {
             .arrivalDate(e.getArrivalDate()).arrivalTime(e.getArrivalTime())
             .fareAmount(e.getFareAmount()).taxAmount(e.getTaxAmount()).totalAmount(e.getTotalAmount())
             .supplierReference(e.getSupplierReference())
+            .issueDate(e.getIssueDate())
+            .bookingReference(e.getBookingReference())
+            .agentVendorName(e.getAgentVendorName())
+            .agentVendorAddress(e.getAgentVendorAddress())
+            .agentVendorEmail(e.getAgentVendorEmail())
+            .agentVendorMocatNo(e.getAgentVendorMocatNo())
             .status(e.getStatus() != null ? e.getStatus().name() : null)
             .bookingServiceId(e.getBookingServiceId()).airlineId(e.getAirlineId())
             .originAirportId(e.getOriginAirportId()).destinationAirportId(e.getDestinationAirportId())
             .cabinClassId(e.getCabinClassId())
             .build();
 
+        // ── Load segments ─────────────────────────────────────────────────────
+        dto.setSegments(airTicketSegmentRepo.findByAirTicketIdOrderBySegmentOrderAsc(id).stream()
+            .map(s -> {
+                String airlineDisplay = s.getAirlineId() != null
+                    ? airlineRepo.findById(s.getAirlineId()).map(a -> a.getAirlineCode() + " — " + a.getAirlineName()).orElse(null) : null;
+                String originDisplay = s.getOriginAirportId() != null
+                    ? airportRepo.findById(s.getOriginAirportId()).map(a -> a.getAirportCode() + " — " + a.getAirportName()).orElse(null) : null;
+                String destDisplay = s.getDestinationAirportId() != null
+                    ? airportRepo.findById(s.getDestinationAirportId()).map(a -> a.getAirportCode() + " — " + a.getAirportName()).orElse(null) : null;
+                String cabinDisplay = s.getCabinClassId() != null
+                    ? cabinClassRepo.findById(s.getCabinClassId()).map(c -> c.getClassName()).orElse(null) : null;
+                return TrvAirTicketDTO.SegmentDTO.builder()
+                    .id(s.getId()).segmentOrder(s.getSegmentOrder())
+                    .flightNumber(s.getFlightNumber()).aircraftModel(s.getAircraftModel())
+                    .airlineId(s.getAirlineId()).airlineDisplay(airlineDisplay)
+                    .originAirportId(s.getOriginAirportId()).originAirportDisplay(originDisplay)
+                    .destinationAirportId(s.getDestinationAirportId()).destinationAirportDisplay(destDisplay)
+                    .departureDate(s.getDepartureDate()).departureTime(s.getDepartureTime())
+                    .departureTerminal(s.getDepartureTerminal())
+                    .arrivalDate(s.getArrivalDate()).arrivalTime(s.getArrivalTime())
+                    .arrivalTerminal(s.getArrivalTerminal())
+                    .flightDurationMinutes(s.getFlightDurationMinutes())
+                    .cabinClassId(s.getCabinClassId()).cabinClassDisplay(cabinDisplay)
+                    .baggageAllowance(s.getBaggageAllowance())
+                    .build();
+            }).collect(Collectors.toList()));
+
+        // ── Load passenger tickets ────────────────────────────────────────────
         dto.setPassengerTickets(passengerTicketRepo.findByAirTicketId(id).stream()
             .map(pt -> {
                 String name = passengerRepo.findById(pt.getPassengerId())
@@ -246,6 +335,7 @@ public class TravelOperationsServiceImpl implements TravelOperationsService {
 
     @Override
     public void deleteAirTicket(Long id) {
+        airTicketSegmentRepo.deleteByAirTicketId(id);
         passengerTicketRepo.findByAirTicketId(id).forEach(pt -> passengerTicketRepo.deleteById(pt.getId()));
         airTicketRepo.deleteById(id);
     }
@@ -269,9 +359,10 @@ public class TravelOperationsServiceImpl implements TravelOperationsService {
                    b.booking_no, COALESCE(at.pnr,'—') AS pnr,
                    COALESCE(al.airline_name,'—') AS airline_name,
                    COALESCE(o.airport_code,'—') || ' → ' || COALESCE(d.airport_code,'—') AS route,
-                   TO_CHAR(at.departure_date,'DD-Mon-YYYY') AS departure_date,
+                   TO_CHAR(COALESCE(at.departure_date, s1.departure_date),'DD-Mon-YYYY') AS departure_date,
                    COALESCE(at.total_amount::text,'0') AS total_amount,
                    (SELECT COUNT(*) FROM trv_passenger_tickets pt WHERE pt.air_ticket_id = at.id) AS pax_count,
+                   (SELECT COUNT(*) FROM trv_air_ticket_segments ts WHERE ts.air_ticket_id = at.id) AS segments_count,
                    CASE at.status
                        WHEN 'ISSUED'   THEN '<span class="badge bg-success">Issued</span>'
                        WHEN 'CANCELLED' THEN '<span class="badge bg-danger">Cancelled</span>'
@@ -288,6 +379,7 @@ public class TravelOperationsServiceImpl implements TravelOperationsService {
             LEFT   JOIN trv_airlines al ON al.id = at.airline_id
             LEFT   JOIN trv_airports o  ON o.id  = at.origin_airport_id
             LEFT   JOIN trv_airports d  ON d.id  = at.destination_airport_id
+            LEFT   JOIN trv_air_ticket_segments s1 ON s1.air_ticket_id = at.id AND s1.segment_order = 1
             WHERE  b.organization_id = ?
               AND  (b.booking_no ILIKE ? OR at.pnr ILIKE ? OR al.airline_name ILIKE ?)
             ORDER  BY at.id DESC
