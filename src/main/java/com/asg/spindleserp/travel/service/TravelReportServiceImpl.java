@@ -1,33 +1,57 @@
 package com.asg.spindleserp.travel.service;
 
-import com.asg.spindleserp.report.ListReportPdfBuilder;
-import com.asg.spindleserp.report.ListReportPdfBuilder.Col;
-import com.asg.spindleserp.report.ReportPdfService;
-import com.asg.spindleserp.security.auth.SecurityHelper;
-import com.asg.spindleserp.travel.dto.*;
-import lombok.RequiredArgsConstructor;
+import com.asg.spindleserp.security.auth.ContextProvider;
 import lombok.extern.slf4j.Slf4j;
+import net.sf.jasperreports.engine.*;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
+import javax.sql.DataSource;
+import java.io.InputStream;
 import java.math.BigDecimal;
+import java.sql.Connection;
+import java.sql.Date;
 import java.time.LocalDate;
-import java.util.*;
-import java.util.Collections;
+import java.time.format.DateTimeFormatter;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * TravelReportServiceImpl — generates PDF reports using {@link ListReportPdfBuilder}
- * for tabular data and {@link ReportPdfService} for branding and file responses.
+ * TravelReportServiceImpl — JasperReports 7 PDF generation for the travel module.
+ *
+ * Templates live on the classpath under reports/travel/*.jrxml and are
+ * compiled once per template name, then cached for the lifetime of the app.
+ * Detail rows are pulled by the template's own <queryString> over the shared
+ * JDBC connection (JR resolves $P{...} as PreparedStatement parameters), so
+ * every fill is one connection borrowed from the pool and returned in finally.
+ *
+ * Engineering decisions (documented, no manual merge required):
+ *  - Header figures (totals, party name, dates) are resolved here via
+ *    JdbcTemplate and handed to the template as parameters — templates only
+ *    query their own repeating rows (lines / segments / days / checklist).
+ *  - Multi-tenancy: every header lookup is guarded by
+ *    ContextProvider.getOrganizationId(); detail queries are keyed by the
+ *    already-org-verified primary key, so no cross-tenant row can leak.
+ *  - Amount-in-words uses BDT Lakh/Crore wording to match the client market.
+ *  - Org logo: org_organizations.logo_url is passed through as image_path;
+ *    templates use onErrorType="Blank" so a missing logo never fails a fill.
  */
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class TravelReportServiceImpl implements TravelReportService {
 
-    private final JdbcTemplate          jdbcTemplate;
-    private final TravelBookingService  bookingService;
-    private final ListReportPdfBuilder  listPdf;
-    private final ReportPdfService      reportPdf;
+    private static final DateTimeFormatter DMY = DateTimeFormatter.ofPattern("dd-MMM-yyyy");
+
+    private final JdbcTemplate jdbcTemplate;
+    private final DataSource dataSource;
+    private final Map<String, JasperReport> compiledCache = new ConcurrentHashMap<>();
+
+    public TravelReportServiceImpl(JdbcTemplate jdbcTemplate, DataSource dataSource) {
+        this.jdbcTemplate = jdbcTemplate;
+        this.dataSource = dataSource;
+    }
 
     // =========================================================================
     // BOOKING CONFIRMATION
@@ -35,55 +59,44 @@ public class TravelReportServiceImpl implements TravelReportService {
 
     @Override
     public byte[] bookingConfirmation(Long bookingId) {
-        TrvBookingDTO b = bookingService.findById(bookingId);
-        Long orgId = SecurityHelper.requireOrgId();
+        Long orgId = requireOrg();
+        Map<String, Object> b = jdbcTemplate.queryForMap("""
+            SELECT b.booking_no,
+                   TO_CHAR(b.booking_date, 'DD-Mon-YYYY')                          AS booking_date,
+                   b.booking_type, b.status, b.currency, b.remarks,
+                   COALESCE(s.sub_account_code || ' — ' || s.sub_account_name,
+                            'Walk-in / Unregistered')                              AS customer,
+                   COALESCE(TO_CHAR(b.travel_start_date, 'DD-Mon-YYYY'), '-')      AS travel_start,
+                   COALESCE(TO_CHAR(b.travel_end_date, 'DD-Mon-YYYY'), '-')        AS travel_end,
+                   COALESCE(e.first_name || ' ' || e.last_name, '-')               AS sales_agent,
+                   b.subtotal_amount, b.discount_amount, b.tax_amount,
+                   b.total_amount, b.paid_amount, b.due_amount
+            FROM   trv_bookings b
+            LEFT   JOIN acc_chart_of_accounts_sub s ON s.id = b.party_id
+            LEFT   JOIN hrm_employees e ON e.id = b.sales_agent_id
+            WHERE  b.id = ? AND b.organization_id = ?
+            """, bookingId, orgId);
 
-        List<String[]> header = new ArrayList<>();
-        addKv(header, "Booking No",  b.getBookingNo());
-        addKv(header, "Date",        str(b.getBookingDate()));
-        addKv(header, "Type",        b.getBookingType());
-        addKv(header, "Status",      b.getStatus());
-        addKv(header, "Customer",    b.getPartyDisplay());
-        addKv(header, "Travel",      str(b.getTravelStartDate()) + " to " + str(b.getTravelEndDate()));
+        Map<String, Object> params = companyParams(orgId);
+        params.put("bookingId",      bookingId);
+        params.put("bookingNo",      str(b.get("booking_no")));
+        params.put("bookingDate",    str(b.get("booking_date")));
+        params.put("bookingType",    str(b.get("booking_type")));
+        params.put("status",         str(b.get("status")));
+        params.put("customer",       str(b.get("customer")));
+        params.put("travelPeriod",   str(b.get("travel_start")) + "  to  " + str(b.get("travel_end")));
+        params.put("currency",       str(b.get("currency")));
+        params.put("salesAgent",     str(b.get("sales_agent")));
+        params.put("remarks",        str(b.get("remarks")));
+        params.put("subtotalAmount", dec(b.get("subtotal_amount")));
+        params.put("discountAmount", dec(b.get("discount_amount")));
+        params.put("taxAmount",      dec(b.get("tax_amount")));
+        params.put("totalAmount",    dec(b.get("total_amount")));
+        params.put("paidAmount",     dec(b.get("paid_amount")));
+        params.put("dueAmount",      dec(b.get("due_amount")));
+        params.put("amountInWords",  amountInWords(dec(b.get("total_amount")), str(b.get("currency"))));
 
-        List<Col> svcCols = List.of(
-                Col.text("serviceType", "Type", 14),
-                Col.text("description", "Description", 38),
-                Col.qty ("quantity",    "Qty",    8, true),
-                Col.money("unitPrice",  "Price", 15, false),
-                Col.money("lineTotal",  "Total", 15, true)
-        );
-        List<Map<String, Object>> services = new ArrayList<>();
-        if (b.getServices() != null) {
-            for (TrvBookingDTO.ServiceLineDTO s : b.getServices()) {
-                services.add(mapOf("serviceType", s.getServiceType(), "description", s.getDescription(),
-                        "quantity", s.getQuantity(), "unitPrice", s.getUnitPrice(), "lineTotal", s.getLineTotal()));
-            }
-        }
-
-        List<Col> paxCols = List.of(
-                Col.text("name",     "Name",     45),
-                Col.text("type",     "Type",     20),
-                Col.text("passport", "Passport", 20)
-        );
-        List<Map<String, Object>> pax = new ArrayList<>();
-        if (b.getPassengers() != null) {
-            for (TrvBookingDTO.PassengerDTO p : b.getPassengers()) {
-                pax.add(mapOf("name", (p.getTitle() != null ? p.getTitle() + " " : "") + p.getFirstName() + " " + str(p.getLastName()),
-                        "type", p.getPassengerType(), "passport", str(p.getPassportNumber())));
-            }
-        }
-
-        List<String[]> footer = new ArrayList<>();
-        addAmt(footer, "Total", b.getTotalAmount());
-        addAmt(footer, "Paid",  b.getPaidAmount());
-        addAmt(footer, "Due",   b.getDueAmount());
-
-        String subtitle = "Booking #" + b.getBookingNo() + " — " + str(b.getBookingDate());
-        Map<String, Object> bp = reportPdf.brandingParams(orgId);
-
-        return listPdf.build("Booking Confirmation", subtitle, header, svcCols, services,
-                Collections.singletonList(new String[]{"Total (BDT)", fmt(b.getTotalAmount())}), false, bp);
+        return renderPdf("booking-confirmation", params);
     }
 
     // =========================================================================
@@ -92,45 +105,51 @@ public class TravelReportServiceImpl implements TravelReportService {
 
     @Override
     public byte[] airTicket(Long ticketId) {
-        Long orgId = SecurityHelper.requireOrgId();
+        Long orgId = requireOrg();
         Map<String, Object> t = jdbcTemplate.queryForMap("""
-            SELECT at.pnr, at.ticket_number, at.validating_carrier, at.fare_basis,
-                   at.issue_date, at.fare_amount, at.tax_amount, at.commission_amount,
-                   at.service_fee_amount, at.net_fare, at.total_amount,
-                   at.agent_vendor_name, at.status, b.booking_no
-            FROM trv_air_tickets at
-            LEFT JOIN trv_booking_services bs ON bs.id = at.booking_service_id
-            LEFT JOIN trv_bookings b ON b.id = bs.booking_id WHERE at.id = ?
-            """, ticketId);
+            SELECT COALESCE(t.ticket_number, '-')                        AS ticket_number,
+                   COALESCE(t.pnr, '-')                                  AS pnr,
+                   COALESCE(t.booking_reference, '-')                    AS booking_reference,
+                   t.status,
+                   COALESCE(TO_CHAR(t.issue_date, 'DD-Mon-YYYY'), '-')   AS issue_date,
+                   t.fare_amount, t.tax_amount,
+                   COALESCE(t.service_fee_amount, 0)                     AS service_fee,
+                   t.total_amount,
+                   COALESCE(al.airline_name, '-')                        AS airline_name,
+                   COALESCE(t.validating_carrier, '-')                   AS validating_carrier,
+                   COALESCE(t.fare_basis, '-')                           AS fare_basis,
+                   COALESCE(t.endorsement_restrictions, '-')             AS endorsements,
+                   COALESCE(t.agent_vendor_name, '-')                    AS agent_name,
+                   b.booking_no,
+                   COALESCE(s.sub_account_name, 'Walk-in / Unregistered') AS customer
+            FROM   trv_air_tickets t
+            LEFT   JOIN trv_airlines al ON al.id = t.airline_id
+            JOIN   trv_booking_services bs ON bs.id = t.booking_service_id
+            JOIN   trv_bookings b ON b.id = bs.booking_id
+            LEFT   JOIN acc_chart_of_accounts_sub s ON s.id = b.party_id
+            WHERE  t.id = ? AND t.organization_id = ?
+            """, ticketId, orgId);
 
-        List<String[]> header = new ArrayList<>();
-        addKv(header, "PNR",        t.get("pnr"));
-        addKv(header, "Ticket No",  t.get("ticket_number"));
-        addKv(header, "Carrier",    t.get("validating_carrier"));
-        addKv(header, "Fare Basis", t.get("fare_basis"));
-        addKv(header, "Issue Date", t.get("issue_date"));
-        addKv(header, "Agent",      t.get("agent_vendor_name"));
-        addKv(header, "Status",     t.get("status"));
+        Map<String, Object> params = companyParams(orgId);
+        params.put("ticketId",          ticketId);
+        params.put("ticketNumber",      str(t.get("ticket_number")));
+        params.put("pnr",               str(t.get("pnr")));
+        params.put("bookingReference",  str(t.get("booking_reference")));
+        params.put("bookingNo",         str(t.get("booking_no")));
+        params.put("customer",          str(t.get("customer")));
+        params.put("airlineName",       str(t.get("airline_name")));
+        params.put("validatingCarrier", str(t.get("validating_carrier")));
+        params.put("fareBasis",         str(t.get("fare_basis")));
+        params.put("issueDate",         str(t.get("issue_date")));
+        params.put("status",            str(t.get("status")));
+        params.put("agentName",         str(t.get("agent_name")));
+        params.put("endorsements",      str(t.get("endorsements")));
+        params.put("fareAmount",        dec(t.get("fare_amount")));
+        params.put("taxAmount",         dec(t.get("tax_amount")));
+        params.put("serviceFee",        dec(t.get("service_fee")));
+        params.put("totalAmount",       dec(t.get("total_amount")));
 
-        List<Map<String, Object>> segs = jdbcTemplate.queryForList("""
-            SELECT s.flight_number, al.airline_code AS airline,
-                   ao.airport_code AS origin_code, ad.airport_code AS dest_code,
-                   s.departure_date, s.departure_time, s.arrival_date, s.arrival_time,
-                   cc.class_name AS cabin
-            FROM trv_air_ticket_segments s
-            LEFT JOIN trv_airlines al ON al.id = s.airline_id
-            LEFT JOIN trv_airports ao ON ao.id = s.origin_airport_id
-            LEFT JOIN trv_airports ad ON ad.id = s.destination_airport_id
-            LEFT JOIN trv_cabin_classes cc ON cc.id = s.cabin_class_id
-            WHERE s.air_ticket_id = ? ORDER BY s.id
-            """, ticketId);
-
-        return listPdf.build("Air Ticket", "PNR: " + str(t.get("pnr")), header,
-                List.of(Col.text("flight_number", "Flight", 10), Col.text("airline", "Airline", 12),
-                        Col.text("origin_code", "From", 6), Col.text("dest_code", "To", 6),
-                        Col.text("departure_date", "Departure", 13), Col.text("arrival_date", "Arrival", 13),
-                        Col.text("cabin", "Cabin", 10)),
-                segs, Collections.singletonList(new String[]{"Total", "BDT " + fmt(t.get("total_amount"))}), false, reportPdf.brandingParams(orgId));
+        return renderPdf("air-ticket", params);
     }
 
     // =========================================================================
@@ -139,33 +158,44 @@ public class TravelReportServiceImpl implements TravelReportService {
 
     @Override
     public byte[] packageVoucher(Long packageBookingId) {
-        Long orgId = SecurityHelper.requireOrgId();
+        Long orgId = requireOrg();
         Map<String, Object> pb = jdbcTemplate.queryForMap("""
-            SELECT pb.travel_date, pb.pax_count, pb.total_amount, pb.confirmation_number,
-                   pb.status, p.package_code, p.package_name, p.destination,
-                   p.duration_days, p.duration_nights, p.base_price, p.currency,
-                   p.description, p.id AS pkg_id
-            FROM trv_package_bookings pb JOIN trv_packages p ON p.id = pb.package_id
-            WHERE pb.id = ?
-            """, packageBookingId);
+            SELECT COALESCE(pb.confirmation_number, '-')                 AS confirmation_number,
+                   pb.pax_count, pb.status, pb.total_amount,
+                   COALESCE(TO_CHAR(pb.travel_date, 'DD-Mon-YYYY'), '-') AS travel_date,
+                   COALESCE(pb.supplier_reference, '-')                  AS supplier_reference,
+                   p.id                                                  AS package_id,
+                   p.package_code, p.package_name, p.currency,
+                   COALESCE(p.destination, '-')                          AS destination,
+                   COALESCE(p.duration_days::text, '-')                  AS duration_days,
+                   COALESCE(p.duration_nights::text, '-')                AS duration_nights,
+                   b.booking_no,
+                   COALESCE(s.sub_account_name, 'Walk-in / Unregistered') AS customer
+            FROM   trv_package_bookings pb
+            JOIN   trv_packages p ON p.id = pb.package_id
+            JOIN   trv_booking_services bs ON bs.id = pb.booking_service_id
+            JOIN   trv_bookings b ON b.id = bs.booking_id
+            LEFT   JOIN acc_chart_of_accounts_sub s ON s.id = b.party_id
+            WHERE  pb.id = ? AND pb.organization_id = ?
+            """, packageBookingId, orgId);
 
-        List<String[]> header = new ArrayList<>();
-        addKv(header, "Package",   pb.get("package_name"));
-        addKv(header, "Code",      pb.get("package_code"));
-        addKv(header, "Dest.",     pb.get("destination"));
-        addKv(header, "Duration",  pb.get("duration_days") + "D/" + pb.get("duration_nights") + "N");
-        addKv(header, "Travel",    pb.get("travel_date"));
-        addKv(header, "Pax",       pb.get("pax_count"));
-        addKv(header, "Status",    pb.get("status"));
+        Map<String, Object> params = companyParams(orgId);
+        params.put("packageId",          ((Number) pb.get("package_id")).longValue());
+        params.put("confirmationNumber", str(pb.get("confirmation_number")));
+        params.put("bookingNo",          str(pb.get("booking_no")));
+        params.put("customer",           str(pb.get("customer")));
+        params.put("packageName",        str(pb.get("package_name")));
+        params.put("packageCode",        str(pb.get("package_code")));
+        params.put("destination",        str(pb.get("destination")));
+        params.put("duration",           str(pb.get("duration_days")) + "D / " + str(pb.get("duration_nights")) + "N");
+        params.put("travelDate",         str(pb.get("travel_date")));
+        params.put("paxCount",           String.valueOf(pb.get("pax_count")));
+        params.put("status",             str(pb.get("status")));
+        params.put("supplierReference",  str(pb.get("supplier_reference")));
+        params.put("currency",           str(pb.get("currency")));
+        params.put("totalAmount",        dec(pb.get("total_amount")));
 
-        Long pkgId = ((Number) pb.get("pkg_id")).longValue();
-        List<Map<String, Object>> itinerary = jdbcTemplate.queryForList(
-            "SELECT day_number, title, description FROM trv_package_itinerary_days WHERE package_id = ? ORDER BY day_number", pkgId);
-
-        return listPdf.build("Package Voucher", str(pb.get("package_name")), header,
-                List.of(Col.text("title", "Itinerary Day", 25), Col.text("description", "Details", 60)),
-                itinerary, Collections.singletonList(new String[]{"Total", str(pb.get("currency")) + " " + fmt(pb.get("total_amount"))}),
-                false, reportPdf.brandingParams(orgId));
+        return renderPdf("package-voucher", params);
     }
 
     // =========================================================================
@@ -174,36 +204,52 @@ public class TravelReportServiceImpl implements TravelReportService {
 
     @Override
     public byte[] visaApplication(Long visaId) {
-        Long orgId = SecurityHelper.requireOrgId();
-        Map<String, Object> va = jdbcTemplate.queryForMap("""
-            SELECT va.application_number, va.submission_date, va.expected_date,
-                   va.fee_amount, va.status,
-                   COALESCE(p.title || ' ' || p.first_name || ' ' || p.last_name, '—') AS passenger_name,
-                   vt.country AS visa_country, vt.visa_category, b.booking_no
-            FROM trv_visa_applications va
-            LEFT JOIN trv_passengers p ON p.id = va.passenger_id
-            LEFT JOIN trv_visa_types vt ON vt.id = va.visa_type_id
-            LEFT JOIN trv_booking_services bs ON bs.id = va.booking_service_id
-            LEFT JOIN trv_bookings b ON b.id = bs.booking_id WHERE va.id = ?
-            """, visaId);
+        Long orgId = requireOrg();
+        Map<String, Object> v = jdbcTemplate.queryForMap("""
+            SELECT COALESCE(va.application_number, '-')                     AS application_number,
+                   va.status, va.fee_amount,
+                   COALESCE(va.remarks, '-')                                AS remarks,
+                   COALESCE(TO_CHAR(va.submission_date, 'DD-Mon-YYYY'), '-') AS submission_date,
+                   COALESCE(TO_CHAR(va.expected_date, 'DD-Mon-YYYY'), '-')  AS expected_date,
+                   COALESCE(TO_CHAR(va.approval_date, 'DD-Mon-YYYY'), '-')  AS approval_date,
+                   vt.country, vt.visa_category, vt.currency,
+                   COALESCE(vt.processing_days::text, '-')                  AS processing_days,
+                   TRIM(COALESCE(p.title, '') || ' ' || p.first_name || ' ' ||
+                        COALESCE(p.last_name, ''))                          AS applicant_name,
+                   COALESCE(p.passport_number, '-')                         AS passport_number,
+                   COALESCE(TO_CHAR(p.passport_expiry, 'DD-Mon-YYYY'), '-') AS passport_expiry,
+                   COALESCE(p.nationality, '-')                             AS nationality,
+                   COALESCE(TO_CHAR(p.date_of_birth, 'DD-Mon-YYYY'), '-')   AS date_of_birth,
+                   b.booking_no
+            FROM   trv_visa_applications va
+            JOIN   trv_visa_types vt ON vt.id = va.visa_type_id
+            JOIN   trv_passengers p ON p.id = va.passenger_id
+            JOIN   trv_booking_services bs ON bs.id = va.booking_service_id
+            JOIN   trv_bookings b ON b.id = bs.booking_id
+            WHERE  va.id = ? AND va.organization_id = ?
+            """, visaId, orgId);
 
-        List<String[]> header = new ArrayList<>();
-        addKv(header, "Passenger",   va.get("passenger_name"));
-        addKv(header, "Visa Type",   str(va.get("visa_country")) + " - " + str(va.get("visa_category")));
-        addKv(header, "Booking",     va.get("booking_no"));
-        addKv(header, "Application", va.get("application_number"));
-        addKv(header, "Submitted",   va.get("submission_date"));
-        addKv(header, "Expected",    va.get("expected_date"));
-        addKv(header, "Status",      va.get("status"));
+        Map<String, Object> params = companyParams(orgId);
+        params.put("visaId",            visaId);
+        params.put("applicationNumber", str(v.get("application_number")));
+        params.put("bookingNo",         str(v.get("booking_no")));
+        params.put("status",            str(v.get("status")));
+        params.put("country",           str(v.get("country")));
+        params.put("visaCategory",      str(v.get("visa_category")));
+        params.put("processingDays",    str(v.get("processing_days")));
+        params.put("feeAmount",         dec(v.get("fee_amount")));
+        params.put("currency",          str(v.get("currency")));
+        params.put("submissionDate",    str(v.get("submission_date")));
+        params.put("expectedDate",      str(v.get("expected_date")));
+        params.put("approvalDate",      str(v.get("approval_date")));
+        params.put("applicantName",     str(v.get("applicant_name")));
+        params.put("passportNumber",    str(v.get("passport_number")));
+        params.put("passportExpiry",    str(v.get("passport_expiry")));
+        params.put("nationality",       str(v.get("nationality")));
+        params.put("dateOfBirth",       str(v.get("date_of_birth")));
+        params.put("remarks",           str(v.get("remarks")));
 
-        List<Map<String, Object>> docs = jdbcTemplate.queryForList(
-            "SELECT document_name, is_received, remarks FROM trv_visa_documents WHERE visa_application_id = ?", visaId);
-
-        return listPdf.build("Visa Application", str(va.get("passenger_name")), header,
-                List.of(Col.text("document_name", "Document", 50), Col.text("is_received", "Rcvd", 10),
-                        Col.text("remarks", "Remarks", 25)),
-                docs, Collections.singletonList(new String[]{"Fee", "BDT " + fmt(va.get("fee_amount"))}),
-                false, reportPdf.brandingParams(orgId));
+        return renderPdf("visa-application", params);
     }
 
     // =========================================================================
@@ -211,46 +257,132 @@ public class TravelReportServiceImpl implements TravelReportService {
     // =========================================================================
 
     @Override
-    public byte[] revenueSummary(String fromDate, String toDate) {
-        Long orgId = SecurityHelper.requireOrgId();
-        if (fromDate == null) fromDate = LocalDate.now().withDayOfMonth(1).toString();
-        if (toDate == null)   toDate   = LocalDate.now().toString();
+    public byte[] revenueSummary(String from, String to) {
+        Long orgId = requireOrg();
+        LocalDate today = LocalDate.now();
+        LocalDate fromDate = parseDateOr(from, today.withDayOfMonth(1));
+        LocalDate toDate   = parseDateOr(to, today);
+        if (toDate.isBefore(fromDate)) { LocalDate tmp = fromDate; fromDate = toDate; toDate = tmp; }
 
-        List<Map<String, Object>> byType = jdbcTemplate.queryForList("""
-            SELECT COALESCE(booking_type, 'OTHER') AS label, COUNT(*) AS count,
-                   COALESCE(SUM(total_amount), 0) AS revenue
-            FROM trv_bookings WHERE organization_id = ? AND status <> 'CANCELLED'
-              AND booking_date >= ?::date AND booking_date <= ?::date
-            GROUP BY booking_type ORDER BY revenue DESC
-            """, orgId, fromDate, toDate);
+        Map<String, Object> params = companyParams(orgId);
+        params.put("orgId",       orgId);
+        params.put("fromDate",    Date.valueOf(fromDate));
+        params.put("toDate",      Date.valueOf(toDate));
+        params.put("periodLabel", fromDate.format(DMY) + "  to  " + toDate.format(DMY));
 
-        return listPdf.build("Revenue Summary", "Period: " + fromDate + " to " + toDate, null,
-                List.of(Col.text("label", "Type", 30), Col.qty("count", "Count", 15, true),
-                        Col.money("revenue", "Revenue", 30, true)),
-                byType, null, false, reportPdf.brandingParams(orgId));
+        return renderPdf("revenue-summary", params);
     }
 
     // =========================================================================
     // HELPERS
     // =========================================================================
 
-    private static void addKv(List<String[]> list, String label, Object val) {
-        String s = val != null ? val.toString().trim() : "";
-        if (!s.isEmpty()) list.add(new String[]{label, s});
+    private Long requireOrg() {
+        Long orgId = ContextProvider.getOrganizationId();
+        if (orgId == null) throw new IllegalStateException("No organization in context.");
+        return orgId;
     }
 
-    private static void addAmt(List<String[]> list, String label, BigDecimal val) {
-        if (val != null) list.add(new String[]{label, "BDT " + String.format("%,.2f", val)});
+    private Map<String, Object> companyParams(Long orgId) {
+        Map<String, Object> params = new HashMap<>();
+        try {
+            Map<String, Object> org = jdbcTemplate.queryForMap("""
+                SELECT name,
+                       TRIM(BOTH ', ' FROM COALESCE(address, '') ||
+                            CASE WHEN city IS NOT NULL AND city <> '' THEN ', ' || city ELSE '' END ||
+                            CASE WHEN country IS NOT NULL AND country <> '' THEN ', ' || country ELSE '' END) AS address,
+                       logo_url
+                FROM   org_organizations WHERE id = ?
+                """, orgId);
+            params.put("company_name",    str(org.get("name")));
+            params.put("company_address", str(org.get("address")));
+            params.put("image_path",      org.get("logo_url") != null ? org.get("logo_url").toString() : "");
+        } catch (Exception e) {
+            log.warn("Company header lookup failed for org {}: {}", orgId, e.getMessage());
+            params.put("company_name", ""); params.put("company_address", ""); params.put("image_path", "");
+        }
+        return params;
     }
 
-    private static String str(Object o) { return o != null ? o.toString().trim() : ""; }
-    private static String fmt(Object o) {
-        if (o == null) return "0.00";
-        try { return String.format("%,.2f", new BigDecimal(o.toString())); } catch (Exception e) { return o.toString(); }
+    private byte[] renderPdf(String templateName, Map<String, Object> params) {
+        JasperReport report = compiledCache.computeIfAbsent(templateName, this::compile);
+        try (Connection conn = dataSource.getConnection()) {
+            JasperPrint print = JasperFillManager.fillReport(report, params, conn);
+            return JasperExportManager.exportReportToPdf(print);
+        } catch (Exception e) {
+            log.error("Report fill failed [{}]: {}", templateName, e.getMessage(), e);
+            throw new IllegalStateException("Could not generate " + templateName + " report: " + e.getMessage(), e);
+        }
     }
-    private static Map<String, Object> mapOf(Object... kv) {
-        Map<String, Object> m = new LinkedHashMap<>();
-        for (int i = 0; i < kv.length; i += 2) m.put((String) kv[i], kv[i + 1]);
-        return m;
+
+    private JasperReport compile(String templateName) {
+        String path = "reports/travel/" + templateName + ".jrxml";
+        try (InputStream in = new ClassPathResource(path).getInputStream()) {
+            return JasperCompileManager.compileReport(in);
+        } catch (Exception e) {
+            throw new IllegalStateException("Could not compile report template " + path + ": " + e.getMessage(), e);
+        }
+    }
+
+    private static LocalDate parseDateOr(String value, LocalDate fallback) {
+        try {
+            return (value == null || value.isBlank()) ? fallback : LocalDate.parse(value.trim());
+        } catch (Exception e) {
+            return fallback;
+        }
+    }
+
+    private static String str(Object o) { return o == null ? "-" : o.toString(); }
+
+    private static BigDecimal dec(Object o) {
+        if (o == null) return BigDecimal.ZERO;
+        if (o instanceof BigDecimal bd) return bd;
+        return new BigDecimal(o.toString());
+    }
+
+    /**
+     * BDT amount-in-words using the Lakh/Crore numbering system.
+     * Example: 1,23,456.78 → "Taka One Lakh Twenty Three Thousand Four Hundred
+     * Fifty Six and Paisa Seventy Eight Only".
+     * Non-BDT currencies fall back to "<CUR> <words> Only" with the same scale.
+     */
+    private static String amountInWords(BigDecimal amount, String currency) {
+        if (amount == null) amount = BigDecimal.ZERO;
+        long whole = amount.setScale(2, java.math.RoundingMode.HALF_UP).longValue();
+        int fraction = amount.setScale(2, java.math.RoundingMode.HALF_UP)
+                             .remainder(BigDecimal.ONE)
+                             .movePointRight(2).abs().intValue();
+        boolean bdt = currency == null || currency.isBlank() || "BDT".equalsIgnoreCase(currency);
+        String major = bdt ? "Taka" : currency.toUpperCase();
+        String minor = bdt ? "Paisa" : "Cents";
+        StringBuilder sb = new StringBuilder(major).append(' ').append(numberToWords(Math.abs(whole)));
+        if (fraction > 0) sb.append(" and ").append(minor).append(' ').append(numberToWords(fraction));
+        return sb.append(" Only").toString();
+    }
+
+    private static final String[] ONES = {"", "One", "Two", "Three", "Four", "Five", "Six", "Seven",
+            "Eight", "Nine", "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen",
+            "Seventeen", "Eighteen", "Nineteen"};
+    private static final String[] TENS = {"", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty",
+            "Seventy", "Eighty", "Ninety"};
+
+    private static String numberToWords(long n) {
+        if (n == 0) return "Zero";
+        StringBuilder sb = new StringBuilder();
+        long crore = n / 10_000_000L;        n %= 10_000_000L;
+        long lakh  = n / 100_000L;           n %= 100_000L;
+        long thousand = n / 1_000L;          n %= 1_000L;
+        long hundred  = n / 100L;            n %= 100L;
+        if (crore > 0)    sb.append(numberToWords(crore)).append(" Crore ");
+        if (lakh > 0)     sb.append(twoDigits((int) lakh)).append(" Lakh ");
+        if (thousand > 0) sb.append(twoDigits((int) thousand)).append(" Thousand ");
+        if (hundred > 0)  sb.append(ONES[(int) hundred]).append(" Hundred ");
+        if (n > 0)        sb.append(twoDigits((int) n));
+        return sb.toString().trim().replaceAll("\\s+", " ");
+    }
+
+    private static String twoDigits(int n) {
+        if (n < 20) return ONES[n];
+        return (TENS[n / 10] + (n % 10 > 0 ? " " + ONES[n % 10] : "")).trim();
     }
 }

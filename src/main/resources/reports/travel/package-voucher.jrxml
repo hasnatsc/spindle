@@ -1,176 +1,273 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!--
+  package-voucher.jrxml — SpindleERP Travel Module (JasperReports 7)
+  Service voucher for a confirmed package booking.
+  Main dataset  : trv_package_itinerary_days for the package ($P{packageId})
+  Sub datasets  : InclusionsDS / ExclusionsDS (trv_package_inclusions)
+-->
 <jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports"
+              xmlns:jr="http://jasperreports.sourceforge.net/jasperreports/components"
               xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-              xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd"
-              name="package-voucher" pageWidth="595" pageHeight="842" columnWidth="555"
-              leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20"
+              xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd
+                                  http://jasperreports.sourceforge.net/jasperreports/components http://jasperreports.sourceforge.net/xsd/components.xsd"
+              name="package-voucher"
+              pageWidth="595" pageHeight="842" columnWidth="535"
+              leftMargin="30" rightMargin="30" topMargin="20" bottomMargin="20"
               whenNoDataType="AllSectionsNoDetail">
-    <property name="com.jaspersoft.studio.data.defaultdataadapter" value="One Empty Record"/>
-    <parameter name="title" class="java.lang.String"/>
-    <parameter name="package_code" class="java.lang.String"/>
-    <parameter name="package_name" class="java.lang.String"/>
-    <parameter name="destination" class="java.lang.String"/>
-    <parameter name="duration_days" class="java.lang.Integer"/>
-    <parameter name="duration_nights" class="java.lang.Integer"/>
-    <parameter name="base_price" class="java.math.BigDecimal"/>
-    <parameter name="currency" class="java.lang.String"/>
-    <parameter name="description" class="java.lang.String"/>
-    <parameter name="travel_date" class="java.lang.String"/>
-    <parameter name="pax_count" class="java.lang.Integer"/>
-    <parameter name="total_amount" class="java.math.BigDecimal"/>
-    <parameter name="confirmation_number" class="java.lang.String"/>
-    <parameter name="status" class="java.lang.String"/>
-    <parameter name="itinerarySubreport" class="net.sf.jasperreports.engine.JasperReport" isForPrompting="false"/>
-    <parameter name="inclusionsSubreport" class="net.sf.jasperreports.engine.JasperReport" isForPrompting="false"/>
-    <parameter name="itineraryDataSource" class="net.sf.jasperreports.engine.data.JRBeanCollectionDataSource"/>
-    <parameter name="inclusionsDataSource" class="net.sf.jasperreports.engine.data.JRBeanCollectionDataSource"/>
+
+    <subDataset name="InclusionsDS">
+        <parameter name="packageId" class="java.lang.Long"/>
+        <queryString><![CDATA[
+            SELECT i.description
+            FROM   trv_package_inclusions i
+            WHERE  i.package_id = $P{packageId} AND i.inclusion_type = 'INCLUDED'
+            ORDER  BY i.id
+        ]]></queryString>
+        <field name="description" class="java.lang.String"/>
+    </subDataset>
+
+    <subDataset name="ExclusionsDS">
+        <parameter name="packageId" class="java.lang.Long"/>
+        <queryString><![CDATA[
+            SELECT i.description
+            FROM   trv_package_inclusions i
+            WHERE  i.package_id = $P{packageId} AND i.inclusion_type = 'EXCLUDED'
+            ORDER  BY i.id
+        ]]></queryString>
+        <field name="description" class="java.lang.String"/>
+    </subDataset>
+
+    <parameter name="image_path"         class="java.lang.String"/>
+    <parameter name="company_name"       class="java.lang.String"/>
+    <parameter name="company_address"    class="java.lang.String"/>
+
+    <parameter name="packageId"          class="java.lang.Long"/>
+
+    <parameter name="confirmationNumber" class="java.lang.String"/>
+    <parameter name="bookingNo"          class="java.lang.String"/>
+    <parameter name="customer"           class="java.lang.String"/>
+    <parameter name="packageName"        class="java.lang.String"/>
+    <parameter name="packageCode"        class="java.lang.String"/>
+    <parameter name="destination"        class="java.lang.String"/>
+    <parameter name="duration"           class="java.lang.String"/>
+    <parameter name="travelDate"         class="java.lang.String"/>
+    <parameter name="paxCount"           class="java.lang.String"/>
+    <parameter name="status"             class="java.lang.String"/>
+    <parameter name="supplierReference"  class="java.lang.String"/>
+    <parameter name="currency"           class="java.lang.String"/>
+    <parameter name="totalAmount"        class="java.math.BigDecimal"/>
+
+    <queryString><![CDATA[
+        SELECT d.day_number,
+               COALESCE(d.title, '')       AS title,
+               COALESCE(d.description, '') AS description
+        FROM   trv_package_itinerary_days d
+        WHERE  d.package_id = $P{packageId}
+        ORDER  BY d.day_number
+    ]]></queryString>
+
+    <field name="day_number"  class="java.lang.Integer"/>
+    <field name="title"       class="java.lang.String"/>
+    <field name="description" class="java.lang.String"/>
 
     <title>
-        <band height="60">
-            <staticText>
-                <reportElement x="0" y="0" width="555" height="30"/>
-                <textElement textAlignment="Center"><font size="18" isBold="true"/></textElement>
-                <text><![CDATA[Package Voucher]]></text>
-            </staticText>
+        <band height="168">
+            <image scaleImage="RetainShape" onErrorType="Blank">
+                <reportElement x="0" y="0" width="180" height="40"/>
+                <imageExpression><![CDATA[$P{image_path}]]></imageExpression>
+            </image>
             <textField>
-                <reportElement x="0" y="32" width="555" height="20"/>
-                <textElement textAlignment="Center"><font size="11" isBold="true"/></textElement>
-                <textFieldExpression><![CDATA[$P{package_name}]]></textFieldExpression>
+                <reportElement x="250" y="0" width="285" height="16"/>
+                <textElement textAlignment="Right"  isBold="true"><font size="12"/></textElement>
+                <textFieldExpression><![CDATA[$P{company_name}]]></textFieldExpression>
             </textField>
-            <line><reportElement x="0" y="58" width="555" height="1"/></line>
+            <textField>
+                <reportElement x="250" y="18" width="285" height="22"/>
+                <textElement textAlignment="Right" ><font size="8"/></textElement>
+                <textFieldExpression><![CDATA[$P{company_address}]]></textFieldExpression>
+            </textField>
+            <staticText>
+                <reportElement mode="Opaque" x="117" y="48" width="300" height="22" backcolor="#2E3192" forecolor="#FFFFFF"/>
+                <textElement textAlignment="Center" verticalAlignment="Middle"  isBold="true"><font size="12"/></textElement>
+                <text><![CDATA[PACKAGE SERVICE VOUCHER]]></text>
+            </staticText>
+
+            <textField>
+                <reportElement x="0" y="80" width="330" height="14"/>
+                <textElement  isBold="true" verticalAlignment="Middle"><font size="9"/></textElement>
+                <box><bottomPen lineWidth="0.5" lineStyle="Dotted"/></box>
+                <textFieldExpression><![CDATA["Package : " + $P{packageName} + "  (" + $P{packageCode} + ")"]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="0" y="96" width="330" height="14"/>
+                <textElement  verticalAlignment="Middle"><font size="9"/></textElement>
+                <box><bottomPen lineWidth="0.5" lineStyle="Dotted"/></box>
+                <textFieldExpression><![CDATA["Customer : " + $P{customer}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="0" y="112" width="330" height="14"/>
+                <textElement  verticalAlignment="Middle"><font size="9"/></textElement>
+                <box><bottomPen lineWidth="0.5" lineStyle="Dotted"/></box>
+                <textFieldExpression><![CDATA["Destination : " + $P{destination} + "    Duration : " + $P{duration}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="0" y="128" width="330" height="14"/>
+                <textElement  verticalAlignment="Middle"><font size="9"/></textElement>
+                <box><bottomPen lineWidth="0.5" lineStyle="Dotted"/></box>
+                <textFieldExpression><![CDATA["Travel Date : " + $P{travelDate} + "    Pax : " + $P{paxCount}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="0" y="144" width="330" height="14"/>
+                <textElement  verticalAlignment="Middle"><font size="9"/></textElement>
+                <box><bottomPen lineWidth="0.5" lineStyle="Dotted"/></box>
+                <textFieldExpression><![CDATA["Supplier Ref : " + $P{supplierReference}]]></textFieldExpression>
+            </textField>
+
+            <textField>
+                <reportElement x="360" y="80" width="175" height="14"/>
+                <textElement  isBold="true" verticalAlignment="Middle"><font size="9"/></textElement>
+                <box><bottomPen lineWidth="0.5" lineStyle="Dotted"/></box>
+                <textFieldExpression><![CDATA["Voucher No : " + $P{confirmationNumber}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="360" y="96" width="175" height="14"/>
+                <textElement  verticalAlignment="Middle"><font size="9"/></textElement>
+                <box><bottomPen lineWidth="0.5" lineStyle="Dotted"/></box>
+                <textFieldExpression><![CDATA["Booking No : " + $P{bookingNo}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="360" y="112" width="175" height="14"/>
+                <textElement  verticalAlignment="Middle"><font size="9"/></textElement>
+                <box><bottomPen lineWidth="0.5" lineStyle="Dotted"/></box>
+                <textFieldExpression><![CDATA["Status : " + $P{status}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="360" y="128" width="175" height="14"/>
+                <textElement  verticalAlignment="Middle"><font size="9"/></textElement>
+                <box><bottomPen lineWidth="0.5" lineStyle="Dotted"/></box>
+                <textFieldExpression><![CDATA["Amount : " + $P{currency} + " " + new java.text.DecimalFormat("#,##0.00").format($P{totalAmount} != null ? $P{totalAmount} : java.math.BigDecimal.ZERO)]]></textFieldExpression>
+            </textField>
         </band>
     </title>
 
     <columnHeader>
-        <band height="70">
-            <textField>
-                <reportElement x="0" y="0" width="120" height="15"/>
-                <textElement><font size="8" isBold="true"/></textElement><text><![CDATA[Package Code:]]></text>
-            </textField>
-            <textField>
-                <reportElement x="120" y="0" width="150" height="15"/>
-                <textFieldExpression><![CDATA[$P{package_code}]]></textFieldExpression>
-            </textField>
-            <textField>
-                <reportElement x="0" y="16" width="120" height="15"/>
-                <textElement><font size="8" isBold="true"/></textElement><text><![CDATA[Destination:]]></text>
-            </textField>
-            <textField>
-                <reportElement x="120" y="16" width="150" height="15"/>
-                <textFieldExpression><![CDATA[$P{destination}]]></textFieldExpression>
-            </textField>
-            <textField>
-                <reportElement x="0" y="32" width="120" height="15"/>
-                <textElement><font size="8" isBold="true"/></textElement><text><![CDATA[Duration:]]></text>
-            </textField>
-            <textField>
-                <reportElement x="120" y="32" width="150" height="15"/>
-                <textFieldExpression><![CDATA[$P{duration_days} + " Days / " + $P{duration_nights} + " Nights"]]></textFieldExpression>
-            </textField>
-            <textField>
-                <reportElement x="300" y="0" width="100" height="15"/>
-                <textElement><font size="8" isBold="true"/></textElement><text><![CDATA[Travel Date:]]></text>
-            </textField>
-            <textField>
-                <reportElement x="400" y="0" width="155" height="15"/>
-                <textFieldExpression><![CDATA[$P{travel_date}]]></textFieldExpression>
-            </textField>
-            <textField>
-                <reportElement x="300" y="16" width="100" height="15"/>
-                <textElement><font size="8" isBold="true"/></textElement><text><![CDATA[Pax:]]></text>
-            </textField>
-            <textField>
-                <reportElement x="400" y="16" width="155" height="15"/>
-                <textFieldExpression><![CDATA[$P{pax_count} != null ? String.valueOf($P{pax_count}) : ""]]></textFieldExpression>
-            </textField>
-            <textField>
-                <reportElement x="300" y="32" width="100" height="15"/>
-                <textElement><font size="8" isBold="true"/></textElement><text><![CDATA[Confirmation:]]></text>
-            </textField>
-            <textField>
-                <reportElement x="400" y="32" width="155" height="15"/>
-                <textFieldExpression><![CDATA[$P{confirmation_number}]]></textFieldExpression>
-            </textField>
+        <band height="18">
+            <staticText>
+                <reportElement mode="Opaque" x="0" y="0" width="535" height="18" backcolor="#2E3192" forecolor="#FFFFFF"/>
+                <textElement textAlignment="Center" verticalAlignment="Middle"  isBold="true"><font size="9"/></textElement>
+                <text><![CDATA[DAY-WISE ITINERARY]]></text>
+            </staticText>
         </band>
     </columnHeader>
 
     <detail>
-        <band height="360">
-            <!-- Description -->
+        <band height="30">
             <textField>
-                <reportElement x="0" y="0" width="555" height="30"/>
-                <textElement><font size="8" isItalic="true"/></textElement>
-                <textFieldExpression><![CDATA[$P{description} != null ? $P{description} : ""]]></textFieldExpression>
-            </textField>
-
-            <!-- Itinerary -->
-            <staticText>
-                <reportElement x="0" y="35" width="555" height="18"/>
-                <textElement><font size="10" isBold="true"/></textElement>
-                <text><![CDATA[Itinerary]]></text>
-            </staticText>
-            <frame>
-                <reportElement x="0" y="53" width="555" height="18" backcolor="#F0F0F0"/>
-                <staticText><reportElement x="0" y="0" width="50" height="18"/><box><rightPen width="0.5"/></box><textElement><font size="8" isBold="true"/></textElement><text><![CDATA[Day]]></text></staticText>
-                <staticText><reportElement x="50" y="0" width="200" height="18"/><box><rightPen width="0.5"/></box><textElement><font size="8" isBold="true"/></textElement><text><![CDATA[Title]]></text></staticText>
-                <staticText><reportElement x="250" y="0" width="305" height="18"/><textElement><font size="8" isBold="true"/></textElement><text><![CDATA[Description]]></text></staticText>
-            </frame>
-            <subreport>
-                <reportElement x="0" y="71" width="555" height="80"/>
-                <dataSourceExpression><![CDATA[$P{itineraryDataSource}]]></dataSourceExpression>
-                <subreportExpression><![CDATA[$P{itinerarySubreport}]]></subreportExpression>
-            </subreport>
-
-            <!-- Inclusions -->
-            <staticText>
-                <reportElement x="0" y="160" width="555" height="18"/>
-                <textElement><font size="10" isBold="true"/></textElement>
-                <text><![CDATA[Inclusions / Exclusions]]></text>
-            </staticText>
-            <frame>
-                <reportElement x="0" y="178" width="555" height="18" backcolor="#F0F0F0"/>
-                <staticText><reportElement x="0" y="0" width="80" height="18"/><box><rightPen width="0.5"/></box><textElement><font size="8" isBold="true"/></textElement><text><![CDATA[Type]]></text></staticText>
-                <staticText><reportElement x="80" y="0" width="475" height="18"/><textElement><font size="8" isBold="true"/></textElement><text><![CDATA[Description]]></text></staticText>
-            </frame>
-            <subreport>
-                <reportElement x="0" y="196" width="555" height="60"/>
-                <dataSourceExpression><![CDATA[$P{inclusionsDataSource}]]></dataSourceExpression>
-                <subreportExpression><![CDATA[$P{inclusionsSubreport}]]></subreportExpression>
-            </subreport>
-
-            <!-- Pricing Summary -->
-            <staticText>
-                <reportElement x="0" y="270" width="555" height="18"/>
-                <textElement><font size="10" isBold="true"/></textElement>
-                <text><![CDATA[Pricing]]></text>
-            </staticText>
-            <line>
-                <reportElement x="350" y="295" width="205" height="0"/>
-            </line>
-            <textField>
-                <reportElement x="350" y="298" width="100" height="18"/>
-                <textElement><font size="10" isBold="true"/></textElement>
-                <text><![CDATA[Total Amount:]]></text>
+                <reportElement mode="Opaque" x="0" y="0" width="45" height="30" backcolor="#EEEEF7"/>
+                <textElement textAlignment="Center" verticalAlignment="Middle"  isBold="true"><font size="9"/></textElement>
+                <box><pen lineWidth="0.25" lineColor="#CCCCCC"/></box>
+                <textFieldExpression><![CDATA["Day " + $F{day_number}]]></textFieldExpression>
             </textField>
             <textField>
-                <reportElement x="450" y="298" width="105" height="18"/>
-                <textElement textAlignment="Right"><font size="10" isBold="true"/></textElement>
-                <textFieldExpression><![CDATA[$P{currency} + " " + ($P{total_amount} != null ? $P{total_amount}.toPlainString() : "0")]]></textFieldExpression>
+                <reportElement x="45" y="0" width="150" height="30"/>
+                <textElement verticalAlignment="Middle"  isBold="true"><font size="9"/></textElement>
+                <box leftPadding="4"><pen lineWidth="0.25" lineColor="#CCCCCC"/></box>
+                <textFieldExpression><![CDATA[$F{title}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="195" y="0" width="340" height="30"/>
+                <textElement verticalAlignment="Middle" ><font size="8"/></textElement>
+                <box leftPadding="4" rightPadding="4"><pen lineWidth="0.25" lineColor="#CCCCCC"/></box>
+                <textFieldExpression><![CDATA[$F{description}]]></textFieldExpression>
             </textField>
         </band>
     </detail>
 
+    <summary>
+        <band height="180">
+            <staticText>
+                <reportElement mode="Opaque" x="0" y="8" width="260" height="16" backcolor="#E8F5E9"/>
+                <textElement verticalAlignment="Middle"  isBold="true" forecolor="#1B5E20"><font size="9"/></textElement>
+                <box leftPadding="3"><pen lineWidth="0.25" lineColor="#1B5E20"/></box>
+                <text><![CDATA[INCLUSIONS]]></text>
+            </staticText>
+            <componentElement>
+                <reportElement x="0" y="24" width="260" height="14" positionType="Float"/>
+                <jr:list printOrder="Vertical">
+                    <datasetRun subDataset="InclusionsDS">
+                        <datasetParameter name="packageId">
+                            <datasetParameterExpression><![CDATA[$P{packageId}]]></datasetParameterExpression>
+                        </datasetParameter>
+                        <connectionExpression><![CDATA[$P{REPORT_CONNECTION}]]></connectionExpression>
+                    </datasetRun>
+                    <jr:listContents height="14" width="260">
+                        <textField>
+                            <reportElement x="0" y="0" width="260" height="14"/>
+                            <textElement verticalAlignment="Middle" ><font size="8"/></textElement>
+                            <box leftPadding="3"><pen lineWidth="0.25" lineColor="#CCCCCC"/></box>
+                            <textFieldExpression><![CDATA["•  " + $F{description}]]></textFieldExpression>
+                        </textField>
+                    </jr:listContents>
+                </jr:list>
+            </componentElement>
+
+            <staticText>
+                <reportElement mode="Opaque" x="275" y="8" width="260" height="16" backcolor="#FBE9E7"/>
+                <textElement verticalAlignment="Middle"  isBold="true" forecolor="#B71C1C"><font size="9"/></textElement>
+                <box leftPadding="3"><pen lineWidth="0.25" lineColor="#B71C1C"/></box>
+                <text><![CDATA[EXCLUSIONS]]></text>
+            </staticText>
+            <componentElement>
+                <reportElement x="275" y="24" width="260" height="14"/>
+                <jr:list printOrder="Vertical">
+                    <datasetRun subDataset="ExclusionsDS">
+                        <datasetParameter name="packageId">
+                            <datasetParameterExpression><![CDATA[$P{packageId}]]></datasetParameterExpression>
+                        </datasetParameter>
+                        <connectionExpression><![CDATA[$P{REPORT_CONNECTION}]]></connectionExpression>
+                    </datasetRun>
+                    <jr:listContents height="14" width="260">
+                        <textField>
+                            <reportElement x="0" y="0" width="260" height="14"/>
+                            <textElement verticalAlignment="Middle" ><font size="8"/></textElement>
+                            <box leftPadding="3"><pen lineWidth="0.25" lineColor="#CCCCCC"/></box>
+                            <textFieldExpression><![CDATA["×  " + $F{description}]]></textFieldExpression>
+                        </textField>
+                    </jr:listContents>
+                </jr:list>
+            </componentElement>
+
+            <staticText>
+                <reportElement x="0" y="120" width="535" height="24" positionType="Float"/>
+                <textElement  forecolor="#666666"><font size="7"/></textElement>
+                <text><![CDATA[Please present this voucher along with a valid photo ID at the time of service. Services are subject to the terms and conditions of the operating supplier. Any amendment or cancellation must be routed through the issuing office.]]></text>
+            </staticText>
+
+            <staticText>
+                <reportElement x="0" y="160" width="140" height="12" positionType="Float"/>
+                <textElement textAlignment="Center" ><font size="8"/></textElement>
+                <box><topPen lineWidth="0.5"/></box>
+                <text><![CDATA[Prepared by]]></text>
+            </staticText>
+            <staticText>
+                <reportElement x="395" y="160" width="140" height="12" positionType="Float"/>
+                <textElement textAlignment="Center" ><font size="8"/></textElement>
+                <box><topPen lineWidth="0.5"/></box>
+                <text><![CDATA[Authorized Signatory]]></text>
+            </staticText>
+        </band>
+    </summary>
+
     <pageFooter>
-        <band height="20">
-            <line><reportElement x="0" y="0" width="555" height="1"/></line>
+        <band height="15">
             <textField evaluationTime="Report">
-                <reportElement x="0" y="2" width="300" height="15"/>
-                <textElement><font size="7"/></textElement>
-                <textFieldExpression><![CDATA["Generated by Spindle ERP — Travel Module"]]></textFieldExpression>
+                <reportElement x="0" y="0" width="300" height="12"/>
+                <textElement  forecolor="#999999"><font size="7"/></textElement>
+                <textFieldExpression><![CDATA["Generated by Spindle ERP — " + new java.text.SimpleDateFormat("dd-MMM-yyyy HH:mm").format(new java.util.Date())]]></textFieldExpression>
             </textField>
             <textField evaluationTime="Page">
-                <reportElement x="450" y="2" width="105" height="15"/>
-                <textElement textAlignment="Right"><font size="7"/></textElement>
+                <reportElement x="455" y="0" width="80" height="12"/>
+                <textElement textAlignment="Right"  forecolor="#999999"><font size="7"/></textElement>
                 <textFieldExpression><![CDATA["Page " + $V{PAGE_NUMBER}]]></textFieldExpression>
             </textField>
         </band>

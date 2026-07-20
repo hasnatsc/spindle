@@ -252,6 +252,14 @@ public class TravelBookingServiceImpl implements TravelBookingService {
         return toDTO(findBooking(id));
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public TrvBookingDTO findByBookingNo(Long organizationId, String bookingNo) {
+        TrvBooking entity = bookingRepo.findByOrganizationIdAndBookingNo(organizationId, bookingNo)
+            .orElseThrow(() -> new IllegalArgumentException("Booking \"" + bookingNo + "\" not found."));
+        return toDTO(entity);
+    }
+
     // =========================================================================
     // RECEIPT PREFILL  (mirror of SalesServiceImpl.populateReceiptFromInvoice)
     // =========================================================================

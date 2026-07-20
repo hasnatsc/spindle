@@ -1,6 +1,5 @@
 package com.asg.spindleserp.travel.controller;
 
-import com.asg.spindleserp.report.ReportPdfService;
 import com.asg.spindleserp.travel.service.TravelReportService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -20,7 +19,6 @@ import org.springframework.web.bind.annotation.*;
 public class TravelReportController {
 
     private final TravelReportService reportService;
-    private final ReportPdfService reportPdf;
 
     @GetMapping("/booking/{bookingId}")
     public ResponseEntity<byte[]> bookingConfirmation(@PathVariable Long bookingId) {

@@ -1,121 +1,285 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!--
+  revenue-summary.jrxml — SpindleERP Travel Module (JasperReports 7)
+  Booking revenue for a date range, grouped by booking type with
+  per-group subtotals and grand totals. Cancelled bookings excluded.
+  Main dataset : trv_bookings within $P{fromDate}..$P{toDate} for $P{orgId}
+-->
 <jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports"
               xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
               xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd"
-              name="revenue-summary" pageWidth="595" pageHeight="842" columnWidth="555"
-              leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20"
-              whenNoDataType="AllSectionsNoDetail">
-    <property name="com.jaspersoft.studio.data.defaultdataadapter" value="One Empty Record"/>
-    <parameter name="title" class="java.lang.String"/>
-    <parameter name="fromDate" class="java.lang.String"/>
-    <parameter name="toDate" class="java.lang.String"/>
-    <parameter name="orgId" class="java.lang.Long"/>
-    <parameter name="byTypeSubreport" class="net.sf.jasperreports.engine.JasperReport" isForPrompting="false"/>
-    <parameter name="byStatusSubreport" class="net.sf.jasperreports.engine.JasperReport" isForPrompting="false"/>
-    <parameter name="destinationsSubreport" class="net.sf.jasperreports.engine.JasperReport" isForPrompting="false"/>
-    <parameter name="byTypeDataSource" class="net.sf.jasperreports.engine.data.JRBeanCollectionDataSource"/>
-    <parameter name="byStatusDataSource" class="net.sf.jasperreports.engine.data.JRBeanCollectionDataSource"/>
-    <parameter name="destinationsDataSource" class="net.sf.jasperreports.engine.data.JRBeanCollectionDataSource"/>
+              name="revenue-summary"
+              pageWidth="595" pageHeight="842" columnWidth="535"
+              leftMargin="30" rightMargin="30" topMargin="20" bottomMargin="20"
+              whenNoDataType="AllSectionsNoDetail" isSummaryNewPage="false">
+
+    <parameter name="image_path"      class="java.lang.String"/>
+    <parameter name="company_name"    class="java.lang.String"/>
+    <parameter name="company_address" class="java.lang.String"/>
+
+    <parameter name="orgId"           class="java.lang.Long"/>
+    <parameter name="fromDate"        class="java.sql.Date"/>
+    <parameter name="toDate"          class="java.sql.Date"/>
+    <parameter name="periodLabel"     class="java.lang.String"/>
+
+    <queryString><![CDATA[
+        SELECT b.booking_no,
+               TO_CHAR(b.booking_date, 'DD-Mon-YYYY')        AS booking_date,
+               b.booking_type,
+               b.status,
+               COALESCE(s.sub_account_name, 'Walk-in / Web') AS customer_name,
+               b.total_amount,
+               b.paid_amount,
+               b.due_amount
+        FROM   trv_bookings b
+        LEFT   JOIN acc_chart_of_accounts_sub s ON s.id = b.party_id
+        WHERE  b.organization_id = $P{orgId}
+          AND  b.status <> 'CANCELLED'
+          AND  b.booking_date BETWEEN $P{fromDate} AND $P{toDate}
+        ORDER  BY b.booking_type, b.booking_date, b.id
+    ]]></queryString>
+
+    <field name="booking_no"    class="java.lang.String"/>
+    <field name="booking_date"  class="java.lang.String"/>
+    <field name="booking_type"  class="java.lang.String"/>
+    <field name="status"        class="java.lang.String"/>
+    <field name="customer_name" class="java.lang.String"/>
+    <field name="total_amount"  class="java.math.BigDecimal"/>
+    <field name="paid_amount"   class="java.math.BigDecimal"/>
+    <field name="due_amount"    class="java.math.BigDecimal"/>
+
+    <!-- group subtotals -->
+    <variable name="typeTotal" class="java.math.BigDecimal" resetType="Group" resetGroup="BookingTypeGroup" calculation="Sum">
+        <variableExpression><![CDATA[$F{total_amount}]]></variableExpression>
+    </variable>
+    <variable name="typePaid" class="java.math.BigDecimal" resetType="Group" resetGroup="BookingTypeGroup" calculation="Sum">
+        <variableExpression><![CDATA[$F{paid_amount}]]></variableExpression>
+    </variable>
+    <variable name="typeDue" class="java.math.BigDecimal" resetType="Group" resetGroup="BookingTypeGroup" calculation="Sum">
+        <variableExpression><![CDATA[$F{due_amount}]]></variableExpression>
+    </variable>
+    <variable name="typeCount" class="java.lang.Integer" resetType="Group" resetGroup="BookingTypeGroup" calculation="Count">
+        <variableExpression><![CDATA[$F{booking_no}]]></variableExpression>
+    </variable>
+
+    <!-- grand totals -->
+    <variable name="grandTotal" class="java.math.BigDecimal" calculation="Sum">
+        <variableExpression><![CDATA[$F{total_amount}]]></variableExpression>
+    </variable>
+    <variable name="grandPaid" class="java.math.BigDecimal" calculation="Sum">
+        <variableExpression><![CDATA[$F{paid_amount}]]></variableExpression>
+    </variable>
+    <variable name="grandDue" class="java.math.BigDecimal" calculation="Sum">
+        <variableExpression><![CDATA[$F{due_amount}]]></variableExpression>
+    </variable>
+    <variable name="grandCount" class="java.lang.Integer" calculation="Count">
+        <variableExpression><![CDATA[$F{booking_no}]]></variableExpression>
+    </variable>
+
+    <group name="BookingTypeGroup">
+        <groupExpression><![CDATA[$F{booking_type}]]></groupExpression>
+        <groupHeader>
+            <band height="18">
+                <textField>
+                    <reportElement mode="Opaque" x="0" y="2" width="535" height="16" backcolor="#EEEEF7"/>
+                    <textElement verticalAlignment="Middle"  isBold="true" forecolor="#2E3192"><font size="9"/></textElement>
+                    <box leftPadding="4"><pen lineWidth="0.25" lineColor="#2E3192"/></box>
+                    <textFieldExpression><![CDATA["Booking Type : " + $F{booking_type}]]></textFieldExpression>
+                </textField>
+            </band>
+        </groupHeader>
+        <groupFooter>
+            <band height="18">
+                <textField>
+                    <reportElement x="0" y="1" width="325" height="16"/>
+                    <textElement textAlignment="Right" verticalAlignment="Middle"  isBold="true"><font size="8"/></textElement>
+                    <box rightPadding="4"><topPen lineWidth="0.5"/></box>
+                    <textFieldExpression><![CDATA["Subtotal (" + $V{typeCount} + " bookings) :"]]></textFieldExpression>
+                </textField>
+                <textField pattern="#,##0.00" evaluationTime="Group" evaluationGroup="BookingTypeGroup">
+                    <reportElement x="325" y="1" width="70" height="16"/>
+                    <textElement textAlignment="Right" verticalAlignment="Middle"  isBold="true"><font size="8"/></textElement>
+                    <box rightPadding="3"><topPen lineWidth="0.5"/></box>
+                    <textFieldExpression><![CDATA[$V{typeTotal}]]></textFieldExpression>
+                </textField>
+                <textField pattern="#,##0.00" evaluationTime="Group" evaluationGroup="BookingTypeGroup">
+                    <reportElement x="395" y="1" width="70" height="16"/>
+                    <textElement textAlignment="Right" verticalAlignment="Middle"  isBold="true"><font size="8"/></textElement>
+                    <box rightPadding="3"><topPen lineWidth="0.5"/></box>
+                    <textFieldExpression><![CDATA[$V{typePaid}]]></textFieldExpression>
+                </textField>
+                <textField pattern="#,##0.00" evaluationTime="Group" evaluationGroup="BookingTypeGroup">
+                    <reportElement x="465" y="1" width="70" height="16"/>
+                    <textElement textAlignment="Right" verticalAlignment="Middle"  isBold="true"><font size="8"/></textElement>
+                    <box rightPadding="3"><topPen lineWidth="0.5"/></box>
+                    <textFieldExpression><![CDATA[$V{typeDue}]]></textFieldExpression>
+                </textField>
+            </band>
+        </groupFooter>
+    </group>
 
     <title>
-        <band height="60">
+        <band height="96">
+            <image scaleImage="RetainShape" onErrorType="Blank">
+                <reportElement x="0" y="0" width="180" height="40"/>
+                <imageExpression><![CDATA[$P{image_path}]]></imageExpression>
+            </image>
+            <textField>
+                <reportElement x="250" y="0" width="285" height="16"/>
+                <textElement textAlignment="Right"  isBold="true"><font size="12"/></textElement>
+                <textFieldExpression><![CDATA[$P{company_name}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="250" y="18" width="285" height="22"/>
+                <textElement textAlignment="Right" ><font size="8"/></textElement>
+                <textFieldExpression><![CDATA[$P{company_address}]]></textFieldExpression>
+            </textField>
             <staticText>
-                <reportElement x="0" y="0" width="555" height="30"/>
-                <textElement textAlignment="Center"><font size="18" isBold="true"/></textElement>
-                <text><![CDATA[Revenue Summary]]></text>
+                <reportElement mode="Opaque" x="117" y="48" width="300" height="22" backcolor="#2E3192" forecolor="#FFFFFF"/>
+                <textElement textAlignment="Center" verticalAlignment="Middle"  isBold="true"><font size="12"/></textElement>
+                <text><![CDATA[TRAVEL REVENUE SUMMARY]]></text>
             </staticText>
             <textField>
-                <reportElement x="0" y="32" width="555" height="20"/>
-                <textElement textAlignment="Center"><font size="10" isItalic="true"/></textElement>
-                <textFieldExpression><![CDATA["Period: " + $P{fromDate} + " to " + $P{toDate}]]></textFieldExpression>
+                <reportElement x="0" y="76" width="535" height="16"/>
+                <textElement textAlignment="Center"  isBold="true"><font size="9"/></textElement>
+                <textFieldExpression><![CDATA["Period : " + $P{periodLabel}]]></textFieldExpression>
             </textField>
         </band>
     </title>
 
-    <pageHeader>
-        <band height="20">
-            <line><reportElement x="0" y="18" width="555" height="1"/></line>
+    <columnHeader>
+        <band height="18">
+            <staticText>
+                <reportElement mode="Opaque" x="0" y="0" width="70" height="18" backcolor="#2E3192" forecolor="#FFFFFF"/>
+                <textElement textAlignment="Center" verticalAlignment="Middle"  isBold="true"><font size="8"/></textElement>
+                <box><pen lineWidth="0.5" lineColor="#FFFFFF"/></box>
+                <text><![CDATA[Date]]></text>
+            </staticText>
+            <staticText>
+                <reportElement mode="Opaque" x="70" y="0" width="90" height="18" backcolor="#2E3192" forecolor="#FFFFFF"/>
+                <textElement textAlignment="Center" verticalAlignment="Middle"  isBold="true"><font size="8"/></textElement>
+                <box><pen lineWidth="0.5" lineColor="#FFFFFF"/></box>
+                <text><![CDATA[Booking No]]></text>
+            </staticText>
+            <staticText>
+                <reportElement mode="Opaque" x="160" y="0" width="110" height="18" backcolor="#2E3192" forecolor="#FFFFFF"/>
+                <textElement textAlignment="Center" verticalAlignment="Middle"  isBold="true"><font size="8"/></textElement>
+                <box><pen lineWidth="0.5" lineColor="#FFFFFF"/></box>
+                <text><![CDATA[Customer]]></text>
+            </staticText>
+            <staticText>
+                <reportElement mode="Opaque" x="270" y="0" width="55" height="18" backcolor="#2E3192" forecolor="#FFFFFF"/>
+                <textElement textAlignment="Center" verticalAlignment="Middle"  isBold="true"><font size="8"/></textElement>
+                <box><pen lineWidth="0.5" lineColor="#FFFFFF"/></box>
+                <text><![CDATA[Status]]></text>
+            </staticText>
+            <staticText>
+                <reportElement mode="Opaque" x="325" y="0" width="70" height="18" backcolor="#2E3192" forecolor="#FFFFFF"/>
+                <textElement textAlignment="Center" verticalAlignment="Middle"  isBold="true"><font size="8"/></textElement>
+                <box><pen lineWidth="0.5" lineColor="#FFFFFF"/></box>
+                <text><![CDATA[Total]]></text>
+            </staticText>
+            <staticText>
+                <reportElement mode="Opaque" x="395" y="0" width="70" height="18" backcolor="#2E3192" forecolor="#FFFFFF"/>
+                <textElement textAlignment="Center" verticalAlignment="Middle"  isBold="true"><font size="8"/></textElement>
+                <box><pen lineWidth="0.5" lineColor="#FFFFFF"/></box>
+                <text><![CDATA[Paid]]></text>
+            </staticText>
+            <staticText>
+                <reportElement mode="Opaque" x="465" y="0" width="70" height="18" backcolor="#2E3192" forecolor="#FFFFFF"/>
+                <textElement textAlignment="Center" verticalAlignment="Middle"  isBold="true"><font size="8"/></textElement>
+                <box><pen lineWidth="0.5" lineColor="#FFFFFF"/></box>
+                <text><![CDATA[Due]]></text>
+            </staticText>
         </band>
-    </pageHeader>
+    </columnHeader>
 
     <detail>
-        <band height="500">
-            <!-- Revenue by Type -->
-            <staticText>
-                <reportElement x="0" y="0" width="555" height="18"/>
-                <textElement><font size="11" isBold="true"/></textElement>
-                <text><![CDATA[Revenue by Booking Type]]></text>
-            </staticText>
-            <frame>
-                <reportElement x="0" y="18" width="555" height="18" backcolor="#F0F0F0"/>
-                <staticText><reportElement x="0" y="0" width="250" height="18"/><box><rightPen width="0.5"/></box><textElement><font size="8" isBold="true"/></textElement><text><![CDATA[Type]]></text></staticText>
-                <staticText><reportElement x="250" y="0" width="100" height="18"/><box><rightPen width="0.5"/></box><textElement textAlignment="Center"><font size="8" isBold="true"/></textElement><text><![CDATA[Count]]></text></staticText>
-                <staticText><reportElement x="350" y="0" width="205" height="18"/><textElement textAlignment="Right"><font size="8" isBold="true"/></textElement><text><![CDATA[Revenue]]></text></staticText>
-            </frame>
-            <subreport>
-                <reportElement x="0" y="36" width="555" height="100"/>
-                <dataSourceExpression><![CDATA[$P{byTypeDataSource}]]></dataSourceExpression>
-                <subreportExpression><![CDATA[$P{byTypeSubreport}]]></subreportExpression>
-            </subreport>
-
-            <!-- Status Breakdown -->
-            <staticText>
-                <reportElement x="0" y="145" width="555" height="18"/>
-                <textElement><font size="11" isBold="true"/></textElement>
-                <text><![CDATA[Status Breakdown]]></text>
-            </staticText>
-            <frame>
-                <reportElement x="0" y="163" width="555" height="18" backcolor="#F0F0F0"/>
-                <staticText><reportElement x="0" y="0" width="250" height="18"/><box><rightPen width="0.5"/></box><textElement><font size="8" isBold="true"/></textElement><text><![CDATA[Status]]></text></staticText>
-                <staticText><reportElement x="250" y="0" width="100" height="18"/><box><rightPen width="0.5"/></box><textElement textAlignment="Center"><font size="8" isBold="true"/></textElement><text><![CDATA[Count]]></text></staticText>
-                <staticText><reportElement x="350" y="0" width="205" height="18"/><textElement textAlignment="Right"><font size="8" isBold="true"/></textElement><text><![CDATA[Revenue]]></text></staticText>
-            </frame>
-            <subreport>
-                <reportElement x="0" y="181" width="555" height="100"/>
-                <dataSourceExpression><![CDATA[$P{byStatusDataSource}]]></dataSourceExpression>
-                <subreportExpression><![CDATA[$P{byStatusSubreport}]]></subreportExpression>
-            </subreport>
-
-            <!-- Top Destinations -->
-            <staticText>
-                <reportElement x="0" y="290" width="555" height="18"/>
-                <textElement><font size="11" isBold="true"/></textElement>
-                <text><![CDATA[Top Destinations]]></text>
-            </staticText>
-            <frame>
-                <reportElement x="0" y="308" width="555" height="18" backcolor="#F0F0F0"/>
-                <staticText><reportElement x="0" y="0" width="350" height="18"/><box><rightPen width="0.5"/></box><textElement><font size="8" isBold="true"/></textElement><text><![CDATA[Destination]]></text></staticText>
-                <staticText><reportElement x="350" y="0" width="205" height="18"/><textElement textAlignment="Right"><font size="8" isBold="true"/></textElement><text><![CDATA[Bookings]]></text></staticText>
-            </frame>
-            <subreport>
-                <reportElement x="0" y="326" width="555" height="100"/>
-                <dataSourceExpression><![CDATA[$P{destinationsDataSource}]]></dataSourceExpression>
-                <subreportExpression><![CDATA[$P{destinationsSubreport}]]></subreportExpression>
-            </subreport>
+        <band height="15">
+            <textField>
+                <reportElement x="0" y="0" width="70" height="15"/>
+                <textElement textAlignment="Center" verticalAlignment="Middle" ><font size="8"/></textElement>
+                <box><pen lineWidth="0.25" lineColor="#CCCCCC"/></box>
+                <textFieldExpression><![CDATA[$F{booking_date}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="70" y="0" width="90" height="15"/>
+                <textElement textAlignment="Center" verticalAlignment="Middle" ><font size="8"/></textElement>
+                <box><pen lineWidth="0.25" lineColor="#CCCCCC"/></box>
+                <textFieldExpression><![CDATA[$F{booking_no}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="160" y="0" width="110" height="15"/>
+                <textElement verticalAlignment="Middle" ><font size="8"/></textElement>
+                <box leftPadding="3"><pen lineWidth="0.25" lineColor="#CCCCCC"/></box>
+                <textFieldExpression><![CDATA[$F{customer_name}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="270" y="0" width="55" height="15"/>
+                <textElement textAlignment="Center" verticalAlignment="Middle" ><font size="7"/></textElement>
+                <box><pen lineWidth="0.25" lineColor="#CCCCCC"/></box>
+                <textFieldExpression><![CDATA[$F{status}]]></textFieldExpression>
+            </textField>
+            <textField pattern="#,##0.00">
+                <reportElement x="325" y="0" width="70" height="15"/>
+                <textElement textAlignment="Right" verticalAlignment="Middle" ><font size="8"/></textElement>
+                <box rightPadding="3"><pen lineWidth="0.25" lineColor="#CCCCCC"/></box>
+                <textFieldExpression><![CDATA[$F{total_amount}]]></textFieldExpression>
+            </textField>
+            <textField pattern="#,##0.00">
+                <reportElement x="395" y="0" width="70" height="15"/>
+                <textElement textAlignment="Right" verticalAlignment="Middle" ><font size="8"/></textElement>
+                <box rightPadding="3"><pen lineWidth="0.25" lineColor="#CCCCCC"/></box>
+                <textFieldExpression><![CDATA[$F{paid_amount}]]></textFieldExpression>
+            </textField>
+            <textField pattern="#,##0.00">
+                <reportElement x="465" y="0" width="70" height="15"/>
+                <textElement textAlignment="Right" verticalAlignment="Middle" ><font size="8"/></textElement>
+                <box rightPadding="3"><pen lineWidth="0.25" lineColor="#CCCCCC"/></box>
+                <textFieldExpression><![CDATA[$F{due_amount}]]></textFieldExpression>
+            </textField>
         </band>
     </detail>
 
     <summary>
         <band height="30">
-            <textField evaluationTime="Report">
-                <reportElement x="0" y="0" width="555" height="20"/>
-                <textElement textAlignment="Center"><font size="8" isItalic="true"/></textElement>
-                <textFieldExpression><![CDATA["Generated " + new java.text.SimpleDateFormat("dd-MMM-yyyy HH:mm").format(new java.util.Date())]]></textFieldExpression>
+            <textField>
+                <reportElement mode="Opaque" x="0" y="4" width="325" height="20" backcolor="#2E3192" forecolor="#FFFFFF"/>
+                <textElement textAlignment="Right" verticalAlignment="Middle"  isBold="true"><font size="9"/></textElement>
+                <box rightPadding="4"/>
+                <textFieldExpression><![CDATA["GRAND TOTAL (" + $V{grandCount} + " bookings) :"]]></textFieldExpression>
+            </textField>
+            <textField pattern="#,##0.00" evaluationTime="Report">
+                <reportElement mode="Opaque" x="325" y="4" width="70" height="20" backcolor="#2E3192" forecolor="#FFFFFF"/>
+                <textElement textAlignment="Right" verticalAlignment="Middle"  isBold="true"><font size="9"/></textElement>
+                <box rightPadding="3"/>
+                <textFieldExpression><![CDATA[$V{grandTotal}]]></textFieldExpression>
+            </textField>
+            <textField pattern="#,##0.00" evaluationTime="Report">
+                <reportElement mode="Opaque" x="395" y="4" width="70" height="20" backcolor="#2E3192" forecolor="#FFFFFF"/>
+                <textElement textAlignment="Right" verticalAlignment="Middle"  isBold="true"><font size="9"/></textElement>
+                <box rightPadding="3"/>
+                <textFieldExpression><![CDATA[$V{grandPaid}]]></textFieldExpression>
+            </textField>
+            <textField pattern="#,##0.00" evaluationTime="Report">
+                <reportElement mode="Opaque" x="465" y="4" width="70" height="20" backcolor="#2E3192" forecolor="#FFFFFF"/>
+                <textElement textAlignment="Right" verticalAlignment="Middle"  isBold="true"><font size="9"/></textElement>
+                <box rightPadding="3"/>
+                <textFieldExpression><![CDATA[$V{grandDue}]]></textFieldExpression>
             </textField>
         </band>
     </summary>
 
     <pageFooter>
-        <band height="20">
-            <line><reportElement x="0" y="0" width="555" height="1"/></line>
+        <band height="15">
             <textField evaluationTime="Report">
-                <reportElement x="0" y="2" width="300" height="15"/>
-                <textElement><font size="7"/></textElement>
-                <textFieldExpression><![CDATA["Generated by Spindle ERP — Travel Module"]]></textFieldExpression>
+                <reportElement x="0" y="0" width="300" height="12"/>
+                <textElement  forecolor="#999999"><font size="7"/></textElement>
+                <textFieldExpression><![CDATA["Generated by Spindle ERP — " + new java.text.SimpleDateFormat("dd-MMM-yyyy HH:mm").format(new java.util.Date())]]></textFieldExpression>
             </textField>
             <textField evaluationTime="Page">
-                <reportElement x="450" y="2" width="105" height="15"/>
-                <textElement textAlignment="Right"><font size="7"/></textElement>
+                <reportElement x="455" y="0" width="80" height="12"/>
+                <textElement textAlignment="Right"  forecolor="#999999"><font size="7"/></textElement>
                 <textFieldExpression><![CDATA["Page " + $V{PAGE_NUMBER}]]></textFieldExpression>
             </textField>
         </band>

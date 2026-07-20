@@ -1,28 +1,27 @@
 package com.asg.spindleserp.travel.service;
 
-import com.asg.spindleserp.travel.dto.*;
-
-import java.util.Map;
-
 /**
- * TravelReportService — JasperReports-based PDF generation for travel documents.
- *
- * Each method returns a PDF byte array that controllers stream to the client.
+ * TravelReportService — produces PDF reports for the travel module.
+ * Each method returns the rendered PDF bytes (streamed inline by
+ * TravelReportController).
  */
 public interface TravelReportService {
 
-    /** Booking confirmation / invoice. */
+    /** Booking confirmation with service lines + passenger manifest. */
     byte[] bookingConfirmation(Long bookingId);
 
-    /** Air ticket / itinerary. */
+    /** E-ticket / itinerary receipt with flight segments + per-pax tickets. */
     byte[] airTicket(Long ticketId);
 
-    /** Package voucher with itinerary and in/exclusions. */
+    /** Package service voucher with day-wise itinerary + inclusions/exclusions. */
     byte[] packageVoucher(Long packageBookingId);
 
-    /** Visa application summary with document checklist. */
+    /** Visa application status sheet with document checklist. */
     byte[] visaApplication(Long visaId);
 
-    /** Revenue summary for a date range (default: current month). */
-    byte[] revenueSummary(String fromDate, String toDate);
+    /**
+     * Revenue summary for a date range (yyyy-MM-dd strings, both optional —
+     * defaults to the current month-to-date), grouped by booking type.
+     */
+    byte[] revenueSummary(String from, String to);
 }

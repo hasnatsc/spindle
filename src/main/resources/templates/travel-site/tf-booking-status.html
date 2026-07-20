@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<!-- travel-site/tf-booking-status.html  POST /travel-site/booking/lookup result -->
+<html th:replace="~{travel-site/layout/tf-base :: layout('Booking Status', ~{::main})}" xmlns:th="http://www.thymeleaf.org">
+<main>
+  <section class="tf-section tf-section--first">
+    <div class="container" style="max-width:700px">
+
+      <!-- Status header -->
+      <div class="tf-status-header">
+        <div>
+          <span class="tf-badge" th:text="${booking.status}">DRAFT</span>
+          <h2 class="mb-1" style="margin-top:8px">
+            Booking <span class="tf-mono" th:text="${booking.bookingNo}">BKG-2401-00001</span>
+          </h2>
+          <p class="text-muted" th:text="'Booked on ' + ${booking.bookingDate}">Booked on 24-Jan-2026</p>
+        </div>
+        <div class="tf-status-visual">
+          <div th:classappend="'tf-status-dot tf-status-dot--' + |${#strings.toLowerCase(booking.status)}|">
+            <i th:class="${booking.status == 'CONFIRMED'} ? 'fa-solid fa-check' :
+                         ${booking.status == 'CANCELLED'} ? 'fa-solid fa-ban' :
+                         ${booking.status == 'PAID'} ? 'fa-solid fa-circle-check' :
+                         ${booking.status == 'DRAFT'} ? 'fa-solid fa-pen' : 'fa-solid fa-clock'"></i>
+          </div>
+        </div>
+      </div>
+
+      <!-- Key info card -->
+      <div class="tf-card tf-card--compact">
+        <div class="row g-3">
+          <div class="col-6 col-md-3">
+            <div class="tf-info-label">Booking Type</div>
+            <div class="tf-info-value" th:text="${booking.bookingType}">Package</div>
+          </div>
+          <div class="col-6 col-md-3">
+            <div class="tf-info-label">Customer</div>
+            <div class="tf-info-value" th:text="${booking.partyDisplay ?: 'Walk-in'}">John Doe</div>
+          </div>
+          <div class="col-6 col-md-3">
+            <div class="tf-info-label">Total Amount</div>
+            <div class="tf-info-value tf-mono" th:text="'BDT ' + ${#numbers.formatDecimal(booking.totalAmount ?: 0, 0, 'COMMA', 2, 'POINT')}">0.00</div>
+          </div>
+          <div class="col-6 col-md-3">
+            <div class="tf-info-label">Due</div>
+            <div class="tf-info-value tf-mono" th:text="'BDT ' + ${#numbers.formatDecimal(booking.dueAmount ?: 0, 0, 'COMMA', 2, 'POINT')}">0.00</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Services -->
+      <div class="tf-card tf-card--compact" th:if="${booking.services != null and !booking.services.isEmpty()}">
+        <h5 class="tf-card-label"><i class="fa-solid fa-list me-2"></i>Services</h5>
+        <div class="tf-table-wrap">
+          <table class="tf-table">
+            <thead><tr>
+              <th>Type</th><th>Description</th><th class="text-end">Qty</th><th class="text-end">Price</th><th class="text-end">Total</th>
+            </tr></thead>
+            <tbody>
+              <tr th:each="s : ${booking.services}">
+                <td><span class="tf-badge tf-badge--sm" th:text="${s.serviceType}">HOTEL</span></td>
+                <td th:text="${s.description}">Deluxe Room</td>
+                <td class="text-end tf-mono" th:text="${s.quantity}">1</td>
+                <td class="text-end tf-mono" th:text="${#numbers.formatDecimal(s.unitPrice ?: 0, 0, 'COMMA', 2, 'POINT')}">0.00</td>
+                <td class="text-end tf-mono" th:text="${#numbers.formatDecimal(s.lineTotal ?: 0, 0, 'COMMA', 2, 'POINT')}">0.00</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="tf-total-row">
+          <span>Total</span>
+          <strong class="tf-mono" th:text="'BDT ' + ${#numbers.formatDecimal(booking.totalAmount ?: 0, 0, 'COMMA', 2, 'POINT')}">0.00</strong>
+        </div>
+      </div>
+
+      <!-- Passengers -->
+      <div class="tf-card tf-card--compact" th:if="${booking.passengers != null and !booking.passengers.isEmpty()}">
+        <h5 class="tf-card-label"><i class="fa-solid fa-users me-2"></i>Passengers</h5>
+        <div class="tf-table-wrap">
+          <table class="tf-table">
+            <thead><tr><th>Name</th><th>Type</th><th>Passport</th></tr></thead>
+            <tbody>
+              <tr th:each="p : ${booking.passengers}">
+                <td th:text="${p.title + ' ' + p.firstName + ' ' + (p.lastName ?: '')}">Mr John Doe</td>
+                <td th:text="${p.passengerType}">ADULT</td>
+                <td class="tf-mono" th:text="${p.passportNumber ?: '—'}">AB123456</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Travel dates -->
+      <div class="tf-card tf-card--compact" th:if="${booking.travelStartDate}">
+        <h5 class="tf-card-label"><i class="fa-solid fa-calendar me-2"></i>Travel Dates</h5>
+        <div class="row g-2">
+          <div class="col-6">
+            <div class="tf-info-label">Start</div>
+            <div class="tf-info-value" th:text="${booking.travelStartDate}">—</div>
+          </div>
+          <div class="col-6">
+            <div class="tf-info-label">End</div>
+            <div class="tf-info-value" th:text="${booking.travelEndDate ?: '—'}">—</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Status Timeline -->
+      <div class="tf-card tf-card--compact" th:if="${history != null and !history.isEmpty()}">
+        <h5 class="tf-card-label"><i class="fa-solid fa-clock-rotate-left me-2"></i>Status History</h5>
+        <div class="tf-timeline">
+          <div class="tf-timeline-item" th:each="h : ${history}">
+            <div class="tf-timeline-dot"></div>
+            <div class="tf-timeline-content">
+              <span class="tf-badge tf-badge--sm" th:text="${h.status}">CONFIRMED</span>
+              <span class="tf-timeline-meta" th:text="${h.changed_at}">24-Jan-2026 14:30</span>
+              <span class="tf-timeline-remarks" th:if="${h.remarks}" th:text="${h.remarks}">Booking confirmed.</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Back -->
+      <div class="text-center mt-4">
+        <a href="/travel-site/booking/lookup" class="tf-btn tf-btn--outline"><i class="fa-solid fa-arrow-left me-2"></i> Look Up Another</a>
+        <a href="/travel-site" class="tf-btn tf-btn--outline ms-2">Back to Home</a>
+      </div>
+    </div>
+  </section>
+
+  <style>
+    .tf-status-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:1.5rem; }
+    .tf-status-dot { width:52px; height:52px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:1.25rem; color:#fff; }
+    .tf-status-dot--draft { background:#94a3b8; }
+    .tf-status-dot--confirmed { background:#10b981; }
+    .tf-status-dot--cancelled { background:#f43f5e; }
+    .tf-status-dot--paid { background:#2563eb; }
+    .tf-status-dot--partially_paid { background:#f59e0b; }
+    .tf-status-dot--completed { background:#1e293b; }
+    .tf-info-label { font-size:.72rem; font-weight:600; text-transform:uppercase; letter-spacing:.5px; color:#64748b; margin-bottom:2px; }
+    .tf-info-value { font-size:.95rem; }
+    .tf-card--compact { padding:1.15rem; margin-bottom:1rem; }
+    .tf-card-label { font-size:.85rem; font-weight:700; margin-bottom:.85rem; }
+    .tf-table-wrap { overflow-x:auto; }
+    .tf-table { width:100%; border-collapse:collapse; font-size:.85rem; }
+    .tf-table th { background:#f8fafc; font-size:.7rem; font-weight:700; text-transform:uppercase; letter-spacing:.4px; padding:.45rem .5rem; border-bottom:2px solid #e2e8f0; }
+    .tf-table td { padding:.45rem .5rem; border-bottom:1px solid #f1f5f9; }
+    .tf-total-row { display:flex; justify-content:space-between; align-items:center; padding:.75rem .5rem 0; margin-top:.5rem; border-top:2px solid #e2e8f0; font-size:1rem; }
+    .tf-timeline { position:relative; padding-left:1.25rem; }
+    .tf-timeline::before { content:''; position:absolute; left:5px; top:4px; bottom:4px; width:2px; background:#e2e8f0; }
+    .tf-timeline-item { position:relative; padding:0 0 1rem .75rem; }
+    .tf-timeline-dot { position:absolute; left:-1.25rem; top:5px; width:10px; height:10px; border-radius:50%; background:#cbd5e1; border:2px solid #94a3b8; }
+    .tf-timeline-content { display:flex; flex-wrap:wrap; gap:.35rem .75rem; align-items:baseline; }
+    .tf-timeline-meta { font-size:.75rem; color:#94a3b8; }
+    .tf-timeline-remarks { width:100%; font-size:.8rem; color:#475569; }
+    .tf-error-box { display:flex; align-items:center; padding:.75rem 1rem; margin-top:1rem; border-radius:.5rem; background:#fef2f2; color:#991b1b; font-size:.85rem; border:1px solid #fecaca; }
+  </style>
+</main>
+</html>

@@ -24,6 +24,8 @@ public interface TravelBookingService {
 
     TrvBookingDTO findById(Long id);
 
+    TrvBookingDTO findByBookingNo(Long organizationId, String bookingNo);
+
     void delete(Long id);
 
     /** DRAFT → CONFIRMED. Creates the GL voucher and updates customer AR. */

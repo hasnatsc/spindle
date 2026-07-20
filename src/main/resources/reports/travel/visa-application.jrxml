@@ -1,35 +1,270 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!--
+  visa-application.jrxml — SpindleERP Travel Module (JasperReports 7)
+  Visa application status sheet with applicant details + document checklist.
+  Main dataset : trv_visa_documents checklist ($P{visaId})
+-->
 <jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports"
               xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
               xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd"
-              name="visa-application" pageWidth="595" pageHeight="842" columnWidth="535"
+              name="visa-application"
+              pageWidth="595" pageHeight="842" columnWidth="535"
               leftMargin="30" rightMargin="30" topMargin="20" bottomMargin="20"
               whenNoDataType="AllSectionsNoDetail">
-    <parameter name="title" class="java.lang.String"/>
-    <parameter name="body" class="java.lang.String"/>
+
+    <parameter name="image_path"        class="java.lang.String"/>
+    <parameter name="company_name"      class="java.lang.String"/>
+    <parameter name="company_address"   class="java.lang.String"/>
+
+    <parameter name="visaId"            class="java.lang.Long"/>
+
+    <parameter name="applicationNumber" class="java.lang.String"/>
+    <parameter name="bookingNo"         class="java.lang.String"/>
+    <parameter name="status"            class="java.lang.String"/>
+    <parameter name="country"           class="java.lang.String"/>
+    <parameter name="visaCategory"      class="java.lang.String"/>
+    <parameter name="processingDays"    class="java.lang.String"/>
+    <parameter name="feeAmount"         class="java.math.BigDecimal"/>
+    <parameter name="currency"          class="java.lang.String"/>
+    <parameter name="submissionDate"    class="java.lang.String"/>
+    <parameter name="expectedDate"      class="java.lang.String"/>
+    <parameter name="approvalDate"      class="java.lang.String"/>
+
+    <parameter name="applicantName"     class="java.lang.String"/>
+    <parameter name="passportNumber"    class="java.lang.String"/>
+    <parameter name="passportExpiry"    class="java.lang.String"/>
+    <parameter name="nationality"       class="java.lang.String"/>
+    <parameter name="dateOfBirth"       class="java.lang.String"/>
+    <parameter name="remarks"           class="java.lang.String"/>
+
+    <queryString><![CDATA[
+        SELECT d.document_name,
+               d.is_received,
+               COALESCE(d.remarks, '') AS remarks
+        FROM   trv_visa_documents d
+        WHERE  d.visa_application_id = $P{visaId}
+        ORDER  BY d.id
+    ]]></queryString>
+
+    <field name="document_name" class="java.lang.String"/>
+    <field name="is_received"   class="java.lang.Boolean"/>
+    <field name="remarks"       class="java.lang.String"/>
+
     <title>
-        <band height="30">
+        <band height="216">
+            <image scaleImage="RetainShape" onErrorType="Blank">
+                <reportElement x="0" y="0" width="180" height="40"/>
+                <imageExpression><![CDATA[$P{image_path}]]></imageExpression>
+            </image>
+            <textField>
+                <reportElement x="250" y="0" width="285" height="16"/>
+                <textElement textAlignment="Right"  isBold="true"><font size="12"/></textElement>
+                <textFieldExpression><![CDATA[$P{company_name}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="250" y="18" width="285" height="22"/>
+                <textElement textAlignment="Right" ><font size="8"/></textElement>
+                <textFieldExpression><![CDATA[$P{company_address}]]></textFieldExpression>
+            </textField>
             <staticText>
-                <reportElement x="0" y="0" width="535" height="28"/>
-                <textElement textAlignment="Center"><font size="16" isBold="true"/></textElement>
-                <text><![CDATA[Visa Application]]></text>
+                <reportElement mode="Opaque" x="117" y="48" width="300" height="22" backcolor="#2E3192" forecolor="#FFFFFF"/>
+                <textElement textAlignment="Center" verticalAlignment="Middle"  isBold="true"><font size="12"/></textElement>
+                <text><![CDATA[VISA APPLICATION STATUS]]></text>
             </staticText>
+
+            <!-- application block -->
+            <textField>
+                <reportElement x="0" y="80" width="265" height="14"/>
+                <textElement  isBold="true" verticalAlignment="Middle"><font size="9"/></textElement>
+                <box><bottomPen lineWidth="0.5" lineStyle="Dotted"/></box>
+                <textFieldExpression><![CDATA["Application No : " + $P{applicationNumber}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="0" y="96" width="265" height="14"/>
+                <textElement  verticalAlignment="Middle"><font size="9"/></textElement>
+                <box><bottomPen lineWidth="0.5" lineStyle="Dotted"/></box>
+                <textFieldExpression><![CDATA["Country : " + $P{country}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="0" y="112" width="265" height="14"/>
+                <textElement  verticalAlignment="Middle"><font size="9"/></textElement>
+                <box><bottomPen lineWidth="0.5" lineStyle="Dotted"/></box>
+                <textFieldExpression><![CDATA["Visa Category : " + $P{visaCategory}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="0" y="128" width="265" height="14"/>
+                <textElement  verticalAlignment="Middle"><font size="9"/></textElement>
+                <box><bottomPen lineWidth="0.5" lineStyle="Dotted"/></box>
+                <textFieldExpression><![CDATA["Processing Time : " + $P{processingDays} + " days"]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="0" y="144" width="265" height="14"/>
+                <textElement  verticalAlignment="Middle"><font size="9"/></textElement>
+                <box><bottomPen lineWidth="0.5" lineStyle="Dotted"/></box>
+                <textFieldExpression><![CDATA["Fee : " + $P{currency} + " " + new java.text.DecimalFormat("#,##0.00").format($P{feeAmount} != null ? $P{feeAmount} : java.math.BigDecimal.ZERO)]]></textFieldExpression>
+            </textField>
+
+            <textField>
+                <reportElement x="290" y="80" width="245" height="14"/>
+                <textElement  isBold="true" verticalAlignment="Middle"><font size="9"/></textElement>
+                <box><bottomPen lineWidth="0.5" lineStyle="Dotted"/></box>
+                <textFieldExpression><![CDATA["Status : " + $P{status}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="290" y="96" width="245" height="14"/>
+                <textElement  verticalAlignment="Middle"><font size="9"/></textElement>
+                <box><bottomPen lineWidth="0.5" lineStyle="Dotted"/></box>
+                <textFieldExpression><![CDATA["Booking No : " + $P{bookingNo}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="290" y="112" width="245" height="14"/>
+                <textElement  verticalAlignment="Middle"><font size="9"/></textElement>
+                <box><bottomPen lineWidth="0.5" lineStyle="Dotted"/></box>
+                <textFieldExpression><![CDATA["Submitted : " + $P{submissionDate}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="290" y="128" width="245" height="14"/>
+                <textElement  verticalAlignment="Middle"><font size="9"/></textElement>
+                <box><bottomPen lineWidth="0.5" lineStyle="Dotted"/></box>
+                <textFieldExpression><![CDATA["Expected : " + $P{expectedDate}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="290" y="144" width="245" height="14"/>
+                <textElement  verticalAlignment="Middle"><font size="9"/></textElement>
+                <box><bottomPen lineWidth="0.5" lineStyle="Dotted"/></box>
+                <textFieldExpression><![CDATA["Approved : " + $P{approvalDate}]]></textFieldExpression>
+            </textField>
+
+            <!-- applicant block -->
+            <staticText>
+                <reportElement mode="Opaque" x="0" y="166" width="535" height="16" backcolor="#EEEEF7"/>
+                <textElement verticalAlignment="Middle"  isBold="true"><font size="9"/></textElement>
+                <box leftPadding="3"><pen lineWidth="0.25" lineColor="#2E3192"/></box>
+                <text><![CDATA[APPLICANT]]></text>
+            </staticText>
+            <textField>
+                <reportElement x="0" y="184" width="265" height="14"/>
+                <textElement  isBold="true" verticalAlignment="Middle"><font size="9"/></textElement>
+                <box><bottomPen lineWidth="0.5" lineStyle="Dotted"/></box>
+                <textFieldExpression><![CDATA["Name : " + $P{applicantName}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="290" y="184" width="245" height="14"/>
+                <textElement  verticalAlignment="Middle"><font size="9"/></textElement>
+                <box><bottomPen lineWidth="0.5" lineStyle="Dotted"/></box>
+                <textFieldExpression><![CDATA["Nationality : " + $P{nationality} + "    DOB : " + $P{dateOfBirth}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="0" y="200" width="265" height="14"/>
+                <textElement  verticalAlignment="Middle"><font size="9"/></textElement>
+                <box><bottomPen lineWidth="0.5" lineStyle="Dotted"/></box>
+                <textFieldExpression><![CDATA["Passport No : " + $P{passportNumber}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="290" y="200" width="245" height="14"/>
+                <textElement  verticalAlignment="Middle"><font size="9"/></textElement>
+                <box><bottomPen lineWidth="0.5" lineStyle="Dotted"/></box>
+                <textFieldExpression><![CDATA["Passport Expiry : " + $P{passportExpiry}]]></textFieldExpression>
+            </textField>
         </band>
     </title>
+
+    <columnHeader>
+        <band height="18">
+            <staticText>
+                <reportElement mode="Opaque" x="0" y="0" width="30" height="18" backcolor="#2E3192" forecolor="#FFFFFF"/>
+                <textElement textAlignment="Center" verticalAlignment="Middle"  isBold="true"><font size="8"/></textElement>
+                <box><pen lineWidth="0.5" lineColor="#FFFFFF"/></box>
+                <text><![CDATA[SL]]></text>
+            </staticText>
+            <staticText>
+                <reportElement mode="Opaque" x="30" y="0" width="250" height="18" backcolor="#2E3192" forecolor="#FFFFFF"/>
+                <textElement textAlignment="Center" verticalAlignment="Middle"  isBold="true"><font size="8"/></textElement>
+                <box><pen lineWidth="0.5" lineColor="#FFFFFF"/></box>
+                <text><![CDATA[Required Document]]></text>
+            </staticText>
+            <staticText>
+                <reportElement mode="Opaque" x="280" y="0" width="80" height="18" backcolor="#2E3192" forecolor="#FFFFFF"/>
+                <textElement textAlignment="Center" verticalAlignment="Middle"  isBold="true"><font size="8"/></textElement>
+                <box><pen lineWidth="0.5" lineColor="#FFFFFF"/></box>
+                <text><![CDATA[Status]]></text>
+            </staticText>
+            <staticText>
+                <reportElement mode="Opaque" x="360" y="0" width="175" height="18" backcolor="#2E3192" forecolor="#FFFFFF"/>
+                <textElement textAlignment="Center" verticalAlignment="Middle"  isBold="true"><font size="8"/></textElement>
+                <box><pen lineWidth="0.5" lineColor="#FFFFFF"/></box>
+                <text><![CDATA[Remarks]]></text>
+            </staticText>
+        </band>
+    </columnHeader>
+
     <detail>
-        <band height="760" splitAllowed="true">
-            <textField isStretchWithOverflow="true">
-                <reportElement x="0" y="0" width="535" height="760"/>
-                <textElement><font size="8"/></textElement>
-                <textFieldExpression><![CDATA[$P{body}]]></textFieldExpression>
+        <band height="16">
+            <textField>
+                <reportElement x="0" y="0" width="30" height="16"/>
+                <textElement textAlignment="Center" verticalAlignment="Middle" ><font size="8"/></textElement>
+                <box><pen lineWidth="0.25" lineColor="#CCCCCC"/></box>
+                <textFieldExpression><![CDATA[$V{REPORT_COUNT}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="30" y="0" width="250" height="16"/>
+                <textElement verticalAlignment="Middle" ><font size="8"/></textElement>
+                <box leftPadding="3"><pen lineWidth="0.25" lineColor="#CCCCCC"/></box>
+                <textFieldExpression><![CDATA[$F{document_name}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="280" y="0" width="80" height="16"/>
+                <textElement textAlignment="Center" verticalAlignment="Middle"  isBold="true"><font size="8"/></textElement>
+                <box><pen lineWidth="0.25" lineColor="#CCCCCC"/></box>
+                <textFieldExpression><![CDATA[Boolean.TRUE.equals($F{is_received}) ? "RECEIVED" : "PENDING"]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="360" y="0" width="175" height="16"/>
+                <textElement verticalAlignment="Middle" ><font size="8"/></textElement>
+                <box leftPadding="3"><pen lineWidth="0.25" lineColor="#CCCCCC"/></box>
+                <textFieldExpression><![CDATA[$F{remarks}]]></textFieldExpression>
             </textField>
         </band>
     </detail>
+
+    <summary>
+        <band height="90">
+            <textField>
+                <reportElement x="0" y="8" width="535" height="28" positionType="Float"/>
+                <textElement ><font size="8"/></textElement>
+                <textFieldExpression><![CDATA["Remarks : " + $P{remarks}]]></textFieldExpression>
+            </textField>
+            <staticText>
+                <reportElement x="0" y="70" width="140" height="12" positionType="Float"/>
+                <textElement textAlignment="Center" ><font size="8"/></textElement>
+                <box><topPen lineWidth="0.5"/></box>
+                <text><![CDATA[Processed by]]></text>
+            </staticText>
+            <staticText>
+                <reportElement x="197" y="70" width="140" height="12" positionType="Float"/>
+                <textElement textAlignment="Center" ><font size="8"/></textElement>
+                <box><topPen lineWidth="0.5"/></box>
+                <text><![CDATA[Applicant]]></text>
+            </staticText>
+            <staticText>
+                <reportElement x="395" y="70" width="140" height="12" positionType="Float"/>
+                <textElement textAlignment="Center" ><font size="8"/></textElement>
+                <box><topPen lineWidth="0.5"/></box>
+                <text><![CDATA[Authorized Signatory]]></text>
+            </staticText>
+        </band>
+    </summary>
+
     <pageFooter>
         <band height="15">
+            <textField evaluationTime="Report">
+                <reportElement x="0" y="0" width="300" height="12"/>
+                <textElement  forecolor="#999999"><font size="7"/></textElement>
+                <textFieldExpression><![CDATA["Generated by Spindle ERP — " + new java.text.SimpleDateFormat("dd-MMM-yyyy HH:mm").format(new java.util.Date())]]></textFieldExpression>
+            </textField>
             <textField evaluationTime="Page">
-                <reportElement x="435" y="0" width="100" height="15"/>
-                <textElement textAlignment="Right"><font size="7"/></textElement>
+                <reportElement x="455" y="0" width="80" height="12"/>
+                <textElement textAlignment="Right"  forecolor="#999999"><font size="7"/></textElement>
                 <textFieldExpression><![CDATA["Page " + $V{PAGE_NUMBER}]]></textFieldExpression>
             </textField>
         </band>

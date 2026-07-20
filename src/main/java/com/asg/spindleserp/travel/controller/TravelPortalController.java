@@ -1,6 +1,7 @@
 // Path: com/asg/spindleserp/travel/controller/TravelPortalController.java
 package com.asg.spindleserp.travel.controller;
 
+import com.asg.spindleserp.security.auth.SecurityHelper;
 import com.asg.spindleserp.travel.dto.TrvBookingDTO;
 import com.asg.spindleserp.travel.dto.TrvPackageDTO;
 import com.asg.spindleserp.travel.dto.TrvTourDTO;
@@ -9,6 +10,7 @@ import com.asg.spindleserp.travel.service.TravelPackageService;
 import com.asg.spindleserp.travel.service.TravelTourService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
@@ -59,6 +61,7 @@ public class TravelPortalController {
     private final TravelPackageService packageService;
     private final TravelTourService tourService;
     private final TravelBookingService bookingService;
+    private final JdbcTemplate jdbcTemplate;
 
     private static final int FEATURED_LIMIT = 6;
 
@@ -213,6 +216,31 @@ public class TravelPortalController {
     public String enquirySuccess(@PathVariable String bookingNo, Model model) {
         model.addAttribute("bookingNo", bookingNo);
         return "travel-site/tf-enquiry-success";
+    }
+
+    // ── BOOKING VERIFICATION ───────────────────────────────────────────────
+    @GetMapping("/booking/lookup")
+    public String bookingLookupForm(Model model) {
+        return "travel-site/tf-booking-lookup";
+    }
+
+    @PostMapping("/booking/lookup")
+    public String bookingLookup(@RequestParam String bookingNo, Model model) {
+        try {
+            Long orgId = SecurityHelper.requireOrgId();
+            TrvBookingDTO booking = bookingService.findByBookingNo(orgId, bookingNo);
+            model.addAttribute("booking", booking);
+            // Try to show status history
+            try { model.addAttribute("history", jdbcTemplate.queryForList(
+                "SELECT status, changed_by, remarks, TO_CHAR(changed_at, 'DD-Mon-YYYY HH24:MI') AS changed_at " +
+                "FROM trv_booking_status_history WHERE booking_id = ? ORDER BY changed_at DESC", booking.getId()));
+            } catch (Exception e) { /* history optional */ }
+            return "travel-site/tf-booking-status";
+        } catch (Exception e) {
+            model.addAttribute("error", "No booking found with reference: " + bookingNo);
+            model.addAttribute("bookingNo", bookingNo);
+            return "travel-site/tf-booking-lookup";
+        }
     }
 
     // ── HELPERS ──────────────────────────────────────────────────────────────

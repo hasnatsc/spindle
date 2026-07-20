@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<!-- travel-site/tf-booking-lookup.html  GET/POST /travel-site/booking/lookup -->
+<html th:replace="~{travel-site/layout/tf-base :: layout('My Booking', ~{::main})}" xmlns:th="http://www.thymeleaf.org">
+<main>
+  <section class="tf-section tf-section--first">
+    <div class="container" style="max-width:560px">
+      <div class="tf-card tf-card--centered">
+        <div class="tf-icon-circle"><i class="fa-solid fa-ticket"></i></div>
+        <h2 class="tf-card-title">Check Your Booking</h2>
+        <p class="tf-card-desc">Enter your booking reference number below to see your current status and details.</p>
+
+        <form th:action="@{/travel-site/booking/lookup}" method="post" class="tf-form">
+          <div class="mb-3">
+            <label for="bookingNo" class="tf-label">Booking Reference</label>
+            <input type="text" id="bookingNo" name="bookingNo"
+                   class="tf-input tf-input--mono"
+                   th:value="${bookingNo}"
+                   placeholder="e.g. BKG-2401-00001" required autofocus>
+          </div>
+          <button type="submit" class="tf-btn tf-btn--primary tf-btn--full">
+            <i class="fa-solid fa-search me-2"></i> Look Up Booking
+          </button>
+        </form>
+
+        <div th:if="${error}" class="tf-error-box">
+          <i class="fa-solid fa-circle-exclamation me-2"></i>
+          <span th:text="${error}">Booking not found.</span>
+        </div>
+
+        <p class="tf-card-footnote">Have questions? <a href="tel:+8801700000000">Call our team</a> — we're happy to help.</p>
+      </div>
+    </div>
+  </section>
+</main>
+</html>
