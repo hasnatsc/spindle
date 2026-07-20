@@ -13,10 +13,11 @@
   </ol>
   <h1 class="page-header">Tours <small>day-trips &amp; excursions, guides, and fulfillment bookings</small></h1>
 
-  <div class="d-flex gap-2 mb-3 flex-wrap">
-    <a th:href="@{/travel/packages}" class="btn btn-sm btn-outline-primary"><i class="fa fa-suitcase-rolling me-1"></i> Packages</a>
-    <a th:href="@{/travel/tours}"    class="btn btn-sm btn-primary"><i class="fa fa-route me-1"></i> Tours</a>
-    <a th:href="@{/travel/visa-applications}" class="btn btn-sm btn-outline-primary"><i class="fa fa-passport me-1"></i> Visa</a>
+  <div class="travel-nav">
+    <a th:href="@{/travel/packages}" class="btn btn-outline-primary btn-sm"><i class="fa fa-suitcase-rolling"></i> Packages</a>
+    <a th:href="@{/travel/tours}"    class="btn btn-primary btn-sm"><i class="fa fa-route"></i> Tours</a>
+    <a th:href="@{/travel/visa-applications}" class="btn btn-outline-primary btn-sm"><i class="fa fa-passport"></i> Visa</a>
+    <a th:href="@{/travel/bookings}" class="btn btn-outline-primary btn-sm"><i class="fa fa-ticket-alt"></i> Bookings</a>
   </div>
 
   <div class="panel panel-inverse">
@@ -430,7 +431,7 @@
     }
 
     function _resetTourbkForm() { document.getElementById('tourbkForm').reset(); document.getElementById('tourbkId').value = ''; }
-    function _vf(label, value) { return '<div class="col-md-4 view-group"><label class="view-label">' + label + '</label><span class="form-control hs_span_show">' + (value != null ? value : '—') + '</span></div>'; }
+    function _vf(label, value) { return travel.viewField(label, value); }
   })();
   </script>
 </section>

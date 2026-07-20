@@ -1,0 +1,250 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports"
+              xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+              xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd"
+              name="air-ticket" pageWidth="595" pageHeight="842" columnWidth="555"
+              leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20"
+              whenNoDataType="AllSectionsNoDetail">
+    <property name="com.jaspersoft.studio.data.defaultdataadapter" value="One Empty Record"/>
+    <parameter name="title" class="java.lang.String"/>
+    <parameter name="pnr" class="java.lang.String"/>
+    <parameter name="ticket_number" class="java.lang.String"/>
+    <parameter name="validating_carrier" class="java.lang.String"/>
+    <parameter name="fare_basis" class="java.lang.String"/>
+    <parameter name="tour_code" class="java.lang.String"/>
+    <parameter name="issue_date" class="java.lang.String"/>
+    <parameter name="fare_amount" class="java.math.BigDecimal"/>
+    <parameter name="tax_amount" class="java.math.BigDecimal"/>
+    <parameter name="commission_amount" class="java.math.BigDecimal"/>
+    <parameter name="service_fee_amount" class="java.math.BigDecimal"/>
+    <parameter name="net_fare" class="java.math.BigDecimal"/>
+    <parameter name="total_amount" class="java.math.BigDecimal"/>
+    <parameter name="agent_vendor_name" class="java.lang.String"/>
+    <parameter name="booking_reference" class="java.lang.String"/>
+    <parameter name="endorsement_restrictions" class="java.lang.String"/>
+    <parameter name="status" class="java.lang.String"/>
+    <parameter name="booking_no" class="java.lang.String"/>
+    <parameter name="segmentsDataSource" class="net.sf.jasperreports.engine.data.JRBeanCollectionDataSource"/>
+    <parameter name="paxTicketsDataSource" class="net.sf.jasperreports.engine.data.JRBeanCollectionDataSource"/>
+
+    <title>
+        <band height="50">
+            <staticText>
+                <reportElement x="0" y="0" width="555" height="30"/>
+                <textElement textAlignment="Center">
+                    <font size="18" isBold="true"/>
+                </textElement>
+                <text><![CDATA[Air Ticket / Itinerary]]></text>
+            </staticText>
+            <textField>
+                <reportElement x="0" y="30" width="555" height="20"/>
+                <textElement textAlignment="Center">
+                    <font size="10" isItalic="true"/>
+                </textElement>
+                <textFieldExpression><![CDATA["PNR: " + $P{pnr} + "  |  Booking: " + $P{booking_no}]]></textFieldExpression>
+            </textField>
+        </band>
+    </title>
+
+    <pageHeader>
+        <band height="20">
+            <line><reportElement x="0" y="18" width="555" height="1"/></line>
+        </band>
+    </pageHeader>
+
+    <columnHeader>
+        <band height="70">
+            <staticText>
+                <reportElement x="0" y="0" width="555" height="15"/>
+                <textElement><font size="8" isBold="true"/></textElement>
+                <text><![CDATA[Ticket Information]]></text>
+            </staticText>
+            <textField>
+                <reportElement x="0" y="18" width="100" height="15"/>
+                <textElement><font size="8" isBold="true"/></textElement>
+                <text><![CDATA[Ticket No:]]></text>
+            </textField>
+            <textField>
+                <reportElement x="100" y="18" width="150" height="15"/>
+                <textFieldExpression><![CDATA[$P{ticket_number}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="0" y="34" width="100" height="15"/>
+                <textElement><font size="8" isBold="true"/></textElement>
+                <text><![CDATA[Carrier:]]></text>
+            </textField>
+            <textField>
+                <reportElement x="100" y="34" width="150" height="15"/>
+                <textFieldExpression><![CDATA[$P{validating_carrier}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="0" y="50" width="100" height="15"/>
+                <textElement><font size="8" isBold="true"/></textElement>
+                <text><![CDATA[Issue Date:]]></text>
+            </textField>
+            <textField>
+                <reportElement x="100" y="50" width="150" height="15"/>
+                <textFieldExpression><![CDATA[$P{issue_date}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="300" y="18" width="100" height="15"/>
+                <textElement><font size="8" isBold="true"/></textElement>
+                <text><![CDATA[Fare Basis:]]></text>
+            </textField>
+            <textField>
+                <reportElement x="400" y="18" width="155" height="15"/>
+                <textFieldExpression><![CDATA[$P{fare_basis}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="300" y="34" width="100" height="15"/>
+                <textElement><font size="8" isBold="true"/></textElement>
+                <text><![CDATA[Agent/Vendor:]]></text>
+            </textField>
+            <textField>
+                <reportElement x="400" y="34" width="155" height="15"/>
+                <textFieldExpression><![CDATA[$P{agent_vendor_name}]]></textFieldExpression>
+            </textField>
+        </band>
+    </columnHeader>
+
+    <detail>
+        <band height="390">
+            <!-- Fare Summary -->
+            <staticText>
+                <reportElement x="0" y="0" width="555" height="18"/>
+                <textElement><font size="10" isBold="true"/></textElement>
+                <text><![CDATA[Fare Summary]]></text>
+            </staticText>
+            <frame>
+                <reportElement x="0" y="18" width="555" height="18" backcolor="#F0F0F0"/>
+                <staticText>
+                    <reportElement x="0" y="0" width="400" height="18"/>
+                    <box><rightPen width="0.5"/></box>
+                    <textElement><font size="8" isBold="true"/></textElement>
+                    <text><![CDATA[Component]]></text>
+                </staticText>
+                <staticText>
+                    <reportElement x="400" y="0" width="155" height="18"/>
+                    <textElement textAlignment="Right"><font size="8" isBold="true"/></textElement>
+                    <text><![CDATA[Amount]]></text>
+                </staticText>
+            </frame>
+            <textField>
+                <reportElement x="0" y="38" width="400" height="15"/>
+                <textElement><font size="8"/></textElement>
+                <text><![CDATA[Base Fare]]></text>
+            </textField>
+            <textField>
+                <reportElement x="400" y="38" width="155" height="15"/>
+                <textElement textAlignment="Right"><font size="8"/></textElement>
+                <textFieldExpression><![CDATA[$P{fare_amount} != null ? $P{fare_amount}.toPlainString() : "0"]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="0" y="54" width="400" height="15"/>
+                <textElement><font size="8"/></textElement>
+                <text><![CDATA[Tax / Surcharges]]></text>
+            </textField>
+            <textField>
+                <reportElement x="400" y="54" width="155" height="15"/>
+                <textElement textAlignment="Right"><font size="8"/></textElement>
+                <textFieldExpression><![CDATA[$P{tax_amount} != null ? $P{tax_amount}.toPlainString() : "0"]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="0" y="70" width="400" height="15"/>
+                <textElement><font size="8"/></textElement>
+                <text><![CDATA[Commission]]></text>
+            </textField>
+            <textField>
+                <reportElement x="400" y="70" width="155" height="15"/>
+                <textElement textAlignment="Right"><font size="8"/></textElement>
+                <textFieldExpression><![CDATA[$P{commission_amount} != null ? "(" + $P{commission_amount}.toPlainString() + ")" : "0"]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="0" y="86" width="400" height="15"/>
+                <textElement><font size="8"/></textElement>
+                <text><![CDATA[Service Fee]]></text>
+            </textField>
+            <textField>
+                <reportElement x="400" y="86" width="155" height="15"/>
+                <textElement textAlignment="Right"><font size="8"/></textElement>
+                <textFieldExpression><![CDATA[$P{service_fee_amount} != null ? $P{service_fee_amount}.toPlainString() : "0"]]></textFieldExpression>
+            </textField>
+            <line>
+                <reportElement x="400" y="102" width="155" height="0"/>
+            </line>
+            <textField>
+                <reportElement x="0" y="104" width="400" height="18"/>
+                <textElement><font size="9" isBold="true"/></textElement>
+                <text><![CDATA[Total (Fare + Tax + Fee - Commission)]]></text>
+            </textField>
+            <textField>
+                <reportElement x="400" y="104" width="155" height="18"/>
+                <textElement textAlignment="Right"><font size="9" isBold="true"/></textElement>
+                <textFieldExpression><![CDATA[$P{total_amount} != null ? $P{total_amount}.toPlainString() : "0"]]></textFieldExpression>
+            </textField>
+
+            <!-- Flight Segments -->
+            <staticText>
+                <reportElement x="0" y="130" width="555" height="18"/>
+                <textElement><font size="10" isBold="true"/></textElement>
+                <text><![CDATA[Flight Itinerary]]></text>
+            </staticText>
+            <frame>
+                <reportElement x="0" y="148" width="555" height="18" backcolor="#F0F0F0"/>
+                <staticText><reportElement x="0" y="0" width="60" height="18"/><box><rightPen width="0.5"/></box><textElement><font size="7" isBold="true"/></textElement><text><![CDATA[Flight]]></text></staticText>
+                <staticText><reportElement x="60" y="0" width="100" height="18"/><box><rightPen width="0.5"/></box><textElement><font size="7" isBold="true"/></textElement><text><![CDATA[Airline]]></text></staticText>
+                <staticText><reportElement x="160" y="0" width="55" height="18"/><box><rightPen width="0.5"/></box><textElement><font size="7" isBold="true"/></textElement><text><![CDATA[From]]></text></staticText>
+                <staticText><reportElement x="215" y="0" width="55" height="18"/><box><rightPen width="0.5"/></box><textElement><font size="7" isBold="true"/></textElement><text><![CDATA[To]]></text></staticText>
+                <staticText><reportElement x="270" y="0" width="110" height="18"/><box><rightPen width="0.5"/></box><textElement><font size="7" isBold="true"/></textElement><text><![CDATA[Departure]]></text></staticText>
+                <staticText><reportElement x="380" y="0" width="110" height="18"/><box><rightPen width="0.5"/></box><textElement><font size="7" isBold="true"/></textElement><text><![CDATA[Arrival]]></text></staticText>
+                <staticText><reportElement x="490" y="0" width="65" height="18"/><textElement><font size="7" isBold="true"/></textElement><text><![CDATA[Cabin]]></text></staticText>
+            </frame>
+            <subreport>
+                <reportElement x="0" y="166" width="555" height="60"/>
+                <dataSourceExpression><![CDATA[$P{segmentsDataSource}]]></dataSourceExpression>
+            </subreport>
+
+            <!-- Passenger Tickets -->
+            <staticText>
+                <reportElement x="0" y="230" width="555" height="18"/>
+                <textElement><font size="10" isBold="true"/></textElement>
+                <text><![CDATA[Passenger Tickets]]></text>
+            </staticText>
+            <frame>
+                <reportElement x="0" y="248" width="555" height="18" backcolor="#F0F0F0"/>
+                <staticText><reportElement x="0" y="0" width="200" height="18"/><box><rightPen width="0.5"/></box><textElement><font size="8" isBold="true"/></textElement><text><![CDATA[Passenger]]></text></staticText>
+                <staticText><reportElement x="200" y="0" width="110" height="18"/><box><rightPen width="0.5"/></box><textElement><font size="8" isBold="true"/></textElement><text><![CDATA[Ticket No]]></text></staticText>
+                <staticText><reportElement x="310" y="0" width="60" height="18"/><box><rightPen width="0.5"/></box><textElement><font size="8" isBold="true"/></textElement><text><![CDATA[Seat]]></text></staticText>
+                <staticText><reportElement x="370" y="0" width="80" height="18"/><box><rightPen width="0.5"/></box><textElement textAlignment="Right"><font size="8" isBold="true"/></textElement><text><![CDATA[Fare]]></text></staticText>
+                <staticText><reportElement x="450" y="0" width="105" height="18"/><textElement textAlignment="Right"><font size="8" isBold="true"/></textElement><text><![CDATA[Tax]]></text></staticText>
+            </frame>
+            <subreport>
+                <reportElement x="0" y="266" width="555" height="60"/>
+                <dataSourceExpression><![CDATA[$P{paxTicketsDataSource}]]></dataSourceExpression>
+            </subreport>
+
+            <!-- Endorsements -->
+            <textField>
+                <reportElement x="0" y="340" width="555" height="40"/>
+                <textElement><font size="7" isItalic="true"/></textElement>
+                <textFieldExpression><![CDATA[$P{endorsement_restrictions} != null && !$P{endorsement_restrictions}.isEmpty() ? "Endorsements/Restrictions: " + $P{endorsement_restrictions} : ""]]></textFieldExpression>
+            </textField>
+        </band>
+    </detail>
+
+    <pageFooter>
+        <band height="20">
+            <line><reportElement x="0" y="0" width="555" height="1"/></line>
+            <textField evaluationTime="Report">
+                <reportElement x="0" y="2" width="300" height="15"/>
+                <textElement><font size="7"/></textElement>
+                <textFieldExpression><![CDATA["Generated by Spindle ERP"]]></textFieldExpression>
+            </textField>
+            <textField evaluationTime="Page">
+                <reportElement x="450" y="2" width="105" height="15"/>
+                <textElement textAlignment="Right"><font size="7"/></textElement>
+                <textFieldExpression><![CDATA["Page " + $V{PAGE_NUMBER}]]></textFieldExpression>
+            </textField>
+        </band>
+    </pageFooter>
+</jasperReport>

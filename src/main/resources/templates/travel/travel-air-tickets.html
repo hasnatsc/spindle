@@ -13,18 +13,19 @@
   </ol>
   <h1 class="page-header">Air Tickets <small>fulfillment, issuance &amp; lifecycle for AIR service lines</small></h1>
 
-  <div class="d-flex gap-2 mb-3 flex-wrap">
-    <a th:href="@{/travel/bookings}"       class="btn btn-sm btn-outline-primary"><i class="fa fa-ticket-alt me-1"></i> Bookings</a>
-    <a th:href="@{/travel/hotel-bookings}" class="btn btn-sm btn-outline-primary"><i class="fa fa-bed me-1"></i> Hotel Bookings</a>
-    <a th:href="@{/travel/air-tickets}"    class="btn btn-sm btn-primary"><i class="fa fa-plane-departure me-1"></i> Air Tickets</a>
-    <a th:href="@{/travel/tours}"          class="btn btn-sm btn-outline-primary"><i class="fa fa-route me-1"></i> Tours</a>
-    <a th:href="@{/travel/packages}"       class="btn btn-sm btn-outline-primary"><i class="fa fa-suitcase-rolling me-1"></i> Packages</a>
+  <div class="travel-nav">
+    <a th:href="@{/travel/bookings}"       class="btn btn-outline-primary btn-sm"><i class="fa fa-ticket-alt"></i> Bookings</a>
+    <a th:href="@{/travel/hotel-bookings}" class="btn btn-outline-primary btn-sm"><i class="fa fa-bed"></i> Hotel Bookings</a>
+    <a th:href="@{/travel/air-tickets}"    class="btn btn-primary btn-sm"><i class="fa fa-plane-departure"></i> Air Tickets</a>
+    <a th:href="@{/travel/tours}"          class="btn btn-outline-primary btn-sm"><i class="fa fa-route"></i> Tours</a>
+    <a th:href="@{/travel/packages}"       class="btn btn-outline-primary btn-sm"><i class="fa fa-suitcase-rolling"></i> Packages</a>
+    <a th:href="@{/travel/supplier-costs}" class="btn btn-outline-primary btn-sm"><i class="fa fa-file-invoice-dollar"></i> Supplier Costs</a>
   </div>
 
   <div class="panel panel-inverse">
     <div class="panel-heading">
       <div class="panel-title">
-        <a href="javascript:;" onclick="atOpenCreate()"><span class="badge btn btn-outline-success"><i class="fa fa-plus me-1"></i> New Air Ticket</span></a>
+        <a href="javascript:;" onclick="atOpenCreate()"><span class="badge btn btn-outline-success travel-no-print"><i class="fa fa-plus me-1"></i> New Air Ticket</span></a>
       </div>
     </div>
     <div class="panel-body">
@@ -220,7 +221,7 @@
         <div class="modal-content">
           <div class="modal-header"><h5 class="modal-title">Air Ticket Details</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
           <div class="modal-body" id="atViewBody"></div>
-          <div class="modal-footer"><button type="button" class="btn btn-white" data-bs-dismiss="modal">Close</button></div>
+          <div class="modal-footer"><button type="button" class="btn btn-sm btn-outline-primary travel-no-print" id="atPrintBtn" style="display:none" onclick="window.open('/travel/reports/air-ticket/' + (window._currentAirTicketId || ''), '_blank')"><i class="fa fa-print me-1"></i> Print Ticket</button><button type="button" class="btn btn-white" data-bs-dismiss="modal">Close</button></div>
         </div>
       </div>
     </div>
@@ -445,6 +446,12 @@
         if (o.endorsementRestrictions) html += '<div class="mt-2 p-2 bg-light rounded small"><strong>Endorsements:</strong> ' + o.endorsementRestrictions + '</div>';
 
         document.getElementById('atViewBody').innerHTML = html;
+        window._currentAirTicketId = o.id;
+        var printBtn = document.getElementById('atPrintBtn');
+        if (printBtn) {
+          var s = (o.status || '').toUpperCase();
+          printBtn.style.display = (s === 'ISSUED' || s === 'CONFIRMED') ? '' : 'none';
+        }
         bootstrap.Modal.getOrCreateInstance(document.getElementById('atViewModal')).show();
       });
     };
@@ -629,7 +636,7 @@
       _paxTicketCount = 0;
       _segCount = 0;
     }
-    function _vf(label, value) { return '<div class="col-md-4 view-group"><label class="view-label">' + label + '</label><span class="form-control hs_span_show">' + (value != null ? value : '—') + '</span></div>'; }
+    function _vf(label, value) { return travel.viewField(label, value); }
   })();
   </script>
   <div th:replace="~{travel/trv-documents-fragment :: modal}"></div>

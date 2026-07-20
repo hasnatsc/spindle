@@ -20,48 +20,54 @@
   </ol>
   <h1 class="page-header">Travel Dashboard <small>bookings, revenue, and what needs attention today</small></h1>
 
-  <div class="d-flex gap-2 mb-3 flex-wrap">
-    <a th:href="@{/travel/dashboard}"      class="btn btn-sm btn-primary"><i class="fa fa-tachometer-alt me-1"></i> Dashboard</a>
-    <a th:href="@{/travel/bookings}"       class="btn btn-sm btn-outline-primary"><i class="fa fa-ticket-alt me-1"></i> Bookings</a>
-    <a th:href="@{/travel/hotels}"         class="btn btn-sm btn-outline-primary"><i class="fa fa-hotel me-1"></i> Hotels</a>
-    <a th:href="@{/travel/hotel-bookings}" class="btn btn-sm btn-outline-primary"><i class="fa fa-bed me-1"></i> Hotel Bookings</a>
-    <a th:href="@{/travel/air-tickets}"    class="btn btn-sm btn-outline-primary"><i class="fa fa-plane-departure me-1"></i> Air Tickets</a>
-    <a th:href="@{/travel/supplier-costs}" class="btn btn-sm btn-outline-primary"><i class="fa fa-file-invoice-dollar me-1"></i> Supplier Costs</a>
-    <a th:href="@{/travel/packages}"       class="btn btn-sm btn-outline-primary"><i class="fa fa-suitcase-rolling me-1"></i> Packages</a>
-    <a th:href="@{/travel/tours}"          class="btn btn-sm btn-outline-primary"><i class="fa fa-route me-1"></i> Tours</a>
-    <a th:href="@{/travel/visa-applications}" class="btn btn-sm btn-outline-primary"><i class="fa fa-passport me-1"></i> Visa</a>
-    <a th:href="@{/travel/masters}"        class="btn btn-sm btn-outline-secondary"><i class="fa fa-database me-1"></i> Master Data</a>
-    <a th:href="@{/travel/settings}"       class="btn btn-sm btn-outline-secondary"><i class="fa fa-cog me-1"></i> Settings</a>
+  <!-- Navigation -->
+  <div class="travel-nav">
+    <a th:href="@{/travel/dashboard}"      class="btn btn-primary btn-sm"><i class="fa fa-tachometer-alt"></i> Dashboard</a>
+    <a th:href="@{/travel/bookings}"       class="btn btn-outline-primary btn-sm"><i class="fa fa-ticket-alt"></i> Bookings</a>
+    <a th:href="@{/travel/hotel-bookings}" class="btn btn-outline-primary btn-sm"><i class="fa fa-bed"></i> Hotel Bookings</a>
+    <a th:href="@{/travel/air-tickets}"    class="btn btn-outline-primary btn-sm"><i class="fa fa-plane-departure"></i> Air Tickets</a>
+    <a th:href="@{/travel/supplier-costs}" class="btn btn-outline-primary btn-sm"><i class="fa fa-file-invoice-dollar"></i> Supplier Costs</a>
+    <a th:href="@{/travel/packages}"       class="btn btn-outline-primary btn-sm"><i class="fa fa-suitcase-rolling"></i> Packages</a>
+    <a th:href="@{/travel/tours}"          class="btn btn-outline-primary btn-sm"><i class="fa fa-route"></i> Tours</a>
+    <a th:href="@{/travel/visa-applications}" class="btn btn-outline-primary btn-sm"><i class="fa fa-passport"></i> Visa</a>
+    <a th:href="@{/travel/masters}"        class="btn btn-outline-secondary btn-sm"><i class="fa fa-database"></i> Master Data</a>
+    <a th:href="@{/travel/settings}"       class="btn btn-outline-secondary btn-sm"><i class="fa fa-cog"></i> Settings</a>
+    <a th:href="@{/travel/frontdesk}"      class="btn btn-outline-success btn-sm"><i class="fa fa-desktop"></i> Front Desk</a>
+    <a href="javascript:;" class="btn btn-outline-info btn-sm" onclick="trvExportRevenueReport()" title="Download PDF"><i class="fa fa-file-pdf"></i> Revenue Report</a>
   </div>
 
   <!-- KPI CARDS -->
   <div class="row">
     <div class="col-xl-3 col-md-6">
-      <div class="widget widget-stats bg-primary">
-        <div class="stats-icon"><i class="fa fa-hourglass-half"></i></div>
-        <div class="stats-info"><h4>DRAFT BOOKINGS</h4><p id="kpiDraft">0</p></div>
-        <div class="stats-link"><a href="/travel/bookings">View Bookings <i class="fa fa-arrow-alt-circle-right"></i></a></div>
+      <div class="travel-stat-card travel-stat-primary">
+        <div class="travel-stat-icon"><i class="fa fa-hourglass-half"></i></div>
+        <div class="travel-stat-label">DRAFT BOOKINGS</div>
+        <div class="travel-stat-value" id="kpiDraft">0</div>
+        <div class="travel-stat-link"><a href="/travel/bookings">View Bookings <i class="fa fa-arrow-alt-circle-right"></i></a></div>
       </div>
     </div>
     <div class="col-xl-3 col-md-6">
-      <div class="widget widget-stats bg-success">
-        <div class="stats-icon"><i class="fa fa-check-circle"></i></div>
-        <div class="stats-info"><h4>ACTIVE BOOKINGS</h4><p id="kpiActive">0</p></div>
-        <div class="stats-link"><a href="/travel/bookings">View Bookings <i class="fa fa-arrow-alt-circle-right"></i></a></div>
+      <div class="travel-stat-card travel-stat-success">
+        <div class="travel-stat-icon"><i class="fa fa-check-circle"></i></div>
+        <div class="travel-stat-label">ACTIVE BOOKINGS</div>
+        <div class="travel-stat-value" id="kpiActive">0</div>
+        <div class="travel-stat-link"><a href="/travel/bookings">View Bookings <i class="fa fa-arrow-alt-circle-right"></i></a></div>
       </div>
     </div>
     <div class="col-xl-3 col-md-6">
-      <div class="widget widget-stats bg-warning">
-        <div class="stats-icon"><i class="fa fa-coins"></i></div>
-        <div class="stats-info"><h4>TOTAL REVENUE</h4><p id="kpiRevenue">৳0</p></div>
-        <div class="stats-link"><a href="/travel/bookings">View Bookings <i class="fa fa-arrow-alt-circle-right"></i></a></div>
+      <div class="travel-stat-card travel-stat-warning">
+        <div class="travel-stat-icon"><i class="fa fa-coins"></i></div>
+        <div class="travel-stat-label">TOTAL REVENUE</div>
+        <div class="travel-stat-value" id="kpiRevenue">৳0</div>
+        <div class="travel-stat-link"><a href="/travel/bookings">View Bookings <i class="fa fa-arrow-alt-circle-right"></i></a></div>
       </div>
     </div>
     <div class="col-xl-3 col-md-6">
-      <div class="widget widget-stats bg-danger">
-        <div class="stats-icon"><i class="fa fa-exclamation-circle"></i></div>
-        <div class="stats-info"><h4>TOTAL DUE</h4><p id="kpiDue">৳0</p></div>
-        <div class="stats-link"><a href="/accounts/receipt-vouchers">Collect Payments <i class="fa fa-arrow-alt-circle-right"></i></a></div>
+      <div class="travel-stat-card travel-stat-danger">
+        <div class="travel-stat-icon"><i class="fa fa-exclamation-circle"></i></div>
+        <div class="travel-stat-label">TOTAL DUE</div>
+        <div class="travel-stat-value" id="kpiDue">৳0</div>
+        <div class="travel-stat-link"><a href="/accounts/receipt-vouchers">Collect Payments <i class="fa fa-arrow-alt-circle-right"></i></a></div>
       </div>
     </div>
   </div>
@@ -71,7 +77,7 @@
     <div class="panel-heading">
       <h4 class="panel-title"><i class="fa fa-flag me-2"></i>Needs Attention</h4>
       <div class="panel-heading-btn">
-        <a href="javascript:;" class="btn btn-sm btn-icon btn-success" onclick="_loadDashboard()"><i class="fa fa-redo"></i></a>
+        <a href="javascript:;" class="btn btn-sm btn-icon btn-success" onclick="_loadDashboard()" title="Refresh"><i class="fa fa-redo"></i></a>
       </div>
     </div>
     <div class="panel-body">
@@ -85,7 +91,9 @@
   <div class="row">
     <div class="col-xl-7">
       <div class="panel panel-inverse">
-        <div class="panel-heading"><h4 class="panel-title"><i class="fa fa-chart-line me-2"></i>Revenue Trend (6 months)</h4></div>
+        <div class="panel-heading">
+          <h4 class="panel-title"><i class="fa fa-chart-line me-2"></i>Revenue Trend (6 months)</h4>
+        </div>
         <div class="panel-body">
           <div style="position:relative; height:280px;"><canvas id="revenueChart"></canvas></div>
         </div>
@@ -145,6 +153,37 @@
     </div>
   </div>
 
+  <script th:inline="none">
+  /* Export revenue report for a date range */
+  window.trvExportRevenueReport = function () {
+    var now = new Date();
+    var firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+    var from = firstDay.toISOString().substring(0, 10);
+    var to = now.toISOString().substring(0, 10);
+
+    Swal.fire({
+      title: 'Download Revenue Report',
+      html: '<div class="row g-2">'
+        + '<div class="col-6"><label class="form-label text-start d-block small">From</label><input type="date" id="swalFrom" class="form-control" value="' + from + '"></div>'
+        + '<div class="col-6"><label class="form-label text-start d-block small">To</label><input type="date" id="swalTo" class="form-control" value="' + to + '"></div>'
+        + '</div>',
+      showCancelButton: true,
+      confirmButtonText: 'Download PDF',
+      confirmButtonColor: '#0d6efd',
+      cancelButtonText: 'Cancel',
+      preConfirm: function () {
+        var f = document.getElementById('swalFrom').value;
+        var t = document.getElementById('swalTo').value;
+        if (!f || !t) { Swal.showValidationMessage('Both dates are required.'); return false; }
+        return { from: f, to: t };
+      }
+    }).then(function (r) {
+      if (!r.isConfirmed) return;
+      var params = new URLSearchParams(r.value);
+      window.open('/travel/reports/revenue-summary?' + params.toString(), '_blank');
+    });
+  };
+  </script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
   <script th:inline="none">
   (function () {
@@ -155,6 +194,12 @@
       warning:  { border: '#f59e0b', bg: 'rgba(245,158,11,.08)', icon: 'fa-circle-exclamation',   text: '#f59e0b' },
       info:     { border: '#2563eb', bg: 'rgba(37,99,235,.08)',  icon: 'fa-circle-info',          text: '#2563eb' },
       good:     { border: '#10b981', bg: 'rgba(16,185,129,.08)', icon: 'fa-circle-check',         text: '#10b981' }
+    };
+    var SEV_CLS = {
+      critical: 'travel-flag-critical',
+      warning:  'travel-flag-warning',
+      info:     'travel-flag-info',
+      good:     'travel-flag-good'
     };
 
     var revenueChart, statusChart, typeChart, destinationChart;
@@ -187,19 +232,23 @@
 
     function _renderFlags(flags) {
       var host = document.getElementById('flagGrid');
-      if (!flags.length) { host.innerHTML = '<div class="col-12 text-center text-muted py-3">Nothing flagged — all clear.</div>'; return; }
+      if (!flags.length) {
+        host.innerHTML = '<div class="col-12 text-center text-muted py-3"><i class="fa fa-circle-check text-success me-2"></i>Nothing flagged — all clear.</div>';
+        return;
+      }
       host.innerHTML = flags.map(function (f) {
         var s = SEV_STYLE[f.severity] || SEV_STYLE.info;
+        var cls = SEV_CLS[f.severity] || 'travel-flag-info';
+        var icon = f.icon || s.icon;
         return '<div class="col-xl-3 col-md-6">'
-          + '<a href="' + (f.url || '#') + '" class="d-block text-decoration-none" style="color:inherit;">'
-          + '<div class="p-3 rounded" style="border-left:4px solid ' + s.border + '; background:' + s.bg + ';">'
+          + '<a href="' + (f.url || '#') + '" class="travel-flag-card ' + cls + '">'
           + '<div class="d-flex align-items-center gap-2 mb-1">'
-          + '<i class="fa ' + (f.icon || s.icon) + '" style="color:' + s.text + ';"></i>'
-          + '<span class="fw-bold" style="font-size:.85rem;">' + f.label + '</span>'
+          + '<i class="fa ' + icon + ' travel-flag-icon"></i>'
+          + '<span class="travel-flag-label">' + f.label + '</span>'
           + '</div>'
-          + '<div class="fs-3 fw-bold" style="color:' + s.text + ';">' + f.value + '</div>'
+          + '<div class="travel-flag-value">' + f.value + '</div>'
           + '<div class="text-muted small">' + (f.sub || '') + '</div>'
-          + '</div></a></div>';
+          + '</a></div>';
       }).join('');
     }
 
@@ -257,23 +306,30 @@
     }
 
     function _renderUpcoming(rows) {
-      var body = document.getElementById('upcomingBody'); body.innerHTML = '';
-      rows.forEach(function (r) {
-        body.insertAdjacentHTML('beforeend',
-          '<tr><td><strong>' + (r.booking_no || '—') + '</strong></td><td>' + (r.customer_name || '—') + '</td>'
-          + '<td>' + (r.travel_start_date || '—') + '</td><td class="text-center">' + (r.status || '—') + '</td></tr>');
-      });
-      if (!rows.length) body.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-3">No upcoming departures.</td></tr>';
+      var body = document.getElementById('upcomingBody');
+      if (!rows.length) {
+        body.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-3"><i class="fa fa-calendar-check me-2"></i>No upcoming departures.</td></tr>';
+        return;
+      }
+      body.innerHTML = rows.map(function (r) {
+        return '<tr><td><strong>' + travel.esc(r.booking_no || '—') + '</strong></td>'
+          + '<td>' + travel.esc(r.customer_name || '—') + '</td>'
+          + '<td>' + travel.esc(r.travel_start_date || '—') + '</td>'
+          + '<td class="text-center">' + travel.statusBadge(r.status) + '</td></tr>';
+      }).join('');
     }
 
     function _renderAgents(rows) {
-      var body = document.getElementById('agentsBody'); body.innerHTML = '';
-      rows.forEach(function (r) {
-        body.insertAdjacentHTML('beforeend',
-          '<tr><td>' + (r.agent_name || '—') + '</td><td class="text-center">' + (r.booking_count || 0) + '</td>'
-          + '<td class="text-end">৳' + parseFloat(r.total_sales || 0).toLocaleString() + '</td></tr>');
-      });
-      if (!rows.length) body.innerHTML = '<tr><td colspan="3" class="text-center text-muted py-3">No data yet.</td></tr>';
+      var body = document.getElementById('agentsBody');
+      if (!rows.length) {
+        body.innerHTML = '<tr><td colspan="3" class="text-center text-muted py-3">No data yet.</td></tr>';
+        return;
+      }
+      body.innerHTML = rows.map(function (r) {
+        return '<tr><td>' + travel.esc(r.agent_name || '—') + '</td>'
+          + '<td class="text-center">' + (r.booking_count || 0) + '</td>'
+          + '<td class="text-end">' + travel.formatMoney(r.total_sales) + '</td></tr>';
+      }).join('');
     }
   })();
   </script>

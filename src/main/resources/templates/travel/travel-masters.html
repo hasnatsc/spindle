@@ -14,12 +14,13 @@
   </ol>
   <h1 class="page-header">Travel Master Data <small>categories, meal plans, airlines, airports, cabin classes</small></h1>
 
-  <div class="d-flex gap-2 mb-3 flex-wrap">
-    <a th:href="@{/travel/dashboard}" class="btn btn-sm btn-outline-primary"><i class="fa fa-tachometer-alt me-1"></i> Dashboard</a>
-    <a th:href="@{/travel/hotels}"    class="btn btn-sm btn-outline-primary"><i class="fa fa-hotel me-1"></i> Hotels</a>
-    <a th:href="@{/travel/masters}"   class="btn btn-sm btn-primary"><i class="fa fa-database me-1"></i> Master Data</a>
-    <a th:href="@{/travel/settings}"  class="btn btn-sm btn-outline-secondary"><i class="fa fa-cog me-1"></i> Settings</a>
-    <a th:href="@{/travel/tours}"     class="btn btn-sm btn-outline-primary"><i class="fa fa-route me-1"></i> Tours</a>
+  <div class="travel-nav">
+    <a th:href="@{/travel/dashboard}" class="btn btn-outline-primary btn-sm"><i class="fa fa-tachometer-alt"></i> Dashboard</a>
+    <a th:href="@{/travel/hotels}"    class="btn btn-outline-primary btn-sm"><i class="fa fa-hotel"></i> Hotels</a>
+    <a th:href="@{/travel/masters}"   class="btn btn-primary btn-sm"><i class="fa fa-database"></i> Master Data</a>
+    <a th:href="@{/travel/settings}"  class="btn btn-outline-secondary btn-sm"><i class="fa fa-cog"></i> Settings</a>
+    <a th:href="@{/travel/tours}"     class="btn btn-outline-primary btn-sm"><i class="fa fa-route"></i> Tours</a>
+    <a th:href="@{/travel/packages}"  class="btn btn-outline-primary btn-sm"><i class="fa fa-suitcase-rolling"></i> Packages</a>
   </div>
 
   <div class="panel panel-inverse">

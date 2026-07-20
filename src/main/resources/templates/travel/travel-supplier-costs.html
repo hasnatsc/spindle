@@ -13,10 +13,12 @@
   </ol>
   <h1 class="page-header">Supplier Costs <small>cost tracking against booking service lines</small></h1>
 
-  <div class="d-flex gap-2 mb-3 flex-wrap">
-    <a th:href="@{/travel/bookings}"       class="btn btn-sm btn-outline-primary"><i class="fa fa-ticket-alt me-1"></i> Bookings</a>
-    <a th:href="@{/travel/supplier-costs}" class="btn btn-sm btn-primary"><i class="fa fa-file-invoice-dollar me-1"></i> Supplier Costs</a>
-    <a th:href="@{/travel/visa-applications}" class="btn btn-sm btn-outline-primary"><i class="fa fa-passport me-1"></i> Visa</a>
+  <div class="travel-nav">
+    <a th:href="@{/travel/bookings}"       class="btn btn-outline-primary btn-sm"><i class="fa fa-ticket-alt"></i> Bookings</a>
+    <a th:href="@{/travel/supplier-costs}" class="btn btn-primary btn-sm"><i class="fa fa-file-invoice-dollar"></i> Supplier Costs</a>
+    <a th:href="@{/travel/visa-applications}" class="btn btn-outline-primary btn-sm"><i class="fa fa-passport"></i> Visa</a>
+    <a th:href="@{/travel/hotel-bookings}" class="btn btn-outline-primary btn-sm"><i class="fa fa-bed"></i> Hotel Bookings</a>
+    <a th:href="@{/travel/air-tickets}"    class="btn btn-outline-primary btn-sm"><i class="fa fa-plane-departure"></i> Air Tickets</a>
   </div>
 
   <div class="panel panel-inverse">

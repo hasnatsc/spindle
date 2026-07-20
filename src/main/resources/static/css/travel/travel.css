@@ -1,0 +1,264 @@
+/* ============================================================
+   travel.css — Unified Travel Module Design System
+   Uses Bootstrap / Color Admin --bs-* custom properties so
+   it inherits the active (light/dark) theme automatically.
+   ============================================================ */
+
+/* ── Navigation ─────────────────────────────────────────────── */
+.travel-nav {
+  display: flex;
+  gap: .5rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+.travel-nav .btn {
+  font-size: .8125rem;
+  white-space: nowrap;
+}
+.travel-nav .btn .fa,
+.travel-nav .btn .fas,
+.travel-nav .btn .far {
+  margin-right: .35rem;
+}
+
+/* ── KPI Stat Cards (matched to dashboard widget-stats) ────── */
+.travel-stat-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: .5rem;
+  padding: 1.25rem 1.5rem;
+  color: #fff;
+  margin-bottom: 1rem;
+}
+.travel-stat-card .travel-stat-icon {
+  position: absolute;
+  right: 1rem;
+  top: 1rem;
+  font-size: 2.25rem;
+  opacity: .25;
+}
+.travel-stat-card .travel-stat-label {
+  font-size: .7rem;
+  font-weight: 700;
+  letter-spacing: .6px;
+  text-transform: uppercase;
+  margin-bottom: .25rem;
+  opacity: .85;
+}
+.travel-stat-card .travel-stat-value {
+  font-size: 1.75rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+.travel-stat-card .travel-stat-link {
+  margin-top: .5rem;
+}
+.travel-stat-card .travel-stat-link a {
+  color: inherit;
+  opacity: .65;
+  font-size: .8125rem;
+  text-decoration: none;
+}
+.travel-stat-card .travel-stat-link a:hover { opacity: 1; }
+
+.travel-stat-primary  { background: var(--bs-primary, #0d6efd); }
+.travel-stat-success  { background: var(--bs-success, #10b981); }
+.travel-stat-warning  { background: var(--bs-warning, #f59e0b); }
+.travel-stat-danger   { background: var(--bs-danger, #f43f5e); }
+.travel-stat-info     { background: var(--bs-info, #0dcaf0); }
+.travel-stat-dark     { background: var(--bs-dark, #1e293b); }
+
+/* ── Status Badges ──────────────────────────────────────────── */
+.travel-badge {
+  display: inline-block;
+  padding: .2rem .55rem;
+  font-size: .7rem;
+  font-weight: 700;
+  letter-spacing: .3px;
+  text-transform: uppercase;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.travel-badge-draft       { background: #e2e8f0; color: #475569; }
+.travel-badge-confirmed   { background: #d1fae5; color: #065f46; }
+.travel-badge-partial     { background: #fef3c7; color: #92400e; }
+.travel-badge-paid        { background: #dbeafe; color: #1e40af; }
+.travel-badge-cancelled   { background: #fee2e2; color: #991b1b; }
+.travel-badge-completed   { background: #e2e8f0; color: #1e293b; }
+.travel-badge-pending     { background: #fef3c7; color: #92400e; }
+.travel-badge-active      { background: #d1fae5; color: #065f46; }
+.travel-badge-issued      { background: #d1fae5; color: #065f46; }
+.travel-badge-void        { background: #e2e8f0; color: #475569; }
+.travel-badge-refunded    { background: #fce7f3; color: #9d174d; }
+.travel-badge-approved    { background: #d1fae5; color: #065f46; }
+.travel-badge-rejected    { background: #fee2e2; color: #991b1b; }
+.travel-badge-collected   { background: #dbeafe; color: #1e40af; }
+.travel-badge-submitted   { background: #e0e7ff; color: #3730a3; }
+.travel-badge-unpaid      { background: #fee2e2; color: #991b1b; }
+.travel-badge-paid-full   { background: #d1fae5; color: #065f46; }
+
+/* ── Service Type Chips ─────────────────────────────────────── */
+.travel-type-chip {
+  display: inline-block;
+  font-size: .68rem;
+  font-weight: 700;
+  letter-spacing: .4px;
+  padding: .12rem .5rem;
+  border-radius: 999px;
+  color: #fff;
+  white-space: nowrap;
+}
+.travel-type-HOTEL   { background: var(--bs-primary, #0d6efd); }
+.travel-type-AIR     { background: #6f42c1; }
+.travel-type-PACKAGE { background: #198754; }
+.travel-type-TOUR    { background: #fd7e14; }
+.travel-type-VISA    { background: #d63384; }
+.travel-type-COMBINED { background: #0dcaf0; }
+
+/* ── Loading Skeleton ───────────────────────────────────────── */
+.travel-skeleton {
+  display: inline-block;
+  background: linear-gradient(90deg, var(--bs-tertiary-bg, #f1f5f9) 25%,
+    var(--bs-secondary-bg, #e2e8f0) 50%, var(--bs-tertiary-bg, #f1f5f9) 75%);
+  background-size: 200% 100%;
+  animation: travel-shimmer 1.4s ease infinite;
+  border-radius: .25rem;
+  height: 1rem;
+}
+.travel-skeleton-sm { width: 60px; height: .75rem; }
+.travel-skeleton-md { width: 120px; }
+.travel-skeleton-lg { width: 200px; }
+.travel-skeleton-xl { width: 100%; height: 2rem; }
+
+@keyframes travel-shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ── Empty State ────────────────────────────────────────────── */
+.travel-empty-state {
+  text-align: center;
+  padding: 2.5rem 1rem;
+  color: var(--bs-secondary-color, #94a3b8);
+}
+.travel-empty-state .travel-empty-icon {
+  font-size: 2.5rem;
+  margin-bottom: .75rem;
+  opacity: .4;
+}
+.travel-empty-state .travel-empty-title {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: .25rem;
+}
+.travel-empty-state .travel-empty-desc {
+  font-size: .875rem;
+  opacity: .7;
+}
+
+/* ── Totals / Footer Rows ──────────────────────────────────── */
+.travel-total-row {
+  font-weight: 700;
+  background: var(--bs-tertiary-bg, #f8f9fa);
+}
+.travel-total-row td,
+.travel-total-row th {
+  border-top: 2px solid var(--bs-border-color, #dee2e6);
+}
+
+/* ── View / Show Fields (replace hs_span_show for travel) ──── */
+.travel-view-field {
+  margin-bottom: .75rem;
+}
+.travel-view-field .travel-view-label {
+  font-size: .72rem;
+  font-weight: 600;
+  letter-spacing: .4px;
+  text-transform: uppercase;
+  color: var(--bs-secondary-color, #6c757d);
+  margin-bottom: .15rem;
+}
+.travel-view-field .travel-view-value {
+  padding: .375rem 0;
+  font-size: .95rem;
+  border-bottom: 1px solid var(--bs-border-color, #e9ecef);
+  min-height: 2rem;
+}
+
+/* ── Flag Cards (Dashboard) ────────────────────────────────── */
+.travel-flag-card {
+  padding: .85rem 1rem;
+  border-radius: .5rem;
+  border-left: 4px solid;
+  text-decoration: none;
+  color: inherit;
+  display: block;
+  transition: box-shadow .15s;
+}
+.travel-flag-card:hover {
+  box-shadow: 0 2px 8px rgba(0,0,0,.08);
+}
+.travel-flag-critical { border-color: #f43f5e; background: rgba(244,63,94,.06); }
+.travel-flag-warning  { border-color: #f59e0b; background: rgba(245,158,11,.06); }
+.travel-flag-info     { border-color: #2563eb; background: rgba(37,99,235,.06); }
+.travel-flag-good     { border-color: #10b981; background: rgba(16,185,129,.06); }
+.travel-flag-icon { font-size: .85rem; }
+.travel-flag-critical .travel-flag-icon { color: #f43f5e; }
+.travel-flag-warning  .travel-flag-icon { color: #f59e0b; }
+.travel-flag-info     .travel-flag-icon { color: #2563eb; }
+.travel-flag-good     .travel-flag-icon { color: #10b981; }
+.travel-flag-label {
+  font-weight: 700;
+  font-size: .85rem;
+}
+.travel-flag-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+.travel-flag-critical .travel-flag-value { color: #f43f5e; }
+.travel-flag-warning  .travel-flag-value { color: #f59e0b; }
+.travel-flag-info     .travel-flag-value { color: #2563eb; }
+.travel-flag-good     .travel-flag-value { color: #10b981; }
+
+/* ── Misc Utilities ─────────────────────────────────────────── */
+.travel-mono {
+  font-variant-numeric: tabular-nums;
+  font-family: 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
+}
+.travel-text-small {
+  font-size: .78rem;
+  letter-spacing: .3px;
+}
+.travel-section-title {
+  font-size: .75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .6px;
+  color: var(--bs-secondary-color, #6c757d);
+  margin-bottom: .75rem;
+}
+
+/* ── Print Styles ───────────────────────────────────────────── */
+@media print {
+  .travel-nav,
+  .btn,
+  .panel-heading-btn,
+  .dataTables_filter,
+  .dataTables_length,
+  .dataTables_info,
+  .dataTables_paginate {
+    display: none !important;
+  }
+  .panel { border: none !important; box-shadow: none !important; }
+  .panel-body { padding: 0 !important; }
+  table { font-size: .8rem; }
+  .travel-no-print { display: none !important; }
+}
+
+/* ── Responsive Tweaks ──────────────────────────────────────── */
+@media (max-width: 768px) {
+  .travel-stat-card .travel-stat-value { font-size: 1.35rem; }
+  .travel-nav .btn { font-size: .75rem; padding: .2rem .5rem; }
+  .modal-dialog { margin: .5rem; }
+}

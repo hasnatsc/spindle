@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports"
+              xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+              xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd"
+              name="revenue-summary" pageWidth="595" pageHeight="842" columnWidth="555"
+              leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20"
+              whenNoDataType="AllSectionsNoDetail">
+    <property name="com.jaspersoft.studio.data.defaultdataadapter" value="One Empty Record"/>
+    <parameter name="title" class="java.lang.String"/>
+    <parameter name="fromDate" class="java.lang.String"/>
+    <parameter name="toDate" class="java.lang.String"/>
+    <parameter name="orgId" class="java.lang.Long"/>
+    <parameter name="byTypeDataSource" class="net.sf.jasperreports.engine.data.JRBeanCollectionDataSource"/>
+    <parameter name="byStatusDataSource" class="net.sf.jasperreports.engine.data.JRBeanCollectionDataSource"/>
+    <parameter name="destinationsDataSource" class="net.sf.jasperreports.engine.data.JRBeanCollectionDataSource"/>
+
+    <title>
+        <band height="60">
+            <staticText>
+                <reportElement x="0" y="0" width="555" height="30"/>
+                <textElement textAlignment="Center"><font size="18" isBold="true"/></textElement>
+                <text><![CDATA[Revenue Summary]]></text>
+            </staticText>
+            <textField>
+                <reportElement x="0" y="32" width="555" height="20"/>
+                <textElement textAlignment="Center"><font size="10" isItalic="true"/></textElement>
+                <textFieldExpression><![CDATA["Period: " + $P{fromDate} + " to " + $P{toDate}]]></textFieldExpression>
+            </textField>
+        </band>
+    </title>
+
+    <pageHeader>
+        <band height="20">
+            <line><reportElement x="0" y="18" width="555" height="1"/></line>
+        </band>
+    </pageHeader>
+
+    <detail>
+        <band height="500">
+            <!-- Revenue by Type -->
+            <staticText>
+                <reportElement x="0" y="0" width="555" height="18"/>
+                <textElement><font size="11" isBold="true"/></textElement>
+                <text><![CDATA[Revenue by Booking Type]]></text>
+            </staticText>
+            <frame>
+                <reportElement x="0" y="18" width="555" height="18" backcolor="#F0F0F0"/>
+                <staticText><reportElement x="0" y="0" width="250" height="18"/><box><rightPen width="0.5"/></box><textElement><font size="8" isBold="true"/></textElement><text><![CDATA[Type]]></text></staticText>
+                <staticText><reportElement x="250" y="0" width="100" height="18"/><box><rightPen width="0.5"/></box><textElement textAlignment="Center"><font size="8" isBold="true"/></textElement><text><![CDATA[Count]]></text></staticText>
+                <staticText><reportElement x="350" y="0" width="205" height="18"/><textElement textAlignment="Right"><font size="8" isBold="true"/></textElement><text><![CDATA[Revenue]]></text></staticText>
+            </frame>
+            <subreport>
+                <reportElement x="0" y="36" width="555" height="100"/>
+                <dataSourceExpression><![CDATA[$P{byTypeDataSource}]]></dataSourceExpression>
+            </subreport>
+
+            <!-- Status Breakdown -->
+            <staticText>
+                <reportElement x="0" y="145" width="555" height="18"/>
+                <textElement><font size="11" isBold="true"/></textElement>
+                <text><![CDATA[Status Breakdown]]></text>
+            </staticText>
+            <frame>
+                <reportElement x="0" y="163" width="555" height="18" backcolor="#F0F0F0"/>
+                <staticText><reportElement x="0" y="0" width="250" height="18"/><box><rightPen width="0.5"/></box><textElement><font size="8" isBold="true"/></textElement><text><![CDATA[Status]]></text></staticText>
+                <staticText><reportElement x="250" y="0" width="100" height="18"/><box><rightPen width="0.5"/></box><textElement textAlignment="Center"><font size="8" isBold="true"/></textElement><text><![CDATA[Count]]></text></staticText>
+                <staticText><reportElement x="350" y="0" width="205" height="18"/><textElement textAlignment="Right"><font size="8" isBold="true"/></textElement><text><![CDATA[Revenue]]></text></staticText>
+            </frame>
+            <subreport>
+                <reportElement x="0" y="181" width="555" height="100"/>
+                <dataSourceExpression><![CDATA[$P{byStatusDataSource}]]></dataSourceExpression>
+            </subreport>
+
+            <!-- Top Destinations -->
+            <staticText>
+                <reportElement x="0" y="290" width="555" height="18"/>
+                <textElement><font size="11" isBold="true"/></textElement>
+                <text><![CDATA[Top Destinations]]></text>
+            </staticText>
+            <frame>
+                <reportElement x="0" y="308" width="555" height="18" backcolor="#F0F0F0"/>
+                <staticText><reportElement x="0" y="0" width="350" height="18"/><box><rightPen width="0.5"/></box><textElement><font size="8" isBold="true"/></textElement><text><![CDATA[Destination]]></text></staticText>
+                <staticText><reportElement x="350" y="0" width="205" height="18"/><textElement textAlignment="Right"><font size="8" isBold="true"/></textElement><text><![CDATA[Bookings]]></text></staticText>
+            </frame>
+            <subreport>
+                <reportElement x="0" y="326" width="555" height="100"/>
+                <dataSourceExpression><![CDATA[$P{destinationsDataSource}]]></dataSourceExpression>
+            </subreport>
+        </band>
+    </detail>
+
+    <summary>
+        <band height="30">
+            <textField evaluationTime="Report">
+                <reportElement x="0" y="0" width="555" height="20"/>
+                <textElement textAlignment="Center"><font size="8" isItalic="true"/></textElement>
+                <textFieldExpression><![CDATA["Generated " + new java.text.SimpleDateFormat("dd-MMM-yyyy HH:mm").format(new java.util.Date())]]></textFieldExpression>
+            </textField>
+        </band>
+    </summary>
+
+    <pageFooter>
+        <band height="20">
+            <line><reportElement x="0" y="0" width="555" height="1"/></line>
+            <textField evaluationTime="Report">
+                <reportElement x="0" y="2" width="300" height="15"/>
+                <textElement><font size="7"/></textElement>
+                <textFieldExpression><![CDATA["Generated by Spindle ERP — Travel Module"]]></textFieldExpression>
+            </textField>
+            <textField evaluationTime="Page">
+                <reportElement x="450" y="2" width="105" height="15"/>
+                <textElement textAlignment="Right"><font size="7"/></textElement>
+                <textFieldExpression><![CDATA["Page " + $V{PAGE_NUMBER}]]></textFieldExpression>
+            </textField>
+        </band>
+    </pageFooter>
+</jasperReport>

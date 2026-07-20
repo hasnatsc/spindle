@@ -13,18 +13,21 @@
   </ol>
   <h1 class="page-header">Hotel Bookings <small>fulfillment, stay lifecycle &amp; vendor management for HOTEL service lines</small></h1>
 
-  <div class="d-flex gap-2 mb-3 flex-wrap">
-    <a th:href="@{/travel/bookings}"       class="btn btn-sm btn-outline-primary"><i class="fa fa-ticket-alt me-1"></i> Bookings</a>
-    <a th:href="@{/travel/hotel-bookings}" class="btn btn-sm btn-primary"><i class="fa fa-bed me-1"></i> Hotel Bookings</a>
-    <a th:href="@{/travel/air-tickets}"    class="btn btn-sm btn-outline-primary"><i class="fa fa-plane-departure me-1"></i> Air Tickets</a>
-    <a th:href="@{/travel/packages}"        class="btn btn-sm btn-outline-primary"><i class="fa fa-suitcase-rolling me-1"></i> Packages</a>
-    <a th:href="@{/travel/tours}"           class="btn btn-sm btn-outline-primary"><i class="fa fa-route me-1"></i> Tours</a>
+  <div class="travel-nav">
+    <a th:href="@{/travel/bookings}"       class="btn btn-outline-primary btn-sm"><i class="fa fa-ticket-alt"></i> Bookings</a>
+    <a th:href="@{/travel/hotel-bookings}" class="btn btn-primary btn-sm"><i class="fa fa-bed"></i> Hotel Bookings</a>
+    <a th:href="@{/travel/air-tickets}"    class="btn btn-outline-primary btn-sm"><i class="fa fa-plane-departure"></i> Air Tickets</a>
+    <a th:href="@{/travel/supplier-costs}" class="btn btn-outline-primary btn-sm"><i class="fa fa-file-invoice-dollar"></i> Supplier Costs</a>
+    <a th:href="@{/travel/packages}"        class="btn btn-outline-primary btn-sm"><i class="fa fa-suitcase-rolling"></i> Packages</a>
+    <a th:href="@{/travel/tours}"           class="btn btn-outline-primary btn-sm"><i class="fa fa-route"></i> Tours</a>
   </div>
 
   <div class="panel panel-inverse">
     <div class="panel-heading">
       <div class="panel-title">
         <a href="javascript:;" onclick="hbOpenCreate()"><span class="badge btn btn-outline-success"><i class="fa fa-plus me-1"></i> New Hotel Booking</span></a>
+      </div>
+      <div class="panel-heading-btn travel-no-print">
       </div>
     </div>
     <div class="panel-body">
@@ -454,7 +457,7 @@
     }
 
     function _resetForm() { document.getElementById('hbForm').reset(); document.getElementById('hbId').value = ''; document.getElementById('hbVendorConfirmed').checked = false; document.getElementById('hbTotalAmount').value = ''; document.getElementById('hbNetAmount').value = ''; }
-    function _vf(label, value) { return '<div class="col-md-4 view-group"><label class="view-label">' + label + '</label><span class="form-control hs_span_show">' + (value != null ? value : '—') + '</span></div>'; }
+    function _vf(label, value) { return travel.viewField(label, value); }
   })();
   </script>
 </section>

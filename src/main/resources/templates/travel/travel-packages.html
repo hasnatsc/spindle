@@ -13,11 +13,12 @@
   </ol>
   <h1 class="page-header">Packages <small>bundled itineraries &amp; their fulfillment bookings</small></h1>
 
-  <div class="d-flex gap-2 mb-3 flex-wrap">
-    <a th:href="@{/travel/bookings}" class="btn btn-sm btn-outline-primary"><i class="fa fa-ticket-alt me-1"></i> Bookings</a>
-    <a th:href="@{/travel/packages}" class="btn btn-sm btn-primary"><i class="fa fa-suitcase-rolling me-1"></i> Packages</a>
-    <a th:href="@{/travel/tours}"    class="btn btn-sm btn-outline-primary"><i class="fa fa-route me-1"></i> Tours</a>
-    <a th:href="@{/travel/visa-applications}" class="btn btn-sm btn-outline-primary"><i class="fa fa-passport me-1"></i> Visa</a>
+  <div class="travel-nav">
+    <a th:href="@{/travel/bookings}" class="btn btn-outline-primary btn-sm"><i class="fa fa-ticket-alt"></i> Bookings</a>
+    <a th:href="@{/travel/packages}" class="btn btn-primary btn-sm"><i class="fa fa-suitcase-rolling"></i> Packages</a>
+    <a th:href="@{/travel/tours}"    class="btn btn-outline-primary btn-sm"><i class="fa fa-route"></i> Tours</a>
+    <a th:href="@{/travel/visa-applications}" class="btn btn-outline-primary btn-sm"><i class="fa fa-passport"></i> Visa</a>
+    <a th:href="@{/travel/hotel-bookings}" class="btn btn-outline-primary btn-sm"><i class="fa fa-bed"></i> Hotel Bookings</a>
   </div>
 
   <div class="panel panel-inverse">
@@ -152,7 +153,7 @@
         <div class="modal-content">
           <div class="modal-header"><h5 class="modal-title">Package Details</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
           <div class="modal-body" id="pkgViewBody"></div>
-          <div class="modal-footer"><button type="button" class="btn btn-white" data-bs-dismiss="modal">Close</button></div>
+          <div class="modal-footer"><button type="button" class="btn btn-sm btn-outline-primary travel-no-print" id="pkgPrintBtn" style="display:none" onclick="window.open('/travel/reports/package-voucher/' + (window._currentPackageId || ''), '_blank')"><i class="fa fa-print me-1"></i> Print Voucher</button><button type="button" class="btn btn-white" data-bs-dismiss="modal">Close</button></div>
         </div>
       </div>
     </div>
@@ -288,6 +289,9 @@
         (o.inclusions || []).forEach(function (i) { html += '<li class="list-group-item">' + (i.inclusionType === 'INCLUDED' ? '<span class="badge bg-success me-2">Included</span>' : '<span class="badge bg-danger me-2">Excluded</span>') + i.description + '</li>'; });
         html += '</ul>';
         document.getElementById('pkgViewBody').innerHTML = html;
+        window._currentPackageId = o.id;
+        var printBtn = document.getElementById('pkgPrintBtn');
+        if (printBtn) printBtn.style.display = '';
         bootstrap.Modal.getOrCreateInstance(document.getElementById('pkgViewModal')).show();
       });
     };
@@ -474,7 +478,7 @@
     }
 
     function _resetPkgbkForm() { document.getElementById('pkgbkForm').reset(); document.getElementById('pkgbkId').value = ''; }
-    function _vf(label, value) { return '<div class="col-md-4 view-group"><label class="view-label">' + label + '</label><span class="form-control hs_span_show">' + (value != null ? value : '—') + '</span></div>'; }
+    function _vf(label, value) { return travel.viewField(label, value); }
   })();
   </script>
 </section>

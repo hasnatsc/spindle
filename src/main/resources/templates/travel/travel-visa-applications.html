@@ -13,10 +13,12 @@
   </ol>
   <h1 class="page-header">Visa Applications <small>tracking per-passenger visa processing</small></h1>
 
-  <div class="d-flex gap-2 mb-3 flex-wrap">
-    <a th:href="@{/travel/packages}" class="btn btn-sm btn-outline-primary"><i class="fa fa-suitcase-rolling me-1"></i> Packages</a>
-    <a th:href="@{/travel/tours}"    class="btn btn-sm btn-outline-primary"><i class="fa fa-route me-1"></i> Tours</a>
-    <a th:href="@{/travel/visa-applications}" class="btn btn-sm btn-primary"><i class="fa fa-passport me-1"></i> Visa</a>
+  <div class="travel-nav">
+    <a th:href="@{/travel/bookings}" class="btn btn-outline-primary btn-sm"><i class="fa fa-ticket-alt"></i> Bookings</a>
+    <a th:href="@{/travel/packages}" class="btn btn-outline-primary btn-sm"><i class="fa fa-suitcase-rolling"></i> Packages</a>
+    <a th:href="@{/travel/tours}"    class="btn btn-outline-primary btn-sm"><i class="fa fa-route"></i> Tours</a>
+    <a th:href="@{/travel/visa-applications}" class="btn btn-primary btn-sm"><i class="fa fa-passport"></i> Visa</a>
+    <a th:href="@{/travel/supplier-costs}" class="btn btn-outline-primary btn-sm"><i class="fa fa-file-invoice-dollar"></i> Supplier Costs</a>
   </div>
 
   <div class="row">
@@ -150,7 +152,10 @@
       <div class="modal-content">
         <div class="modal-header"><h5 class="modal-title">Visa Application Details</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
         <div class="modal-body" id="visaViewBody"></div>
-        <div class="modal-footer"><button type="button" class="btn btn-white" data-bs-dismiss="modal">Close</button></div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-sm btn-outline-primary travel-no-print" id="visaPrintBtn" style="display:none" onclick="window.open('/travel/reports/visa/' + (window._currentVisaId || '') , '_blank')"><i class="fa fa-print me-1"></i> Print Application</button>
+          <button type="button" class="btn btn-white" data-bs-dismiss="modal">Close</button>
+        </div>
       </div>
     </div>
   </div>
@@ -240,6 +245,9 @@
         (o.documents || []).forEach(function (d) { html += '<tr><td>' + d.documentName + '</td><td class="text-center">' + (d.isReceived ? '<span class="badge bg-success">Yes</span>' : '<span class="badge bg-secondary">No</span>') + '</td></tr>'; });
         html += '</tbody></table>';
         document.getElementById('visaViewBody').innerHTML = html;
+        window._currentVisaId = o.id;
+        var visaPrintBtn = document.getElementById('visaPrintBtn');
+        if (visaPrintBtn) { visaPrintBtn.style.display = (o.status === 'APPROVED' || o.status === 'COLLECTED') ? 'inline-block' : 'none'; }
         bootstrap.Modal.getOrCreateInstance(document.getElementById('visaViewModal')).show();
       });
     };

@@ -13,11 +13,14 @@
   </ol>
   <h1 class="page-header">Hotels <small>partner hotel directory &amp; room types</small></h1>
 
-  <div class="d-flex gap-2 mb-3 flex-wrap">
-    <a th:href="@{/travel/dashboard}" class="btn btn-sm btn-outline-primary"><i class="fa fa-tachometer-alt me-1"></i> Dashboard</a>
-    <a th:href="@{/travel/hotels}"    class="btn btn-sm btn-primary"><i class="fa fa-hotel me-1"></i> Hotels</a>
-    <a th:href="@{/travel/masters}"   class="btn btn-sm btn-outline-secondary"><i class="fa fa-database me-1"></i> Master Data</a>
-    <a th:href="@{/travel/packages}"  class="btn btn-sm btn-outline-primary"><i class="fa fa-suitcase-rolling me-1"></i> Packages</a>
+  <div class="travel-nav">
+    <a th:href="@{/travel/dashboard}" class="btn btn-outline-primary btn-sm"><i class="fa fa-tachometer-alt"></i> Dashboard</a>
+    <a th:href="@{/travel/bookings}" class="btn btn-outline-primary btn-sm"><i class="fa fa-ticket-alt"></i> Bookings</a>
+    <a th:href="@{/travel/hotels}"    class="btn btn-primary btn-sm"><i class="fa fa-hotel"></i> Hotels</a>
+    <a th:href="@{/travel/hotel-bookings}" class="btn btn-outline-primary btn-sm"><i class="fa fa-bed"></i> Hotel Bookings</a>
+    <a th:href="@{/travel/air-tickets}" class="btn btn-outline-primary btn-sm"><i class="fa fa-plane-departure"></i> Air Tickets</a>
+    <a th:href="@{/travel/masters}"   class="btn btn-outline-secondary btn-sm"><i class="fa fa-database"></i> Master Data</a>
+    <a th:href="@{/travel/packages}"  class="btn btn-outline-primary btn-sm"><i class="fa fa-suitcase-rolling"></i> Packages</a>
   </div>
 
   <div class="panel panel-inverse">
@@ -25,7 +28,7 @@
       <div class="panel-title">
         <a href="javascript:;" onclick="htlOpenCreate()"><span class="badge btn btn-outline-success"><i class="fa fa-plus me-1"></i> New Hotel</span></a>
       </div>
-      <div class="panel-heading-btn">
+      <div class="panel-heading-btn travel-no-print">
         <a href="javascript:;" class="btn btn-sm btn-icon btn-success" onclick="htlReload()"><i class="fa fa-redo"></i></a>
       </div>
     </div>
@@ -156,7 +159,7 @@
             + '<td>' + (h.contact_person || '—') + '</td>'
             + '<td class="text-center">' + h.status_badge + '</td><td class="text-center">' + h.actions + '</td></tr>');
         });
-        if (!(res.data || []).length) body.innerHTML = '<tr><td colspan="9" class="text-center text-muted py-3">No hotels found.</td></tr>';
+        if (!(res.data || []).length) body.innerHTML = '<tr><td colspan="9"><div class="travel-empty-state"><div class="travel-empty-icon"><i class="fa fa-hotel"></i></div><div class="travel-empty-title">No hotels found.</div></div></td></tr>';
       });
     };
 

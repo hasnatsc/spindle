@@ -178,6 +178,14 @@
     renderCart();
   };
 
+  window.fdDuplicateLine = function (idx) {
+    if (idx < 0 || idx >= cart.length) return;
+    var orig = cart[idx];
+    cart.splice(idx + 1, 0, Object.assign({}, orig));
+    renderCart();
+    travel.toast('Line duplicated');
+  };
+
   function renderCart() {
     var body = $id('fdCartBody');
     if (!cart.length) {
@@ -190,7 +198,9 @@
           + '<td class="text-end">' + (Number(l.qty) || 0) + '</td>'
           + '<td class="text-end">' + money(l.unitPrice) + '</td>'
           + '<td class="text-end">' + money(l.lineTotal) + '</td>'
-          + '<td class="text-end"><a href="javascript:;" class="text-danger" title="Remove" onclick="fdRemoveLine(' + i + ')"><i class="fa-regular fa-trash-can"></i></a></td>'
+          + '<td class="text-end text-nowrap">'
+          + '<a href="javascript:;" class="text-secondary me-1" title="Duplicate" onclick="fdDuplicateLine(' + i + ')"><i class="fa-regular fa-copy"></i></a>'
+          + '<a href="javascript:;" class="text-danger" title="Remove" onclick="fdRemoveLine(' + i + ')"><i class="fa-regular fa-trash-can"></i></a></td>'
           + '</tr>';
       }).join('');
     }
@@ -384,6 +394,47 @@
     loadRecent();
     tickClock();
     setInterval(tickClock, 1000);
+    _initKeyboard();
+    _initCustomerBalance();
   });
+
+  function _initKeyboard() {
+    // Enter to add line (when focused on line description/price/qty)
+    var lineFields = ['fdLineDesc', 'fdLineQty', 'fdLinePrice'];
+    lineFields.forEach(function (id) {
+      $id(id).addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' && !e.shiftKey) {
+          e.preventDefault();
+          window.fdAddLine();
+        }
+      });
+    });
+    // Ctrl+Enter to save & confirm from remarks
+    $id('fdRemarks').addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        window.fdSave(true);
+      }
+    });
+  }
+
+  function _initCustomerBalance() {
+    $('#fdPartyId').on('select2:select', function (e) {
+      var id = e.params.data.id;
+      if (!id) return;
+      secureFetch('/accounts/sub-accounts/balance/' + id).then(function (res) {
+        var balEl = $id('fdCustomerBalance');
+        if (!balEl) {
+          balEl = document.createElement('div');
+          balEl.id = 'fdCustomerBalance';
+          balEl.className = 'small mt-1 text-muted';
+          var wrap = $id('fdPartyId').closest('.view-group, .col-md-8, div');
+          if (wrap) wrap.appendChild(balEl);
+        }
+        var bal = res && res.balance != null ? travel.formatMoney(res.balance) : 'N/A';
+        balEl.innerHTML = '<i class="fa fa-wallet me-1"></i>AR Balance: <strong>' + bal + '</strong>';
+      }).catch(function () {});
+    });
+  }
 
 })();
