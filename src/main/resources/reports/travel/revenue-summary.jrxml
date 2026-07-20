@@ -10,6 +10,9 @@
     <parameter name="fromDate" class="java.lang.String"/>
     <parameter name="toDate" class="java.lang.String"/>
     <parameter name="orgId" class="java.lang.Long"/>
+    <parameter name="byTypeSubreport" class="net.sf.jasperreports.engine.JasperReport" isForPrompting="false"/>
+    <parameter name="byStatusSubreport" class="net.sf.jasperreports.engine.JasperReport" isForPrompting="false"/>
+    <parameter name="destinationsSubreport" class="net.sf.jasperreports.engine.JasperReport" isForPrompting="false"/>
     <parameter name="byTypeDataSource" class="net.sf.jasperreports.engine.data.JRBeanCollectionDataSource"/>
     <parameter name="byStatusDataSource" class="net.sf.jasperreports.engine.data.JRBeanCollectionDataSource"/>
     <parameter name="destinationsDataSource" class="net.sf.jasperreports.engine.data.JRBeanCollectionDataSource"/>
@@ -52,6 +55,7 @@
             <subreport>
                 <reportElement x="0" y="36" width="555" height="100"/>
                 <dataSourceExpression><![CDATA[$P{byTypeDataSource}]]></dataSourceExpression>
+                <subreportExpression><![CDATA[$P{byTypeSubreport}]]></subreportExpression>
             </subreport>
 
             <!-- Status Breakdown -->
@@ -69,6 +73,7 @@
             <subreport>
                 <reportElement x="0" y="181" width="555" height="100"/>
                 <dataSourceExpression><![CDATA[$P{byStatusDataSource}]]></dataSourceExpression>
+                <subreportExpression><![CDATA[$P{byStatusSubreport}]]></subreportExpression>
             </subreport>
 
             <!-- Top Destinations -->
@@ -85,6 +90,7 @@
             <subreport>
                 <reportElement x="0" y="326" width="555" height="100"/>
                 <dataSourceExpression><![CDATA[$P{destinationsDataSource}]]></dataSourceExpression>
+                <subreportExpression><![CDATA[$P{destinationsSubreport}]]></subreportExpression>
             </subreport>
         </band>
     </detail>

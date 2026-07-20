@@ -20,6 +20,8 @@
     <parameter name="total_amount" class="java.math.BigDecimal"/>
     <parameter name="confirmation_number" class="java.lang.String"/>
     <parameter name="status" class="java.lang.String"/>
+    <parameter name="itinerarySubreport" class="net.sf.jasperreports.engine.JasperReport" isForPrompting="false"/>
+    <parameter name="inclusionsSubreport" class="net.sf.jasperreports.engine.JasperReport" isForPrompting="false"/>
     <parameter name="itineraryDataSource" class="net.sf.jasperreports.engine.data.JRBeanCollectionDataSource"/>
     <parameter name="inclusionsDataSource" class="net.sf.jasperreports.engine.data.JRBeanCollectionDataSource"/>
 
@@ -116,6 +118,7 @@
             <subreport>
                 <reportElement x="0" y="71" width="555" height="80"/>
                 <dataSourceExpression><![CDATA[$P{itineraryDataSource}]]></dataSourceExpression>
+                <subreportExpression><![CDATA[$P{itinerarySubreport}]]></subreportExpression>
             </subreport>
 
             <!-- Inclusions -->
@@ -132,6 +135,7 @@
             <subreport>
                 <reportElement x="0" y="196" width="555" height="60"/>
                 <dataSourceExpression><![CDATA[$P{inclusionsDataSource}]]></dataSourceExpression>
+                <subreportExpression><![CDATA[$P{inclusionsSubreport}]]></subreportExpression>
             </subreport>
 
             <!-- Pricing Summary -->

@@ -2,182 +2,33 @@
 <jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports"
               xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
               xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd"
-              name="visa-application" pageWidth="595" pageHeight="842" columnWidth="555"
-              leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20"
+              name="visa-application" pageWidth="595" pageHeight="842" columnWidth="535"
+              leftMargin="30" rightMargin="30" topMargin="20" bottomMargin="20"
               whenNoDataType="AllSectionsNoDetail">
-    <property name="com.jaspersoft.studio.data.defaultdataadapter" value="One Empty Record"/>
     <parameter name="title" class="java.lang.String"/>
-    <parameter name="application_number" class="java.lang.String"/>
-    <parameter name="submission_date" class="java.lang.String"/>
-    <parameter name="expected_date" class="java.lang.String"/>
-    <parameter name="fee_amount" class="java.math.BigDecimal"/>
-    <parameter name="status" class="java.lang.String"/>
-    <parameter name="remarks" class="java.lang.String"/>
-    <parameter name="passenger_name" class="java.lang.String"/>
-    <parameter name="visa_country" class="java.lang.String"/>
-    <parameter name="visa_category" class="java.lang.String"/>
-    <parameter name="processing_days" class="java.lang.Integer"/>
-    <parameter name="booking_no" class="java.lang.String"/>
-    <parameter name="docsDataSource" class="net.sf.jasperreports.engine.data.JRBeanCollectionDataSource"/>
-
+    <parameter name="body" class="java.lang.String"/>
     <title>
-        <band height="50">
+        <band height="30">
             <staticText>
-                <reportElement x="0" y="0" width="555" height="30"/>
-                <textElement textAlignment="Center"><font size="18" isBold="true"/></textElement>
+                <reportElement x="0" y="0" width="535" height="28"/>
+                <textElement textAlignment="Center"><font size="16" isBold="true"/></textElement>
                 <text><![CDATA[Visa Application]]></text>
             </staticText>
-            <textField>
-                <reportElement x="0" y="30" width="555" height="20"/>
-                <textElement textAlignment="Center"><font size="10" isItalic="true"/></textElement>
-                <textFieldExpression><![CDATA[$P{passenger_name} + " — " + $P{visa_country}]]></textFieldExpression>
-            </textField>
         </band>
     </title>
-
-    <pageHeader>
-        <band height="20">
-            <line><reportElement x="0" y="18" width="555" height="1"/></line>
-        </band>
-    </pageHeader>
-
-    <columnHeader>
-        <band height="90">
-            <staticText>
-                <reportElement x="0" y="0" width="555" height="15"/>
-                <textElement><font size="8" isBold="true"/></textElement>
-                <text><![CDATA[Application Details]]></text>
-            </staticText>
-
-            <textField>
-                <reportElement x="0" y="18" width="120" height="15"/>
-                <textElement><font size="8" isBold="true"/></textElement>
-                <text><![CDATA[Booking No:]]></text>
-            </textField>
-            <textField>
-                <reportElement x="120" y="18" width="180" height="15"/>
-                <textFieldExpression><![CDATA[$P{booking_no}]]></textFieldExpression>
-            </textField>
-            <textField>
-                <reportElement x="0" y="34" width="120" height="15"/>
-                <textElement><font size="8" isBold="true"/></textElement>
-                <text><![CDATA[Passenger:]]></text>
-            </textField>
-            <textField>
-                <reportElement x="120" y="34" width="180" height="15"/>
-                <textFieldExpression><![CDATA[$P{passenger_name}]]></textFieldExpression>
-            </textField>
-            <textField>
-                <reportElement x="0" y="50" width="120" height="15"/>
-                <textElement><font size="8" isBold="true"/></textElement>
-                <text><![CDATA[Visa Type:]]></text>
-            </textField>
-            <textField>
-                <reportElement x="120" y="50" width="180" height="15"/>
-                <textFieldExpression><![CDATA[$P{visa_country} + " — " + $P{visa_category}]]></textFieldExpression>
-            </textField>
-            <textField>
-                <reportElement x="0" y="66" width="120" height="15"/>
-                <textElement><font size="8" isBold="true"/></textElement>
-                <text><![CDATA[Processing Days:]]></text>
-            </textField>
-            <textField>
-                <reportElement x="120" y="66" width="180" height="15"/>
-                <textFieldExpression><![CDATA[$P{processing_days} != null ? String.valueOf($P{processing_days}) : ""]]></textFieldExpression>
-            </textField>
-
-            <textField>
-                <reportElement x="320" y="18" width="100" height="15"/>
-                <textElement><font size="8" isBold="true"/></textElement>
-                <text><![CDATA[Application #:]]></text>
-            </textField>
-            <textField>
-                <reportElement x="420" y="18" width="135" height="15"/>
-                <textFieldExpression><![CDATA[$P{application_number}]]></textFieldExpression>
-            </textField>
-            <textField>
-                <reportElement x="320" y="34" width="100" height="15"/>
-                <textElement><font size="8" isBold="true"/></textElement>
-                <text><![CDATA[Submitted:]]></text>
-            </textField>
-            <textField>
-                <reportElement x="420" y="34" width="135" height="15"/>
-                <textFieldExpression><![CDATA[$P{submission_date}]]></textFieldExpression>
-            </textField>
-            <textField>
-                <reportElement x="320" y="50" width="100" height="15"/>
-                <textElement><font size="8" isBold="true"/></textElement>
-                <text><![CDATA[Expected:]]></text>
-            </textField>
-            <textField>
-                <reportElement x="420" y="50" width="135" height="15"/>
-                <textFieldExpression><![CDATA[$P{expected_date}]]></textFieldExpression>
-            </textField>
-            <textField>
-                <reportElement x="320" y="66" width="100" height="15"/>
-                <textElement><font size="8" isBold="true"/></textElement>
-                <text><![CDATA[Status:]]></text>
-            </textField>
-            <textField>
-                <reportElement x="420" y="66" width="135" height="15"/>
-                <textFieldExpression><![CDATA[$P{status}]]></textFieldExpression>
-            </textField>
-        </band>
-    </columnHeader>
-
     <detail>
-        <band height="200">
-            <!-- Document Checklist -->
-            <staticText>
-                <reportElement x="0" y="0" width="555" height="18"/>
-                <textElement><font size="10" isBold="true"/></textElement>
-                <text><![CDATA[Document Checklist]]></text>
-            </staticText>
-            <frame>
-                <reportElement x="0" y="18" width="555" height="18" backcolor="#F0F0F0"/>
-                <staticText><reportElement x="0" y="0" width="350" height="18"/><box><rightPen width="0.5"/></box><textElement><font size="8" isBold="true"/></textElement><text><![CDATA[Document]]></text></staticText>
-                <staticText><reportElement x="350" y="0" width="70" height="18"/><box><rightPen width="0.5"/></box><textElement textAlignment="Center"><font size="8" isBold="true"/></textElement><text><![CDATA[Received]]></text></staticText>
-                <staticText><reportElement x="420" y="0" width="135" height="18"/><textElement><font size="8" isBold="true"/></textElement><text><![CDATA[Remarks]]></text></staticText>
-            </frame>
-            <subreport>
-                <reportElement x="0" y="36" width="555" height="80"/>
-                <dataSourceExpression><![CDATA[$P{docsDataSource}]]></dataSourceExpression>
-            </subreport>
-
-            <!-- Remarks -->
-            <textField>
-                <reportElement x="0" y="130" width="555" height="60"/>
-                <textElement><font size="8" isItalic="true"/></textElement>
-                <textFieldExpression><![CDATA[$P{remarks} != null && !$P{remarks}.isEmpty() ? "Remarks: " + $P{remarks} : ""]]></textFieldExpression>
-            </textField>
-
-            <!-- Fee -->
-            <line>
-                <reportElement x="350" y="130" width="205" height="0"/>
-            </line>
-            <textField>
-                <reportElement x="350" y="135" width="100" height="18"/>
-                <textElement><font size="10" isBold="true"/></textElement>
-                <text><![CDATA[Fee Amount:]]></text>
-            </textField>
-            <textField>
-                <reportElement x="450" y="135" width="105" height="18"/>
-                <textElement textAlignment="Right"><font size="10" isBold="true"/></textElement>
-                <textFieldExpression><![CDATA[$P{fee_amount} != null ? $P{fee_amount}.toPlainString() : "0"]]></textFieldExpression>
+        <band height="760" splitAllowed="true">
+            <textField isStretchWithOverflow="true">
+                <reportElement x="0" y="0" width="535" height="760"/>
+                <textElement><font size="8"/></textElement>
+                <textFieldExpression><![CDATA[$P{body}]]></textFieldExpression>
             </textField>
         </band>
     </detail>
-
     <pageFooter>
-        <band height="20">
-            <line><reportElement x="0" y="0" width="555" height="1"/></line>
-            <textField evaluationTime="Report">
-                <reportElement x="0" y="2" width="300" height="15"/>
-                <textElement><font size="7"/></textElement>
-                <textFieldExpression><![CDATA["Generated by Spindle ERP — Travel Module"]]></textFieldExpression>
-            </textField>
+        <band height="15">
             <textField evaluationTime="Page">
-                <reportElement x="450" y="2" width="105" height="15"/>
+                <reportElement x="435" y="0" width="100" height="15"/>
                 <textElement textAlignment="Right"><font size="7"/></textElement>
                 <textFieldExpression><![CDATA["Page " + $V{PAGE_NUMBER}]]></textFieldExpression>
             </textField>
