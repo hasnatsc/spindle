@@ -30,6 +30,19 @@ public class TrvHotelBookingDTO {
     @Builder.Default
     private String status = "PENDING";
 
+    // ── Booking source / channel ────────────────────────────────────────────
+    private String bookingSource;
+    private String cancellationPolicy;
+    private LocalDate freeCancellationUntil;
+    @Builder.Default private BigDecimal depositAmount = BigDecimal.ZERO;
+    private LocalDate balanceDueDate;
+    private String specialRequests;
+    @Builder.Default private String bookingCurrency = "BDT";
+    @Builder.Default private BigDecimal taxAmount = BigDecimal.ZERO;
+    @Builder.Default private BigDecimal netAmount = BigDecimal.ZERO;
+    @Builder.Default private Boolean vendorConfirmationReceived = false;
+    private String vendorRemarks;
+
     private Long bookingServiceId;
     private Long hotelId;        private String hotelDisplay;
     private Long roomTypeId;     private String roomTypeDisplay;

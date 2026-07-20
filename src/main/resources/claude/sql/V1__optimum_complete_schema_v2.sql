@@ -1,2486 +1,7567 @@
--- ╔══════════════════════════════════════════════════════════════════════════════╗
--- ║  SPINDLE ERP  ·  CORE SCHEMA  ·  v3.0                                      ║
--- ║  Package   : com.spindle.erp                                                ║
--- ║  Database  : PostgreSQL 15+                                                  ║
--- ║  Modules   : Core Security, Org Masters, Location/Reference,                ║
--- ║              Inventory, Accounting (GL/AP/AR), HRM, Production,             ║
--- ║              Fixed Assets, Budget, CRM, Commercial, Notifications, Audit    ║
--- ║  Tables    : ~105  Indexes: ~260  Views: 8                                  ║
--- ║                                                                              ║
--- ║  NOTE: Ecommerce (ec_*) and Travel (trv_*) schema tables are in            ║
--- ║        separate migration files: V7__ecommerce_schema.sql and               ║
--- ║        V8__travel_schema.sql respectively.                                  ║
--- ║                                                                              ║
--- ║  MERGED FROM:                                                               ║
--- ║    - V2__sec_user_access_scopes.sql → sec_user_access_scopes table          ║
--- ║    - V10__org_module_access.sql     → sec_org_modules, sec_org_admin_scopes ║
--- ║    - (New) sec_user_org_business_units, sec_user_org_cost_centers,          ║
--- ║            sec_user_organizations, sec_user_warehouses                       ║
--- ╚══════════════════════════════════════════════════════════════════════════════╝
-
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-CREATE EXTENSION IF NOT EXISTS "pg_trgm";
-
--- ═══════════════════════════════════════════════════════════════════════════
--- MODULE 01 — CORE / SECURITY
--- ═══════════════════════════════════════════════════════════════════════════
-
-CREATE TABLE org_organizations (
-    id               BIGSERIAL    PRIMARY KEY,
-    code             VARCHAR(50)  NOT NULL UNIQUE,
-    name             VARCHAR(200) NOT NULL,
-    name_bn          VARCHAR(200),
-    about            TEXT,
-    address          TEXT,
-    city             VARCHAR(100),
-    state            VARCHAR(100),
-    country          VARCHAR(100),
-    postal_code      VARCHAR(20),
-    phone            VARCHAR(20),
-    email            VARCHAR(100),
-    website          VARCHAR(255),
-    logo_url         VARCHAR(500),
-    established_date DATE,
-    tax_id           VARCHAR(50),
-    vat_no           VARCHAR(50),
-    bin_no           VARCHAR(50),
-    is_active        BOOLEAN      NOT NULL DEFAULT TRUE,
-    created_by       VARCHAR(100),
-    updated_by       VARCHAR(100),
-    created_at       TIMESTAMP(6),
-    updated_at       TIMESTAMP(6)
-);
-CREATE INDEX idx_org_code   ON org_organizations(code);
-CREATE INDEX idx_org_active ON org_organizations(is_active);
-
-CREATE TABLE sec_roles (
-    id          BIGSERIAL    PRIMARY KEY,
-    name        VARCHAR(100) NOT NULL UNIQUE,
-    name_bn     VARCHAR(250),
-    description VARCHAR(255),
-    master_role VARCHAR(60),
-    active      BOOLEAN      NOT NULL DEFAULT TRUE,
-    created_at  TIMESTAMP(6),
-    updated_at  TIMESTAMP(6)
-);
-
-CREATE TABLE sec_permissions (
-    id          BIGSERIAL    PRIMARY KEY,
-    name        VARCHAR(100) NOT NULL UNIQUE,
-    description VARCHAR(255),
-    url_pattern VARCHAR(255),
-    http_method VARCHAR(10),
-    category    VARCHAR(50),
-    module      VARCHAR(80),
-    active      BOOLEAN      NOT NULL DEFAULT TRUE,
-    created_at  TIMESTAMP(6),
-    updated_at  TIMESTAMP(6)
-);
-CREATE INDEX idx_perm_name   ON sec_permissions(name);
-CREATE INDEX idx_perm_module ON sec_permissions(module);
-
-CREATE TABLE sec_users (
-    id                         BIGSERIAL    PRIMARY KEY,
-    organization_id            BIGINT       NOT NULL REFERENCES org_organizations(id),
-    username                   VARCHAR(80)  NOT NULL UNIQUE,
-    email                      VARCHAR(150) NOT NULL UNIQUE,
-    phone                      VARCHAR(30)  NOT NULL UNIQUE,
-    password                   VARCHAR(255) NOT NULL,
-    full_name                  VARCHAR(200),
-    enabled                    BOOLEAN      NOT NULL DEFAULT TRUE,
-    account_non_locked         BOOLEAN      NOT NULL DEFAULT TRUE,
-    account_non_expired        BOOLEAN      NOT NULL DEFAULT TRUE,
-    credentials_non_expired    BOOLEAN      NOT NULL DEFAULT TRUE,
-    deleted                    BOOLEAN      NOT NULL DEFAULT FALSE,
-    default_dashboard          VARCHAR(30),
-    last_login_at              TIMESTAMP(6),
-    created_by                 VARCHAR(100),
-    updated_by                 VARCHAR(100),
-    created_at                 TIMESTAMP(6),
-    updated_at                 TIMESTAMP(6)
-);
-CREATE INDEX idx_user_org      ON sec_users(organization_id);
-CREATE INDEX idx_user_username ON sec_users(username);
-CREATE INDEX idx_user_email    ON sec_users(email);
-CREATE INDEX idx_user_deleted  ON sec_users(deleted);
-
-CREATE TABLE sec_user_roles (
-    user_id BIGINT NOT NULL REFERENCES sec_users(id) ON DELETE CASCADE,
-    role_id BIGINT NOT NULL REFERENCES sec_roles(id) ON DELETE CASCADE,
-    PRIMARY KEY (user_id, role_id)
-);
-
-CREATE TABLE sec_role_permissions (
-    role_id       BIGINT NOT NULL REFERENCES sec_roles(id) ON DELETE CASCADE,
-    permission_id BIGINT NOT NULL REFERENCES sec_permissions(id) ON DELETE CASCADE,
-    PRIMARY KEY (role_id, permission_id)
-);
-
-CREATE TABLE app_menus (
-    id                  BIGSERIAL    PRIMARY KEY,
-    menu_code           VARCHAR(80)  NOT NULL UNIQUE,
-    menu_name           VARCHAR(120) NOT NULL,
-    menu_url            VARCHAR(300),
-    icon                VARCHAR(100),
-    parent_id           BIGINT,
-    display_order       INT          NOT NULL DEFAULT 0,
-    menu_type           VARCHAR(20)  NOT NULL DEFAULT 'LEAF'
-        CONSTRAINT chk_menu_type CHECK (menu_type IN ('MODULE','GROUP','LEAF')),
-    module_name         VARCHAR(80),
-    required_permission VARCHAR(120),
-    description         VARCHAR(255),
-    target              VARCHAR(20)  DEFAULT '_self',
-    active              BOOLEAN      NOT NULL DEFAULT TRUE,
-    visible             BOOLEAN      NOT NULL DEFAULT TRUE,
-    deleted             BOOLEAN      NOT NULL DEFAULT FALSE,
-    created_by          VARCHAR(100),
-    updated_by          VARCHAR(100),
-    created_at          TIMESTAMP(6),
-    updated_at          TIMESTAMP(6)
-);
-CREATE INDEX idx_menu_parent ON app_menus(parent_id);
-CREATE INDEX idx_menu_order  ON app_menus(display_order);
-CREATE INDEX idx_menu_active ON app_menus(active, deleted);
-
-CREATE TABLE sec_mrole_menus (
-    id         BIGSERIAL PRIMARY KEY,
-    role_id    BIGINT    NOT NULL REFERENCES sec_roles(id)   ON DELETE CASCADE,
-    menu_id    BIGINT    NOT NULL REFERENCES app_menus(id)   ON DELETE CASCADE,
-    can_view   BOOLEAN   NOT NULL DEFAULT TRUE,
-    can_create BOOLEAN   NOT NULL DEFAULT FALSE,
-    can_edit   BOOLEAN   NOT NULL DEFAULT FALSE,
-    can_delete BOOLEAN   NOT NULL DEFAULT FALSE,
-    created_at TIMESTAMP(6),
-    updated_at TIMESTAMP(6),
-    UNIQUE (role_id, menu_id)
-);
-CREATE INDEX idx_rma_role ON sec_mrole_menus(role_id);
-CREATE INDEX idx_rma_menu ON sec_mrole_menus(menu_id);
-
-CREATE TABLE sec_user_access_scopes (
-    id              BIGSERIAL    PRIMARY KEY,
-    user_id         BIGINT       NOT NULL REFERENCES sec_users(id) ON DELETE CASCADE,
-    scope_type      VARCHAR(30)  NOT NULL
-        CONSTRAINT chk_uas_scope_type CHECK (scope_type IN ('ORGANIZATION','BUSINESS_UNIT','COST_CENTER','WAREHOUSE')),
-    reference_id    BIGINT       NOT NULL,
-    created_at      TIMESTAMP(6),
-    CONSTRAINT uq_uas_user_scope_ref UNIQUE (user_id, scope_type, reference_id)
-);
-CREATE INDEX idx_uas_user  ON sec_user_access_scopes(user_id);
-CREATE INDEX idx_uas_scope ON sec_user_access_scopes(scope_type);
-CREATE INDEX idx_uas_ref   ON sec_user_access_scopes(reference_id);
-
-CREATE TABLE sec_org_modules (
-    id              BIGSERIAL    PRIMARY KEY,
-    organization_id BIGINT       NOT NULL REFERENCES org_organizations(id),
-    module_key      VARCHAR(60)  NOT NULL,
-    active          BOOLEAN      NOT NULL DEFAULT TRUE,
-    granted_by      VARCHAR(100),
-    granted_at      TIMESTAMP(6),
-    revoked_by      VARCHAR(100),
-    revoked_at      TIMESTAMP(6),
-    notes           VARCHAR(500),
-    CONSTRAINT uq_org_module UNIQUE (organization_id, module_key)
-);
-CREATE INDEX idx_om_org    ON sec_org_modules(organization_id);
-CREATE INDEX idx_om_module ON sec_org_modules(module_key);
-CREATE INDEX idx_om_active ON sec_org_modules(active);
-
-CREATE TABLE sec_org_admin_scopes (
-    id              BIGSERIAL    PRIMARY KEY,
-    user_id         BIGINT       NOT NULL REFERENCES sec_users(id),
-    organization_id BIGINT       NOT NULL REFERENCES org_organizations(id),
-    active          BOOLEAN      NOT NULL DEFAULT TRUE,
-    granted_by      VARCHAR(100),
-    granted_at      TIMESTAMP(6),
-    notes           VARCHAR(500),
-    CONSTRAINT uq_oas_user_org UNIQUE (user_id, organization_id)
-);
-CREATE INDEX idx_oas_user ON sec_org_admin_scopes(user_id);
-CREATE INDEX idx_oas_org  ON sec_org_admin_scopes(organization_id);
-
-CREATE TABLE sec_user_org_business_units (
-    user_id          BIGINT NOT NULL REFERENCES sec_users(id),
-    business_unit_id BIGINT NOT NULL REFERENCES org_business_units(id),
-    PRIMARY KEY (user_id, business_unit_id)
-);
-
-CREATE TABLE sec_user_org_cost_centers (
-    user_id        BIGINT NOT NULL REFERENCES sec_users(id),
-    cost_center_id BIGINT NOT NULL REFERENCES org_cost_centers(id),
-    PRIMARY KEY (user_id, cost_center_id)
-);
-
-CREATE TABLE sec_user_organizations (
-    user_id         BIGINT NOT NULL REFERENCES sec_users(id),
-    organization_id BIGINT NOT NULL REFERENCES org_organizations(id),
-    PRIMARY KEY (user_id, organization_id)
-);
-
-CREATE TABLE sec_user_warehouses (
-    user_id      BIGINT NOT NULL REFERENCES sec_users(id),
-    warehouse_id BIGINT NOT NULL REFERENCES org_warehouses(id),
-    PRIMARY KEY (user_id, warehouse_id)
-);
-
-CREATE TABLE sec_password_reset_tokens (
-    id          BIGSERIAL    PRIMARY KEY,
-    token       VARCHAR(100) NOT NULL UNIQUE,
-    user_id     BIGINT       UNIQUE REFERENCES sec_users(id),
-    expires_at  TIMESTAMP(6) NOT NULL,
-    created_at  TIMESTAMP(6) NOT NULL,
-    used_at     TIMESTAMP(6)
-);
-CREATE INDEX idx_prt_token   ON sec_password_reset_tokens(token);
-CREATE INDEX idx_prt_expires ON sec_password_reset_tokens(expires_at);
-
-CREATE TABLE spring_session (
-    primary_id            CHAR(36)     NOT NULL PRIMARY KEY,
-    session_id            CHAR(36)     NOT NULL UNIQUE,
-    creation_time         BIGINT       NOT NULL,
-    last_access_time      BIGINT       NOT NULL,
-    max_inactive_interval INT          NOT NULL,
-    expiry_time           BIGINT       NOT NULL,
-    principal_name        VARCHAR(100)
-);
-CREATE INDEX spring_session_ix2 ON spring_session(expiry_time);
-CREATE INDEX spring_session_ix3 ON spring_session(principal_name);
-
-CREATE TABLE spring_session_attributes (
-    session_primary_id CHAR(36)     NOT NULL REFERENCES spring_session(primary_id) ON DELETE CASCADE,
-    attribute_name     VARCHAR(200) NOT NULL,
-    attribute_bytes    BYTEA        NOT NULL,
-    PRIMARY KEY (session_primary_id, attribute_name)
-);
-
--- ═══════════════════════════════════════════════════════════════════════════
--- MODULE 02 — LOCATION & REFERENCE MASTERS
--- ═══════════════════════════════════════════════════════════════════════════
-
-CREATE TABLE stp_currencies (
-    id             BIGSERIAL    PRIMARY KEY,
-    code           VARCHAR(3)   NOT NULL UNIQUE,
-    name           VARCHAR(100) NOT NULL,
-    symbol         VARCHAR(10),
-    decimal_places INT          NOT NULL DEFAULT 2,
-    active         BOOLEAN      NOT NULL DEFAULT TRUE
-);
-
-CREATE TABLE stp_location_countries (
-    id          BIGSERIAL    PRIMARY KEY,
-    currency_id BIGINT       NOT NULL REFERENCES stp_currencies(id),
-    iso_code    VARCHAR(3)   NOT NULL UNIQUE,
-    iso_code2   VARCHAR(2)   NOT NULL,
-    name        VARCHAR(150) NOT NULL,
-    name_native VARCHAR(150),
-    phone_code  VARCHAR(10),
-    active      BOOLEAN      NOT NULL DEFAULT TRUE,
-    created_at  TIMESTAMP(6)
-);
-
-CREATE TABLE stp_location_states (
-    id         BIGSERIAL    PRIMARY KEY,
-    country_id BIGINT       NOT NULL REFERENCES stp_location_countries(id),
-    code       VARCHAR(20)  NOT NULL,
-    name       VARCHAR(255) NOT NULL,
-    active     BOOLEAN      NOT NULL DEFAULT TRUE
-);
-CREATE INDEX idx_state_country ON stp_location_states(country_id);
-
-CREATE TABLE stp_location_districts (
-    id       BIGSERIAL    PRIMARY KEY,
-    state_id BIGINT       NOT NULL REFERENCES stp_location_states(id),
-    code     VARCHAR(30)  NOT NULL,
-    name     VARCHAR(255) NOT NULL,
-    active   BOOLEAN      NOT NULL DEFAULT TRUE
-);
-CREATE INDEX idx_dist_state ON stp_location_districts(state_id);
-
-CREATE TABLE stp_location_cities (
-    id          BIGSERIAL    PRIMARY KEY,
-    district_id BIGINT       NOT NULL REFERENCES stp_location_districts(id),
-    name        VARCHAR(255) NOT NULL,
-    active      BOOLEAN      NOT NULL DEFAULT TRUE
-);
-
-CREATE TABLE stp_location_areas (
-    id      BIGSERIAL    PRIMARY KEY,
-    city_id BIGINT       NOT NULL REFERENCES stp_location_cities(id),
-    name    VARCHAR(255) NOT NULL,
-    active  BOOLEAN      NOT NULL DEFAULT TRUE
-);
-
-CREATE TABLE stp_banks (
-    id                           BIGSERIAL    PRIMARY KEY,
-    organization_id              BIGINT       NOT NULL REFERENCES org_organizations(id),
-    bank_code                    VARCHAR(20)  NOT NULL,
-    bank_name                    VARCHAR(200) NOT NULL,
-    bank_name_local              VARCHAR(200),
-    short_name                   VARCHAR(50),
-    bank_type                    VARCHAR(30)  NOT NULL DEFAULT 'COMMERCIAL',
-    swift_code                   VARCHAR(11),
-    routing_number_prefix        VARCHAR(9),
-    head_office_address          VARCHAR(500),
-    head_office_city             VARCHAR(100),
-    head_office_country          VARCHAR(100),
-    head_office_phone            VARCHAR(50),
-    head_office_email            VARCHAR(100),
-    website                      VARCHAR(200),
-    correspondent_bank_name      VARCHAR(200),
-    correspondent_swift_code     VARCHAR(11),
-    correspondent_account_number VARCHAR(50),
-    supports_lc                  BOOLEAN      NOT NULL DEFAULT FALSE,
-    is_active                    BOOLEAN      NOT NULL DEFAULT TRUE,
-    created_by                   VARCHAR(100),
-    updated_by                   VARCHAR(100),
-    created_at                   TIMESTAMP(6),
-    updated_at                   TIMESTAMP(6),
-    UNIQUE (organization_id, bank_code)
-);
-CREATE INDEX idx_bank_org ON stp_banks(organization_id);
-
-CREATE TABLE stp_document_sequences (
-    id              BIGSERIAL   PRIMARY KEY,
-    organization_id BIGINT      NOT NULL REFERENCES org_organizations(id),
-    prefix          VARCHAR(20) NOT NULL,
-    year_code       VARCHAR(6)  NOT NULL,
-    last_seq        INT         NOT NULL DEFAULT 0,
-    created_at      TIMESTAMP(6),
-    updated_at      TIMESTAMP(6),
-    UNIQUE (organization_id, prefix, year_code)
-);
-CREATE INDEX idx_docseq_org ON stp_document_sequences(organization_id);
-
-CREATE TABLE stp_terms_master (
-    id            BIGSERIAL    PRIMARY KEY,
-    title         VARCHAR(200) NOT NULL,
-    description   TEXT,
-    document_type VARCHAR(50)  NOT NULL,
-    is_active     BOOLEAN      DEFAULT TRUE,
-    is_default    BOOLEAN      DEFAULT FALSE,
-    sort_order    INT
-);
-
-CREATE TABLE stp_document_file (
-    id                 BIGSERIAL    PRIMARY KEY,
-    document_type      VARCHAR(50)  NOT NULL,
-    reference_id       BIGINT       NOT NULL,
-    file_name          VARCHAR(255),
-    original_file_name VARCHAR(255),
-    file_type          VARCHAR(100),
-    file_path          VARCHAR(500),
-    file_size          BIGINT,
-    document_category  VARCHAR(200),
-    remarks            VARCHAR(500),
-    uploaded_at        TIMESTAMP(6),
-    uploaded_by        VARCHAR(255)
-);
-CREATE INDEX idx_docfile_ref ON stp_document_file(document_type, reference_id);
-
-CREATE TABLE com_hs_codes (
-    id                         BIGSERIAL    PRIMARY KEY,
-    organization_id            BIGINT       NOT NULL REFERENCES org_organizations(id),
-    hs_code                    VARCHAR(20)  NOT NULL,
-    description                VARCHAR(500) NOT NULL,
-    short_description          VARCHAR(200),
-    hs_type                    VARCHAR(20)  NOT NULL DEFAULT 'BOTH'
-        CONSTRAINT chk_hs_type CHECK (hs_type IN ('EXPORT','IMPORT','BOTH')),
-    vat_percent                NUMERIC(6,2),
-    customs_duty_percent       NUMERIC(6,2),
-    supplementary_duty_percent NUMERIC(6,2),
-    ait_percent                NUMERIC(6,2),
-    is_active                  BOOLEAN      NOT NULL DEFAULT TRUE,
-    is_bonded_allowed          BOOLEAN      NOT NULL DEFAULT FALSE,
-    created_by                 VARCHAR(100),
-    updated_by                 VARCHAR(100),
-    created_at                 TIMESTAMP(6),
-    updated_at                 TIMESTAMP(6),
-    UNIQUE (organization_id, hs_code)
-);
-CREATE INDEX idx_hscode_org ON com_hs_codes(organization_id);
-
--- ═══════════════════════════════════════════════════════════════════════════
--- MODULE 03 — INVENTORY MASTERS  (Generic — no fiber/yarn specifics)
--- ═══════════════════════════════════════════════════════════════════════════
-
-CREATE TABLE inv_item_categories (
-    id                 BIGSERIAL    PRIMARY KEY,
-    organization_id    BIGINT       NOT NULL REFERENCES org_organizations(id),
-    parent_category_id BIGINT       REFERENCES inv_item_categories(id),
-    category_code      VARCHAR(50)  NOT NULL,
-    category_name      VARCHAR(100) NOT NULL,
-    description        TEXT,
-    -- Generic item type (industry-neutral)
-    item_type          VARCHAR(30)
-        CONSTRAINT chk_cat_itype CHECK (item_type IN (
-            'RAW_MATERIAL','SEMI_FINISHED','FINISHED_GOOD',
-            'SERVICE','SPARE_PART','CONSUMABLE','MRO','GENERAL','FIXED_ASSET')),
-    layer_type         VARCHAR(20)  NOT NULL DEFAULT 'ITEM'
-        CONSTRAINT chk_cat_layer CHECK (layer_type IN ('ROOT','GROUP','ITEM')),
-    is_active          BOOLEAN      NOT NULL DEFAULT TRUE,
-    created_by         VARCHAR(100),
-    updated_by         VARCHAR(100),
-    created_at         TIMESTAMP(6),
-    updated_at         TIMESTAMP(6),
-    UNIQUE (organization_id, category_code)
-);
-CREATE INDEX idx_icat_org    ON inv_item_categories(organization_id);
-CREATE INDEX idx_icat_parent ON inv_item_categories(parent_category_id);
-CREATE INDEX idx_icat_type   ON inv_item_categories(item_type);
-
-CREATE TABLE inv_item_uom (
-    id                BIGSERIAL       PRIMARY KEY,
-    organization_id   BIGINT          NOT NULL REFERENCES org_organizations(id),
-    code              VARCHAR(20)     NOT NULL,
-    name              VARCHAR(100)    NOT NULL,
-    symbol            VARCHAR(20),
-    category          VARCHAR(30)     NOT NULL
-        CONSTRAINT chk_uom_cat CHECK (category IN (
-            'WEIGHT','COUNT','LENGTH','VOLUME','AREA','PACKING','UNIT')),
-    is_base_unit      BOOLEAN         NOT NULL DEFAULT FALSE,
-    conversion_factor NUMERIC(12,6)   NOT NULL DEFAULT 1,
-    active            BOOLEAN         NOT NULL DEFAULT TRUE,
-    created_at        TIMESTAMP(6),
-    updated_at        TIMESTAMP(6),
-    UNIQUE (organization_id, code)
-);
-CREATE INDEX idx_uom_org ON inv_item_uom(organization_id);
-
-CREATE TABLE inv_item_brands (
-    id              BIGSERIAL    PRIMARY KEY,
-    organization_id BIGINT       NOT NULL REFERENCES org_organizations(id),
-    brand_code      VARCHAR(30)  NOT NULL,
-    brand_name      VARCHAR(150) NOT NULL,
-    description     TEXT,
-    is_active       BOOLEAN      NOT NULL DEFAULT TRUE,
-    created_by      VARCHAR(100),
-    updated_by      VARCHAR(100),
-    created_at      TIMESTAMP(6),
-    updated_at      TIMESTAMP(6),
-    UNIQUE (organization_id, brand_code)
-);
-CREATE INDEX idx_brand_org ON inv_item_brands(organization_id);
-
-CREATE TABLE inv_item_models (
-    id              BIGSERIAL    PRIMARY KEY,
-    organization_id BIGINT       NOT NULL REFERENCES org_organizations(id),
-    brand_id        BIGINT       REFERENCES inv_item_brands(id),
-    model_code      VARCHAR(30)  NOT NULL,
-    model_name      VARCHAR(150) NOT NULL,
-    description     TEXT,
-    is_active       BOOLEAN      NOT NULL DEFAULT TRUE,
-    created_by      VARCHAR(100),
-    updated_by      VARCHAR(100),
-    created_at      TIMESTAMP(6),
-    updated_at      TIMESTAMP(6),
-    UNIQUE (organization_id, brand_id, model_code)
-);
-CREATE INDEX idx_model_org ON inv_item_models(organization_id);
-
-CREATE TABLE inv_items (
-    id                BIGSERIAL       PRIMARY KEY,
-    organization_id   BIGINT          NOT NULL REFERENCES org_organizations(id),
-    category_id       BIGINT          NOT NULL REFERENCES inv_item_categories(id),
-    purchase_unit_id  BIGINT          NOT NULL REFERENCES inv_item_uom(id),
-    sales_unit_id     BIGINT          NOT NULL REFERENCES inv_item_uom(id),
-    operation_unit_id BIGINT          NOT NULL REFERENCES inv_item_uom(id),
-    brand_id          BIGINT          REFERENCES inv_item_brands(id),
-    model_id          BIGINT          REFERENCES inv_item_models(id),
-    hs_code_id        BIGINT          REFERENCES com_hs_codes(id),
-    origin_id         BIGINT          REFERENCES stp_location_countries(id),
-
-    item_code         VARCHAR(50)     NOT NULL,
-    item_name         VARCHAR(200)    NOT NULL,
-    item_name_bn      VARCHAR(200),
-
-    -- Generic item type (industry-neutral)
-    item_type         VARCHAR(30)     NOT NULL DEFAULT 'GENERAL'
-        CONSTRAINT chk_item_type CHECK (item_type IN (
-            'RAW_MATERIAL','SEMI_FINISHED','FINISHED_GOOD',
-            'SERVICE','SPARE_PART','CONSUMABLE','MRO','GENERAL','FIXED_ASSET')),
-
-    sku               VARCHAR(100),
-    barcode           VARCHAR(100),
-    unit_of_measure   VARCHAR(20)     NOT NULL,    -- display code
-    purchase_unit_code VARCHAR(20)    NOT NULL,
-    sales_unit_code    VARCHAR(20)    NOT NULL,
-
-    -- Costing
-    cost_price        NUMERIC(12,4),
-    unit_price        NUMERIC(12,4),
-    tax_rate          NUMERIC(5,2),
-    standard_cost     NUMERIC(12,4),               -- for COGS valuation
-
-    -- Stock control
-    minimum_stock     NUMERIC(12,3),
-    maximum_stock     NUMERIC(12,3),
-    reorder_level     NUMERIC(12,3),
-
-    -- Generic production fields
-    yield_percent     NUMERIC(5,2),               -- expected output %, e.g. 92%
-    process_loss_pct  NUMERIC(5,2),               -- expected waste %
-
-    -- Physical specs (generic)
-    weight            NUMERIC(12,4),              -- unit weight (kg)
-    volume            NUMERIC(12,4),              -- unit volume (L)
-    dimensions        VARCHAR(100),               -- LxWxH
-
-    -- Shelf life / expiry
-    shelf_life_days   INT,
-    expiry_date       DATE,
-    has_lot_tracking  BOOLEAN         NOT NULL DEFAULT FALSE,
-    has_serial        BOOLEAN         NOT NULL DEFAULT FALSE,
-
-    -- Asset fields (for FIXED_ASSET type)
-    serial_number     VARCHAR(100),
-    model_name        VARCHAR(100),
-    manufacturer      VARCHAR(100),
-    warranty_months   INT,
-    depreciation_rate NUMERIC(5,2),
-
-    -- Chemical / hazardous (for CONSUMABLE/MRO)
-    cas_number        VARCHAR(50),
-    is_hazardous      BOOLEAN         NOT NULL DEFAULT FALSE,
-    safety_data_sheet VARCHAR(255),
-
-    description       TEXT,
-    internal_notes    TEXT,
-
-    is_active         BOOLEAN         NOT NULL DEFAULT TRUE,
-    is_approved       BOOLEAN         NOT NULL DEFAULT FALSE,
-    approved_by       VARCHAR(100),
-    approved_at       TIMESTAMP(6),
-    created_by        VARCHAR(100),
-    updated_by        VARCHAR(100),
-    created_at        TIMESTAMP(6),
-    updated_at        TIMESTAMP(6),
-    UNIQUE (organization_id, item_code),
-    UNIQUE (organization_id, item_name)
-);
-CREATE INDEX idx_item_org  ON inv_items(organization_id);
-CREATE INDEX idx_item_type ON inv_items(item_type);
-CREATE INDEX idx_item_cat  ON inv_items(category_id);
-CREATE INDEX idx_item_active ON inv_items(is_active);
-
--- ═══════════════════════════════════════════════════════════════════════════
--- MODULE 04 — ORGANIZATION HIERARCHY
--- ═══════════════════════════════════════════════════════════════════════════
-
-CREATE TABLE org_business_units (
-    id              BIGSERIAL    PRIMARY KEY,
-    organization_id BIGINT       NOT NULL REFERENCES org_organizations(id),
-    code            VARCHAR(50)  NOT NULL,
-    name            VARCHAR(200) NOT NULL,
-    description     VARCHAR(1000),
-    is_active       BOOLEAN      NOT NULL DEFAULT TRUE,
-    created_by      VARCHAR(100),
-    updated_by      VARCHAR(100),
-    created_at      TIMESTAMP(6),
-    updated_at      TIMESTAMP(6),
-    UNIQUE (organization_id, code)
-);
-CREATE INDEX idx_bu_org ON org_business_units(organization_id);
-
-CREATE TABLE org_cost_centers (
-    id                    BIGSERIAL    PRIMARY KEY,
-    business_unit_id      BIGINT       NOT NULL REFERENCES org_business_units(id),
-    parent_cost_center_id BIGINT       REFERENCES org_cost_centers(id),
-    cost_center_code      VARCHAR(50)  NOT NULL UNIQUE,
-    cost_center_name      VARCHAR(200) NOT NULL,
-    cost_center_type      VARCHAR(20)
-        CONSTRAINT chk_cc_type CHECK (cost_center_type IN (
-            'DEPARTMENT','PROJECT','BRANCH','DIVISION','PRODUCT','SERVICE','PRODUCTION')),
-    description           VARCHAR(1000),
-    is_active             BOOLEAN      NOT NULL DEFAULT TRUE,
-    created_by            VARCHAR(100),
-    updated_by            VARCHAR(100),
-    created_at            TIMESTAMP(6),
-    updated_at            TIMESTAMP(6)
-);
-CREATE INDEX idx_cc_bu     ON org_cost_centers(business_unit_id);
-CREATE INDEX idx_cc_parent ON org_cost_centers(parent_cost_center_id);
-CREATE INDEX idx_cc_type   ON org_cost_centers(cost_center_type);
-
-CREATE TABLE org_warehouses (
-    id               BIGSERIAL    PRIMARY KEY,
-    business_unit_id BIGINT       NOT NULL REFERENCES org_business_units(id),
-    warehouse_code   VARCHAR(50)  NOT NULL UNIQUE,
-    warehouse_name   VARCHAR(200) NOT NULL,
-    warehouse_type   VARCHAR(30)  NOT NULL DEFAULT 'GENERAL'
-        CONSTRAINT chk_wh_type CHECK (warehouse_type IN (
-            'RAW_MATERIAL','FINISHED_GOODS','WIP','GENERAL','SPARE_PART','REJECTED')),
-    address          TEXT,
-    manager_name     VARCHAR(100),
-    contact_number   VARCHAR(20),
-    is_active        BOOLEAN      NOT NULL DEFAULT TRUE,
-    created_by       VARCHAR(100),
-    updated_by       VARCHAR(100),
-    created_at       TIMESTAMP(6),
-    updated_at       TIMESTAMP(6)
-);
-CREATE INDEX idx_wh_bu ON org_warehouses(business_unit_id);
-
-CREATE TABLE org_departments (
-    id                   BIGSERIAL    PRIMARY KEY,
-    organization_id      BIGINT       NOT NULL REFERENCES org_organizations(id),
-    parent_department_id BIGINT       REFERENCES org_departments(id),
-    head_employee_id     BIGINT,      -- deferred FK → hrm_employees
-    cost_center_id       BIGINT       REFERENCES org_cost_centers(id),
-    code                 VARCHAR(50)  UNIQUE,
-    name                 VARCHAR(100) NOT NULL UNIQUE,
-    description          VARCHAR(500),
-    active               BOOLEAN      NOT NULL DEFAULT TRUE,
-    created_by           VARCHAR(100),
-    updated_by           VARCHAR(100),
-    created_at           TIMESTAMP(6),
-    updated_at           TIMESTAMP(6)
-);
-CREATE INDEX idx_dept_org    ON org_departments(organization_id);
-CREATE INDEX idx_dept_parent ON org_departments(parent_department_id);
-
-CREATE TABLE user_context (
-    user_id                         BIGINT NOT NULL PRIMARY KEY REFERENCES sec_users(id),
-    organization_id                 BIGINT REFERENCES org_organizations(id),
-    business_unit_id                BIGINT REFERENCES org_business_units(id),
-    cost_center_id                  BIGINT REFERENCES org_cost_centers(id),
-    warehouse_id                    BIGINT REFERENCES org_warehouses(id),
-    approval_default_view           VARCHAR(20),
-    approval_desktop_notification   BOOLEAN,
-    approval_email_enabled          BOOLEAN,
-    approval_push_enabled           BOOLEAN,
-    approval_sms_enabled            BOOLEAN,
-    approval_sound_enabled          BOOLEAN,
-    approval_notification_frequency VARCHAR(20),
-    approval_refresh_interval       INT,
-    show_approval_badge             BOOLEAN,
-    last_viewed_notification_id     BIGINT
-);
-
--- ═══════════════════════════════════════════════════════════════════════════
--- MODULE 05 — GLOBAL INVENTORY (Lots, Stock)
--- ═══════════════════════════════════════════════════════════════════════════
-
-CREATE TABLE global_inv_lots (
-    id                   BIGSERIAL       PRIMARY KEY,
-    organization_id      BIGINT          NOT NULL REFERENCES org_organizations(id),
-    item_id              BIGINT          NOT NULL REFERENCES inv_items(id),
-    country_of_origin_id BIGINT          REFERENCES stp_location_countries(id),
-    bank_id              BIGINT          REFERENCES stp_banks(id),
-    supplier_id          BIGINT,         -- soft ref → acc_chart_of_accounts_sub
-    production_order_id  BIGINT,         -- soft ref → prd_productions (deferred)
-    version              BIGINT,         -- optimistic lock
-    deleted              BOOLEAN         NOT NULL DEFAULT FALSE,
-
-    lot_number           VARCHAR(100)    NOT NULL,
-    -- Generic item type matching inv_items.item_type
-    item_type            VARCHAR(30)     NOT NULL DEFAULT 'GENERAL'
-        CONSTRAINT chk_lot_item_type CHECK (item_type IN (
-            'RAW_MATERIAL','SEMI_FINISHED','FINISHED_GOOD',
-            'SERVICE','SPARE_PART','CONSUMABLE','MRO','GENERAL','FIXED_ASSET')),
-    status               VARCHAR(30)     NOT NULL DEFAULT 'AVAILABLE'
-        CONSTRAINT chk_lot_status CHECK (status IN (
-            'AVAILABLE','RESERVED','BLOCKED','QC_HOLD','EXPIRED','CONSUMED')),
-
-    -- Generic lot attributes
-    batch_no              VARCHAR(100),
-    manufacturer_batch_no VARCHAR(100),
-    serial_no             VARCHAR(100),   -- for serialized items
-    bin_location          VARCHAR(100),
-    shelf_location        VARCHAR(100),
-    warehouse_location    VARCHAR(100),
-
-    -- Dates
-    received_date         DATE,
-    manufacturing_date    DATE,
-    production_date       DATE,
-    expiry_date           DATE,
-
-    -- Generic QC attributes (flexible)
-    qc_grade              VARCHAR(50),   -- A, B, C or PASS/FAIL etc.
-    qc_remarks            TEXT,
-    qc_passed             BOOLEAN,
-    qc_date               DATE,
-    qc_by                 VARCHAR(100),
-
-    -- Physical
-    gross_weight          NUMERIC(12,3),
-    net_weight            NUMERIC(12,3),
-    unit_cost             NUMERIC(18,4),
-
-    remarks               TEXT,
-    created_by            VARCHAR(100),
-    updated_by            VARCHAR(100),
-    created_at            TIMESTAMP(6),
-    updated_at            TIMESTAMP(6)
-);
-CREATE INDEX idx_lot_item    ON global_inv_lots(item_id);
-CREATE INDEX idx_lot_org     ON global_inv_lots(organization_id);
-CREATE INDEX idx_lot_status  ON global_inv_lots(status);
-CREATE INDEX idx_lot_number  ON global_inv_lots(lot_number);
-CREATE INDEX idx_lot_deleted ON global_inv_lots(deleted);
-
--- ═══════════════════════════════════════════════════════════════════════════
--- MODULE 06 — FINANCE / ACCOUNTS
--- ═══════════════════════════════════════════════════════════════════════════
-
-CREATE TABLE acc_chart_of_accounts (
-    id                 BIGSERIAL       PRIMARY KEY,
-    organization_id    BIGINT          NOT NULL REFERENCES org_organizations(id),
-    parent_account_id  BIGINT          REFERENCES acc_chart_of_accounts(id),
-    account_code       VARCHAR(50)     NOT NULL UNIQUE,
-    account_name       VARCHAR(200)    NOT NULL,
-    account_type       VARCHAR(20)     NOT NULL
-        CONSTRAINT chk_coa_type CHECK (account_type IN (
-            'ASSET','LIABILITY','EQUITY','REVENUE','EXPENSE')),
-    account_nature     VARCHAR(20)     NOT NULL
-        CONSTRAINT chk_coa_nature CHECK (account_nature IN ('DEBIT','CREDIT')),
-    level              INT             NOT NULL DEFAULT 1,
-    opening_balance    NUMERIC(18,2),
-    current_balance    NUMERIC(18,2),
-    currency           VARCHAR(10),
-    description        VARCHAR(1000),
-    is_active          BOOLEAN         NOT NULL DEFAULT TRUE,
-    is_system          BOOLEAN         NOT NULL DEFAULT FALSE,
-    is_control_account BOOLEAN         NOT NULL DEFAULT FALSE,
-    allow_manual_entry BOOLEAN         NOT NULL DEFAULT TRUE,
-    created_by         VARCHAR(100),
-    updated_by         VARCHAR(100),
-    created_at         TIMESTAMP(6),
-    updated_at         TIMESTAMP(6),
-    UNIQUE (organization_id, account_code)
-);
-CREATE INDEX idx_coa_org    ON acc_chart_of_accounts(organization_id);
-CREATE INDEX idx_coa_parent ON acc_chart_of_accounts(parent_account_id);
-CREATE INDEX idx_coa_type   ON acc_chart_of_accounts(account_type);
-
--- STI sub-ledger: BANK | CASH | LC | CUSTOMER | SUPPLIER | EMPLOYEE | GENERAL | INTER_COMPANY
-CREATE TABLE acc_chart_of_accounts_sub (
-    sub_account_type         VARCHAR(31)  NOT NULL
-        CONSTRAINT chk_sub_type CHECK (sub_account_type IN (
-            'BANK','CASH','LC','CUSTOMER','SUPPLIER',
-            'EMPLOYEE','GENERAL','INTER_COMPANY')),
-    id                       BIGSERIAL    PRIMARY KEY,
-    organization_id          BIGINT       NOT NULL REFERENCES org_organizations(id),
-    main_account_id          BIGINT       NOT NULL REFERENCES acc_chart_of_accounts(id),
-    sub_account_code         VARCHAR(50)  NOT NULL UNIQUE,
-    sub_account_name         VARCHAR(200) NOT NULL,
-    opening_balance          NUMERIC(18,2),
-    current_balance          NUMERIC(18,2),
-    currency                 VARCHAR(20),
-    description              VARCHAR(1000),
-    contact_person           VARCHAR(200),
-    contact_phone            VARCHAR(20),
-    contact_email            VARCHAR(100),
-    address                  VARCHAR(500),
-    city                     VARCHAR(50),
-    state                    VARCHAR(50),
-    country                  VARCHAR(50),
-    postal_code              VARCHAR(20),
-    tax_id                   VARCHAR(50),
-    vat_registration_no      VARCHAR(50),
-    is_active                BOOLEAN      NOT NULL DEFAULT TRUE,
-    -- BANK-specific
-    bank_id                  BIGINT       REFERENCES stp_banks(id),
-    account_number           VARCHAR(50)  UNIQUE,
-    account_title            VARCHAR(200),
-    bank_name                VARCHAR(200),
-    bank_account_type        VARCHAR(20),
-    branch_name              VARCHAR(100),
-    branch_code              VARCHAR(10),
-    routing_number           VARCHAR(9),
-    swift_code               VARCHAR(11),
-    iban_number              VARCHAR(34),
-    interest_rate            NUMERIC(8,4),
-    overdraft_limit          NUMERIC(18,2),
-    -- CASH-specific
-    location                 VARCHAR(100),
-    custodian                VARCHAR(100),
-    maximum_limit            NUMERIC(18,2),
-    minimum_limit            NUMERIC(18,2),
-    requires_approval        BOOLEAN      NOT NULL DEFAULT FALSE,
-    -- CUSTOMER-specific
-    customer_code            VARCHAR(50),
-    credit_limit             NUMERIC(18,2),
-    payment_terms            VARCHAR(100),
-    credit_days              INT,
-    sales_representative     VARCHAR(100),
-    customer_group           VARCHAR(50),
-    is_export_customer       BOOLEAN      DEFAULT FALSE,
-    -- SUPPLIER-specific
-    supplier_code            VARCHAR(50),
-    lead_time_days           INT,
-    is_import_supplier       BOOLEAN      DEFAULT FALSE,
-    preferred_currency       VARCHAR(3),
-    -- LC-specific
-    lc_number                VARCHAR(100) UNIQUE,
-    manual_lc_number         VARCHAR(100),
-    lc_type                  VARCHAR(30),
-    lc_status                VARCHAR(30),
-    transaction_currency     VARCHAR(20),
-    lc_amount                NUMERIC(18,2),
-    exchange_rate            NUMERIC(18,4),
-    issue_date               DATE,
-    expiry_date              DATE,
-    shipment_date            DATE,
-    payment_term             VARCHAR(30),
-    shipment_mode            VARCHAR(20),
-    margin_account_id        BIGINT       REFERENCES acc_chart_of_accounts(id),
-    beneficiary_bank_id      BIGINT       REFERENCES stp_banks(id),
-    buyer_bank_id            BIGINT       REFERENCES stp_banks(id),
-    -- stub FKs
-    customer_id              BIGINT,
-    supplier_id              BIGINT,
-    remarks                  VARCHAR(1000),
-    created_by               VARCHAR(100),
-    updated_by               VARCHAR(100),
-    created_at               TIMESTAMP(6),
-    updated_at               TIMESTAMP(6)
-);
-CREATE INDEX idx_sub_org  ON acc_chart_of_accounts_sub(organization_id);
-CREATE INDEX idx_sub_type ON acc_chart_of_accounts_sub(sub_account_type);
-CREATE INDEX idx_sub_main ON acc_chart_of_accounts_sub(main_account_id);
-CREATE INDEX idx_sub_bank ON acc_chart_of_accounts_sub(bank_id);
-
-CREATE TABLE acc_periods (
-    id              BIGSERIAL       PRIMARY KEY,
-    organization_id BIGINT          NOT NULL REFERENCES org_organizations(id),
-    period_name     VARCHAR(50)     NOT NULL UNIQUE,
-    period_type     VARCHAR(20)     NOT NULL
-        CONSTRAINT chk_period_type CHECK (period_type IN (
-            'DAILY','WEEKLY','MONTHLY','QUARTERLY','YEARLY','CUSTOM')),
-    fiscal_year     INT             NOT NULL,
-    start_date      DATE            NOT NULL,
-    end_date        DATE            NOT NULL,
-    description     VARCHAR(1000),
-    is_active       BOOLEAN         NOT NULL DEFAULT TRUE,
-    is_closed       BOOLEAN         NOT NULL DEFAULT FALSE,
-    closed_by       VARCHAR(100),
-    closed_date     DATE,
-    created_by      VARCHAR(100),
-    updated_by      VARCHAR(100),
-    created_at      TIMESTAMP(6),
-    updated_at      TIMESTAMP(6)
-);
-CREATE INDEX idx_period_org ON acc_periods(organization_id);
-
-CREATE TABLE acc_opening_balances (
-    id                     BIGSERIAL       PRIMARY KEY,
-    organization_id        BIGINT          NOT NULL REFERENCES org_organizations(id),
-    account_id             BIGINT          NOT NULL REFERENCES acc_chart_of_accounts(id),
-    accounting_period_id   BIGINT          NOT NULL REFERENCES acc_periods(id),
-    opening_debit_balance  NUMERIC(18,2)   NOT NULL DEFAULT 0,
-    opening_credit_balance NUMERIC(18,2)   NOT NULL DEFAULT 0,
-    is_posted              BOOLEAN         NOT NULL DEFAULT FALSE,
-    posted_by              VARCHAR(100),
-    posted_date            DATE,
-    remarks                VARCHAR(1000),
-    created_by             VARCHAR(100),
-    updated_by             VARCHAR(100),
-    created_at             TIMESTAMP(6),
-    updated_at             TIMESTAMP(6)
-);
-CREATE INDEX idx_ob_org ON acc_opening_balances(organization_id);
-
-CREATE TABLE acc_journal_entry_master (
-    id              BIGSERIAL       PRIMARY KEY,
-    organization_id BIGINT          REFERENCES org_organizations(id),
-    voucher_no      VARCHAR(100),
-    voucher_date    DATE,
-    voucher_type    VARCHAR(30)
-        CONSTRAINT chk_jem_type CHECK (voucher_type IN (
-            'JOURNAL_VOUCHER','PURCHASE_VOUCHER','SALES_VOUCHER',
-            'PAYMENT_VOUCHER','RECEIPT_VOUCHER','CONTRA_VOUCHER',
-            'EXPENSE_VOUCHER','DEBIT_NOTE','CREDIT_NOTE','PRODUCTION_VOUCHER')),
-    total_debit     NUMERIC(18,2),
-    total_credit    NUMERIC(18,2),
-    narration       VARCHAR(1000),
-    reference_no    VARCHAR(100),
-    is_posted       BOOLEAN         NOT NULL DEFAULT FALSE,
-    posted_by       VARCHAR(100),
-    posted_at       TIMESTAMP(6),
-    created_by      VARCHAR(100),
-    updated_by      VARCHAR(100),
-    created_at      TIMESTAMP(6),
-    updated_at      TIMESTAMP(6)
-);
-CREATE INDEX idx_jem_org    ON acc_journal_entry_master(organization_id);
-CREATE INDEX idx_jem_date   ON acc_journal_entry_master(voucher_date);
-CREATE INDEX idx_jem_type   ON acc_journal_entry_master(voucher_type);
-CREATE INDEX idx_jem_posted ON acc_journal_entry_master(is_posted);
-CREATE INDEX idx_jem_no     ON acc_journal_entry_master(voucher_no);
-
-CREATE TABLE acc_journal_entry_lines (
-    id               BIGSERIAL       PRIMARY KEY,
-    organization_id  BIGINT          NOT NULL REFERENCES org_organizations(id),
-    journal_entry_id BIGINT          NOT NULL REFERENCES acc_journal_entry_master(id) ON DELETE CASCADE,
-    account_id       BIGINT          NOT NULL REFERENCES acc_chart_of_accounts(id),
-    sub_account_id   BIGINT          REFERENCES acc_chart_of_accounts_sub(id),
-    cost_center_id   BIGINT          REFERENCES org_cost_centers(id),
-    line_number      INT             NOT NULL,
-    entry_type       VARCHAR(10)     NOT NULL
-        CONSTRAINT chk_jel_type CHECK (entry_type IN ('DEBIT','CREDIT')),
-    amount           NUMERIC(18,2)   NOT NULL,
-    narration        VARCHAR(500),
-    reference_no     VARCHAR(100),
-    tax_code         VARCHAR(20),
-    is_tax_line      BOOLEAN         NOT NULL DEFAULT FALSE,
-    created_by       VARCHAR(100),
-    updated_by       VARCHAR(100),
-    created_at       TIMESTAMP(6),
-    updated_at       TIMESTAMP(6)
-);
-CREATE INDEX idx_jel_journal ON acc_journal_entry_lines(journal_entry_id);
-CREATE INDEX idx_jel_account ON acc_journal_entry_lines(account_id);
-CREATE INDEX idx_jel_sub     ON acc_journal_entry_lines(sub_account_id);
-CREATE INDEX idx_jel_cc      ON acc_journal_entry_lines(cost_center_id);
-
-CREATE TABLE acc_mapping (
-    id                         BIGSERIAL    PRIMARY KEY,
-    organization_id            BIGINT       NOT NULL REFERENCES org_organizations(id),
-    mapping_code               VARCHAR(30)  NOT NULL,
-    mapping_name               VARCHAR(200) NOT NULL,
-    module_type                VARCHAR(50)  NOT NULL,
-    transaction_type           VARCHAR(50)  NOT NULL,
-    description                VARCHAR(500),
-    voucher_type               VARCHAR(30),
-    voucher_prefix             VARCHAR(20),
-    default_narration_template VARCHAR(500),
-    use_sub_ledger             BOOLEAN      NOT NULL DEFAULT FALSE,
-    auto_post                  BOOLEAN      NOT NULL DEFAULT FALSE,
-    is_active                  BOOLEAN      NOT NULL DEFAULT TRUE,
-    is_default                 BOOLEAN      NOT NULL DEFAULT FALSE,
-    default_debit_account_id   BIGINT       REFERENCES acc_chart_of_accounts(id),
-    default_credit_account_id  BIGINT       REFERENCES acc_chart_of_accounts(id),
-    discount_account_id        BIGINT       REFERENCES acc_chart_of_accounts(id),
-    tax_account_id             BIGINT       REFERENCES acc_chart_of_accounts(id),
-    wip_account_id             BIGINT       REFERENCES acc_chart_of_accounts(id),
-    cogs_account_id            BIGINT       REFERENCES acc_chart_of_accounts(id),
-    created_by                 VARCHAR(100),
-    updated_by                 VARCHAR(100),
-    created_at                 TIMESTAMP(6),
-    updated_at                 TIMESTAMP(6),
-    UNIQUE (organization_id, mapping_code)
-);
-CREATE INDEX idx_mapping_org ON acc_mapping(organization_id);
-
-CREATE TABLE acc_mapping_details (
-    id                  BIGSERIAL       PRIMARY KEY,
-    accounts_mapping_id BIGINT          NOT NULL REFERENCES acc_mapping(id) ON DELETE CASCADE,
-    account_id          BIGINT          REFERENCES acc_chart_of_accounts(id),
-    cost_center_id      BIGINT          REFERENCES org_cost_centers(id),
-    line_number         INT             NOT NULL,
-    entry_name          VARCHAR(100),
-    entry_type          VARCHAR(10)     NOT NULL
-        CONSTRAINT chk_amd_type CHECK (entry_type IN ('DEBIT','CREDIT')),
-    amount_type         VARCHAR(30)     NOT NULL,
-    percentage          NUMERIC(8,4),
-    fixed_amount        NUMERIC(18,2),
-    formula             VARCHAR(500),
-    field_reference     VARCHAR(100),
-    sort_order          INT             NOT NULL DEFAULT 0,
-    skip_if_zero        BOOLEAN         NOT NULL DEFAULT FALSE,
-    is_active           BOOLEAN         NOT NULL DEFAULT TRUE,
-    created_by          VARCHAR(100),
-    updated_by          VARCHAR(100),
-    created_at          TIMESTAMP(6),
-    updated_at          TIMESTAMP(6)
-);
-CREATE INDEX idx_amd_mapping ON acc_mapping_details(accounts_mapping_id);
-
-CREATE TABLE acc_policy (
-    id                         BIGSERIAL       PRIMARY KEY,
-    organization_id            BIGINT          NOT NULL REFERENCES org_organizations(id),
-    accounts_mapping_id        BIGINT          REFERENCES acc_mapping(id),
-    policy_code                VARCHAR(30)     NOT NULL,
-    policy_name                VARCHAR(200)    NOT NULL,
-    policy_type                VARCHAR(30)     NOT NULL,
-    module_type                VARCHAR(30),
-    voucher_prefix             VARCHAR(20),
-    next_voucher_number        INT,
-    auto_numbering             BOOLEAN         NOT NULL DEFAULT TRUE,
-    auto_post                  BOOLEAN         NOT NULL DEFAULT FALSE,
-    require_approval           BOOLEAN         NOT NULL DEFAULT FALSE,
-    is_active                  BOOLEAN         NOT NULL DEFAULT TRUE,
-    is_default                 BOOLEAN         NOT NULL DEFAULT FALSE,
-    created_by                 VARCHAR(100),
-    updated_by                 VARCHAR(100),
-    created_at                 TIMESTAMP(6),
-    updated_at                 TIMESTAMP(6),
-    UNIQUE (organization_id, policy_code)
-);
-CREATE INDEX idx_policy_org ON acc_policy(organization_id);
-
--- ═══════════════════════════════════════════════════════════════════════════
--- MODULE 07 — APPROVAL ENGINE
--- ═══════════════════════════════════════════════════════════════════════════
-
-CREATE TABLE apr_configs (
-    id                      BIGSERIAL    PRIMARY KEY,
-    organization_id         BIGINT       NOT NULL REFERENCES org_organizations(id),
-    code                    VARCHAR(50)  NOT NULL UNIQUE,
-    name                    VARCHAR(200) NOT NULL,
-    description             VARCHAR(1000),
-    document_type           VARCHAR(50)  NOT NULL,
-    module                  VARCHAR(30)  NOT NULL,
-    flow_type               VARCHAR(20)  NOT NULL DEFAULT 'SEQUENTIAL'
-        CONSTRAINT chk_apr_flow CHECK (flow_type IN ('SEQUENTIAL','PARALLEL')),
-    is_active               BOOLEAN      NOT NULL DEFAULT TRUE,
-    min_amount              NUMERIC(18,2),
-    max_amount              NUMERIC(18,2),
-    created_by              VARCHAR(100),
-    updated_by              VARCHAR(100),
-    created_at              TIMESTAMP(6),
-    updated_at              TIMESTAMP(6)
-);
-CREATE INDEX idx_aprc_org ON apr_configs(organization_id);
-
-CREATE TABLE apr_levels (
-    id                 BIGSERIAL    PRIMARY KEY,
-    approval_config_id BIGINT       NOT NULL REFERENCES apr_configs(id) ON DELETE CASCADE,
-    approver_user_id   BIGINT       REFERENCES sec_users(id),
-    level_number       INT          NOT NULL,
-    level_name         VARCHAR(100) NOT NULL,
-    description        VARCHAR(500),
-    is_active          BOOLEAN      NOT NULL DEFAULT TRUE,
-    can_delegate       BOOLEAN      NOT NULL DEFAULT FALSE,
-    created_by         VARCHAR(100),
-    updated_by         VARCHAR(100),
-    created_at         TIMESTAMP(6),
-    updated_at         TIMESTAMP(6)
-);
-CREATE INDEX idx_aprl_config ON apr_levels(approval_config_id);
-
-CREATE TABLE apr_requests (
-    id                        BIGSERIAL    PRIMARY KEY,
-    organization_id           BIGINT       NOT NULL REFERENCES org_organizations(id),
-    approval_config_id        BIGINT       REFERENCES apr_configs(id),
-    current_approval_level_id BIGINT       REFERENCES apr_levels(id),
-    current_approver_user_id  BIGINT       REFERENCES sec_users(id),
-    requester_id              BIGINT       NOT NULL REFERENCES sec_users(id),
-    document_type             VARCHAR(50)  NOT NULL,
-    reference_id              BIGINT       NOT NULL,
-    reference_number          VARCHAR(100) NOT NULL,
-    document_date             DATE,
-    document_amount           NUMERIC(18,2),
-    document_summary          VARCHAR(500),
-    current_level_number      INT          NOT NULL DEFAULT 1,
-    total_levels              INT          NOT NULL DEFAULT 1,
-    requester_name            VARCHAR(200),
-    status                    VARCHAR(20)  NOT NULL DEFAULT 'DRAFT'
-        CONSTRAINT chk_aprr_status CHECK (status IN (
-            'DRAFT','SUBMITTED','IN_APPROVAL','APPROVED','REJECTED',
-            'RETURNED','CANCELLED','COMPLETED')),
-    is_urgent                 BOOLEAN      NOT NULL DEFAULT FALSE,
-    due_date                  DATE,
-    final_remarks             VARCHAR(1000),
-    completed_at              TIMESTAMP(6),
-    created_by                VARCHAR(100),
-    updated_by                VARCHAR(100),
-    created_at                TIMESTAMP(6),
-    updated_at                TIMESTAMP(6)
-);
-CREATE INDEX idx_aprr_org      ON apr_requests(organization_id);
-CREATE INDEX idx_aprr_status   ON apr_requests(status);
-CREATE INDEX idx_aprr_ref      ON apr_requests(reference_id, document_type);
-CREATE INDEX idx_aprr_approver ON apr_requests(current_approver_user_id);
-
-CREATE TABLE apr_histories (
-    id                  BIGSERIAL    PRIMARY KEY,
-    approval_request_id BIGINT       NOT NULL REFERENCES apr_requests(id),
-    approval_level_id   BIGINT       REFERENCES apr_levels(id),
-    actor_user_id       BIGINT       REFERENCES sec_users(id),
-    level_number        INT          NOT NULL,
-    level_name          VARCHAR(100) NOT NULL,
-    actor_name          VARCHAR(150) NOT NULL,
-    action              VARCHAR(30)  NOT NULL,
-    status              VARCHAR(20)  NOT NULL,
-    comments            VARCHAR(2000),
-    action_at           TIMESTAMP(6),
-    created_at          TIMESTAMP(6)
-);
-CREATE INDEX idx_aprh_request ON apr_histories(approval_request_id);
-
-CREATE TABLE apr_delegations (
-    id              BIGSERIAL    PRIMARY KEY,
-    organization_id BIGINT       NOT NULL REFERENCES org_organizations(id),
-    delegator_id    BIGINT       NOT NULL REFERENCES sec_users(id),
-    delegate_id     BIGINT       NOT NULL REFERENCES sec_users(id),
-    delegation_code VARCHAR(50)  NOT NULL UNIQUE,
-    module          VARCHAR(30),
-    start_date      DATE         NOT NULL,
-    end_date        DATE         NOT NULL,
-    reason          VARCHAR(1000),
-    status          VARCHAR(20)  NOT NULL DEFAULT 'SCHEDULED'
-        CONSTRAINT chk_aprd_status CHECK (status IN (
-            'SCHEDULED','ACTIVE','EXPIRED','REVOKED')),
-    is_active       BOOLEAN      NOT NULL DEFAULT TRUE,
-    created_by      VARCHAR(100),
-    created_at      TIMESTAMP(6),
-    updated_at      TIMESTAMP(6)
-);
-CREATE INDEX idx_aprdel_org ON apr_delegations(organization_id);
-
-CREATE TABLE apr_voucher (
-    id                      BIGSERIAL    PRIMARY KEY,
-    journal_entry_master_id BIGINT       NOT NULL UNIQUE REFERENCES acc_journal_entry_master(id),
-    approval_level          INT          NOT NULL,
-    approval_status         VARCHAR(20)  NOT NULL DEFAULT 'PENDING',
-    approver_name           VARCHAR(100),
-    approval_date           DATE,
-    approval_remarks        VARCHAR(1000),
-    created_by              VARCHAR(100),
-    updated_by              VARCHAR(100),
-    created_at              TIMESTAMP(6),
-    updated_at              TIMESTAMP(6)
-);
-
--- ═══════════════════════════════════════════════════════════════════════════
--- MODULE 08 — GLOBAL DOCUMENTS (Purchase, Sales, Stock movements)
--- ═══════════════════════════════════════════════════════════════════════════
-
-CREATE TABLE global_business_documents (
-    id                   BIGSERIAL       PRIMARY KEY,
-    organization_id      BIGINT          NOT NULL REFERENCES org_organizations(id),
-    approval_request_id  BIGINT          REFERENCES apr_requests(id),
-    department_id        BIGINT          REFERENCES org_departments(id),
-    parent_document_id   BIGINT          REFERENCES global_business_documents(id),
-    party_id             BIGINT          REFERENCES acc_chart_of_accounts_sub(id),
-    warehouse_id         BIGINT          REFERENCES org_warehouses(id),
-    document_no          VARCHAR(100)    NOT NULL UNIQUE,
-    document_no_manual   VARCHAR(100),
-    document_date        DATE            NOT NULL,
-    document_type        VARCHAR(50)     NOT NULL
-        CONSTRAINT chk_gbd_type CHECK (document_type IN (
-            -- Sales
-            'SALES_QUOTATION','SALES_ORDER','DELIVERY_ORDER','DELIVERY_CHALLAN','SALES_INVOICE',
-            -- Purchase
-            'PURCHASE_REQUISITION','REQUEST_FOR_QUOTATION','COMPARATIVE_STATEMENT',
-            'PURCHASE_ORDER','GOODS_RECEIPT_NOTE','PURCHASE_INVOICE',
-            -- Stock
-            'STORE_REQUISITION','MATERIAL_ISSUE','MATERIAL_RECEIVE',
-            'STOCK_TRANSFER','STOCK_ADJUSTMENT',
-            -- Production
-            'PRODUCTION_ORDER','PRODUCTION_REQUISITION','PRODUCTION_MATERIAL_ISSUE','FINISHED_GOODS_RECEIVE',
-            -- Commercial
-            'EXPORT_PROFORMA_INVOICE','IMPORT_PROFORMA_INVOICE','LETTER_OF_CREDIT',
-            -- Credit/Debit
-            'DEBIT_NOTE','CREDIT_NOTE')),
-    status               VARCHAR(30)     NOT NULL DEFAULT 'DRAFT'
-        CONSTRAINT chk_gbd_status CHECK (status IN (
-            'DRAFT','SUBMITTED','APPROVED','PROCESSING','PARTIAL',
-            'PARTIALLY_CONVERTED','COMPLETED','REJECTED','RETURNED',
-            'CANCELLED','CONVERTED')),
-    approval_status      VARCHAR(30),
-    currency             VARCHAR(20),
-    exchange_rate        NUMERIC(18,4),
-    subtotal_amount      NUMERIC(18,2),
-    discount_amount      NUMERIC(18,2),
-    tax_amount           NUMERIC(18,2),
-    other_charges        NUMERIC(18,2),
-    total_amount         NUMERIC(18,2),
-    paid_amount          NUMERIC(18,2),
-    due_amount           NUMERIC(18,2),
-    stock_posted         BOOLEAN         NOT NULL DEFAULT FALSE,
-    accounting_posted    BOOLEAN         NOT NULL DEFAULT FALSE,
-    reference_no         VARCHAR(100),
-    -- Shipping/export
-    incoterms            VARCHAR(50),
-    port_of_loading      VARCHAR(50),
-    port_of_discharge    VARCHAR(50),
-    vessel_name          VARCHAR(100),
-    bl_number            VARCHAR(100),
-    container_number     VARCHAR(100),
-    -- Delivery
-    challan_no           VARCHAR(100),
-    vehicle_number       VARCHAR(100),
-    driver_name          VARCHAR(100),
-    delivery_address     VARCHAR(500),
-    delivery_date        DATE,
-    required_date        DATE,
-    validity_date        DATE,
-    contact_person       VARCHAR(100),
-    contact_number       VARCHAR(20),
-    terms_and_conditions TEXT,
-    remarks              TEXT,
-    is_deleted           BOOLEAN         NOT NULL DEFAULT FALSE,
-    deleted_at           TIMESTAMP(6),
-    deleted_by           VARCHAR(100),
-    created_by           VARCHAR(100),
-    updated_by           VARCHAR(100),
-    created_at           TIMESTAMP(6),
-    updated_at           TIMESTAMP(6)
-);
-CREATE INDEX idx_gbd_org     ON global_business_documents(organization_id);
-CREATE INDEX idx_gbd_type    ON global_business_documents(document_type);
-CREATE INDEX idx_gbd_status  ON global_business_documents(status);
-CREATE INDEX idx_gbd_party   ON global_business_documents(party_id);
-CREATE INDEX idx_gbd_parent  ON global_business_documents(parent_document_id);
-CREATE INDEX idx_gbd_wh      ON global_business_documents(warehouse_id);
-CREATE INDEX idx_gbd_date    ON global_business_documents(document_date);
-CREATE INDEX idx_gbd_no      ON global_business_documents(document_no);
-CREATE INDEX idx_gbd_deleted ON global_business_documents(is_deleted);
-
-CREATE TABLE global_business_document_lines (
-    id                 BIGSERIAL       PRIMARY KEY,
-    organization_id    BIGINT          NOT NULL REFERENCES org_organizations(id),
-    document_id        BIGINT          NOT NULL REFERENCES global_business_documents(id) ON DELETE CASCADE,
-    item_id            BIGINT          NOT NULL REFERENCES inv_items(id),
-    inventory_lot_id   BIGINT          REFERENCES global_inv_lots(id),
-    source_line_id     BIGINT          REFERENCES global_business_document_lines(id),
-    cost_center_id     BIGINT          REFERENCES org_cost_centers(id),
-    line_number        INT             NOT NULL,
-    item_code          VARCHAR(100),
-    item_name          VARCHAR(500),
-    description        VARCHAR(1000),
-    unit_code          VARCHAR(20),
-    quantity           NUMERIC(18,3)   NOT NULL,
-    delivered_qty      NUMERIC(18,3),
-    received_qty       NUMERIC(18,3),
-    accepted_qty       NUMERIC(18,3),
-    rejected_qty       NUMERIC(18,3),
-    unit_price         NUMERIC(18,4),
-    discount_amount    NUMERIC(18,2),
-    tax_amount         NUMERIC(18,2),
-    line_amount        NUMERIC(18,2),
-    batch_number       VARCHAR(100),
-    expected_date      DATE,
-    quality_status     VARCHAR(30),
-    quality_remarks    TEXT,
-    remarks            TEXT,
-    created_by         VARCHAR(100),
-    updated_by         VARCHAR(100),
-    created_at         TIMESTAMP(6),
-    updated_at         TIMESTAMP(6)
-);
-CREATE INDEX idx_gbdl_doc  ON global_business_document_lines(document_id);
-CREATE INDEX idx_gbdl_item ON global_business_document_lines(item_id);
-CREATE INDEX idx_gbdl_lot  ON global_business_document_lines(inventory_lot_id);
-
-CREATE TABLE global_business_document_line_lots (
-    id               BIGSERIAL       PRIMARY KEY,
-    document_line_id BIGINT          NOT NULL REFERENCES global_business_document_lines(id) ON DELETE CASCADE,
-    lot_id           BIGINT          NOT NULL REFERENCES global_inv_lots(id),
-    quantity         NUMERIC(18,3)   NOT NULL,
-    gross_weight     NUMERIC(12,3),
-    net_weight       NUMERIC(12,3),
-    unit_cost        NUMERIC(18,4),
-    total_cost       NUMERIC(18,2),
-    remarks          TEXT,
-    created_at       TIMESTAMP(6),
-    created_by       VARCHAR(100)
-);
-CREATE INDEX idx_gbdll_line ON global_business_document_line_lots(document_line_id);
-CREATE INDEX idx_gbdll_lot  ON global_business_document_line_lots(lot_id);
-
-CREATE TABLE global_inventory_stock_balances (
-    id                    BIGSERIAL       PRIMARY KEY,
-    item_id               BIGINT          NOT NULL REFERENCES inv_items(id),
-    warehouse_id          BIGINT          NOT NULL REFERENCES org_warehouses(id),
-    lot_id                BIGINT          REFERENCES global_inv_lots(id),
-    quantity              NUMERIC(18,3)   NOT NULL DEFAULT 0,
-    reserved_quantity     NUMERIC(18,3)   NOT NULL DEFAULT 0,
-    gross_weight          NUMERIC(12,3),
-    net_weight            NUMERIC(12,3),
-    average_cost          NUMERIC(18,4),
-    stock_value           NUMERIC(18,2),
-    last_transaction_time TIMESTAMP(6),
-    UNIQUE (item_id, warehouse_id, lot_id)
-);
-CREATE INDEX idx_stock_item ON global_inventory_stock_balances(item_id);
-CREATE INDEX idx_stock_wh   ON global_inventory_stock_balances(warehouse_id);
-CREATE INDEX idx_stock_lot  ON global_inventory_stock_balances(lot_id);
-
-CREATE TABLE global_inventory_transactions (
-    id                   BIGSERIAL       PRIMARY KEY,
-    organization_id      BIGINT          NOT NULL,
-    item_id              BIGINT          NOT NULL REFERENCES inv_items(id),
-    warehouse_id         BIGINT          NOT NULL REFERENCES org_warehouses(id),
-    lot_id               BIGINT          REFERENCES global_inv_lots(id),
-    business_document_id BIGINT          NOT NULL REFERENCES global_business_documents(id),
-    document_type        VARCHAR(50)     NOT NULL,
-    movement_type        VARCHAR(50)     NOT NULL,
-    transaction_date     DATE,
-    quantity             NUMERIC(18,3)   NOT NULL,
-    gross_weight         NUMERIC(12,3),
-    net_weight           NUMERIC(12,3),
-    unit_cost            NUMERIC(18,4),
-    total_cost           NUMERIC(18,2),
-    balance_after        NUMERIC(18,3),
-    remarks              VARCHAR(255),
-    created_at           TIMESTAMP(6)
-);
-CREATE INDEX idx_invtx_item ON global_inventory_transactions(item_id);
-CREATE INDEX idx_invtx_wh   ON global_inventory_transactions(warehouse_id);
-CREATE INDEX idx_invtx_doc  ON global_inventory_transactions(business_document_id);
-CREATE INDEX idx_invtx_date ON global_inventory_transactions(transaction_date);
-CREATE INDEX idx_invtx_org  ON global_inventory_transactions(organization_id);
-
--- ═══════════════════════════════════════════════════════════════════════════
--- MODULE 09 — COMMERCIAL / LC
--- ═══════════════════════════════════════════════════════════════════════════
-
-CREATE TABLE com_commercial_invoice (
-    id                BIGSERIAL       PRIMARY KEY,
-    organization_id   BIGINT          REFERENCES org_organizations(id),
-    lc_id             BIGINT          REFERENCES acc_chart_of_accounts_sub(id),
-    party_id          BIGINT          REFERENCES acc_chart_of_accounts_sub(id),
-    invoice_no        VARCHAR(255)    NOT NULL UNIQUE,
-    invoice_date      DATE,
-    invoice_type      VARCHAR(20)
-        CONSTRAINT chk_ci_type CHECK (invoice_type IN ('EXPORT','IMPORT')),
-    status            VARCHAR(20)
-        CONSTRAINT chk_ci_status CHECK (status IN ('DRAFT','FINALIZED','POSTED','CANCELLED')),
-    currency          VARCHAR(10),
-    exchange_rate     NUMERIC(18,4),
-    total_amount      NUMERIC(18,2),
-    total_amount_bdt  NUMERIC(18,2),
-    incoterms         VARCHAR(255),
-    port_of_loading   VARCHAR(255),
-    port_of_discharge VARCHAR(255),
-    vessel_name       VARCHAR(255),
-    bl_number         VARCHAR(255),
-    container_no      VARCHAR(255),
-    remarks           TEXT,
-    created_at        TIMESTAMP(6),
-    updated_at        TIMESTAMP(6)
-);
-
-CREATE TABLE com_commercial_invoice_item (
-    id             BIGSERIAL       PRIMARY KEY,
-    invoice_id     BIGINT          NOT NULL REFERENCES com_commercial_invoice(id),
-    item_id        BIGINT          NOT NULL REFERENCES inv_items(id),
-    quantity       NUMERIC(18,3)   NOT NULL,
-    unit_price     NUMERIC(18,4)   NOT NULL,
-    total_amount   NUMERIC(18,2)   NOT NULL,
-    description    VARCHAR(500),
-    unit           VARCHAR(20)
-);
-
-CREATE TABLE com_document_terms (
-    id              BIGSERIAL    PRIMARY KEY,
-    document_id     BIGINT       REFERENCES global_business_documents(id),
-    invoice_id      BIGINT       REFERENCES com_commercial_invoice(id),
-    global_terms_id BIGINT,
-    title           VARCHAR(200) NOT NULL,
-    description     TEXT,
-    sort_order      INT
-);
-
-CREATE TABLE com_lc_document_mapping (
-    id               BIGSERIAL       PRIMARY KEY,
-    lc_id            BIGINT          REFERENCES acc_chart_of_accounts_sub(id),
-    document_id      BIGINT          REFERENCES global_business_documents(id),
-    allocated_amount NUMERIC(18,2),
-    utilized_amount  NUMERIC(18,2)
-);
-
-CREATE TABLE com_lc_settlement (
-    id              BIGSERIAL       PRIMARY KEY,
-    lc_id           BIGINT          REFERENCES acc_chart_of_accounts_sub(id),
-    document_id     BIGINT          REFERENCES global_business_documents(id),
-    settlement_date DATE,
-    settlement_type VARCHAR(20),
-    status          VARCHAR(20),
-    amount_usd      NUMERIC(18,2),
-    amount_bdt      NUMERIC(18,2),
-    exchange_rate   NUMERIC(18,4),
-    margin_used     NUMERIC(18,2),
-    charges         NUMERIC(18,2),
-    commission      NUMERIC(18,2),
-    interest        NUMERIC(18,2),
-    loan_amount     NUMERIC(18,2)
-);
-
--- ═══════════════════════════════════════════════════════════════════════════
--- MODULE 10 — HRM
--- ═══════════════════════════════════════════════════════════════════════════
-
-CREATE TABLE hrm_designations (
-    id               BIGSERIAL    PRIMARY KEY,
-    organization_id  BIGINT       NOT NULL REFERENCES org_organizations(id),
-    designation_code VARCHAR(50)  NOT NULL,
-    designation_name VARCHAR(200) NOT NULL,
-    grade            VARCHAR(20),
-    description      VARCHAR(500),
-    is_active        BOOLEAN      NOT NULL DEFAULT TRUE,
-    created_by       VARCHAR(100),
-    updated_by       VARCHAR(100),
-    created_at       TIMESTAMP(6),
-    updated_at       TIMESTAMP(6),
-    UNIQUE (organization_id, designation_code)
-);
-CREATE INDEX idx_desig_org ON hrm_designations(organization_id);
-
-CREATE TABLE hrm_employees (
-    id                         BIGSERIAL    PRIMARY KEY,
-    organization_id            BIGINT       NOT NULL REFERENCES org_organizations(id),
-    department_id              BIGINT       NOT NULL REFERENCES org_departments(id),
-    designation_id             BIGINT       NOT NULL REFERENCES hrm_designations(id),
-    reporting_manager_id       BIGINT       REFERENCES hrm_employees(id),
-    user_id                    BIGINT       UNIQUE REFERENCES sec_users(id),
-    employee_code              VARCHAR(50)  NOT NULL UNIQUE,
-    first_name                 VARCHAR(100) NOT NULL,
-    last_name                  VARCHAR(100) NOT NULL,
-    email                      VARCHAR(100),
-    phone                      VARCHAR(20)  NOT NULL UNIQUE,
-    gender                     VARCHAR(20)  NOT NULL DEFAULT 'MALE'
-        CONSTRAINT chk_emp_gender CHECK (gender IN ('MALE','FEMALE','OTHER')),
-    date_of_birth              DATE         NOT NULL,
-    blood_group                VARCHAR(10),
-    marital_status             VARCHAR(20),
-    national_id                VARCHAR(50)  UNIQUE,
-    passport_number            VARCHAR(50)  UNIQUE,
-    employee_type              VARCHAR(20)  NOT NULL DEFAULT 'PERMANENT'
-        CONSTRAINT chk_emp_type CHECK (employee_type IN (
-            'PERMANENT','CONTRACT','TEMPORARY','INTERN','PART_TIME','CONSULTANT')),
-    status                     VARCHAR(20)  NOT NULL DEFAULT 'ACTIVE'
-        CONSTRAINT chk_emp_status CHECK (status IN (
-            'ACTIVE','INACTIVE','ON_LEAVE','SUSPENDED',
-            'TERMINATED','RESIGNED','RETIRED')),
-    joining_date               DATE         NOT NULL,
-    confirmation_date          DATE,
-    probation_end_date         DATE,
-    resignation_date           DATE,
-    exit_date                  DATE,
-    basic_salary               NUMERIC(12,2),
-    gross_salary               NUMERIC(12,2),
-    bank_name                  VARCHAR(50),
-    bank_account_number        VARCHAR(50),
-    bank_branch                VARCHAR(50),
-    work_location              VARCHAR(50),
-    work_shift                 VARCHAR(50),
-    annual_leave_days          INT          DEFAULT 0,
-    sick_leave_days            INT          DEFAULT 0,
-    casual_leave_days          INT          DEFAULT 0,
-    emergency_contact_name     VARCHAR(100),
-    emergency_contact_phone    VARCHAR(20),
-    emergency_contact_relation VARCHAR(100),
-    profile_picture            VARCHAR(255),
-    notes                      VARCHAR(1000),
-    created_by                 VARCHAR(100),
-    updated_by                 VARCHAR(100),
-    created_at                 TIMESTAMP(6),
-    updated_at                 TIMESTAMP(6),
-    UNIQUE (organization_id, employee_code)
-);
-CREATE INDEX idx_emp_org    ON hrm_employees(organization_id);
-CREATE INDEX idx_emp_dept   ON hrm_employees(department_id);
-CREATE INDEX idx_emp_desig  ON hrm_employees(designation_id);
-CREATE INDEX idx_emp_mgr    ON hrm_employees(reporting_manager_id);
-CREATE INDEX idx_emp_status ON hrm_employees(status);
-
--- Resolve deferred FK: org_departments.head_employee_id
-ALTER TABLE org_departments
-    ADD CONSTRAINT fk_dept_head
-    FOREIGN KEY (head_employee_id) REFERENCES hrm_employees(id)
-    DEFERRABLE INITIALLY DEFERRED;
-
-CREATE TABLE hrm_employee_addresses (
-    id           BIGSERIAL    PRIMARY KEY,
-    employee_id  BIGINT       NOT NULL REFERENCES hrm_employees(id) ON DELETE CASCADE,
-    address_type VARCHAR(20)  NOT NULL
-        CONSTRAINT chk_hea_type CHECK (address_type IN ('PRESENT','PERMANENT','OFFICE')),
-    address_line1 VARCHAR(200),
-    address_line2 VARCHAR(200),
-    city          VARCHAR(100),
-    district      VARCHAR(100),
-    country       VARCHAR(100) DEFAULT 'Bangladesh',
-    postal_code   VARCHAR(20),
-    is_default    BOOLEAN      NOT NULL DEFAULT FALSE,
-    created_at    TIMESTAMP(6)
-);
-CREATE INDEX idx_hea_emp ON hrm_employee_addresses(employee_id);
-
-CREATE TABLE hrm_employee_documents (
-    id                BIGSERIAL    PRIMARY KEY,
-    employee_id       BIGINT       NOT NULL REFERENCES hrm_employees(id) ON DELETE CASCADE,
-    document_type     VARCHAR(50)  NOT NULL,
-    document_number   VARCHAR(100),
-    file_url          VARCHAR(500),
-    expiry_date       DATE,
-    issue_date        DATE,
-    issuing_authority VARCHAR(200),
-    remarks           VARCHAR(500),
-    uploaded_at       TIMESTAMP(6),
-    uploaded_by       VARCHAR(100),
-    created_at        TIMESTAMP(6)
-);
-CREATE INDEX idx_hed_emp ON hrm_employee_documents(employee_id);
-
-CREATE TABLE hrm_attendances (
-    id              BIGSERIAL    PRIMARY KEY,
-    organization_id BIGINT       NOT NULL REFERENCES org_organizations(id),
-    employee_id     BIGINT       NOT NULL REFERENCES hrm_employees(id),
-    att_date        DATE         NOT NULL,
-    check_in        TIME,
-    check_out       TIME,
-    working_hours   NUMERIC(5,2),
-    status          VARCHAR(20)  NOT NULL DEFAULT 'ABSENT'
-        CONSTRAINT chk_att_status CHECK (status IN (
-            'PRESENT','ABSENT','LATE','HALF_DAY','HOLIDAY','LEAVE','WEEKEND')),
-    source          VARCHAR(20)  DEFAULT 'MANUAL',
-    remarks         VARCHAR(500),
-    created_by      VARCHAR(100),
-    created_at      TIMESTAMP(6),
-    updated_at      TIMESTAMP(6),
-    UNIQUE (employee_id, att_date)
-);
-CREATE INDEX idx_att_emp  ON hrm_attendances(employee_id);
-CREATE INDEX idx_att_date ON hrm_attendances(att_date);
-
-CREATE TABLE hrm_employee_leaves (
-    id                  BIGSERIAL       PRIMARY KEY,
-    organization_id     BIGINT          NOT NULL REFERENCES org_organizations(id),
-    employee_id         BIGINT          NOT NULL REFERENCES hrm_employees(id),
-    approval_request_id BIGINT          REFERENCES apr_requests(id),
-    leave_type          VARCHAR(30)     NOT NULL,
-    start_date          DATE            NOT NULL,
-    end_date            DATE            NOT NULL,
-    total_days          NUMERIC(5,1)    NOT NULL,
-    reason              TEXT,
-    status              VARCHAR(20)     NOT NULL DEFAULT 'PENDING'
-        CONSTRAINT chk_leave_status CHECK (status IN (
-            'PENDING','APPROVED','REJECTED','CANCELLED')),
-    approved_by         VARCHAR(100),
-    approved_at         TIMESTAMP(6),
-    created_by          VARCHAR(100),
-    updated_by          VARCHAR(100),
-    created_at          TIMESTAMP(6),
-    updated_at          TIMESTAMP(6)
-);
-CREATE INDEX idx_leave_emp    ON hrm_employee_leaves(employee_id);
-CREATE INDEX idx_leave_status ON hrm_employee_leaves(status);
-
-CREATE TABLE hrm_employee_salaries (
-    id                  BIGSERIAL       PRIMARY KEY,
-    employee_id         BIGINT          NOT NULL REFERENCES hrm_employees(id),
-    effective_date      DATE            NOT NULL,
-    end_date            DATE,
-    basic_salary        NUMERIC(12,2)   NOT NULL,
-    house_rent          NUMERIC(12,2)   NOT NULL DEFAULT 0,
-    medical_allowance   NUMERIC(12,2)   NOT NULL DEFAULT 0,
-    transport_allowance NUMERIC(12,2)   NOT NULL DEFAULT 0,
-    other_allowances    NUMERIC(12,2)   NOT NULL DEFAULT 0,
-    gross_salary        NUMERIC(12,2)   NOT NULL,
-    income_tax          NUMERIC(12,2)   NOT NULL DEFAULT 0,
-    provident_fund      NUMERIC(12,2)   NOT NULL DEFAULT 0,
-    other_deductions    NUMERIC(12,2)   NOT NULL DEFAULT 0,
-    net_salary          NUMERIC(12,2)   NOT NULL,
-    is_current          BOOLEAN         NOT NULL DEFAULT TRUE,
-    remarks             VARCHAR(500),
-    created_by          VARCHAR(100),
-    created_at          TIMESTAMP(6)
-);
-CREATE INDEX idx_sal_emp     ON hrm_employee_salaries(employee_id);
-CREATE INDEX idx_sal_current ON hrm_employee_salaries(is_current);
-
-CREATE TABLE hrm_payroll_runs (
-    id              BIGSERIAL       PRIMARY KEY,
-    organization_id BIGINT          NOT NULL REFERENCES org_organizations(id),
-    journal_entry_id BIGINT         REFERENCES acc_journal_entry_master(id),
-    payroll_month   VARCHAR(7)      NOT NULL,   -- YYYY-MM
-    run_date        DATE            NOT NULL,
-    status          VARCHAR(20)     NOT NULL DEFAULT 'DRAFT'
-        CONSTRAINT chk_pr_status CHECK (status IN (
-            'DRAFT','PROCESSING','COMPLETED','APPROVED','PAID','CANCELLED')),
-    total_gross     NUMERIC(18,2)   NOT NULL DEFAULT 0,
-    total_deductions NUMERIC(18,2)  NOT NULL DEFAULT 0,
-    total_net       NUMERIC(18,2)   NOT NULL DEFAULT 0,
-    employee_count  INT             NOT NULL DEFAULT 0,
-    approved_by     VARCHAR(100),
-    approved_at     TIMESTAMP(6),
-    remarks         TEXT,
-    created_by      VARCHAR(100),
-    updated_by      VARCHAR(100),
-    created_at      TIMESTAMP(6),
-    updated_at      TIMESTAMP(6),
-    UNIQUE (organization_id, payroll_month)
-);
-CREATE INDEX idx_pr_org    ON hrm_payroll_runs(organization_id);
-CREATE INDEX idx_pr_month  ON hrm_payroll_runs(payroll_month);
-CREATE INDEX idx_pr_status ON hrm_payroll_runs(status);
-
-CREATE TABLE hrm_payroll_run_lines (
-    id                  BIGSERIAL       PRIMARY KEY,
-    payroll_run_id      BIGINT          NOT NULL REFERENCES hrm_payroll_runs(id) ON DELETE CASCADE,
-    employee_id         BIGINT          NOT NULL REFERENCES hrm_employees(id),
-    cost_center_id      BIGINT          REFERENCES org_cost_centers(id),
-    basic_salary        NUMERIC(12,2)   NOT NULL DEFAULT 0,
-    house_rent          NUMERIC(12,2)   NOT NULL DEFAULT 0,
-    medical_allowance   NUMERIC(12,2)   NOT NULL DEFAULT 0,
-    transport_allowance NUMERIC(12,2)   NOT NULL DEFAULT 0,
-    overtime            NUMERIC(12,2)   NOT NULL DEFAULT 0,
-    other_allowances    NUMERIC(12,2)   NOT NULL DEFAULT 0,
-    gross_salary        NUMERIC(12,2)   NOT NULL DEFAULT 0,
-    income_tax          NUMERIC(12,2)   NOT NULL DEFAULT 0,
-    provident_fund      NUMERIC(12,2)   NOT NULL DEFAULT 0,
-    loan_deduction      NUMERIC(12,2)   NOT NULL DEFAULT 0,
-    other_deductions    NUMERIC(12,2)   NOT NULL DEFAULT 0,
-    net_salary          NUMERIC(12,2)   NOT NULL DEFAULT 0,
-    working_days        INT,
-    leave_days          INT,
-    absent_days         INT,
-    payment_status      VARCHAR(20)     NOT NULL DEFAULT 'PENDING',
-    created_at          TIMESTAMP(6)
-);
-CREATE INDEX idx_prl_run ON hrm_payroll_run_lines(payroll_run_id);
-CREATE INDEX idx_prl_emp ON hrm_payroll_run_lines(employee_id);
-
--- ★ NEW: Employee cost center allocation for production labor costing
-CREATE TABLE hrm_cost_center_allocations (
-    id                 BIGSERIAL       PRIMARY KEY,
-    organization_id    BIGINT          NOT NULL REFERENCES org_organizations(id),
-    employee_id        BIGINT          NOT NULL REFERENCES hrm_employees(id),
-    payroll_run_id     BIGINT          REFERENCES hrm_payroll_runs(id),
-    cost_center_id     BIGINT          NOT NULL REFERENCES org_cost_centers(id),
-    allocation_month   VARCHAR(7)      NOT NULL,   -- YYYY-MM
-    gross_salary       NUMERIC(12,2)   NOT NULL,
-    allocation_pct     NUMERIC(5,2)    NOT NULL DEFAULT 100,  -- % of time in this cost center
-    allocated_amount   NUMERIC(12,2)   NOT NULL,              -- gross_salary × allocation_pct / 100
-    remarks            VARCHAR(500),
-    created_by         VARCHAR(100),
-    created_at         TIMESTAMP(6),
-    updated_at         TIMESTAMP(6),
-    UNIQUE (employee_id, cost_center_id, allocation_month)
-);
-CREATE INDEX idx_hcca_emp    ON hrm_cost_center_allocations(employee_id);
-CREATE INDEX idx_hcca_cc     ON hrm_cost_center_allocations(cost_center_id);
-CREATE INDEX idx_hcca_month  ON hrm_cost_center_allocations(allocation_month);
-CREATE INDEX idx_hcca_payrun ON hrm_cost_center_allocations(payroll_run_id);
-
--- ═══════════════════════════════════════════════════════════════════════════
--- MODULE 11 — GENERIC PRODUCTION  (replaces yarn-specific module)
--- ═══════════════════════════════════════════════════════════════════════════
---
---  Flow:
---    BOM (master template, optional)
---    ↓
---    Production Order (prd_productions)  ←─ Sales Order or standalone
---    ↓
---    Material Requisition / Issue  (uses global_business_documents)
---    ↓
---    prd_production_inputs  (actual materials consumed + lots)
---    ↓
---    prd_production_outputs (finished goods produced + lots)
---    ↓
---    Accounting journals (auto via acc_mapping: WIP Dr / RM Cr, FG Dr / WIP Cr)
---
---  Cost Sheet in prd_productions:
---    material_cost  = sum(prd_production_inputs.total_cost)
---    labor_cost     = from hrm_cost_center_allocations
---    overhead_cost  = manual entry or overhead allocation
---    total_cost     = material + labor + overhead
---    unit_cost      = total_cost / produced_quantity
--- ═══════════════════════════════════════════════════════════════════════════
-
--- Bill of Materials (reusable master template)
-CREATE TABLE prd_bom (
-    id                BIGSERIAL    PRIMARY KEY,
-    organization_id   BIGINT       NOT NULL REFERENCES org_organizations(id),
-    finished_item_id  BIGINT       NOT NULL REFERENCES inv_items(id),
-    bom_code          VARCHAR(50)  NOT NULL,
-    bom_name          VARCHAR(200) NOT NULL,
-    bom_version       VARCHAR(20)  NOT NULL DEFAULT '1.0',
-    output_quantity   NUMERIC(14,3) NOT NULL DEFAULT 1,  -- quantity produced per BOM run
-    output_unit_id    BIGINT        NOT NULL REFERENCES inv_item_uom(id),
-    yield_percent     NUMERIC(5,2)  NOT NULL DEFAULT 100, -- expected output %
-    is_active         BOOLEAN       NOT NULL DEFAULT TRUE,
-    is_default        BOOLEAN       NOT NULL DEFAULT FALSE,
-    description       TEXT,
-    notes             TEXT,
-    approved_by       VARCHAR(100),
-    approved_at       TIMESTAMP(6),
-    created_by        VARCHAR(100),
-    updated_by        VARCHAR(100),
-    created_at        TIMESTAMP(6),
-    updated_at        TIMESTAMP(6),
-    UNIQUE (organization_id, bom_code)
-);
-CREATE INDEX idx_bom_org  ON prd_bom(organization_id);
-CREATE INDEX idx_bom_item ON prd_bom(finished_item_id);
-
-CREATE TABLE prd_bom_items (
-    id             BIGSERIAL       PRIMARY KEY,
-    bom_id         BIGINT          NOT NULL REFERENCES prd_bom(id) ON DELETE CASCADE,
-    raw_item_id    BIGINT          NOT NULL REFERENCES inv_items(id),
-    line_number    INT             NOT NULL,
-    quantity       NUMERIC(14,4)   NOT NULL,   -- quantity per BOM output_quantity
-    unit_id        BIGINT          NOT NULL REFERENCES inv_item_uom(id),
-    scrap_pct      NUMERIC(5,2)    NOT NULL DEFAULT 0,
-    is_optional    BOOLEAN         NOT NULL DEFAULT FALSE,
-    remarks        TEXT,
-    created_by     VARCHAR(100),
-    created_at     TIMESTAMP(6)
-);
-CREATE INDEX idx_bom_items_bom  ON prd_bom_items(bom_id);
-CREATE INDEX idx_bom_items_item ON prd_bom_items(raw_item_id);
-
--- Production Order (generic work order + cost sheet)
-CREATE TABLE prd_productions (
-    id                  BIGSERIAL       PRIMARY KEY,
-    organization_id     BIGINT          NOT NULL REFERENCES org_organizations(id),
-    bom_id              BIGINT          REFERENCES prd_bom(id),
-    finished_item_id    BIGINT          NOT NULL REFERENCES inv_items(id),
-    output_warehouse_id BIGINT          NOT NULL REFERENCES org_warehouses(id),
-    cost_center_id      BIGINT          REFERENCES org_cost_centers(id),
-    sales_order_id      BIGINT          REFERENCES global_business_documents(id),
-    approval_request_id BIGINT          REFERENCES apr_requests(id),
-    journal_entry_id    BIGINT          REFERENCES acc_journal_entry_master(id),
-
-    production_no       VARCHAR(50)     NOT NULL,
-    production_date     DATE            NOT NULL,
-    planned_start_date  DATE,
-    planned_end_date    DATE,
-    actual_start_date   DATE,
-    actual_end_date     DATE,
-
-    -- Quantities
-    planned_quantity    NUMERIC(14,3)   NOT NULL,
-    produced_quantity   NUMERIC(14,3)   NOT NULL DEFAULT 0,
-    rejected_quantity   NUMERIC(14,3)   NOT NULL DEFAULT 0,
-    waste_quantity      NUMERIC(14,3)   NOT NULL DEFAULT 0,
-    output_unit_id      BIGINT          NOT NULL REFERENCES inv_item_uom(id),
-
-    -- ★ Cost Sheet — the key addition for COGS accuracy
-    material_cost       NUMERIC(18,2)   NOT NULL DEFAULT 0,  -- auto from inputs
-    labor_cost          NUMERIC(18,2)   NOT NULL DEFAULT 0,  -- from HRM allocation
-    overhead_cost       NUMERIC(18,2)   NOT NULL DEFAULT 0,  -- manual or allocated
-    other_cost          NUMERIC(18,2)   NOT NULL DEFAULT 0,  -- packaging, utilities etc.
-    total_cost          NUMERIC(18,2)   NOT NULL DEFAULT 0,  -- sum of above
-    unit_cost           NUMERIC(18,4)   NOT NULL DEFAULT 0,  -- total_cost / produced_qty
-
-    status              VARCHAR(30)     NOT NULL DEFAULT 'DRAFT'
-        CONSTRAINT chk_prd2_status CHECK (status IN (
-            'DRAFT','SUBMITTED','APPROVED','RELEASED',
-            'IN_PROGRESS','COMPLETED','REJECTED','CANCELLED')),
-    approval_status     VARCHAR(30),
-    remarks             TEXT,
-    created_by          VARCHAR(100),
-    updated_by          VARCHAR(100),
-    created_at          TIMESTAMP(6),
-    updated_at          TIMESTAMP(6),
-    UNIQUE (organization_id, production_no)
-);
-CREATE INDEX idx_prd2_org    ON prd_productions(organization_id);
-CREATE INDEX idx_prd2_status ON prd_productions(status);
-CREATE INDEX idx_prd2_item   ON prd_productions(finished_item_id);
-CREATE INDEX idx_prd2_date   ON prd_productions(production_date);
-CREATE INDEX idx_prd2_bom    ON prd_productions(bom_id);
-CREATE INDEX idx_prd2_so     ON prd_productions(sales_order_id);
-
--- Resolve deferred FK: global_inv_lots.production_order_id → prd_productions
-ALTER TABLE global_inv_lots
-    ADD CONSTRAINT fk_lot_production
-    FOREIGN KEY (production_order_id) REFERENCES prd_productions(id)
-    DEFERRABLE INITIALLY DEFERRED;
-
--- Materials consumed in production
-CREATE TABLE prd_production_inputs (
-    id                  BIGSERIAL       PRIMARY KEY,
-    production_id       BIGINT          NOT NULL REFERENCES prd_productions(id) ON DELETE CASCADE,
-    raw_item_id         BIGINT          NOT NULL REFERENCES inv_items(id),
-    lot_id              BIGINT          REFERENCES global_inv_lots(id),
-    warehouse_id        BIGINT          NOT NULL REFERENCES org_warehouses(id),
-    bom_item_id         BIGINT          REFERENCES prd_bom_items(id),
-    line_number         INT             NOT NULL,
-    planned_quantity    NUMERIC(14,3),
-    actual_quantity     NUMERIC(14,3)   NOT NULL,
-    unit_id             BIGINT          NOT NULL REFERENCES inv_item_uom(id),
-    unit_cost           NUMERIC(18,4)   NOT NULL DEFAULT 0,
-    total_cost          NUMERIC(18,2)   NOT NULL DEFAULT 0,
-    scrap_quantity      NUMERIC(14,3)   NOT NULL DEFAULT 0,
-    remarks             TEXT,
-    created_by          VARCHAR(100),
-    created_at          TIMESTAMP(6)
-);
-CREATE INDEX idx_prdi_prod  ON prd_production_inputs(production_id);
-CREATE INDEX idx_prdi_item  ON prd_production_inputs(raw_item_id);
-CREATE INDEX idx_prdi_lot   ON prd_production_inputs(lot_id);
-
--- Finished goods produced
-CREATE TABLE prd_production_outputs (
-    id                  BIGSERIAL       PRIMARY KEY,
-    production_id       BIGINT          NOT NULL REFERENCES prd_productions(id) ON DELETE CASCADE,
-    finished_item_id    BIGINT          NOT NULL REFERENCES inv_items(id),
-    lot_id              BIGINT          REFERENCES global_inv_lots(id),
-    warehouse_id        BIGINT          NOT NULL REFERENCES org_warehouses(id),
-    line_number         INT             NOT NULL,
-    quantity            NUMERIC(14,3)   NOT NULL,
-    rejected_quantity   NUMERIC(14,3)   NOT NULL DEFAULT 0,
-    unit_id             BIGINT          NOT NULL REFERENCES inv_item_uom(id),
-    unit_cost           NUMERIC(18,4)   NOT NULL DEFAULT 0,  -- = production.unit_cost
-    total_cost          NUMERIC(18,2)   NOT NULL DEFAULT 0,  -- quantity × unit_cost
-    batch_no            VARCHAR(100),
-    remarks             TEXT,
-    created_by          VARCHAR(100),
-    created_at          TIMESTAMP(6)
-);
-CREATE INDEX idx_prdo_prod ON prd_production_outputs(production_id);
-CREATE INDEX idx_prdo_item ON prd_production_outputs(finished_item_id);
-
--- ═══════════════════════════════════════════════════════════════════════════
--- MODULE 12 — FIXED ASSETS
--- ═══════════════════════════════════════════════════════════════════════════
-
-CREATE TABLE fa_asset_categories (
-    id                        BIGSERIAL    PRIMARY KEY,
-    organization_id           BIGINT       NOT NULL REFERENCES org_organizations(id),
-    parent_id                 BIGINT       REFERENCES fa_asset_categories(id),
-    code                      VARCHAR(50)  NOT NULL,
-    name                      VARCHAR(200) NOT NULL,
-    description               TEXT,
-    default_dep_method        VARCHAR(30)  NOT NULL DEFAULT 'STRAIGHT_LINE'
-        CONSTRAINT chk_fac_method CHECK (default_dep_method IN (
-            'STRAIGHT_LINE','DECLINING_BALANCE','UNITS_OF_PRODUCTION')),
-    default_useful_life_years INT,
-    default_dep_rate          NUMERIC(5,2),
-    default_residual_pct      NUMERIC(5,2),
-    gl_asset_account_id       BIGINT       REFERENCES acc_chart_of_accounts(id),
-    gl_dep_exp_account_id     BIGINT       REFERENCES acc_chart_of_accounts(id),
-    gl_accum_dep_account_id   BIGINT       REFERENCES acc_chart_of_accounts(id),
-    gl_disposal_account_id    BIGINT       REFERENCES acc_chart_of_accounts(id),
-    is_active                 BOOLEAN      NOT NULL DEFAULT TRUE,
-    created_by                VARCHAR(100),
-    updated_by                VARCHAR(100),
-    created_at                TIMESTAMP(6),
-    updated_at                TIMESTAMP(6),
-    UNIQUE (organization_id, code)
-);
-CREATE INDEX idx_fac_org    ON fa_asset_categories(organization_id);
-CREATE INDEX idx_fac_parent ON fa_asset_categories(parent_id);
-
-CREATE TABLE fa_assets (
-    id                       BIGSERIAL       PRIMARY KEY,
-    organization_id          BIGINT          NOT NULL REFERENCES org_organizations(id),
-    asset_category_id        BIGINT          NOT NULL REFERENCES fa_asset_categories(id),
-    department_id            BIGINT          REFERENCES org_departments(id),
-    cost_center_id           BIGINT          REFERENCES org_cost_centers(id),
-    warehouse_id             BIGINT          REFERENCES org_warehouses(id),
-    responsible_employee_id  BIGINT          REFERENCES hrm_employees(id),
-    supplier_id              BIGINT          REFERENCES acc_chart_of_accounts_sub(id),
-    linked_grn_id            BIGINT          REFERENCES global_business_documents(id),
-    asset_code               VARCHAR(50)     NOT NULL,
-    asset_name               VARCHAR(200)    NOT NULL,
-    description              TEXT,
-    serial_number            VARCHAR(100),
-    model                    VARCHAR(100),
-    manufacturer             VARCHAR(100),
-    acquisition_date         DATE            NOT NULL,
-    capitalisation_date      DATE,
-    purchase_cost            NUMERIC(18,2)   NOT NULL,
-    installation_cost        NUMERIC(18,2)   NOT NULL DEFAULT 0,
-    total_cost               NUMERIC(18,2)   GENERATED ALWAYS AS (purchase_cost + installation_cost) STORED,
-    currency                 VARCHAR(3)      NOT NULL DEFAULT 'BDT',
-    depreciation_method      VARCHAR(30)     NOT NULL DEFAULT 'STRAIGHT_LINE',
-    useful_life_years        INT,
-    residual_value           NUMERIC(18,2)   NOT NULL DEFAULT 0,
-    depreciation_rate        NUMERIC(5,2),
-    depreciation_start_date  DATE,
-    accumulated_depreciation NUMERIC(18,2)   NOT NULL DEFAULT 0,
-    current_book_value       NUMERIC(18,2),
-    last_dep_run_date        DATE,
-    location                 VARCHAR(200),
-    status                   VARCHAR(30)     NOT NULL DEFAULT 'ACTIVE'
-        CONSTRAINT chk_fa_status CHECK (status IN (
-            'ACTIVE','DISPOSED','TRANSFERRED','SOLD','WRITTEN_OFF','UNDER_MAINTENANCE')),
-    condition                VARCHAR(20)     DEFAULT 'GOOD',
-    warranty_expiry_date     DATE,
-    insurance_policy_no      VARCHAR(100),
-    insurance_expiry_date    DATE,
-    barcode                  VARCHAR(100),
-    notes                    TEXT,
-    created_by               VARCHAR(100),
-    updated_by               VARCHAR(100),
-    created_at               TIMESTAMP(6),
-    updated_at               TIMESTAMP(6),
-    UNIQUE (organization_id, asset_code)
-);
-CREATE INDEX idx_fa_org    ON fa_assets(organization_id);
-CREATE INDEX idx_fa_cat    ON fa_assets(asset_category_id);
-CREATE INDEX idx_fa_status ON fa_assets(status);
-
-CREATE TABLE fa_depreciation_runs (
-    id                  BIGSERIAL       PRIMARY KEY,
-    organization_id     BIGINT          NOT NULL REFERENCES org_organizations(id),
-    journal_entry_id    BIGINT          REFERENCES acc_journal_entry_master(id),
-    run_date            DATE            NOT NULL,
-    period_start        DATE            NOT NULL,
-    period_end          DATE            NOT NULL,
-    run_type            VARCHAR(20)     NOT NULL DEFAULT 'MONTHLY',
-    status              VARCHAR(20)     NOT NULL DEFAULT 'DRAFT',
-    total_assets        INT             NOT NULL DEFAULT 0,
-    total_depreciation  NUMERIC(18,2)   NOT NULL DEFAULT 0,
-    posted_by           VARCHAR(100),
-    posted_at           TIMESTAMP(6),
-    created_by          VARCHAR(100),
-    created_at          TIMESTAMP(6),
-    updated_at          TIMESTAMP(6)
-);
-CREATE INDEX idx_fdr_org ON fa_depreciation_runs(organization_id);
-
-CREATE TABLE fa_depreciation_run_lines (
-    id                  BIGSERIAL       PRIMARY KEY,
-    depreciation_run_id BIGINT          NOT NULL REFERENCES fa_depreciation_runs(id) ON DELETE CASCADE,
-    asset_id            BIGINT          NOT NULL REFERENCES fa_assets(id),
-    depreciation_method VARCHAR(30)     NOT NULL,
-    opening_book_value  NUMERIC(18,2)   NOT NULL,
-    depreciation_amount NUMERIC(18,2)   NOT NULL,
-    closing_book_value  NUMERIC(18,2)   NOT NULL,
-    rate_applied        NUMERIC(5,2),
-    notes               TEXT,
-    created_at          TIMESTAMP(6)
-);
-CREATE INDEX idx_fdrl_run   ON fa_depreciation_run_lines(depreciation_run_id);
-CREATE INDEX idx_fdrl_asset ON fa_depreciation_run_lines(asset_id);
-
-CREATE TABLE fa_asset_disposals (
-    id                          BIGSERIAL       PRIMARY KEY,
-    organization_id             BIGINT          NOT NULL REFERENCES org_organizations(id),
-    asset_id                    BIGINT          NOT NULL REFERENCES fa_assets(id),
-    journal_entry_id            BIGINT          REFERENCES acc_journal_entry_master(id),
-    disposal_date               DATE            NOT NULL,
-    disposal_type               VARCHAR(30)     NOT NULL
-        CONSTRAINT chk_fad_type CHECK (disposal_type IN (
-            'SALE','WRITE_OFF','TRANSFER','SCRAP','DONATION')),
-    disposal_value              NUMERIC(18,2)   NOT NULL DEFAULT 0,
-    book_value_at_disposal      NUMERIC(18,2)   NOT NULL,
-    accumulated_dep_at_disposal NUMERIC(18,2)   NOT NULL,
-    gain_loss                   NUMERIC(18,2),
-    buyer_name                  VARCHAR(200),
-    reason                      TEXT,
-    approved_by                 VARCHAR(100),
-    approved_at                 TIMESTAMP(6),
-    created_by                  VARCHAR(100),
-    created_at                  TIMESTAMP(6)
-);
-CREATE INDEX idx_fad_asset ON fa_asset_disposals(asset_id);
-
--- ═══════════════════════════════════════════════════════════════════════════
--- MODULE 13 — BUDGET
--- ═══════════════════════════════════════════════════════════════════════════
-
-CREATE TABLE bgt_fiscal_years (
-    id              BIGSERIAL    PRIMARY KEY,
-    organization_id BIGINT       NOT NULL REFERENCES org_organizations(id),
-    year_code       VARCHAR(20)  NOT NULL,
-    year_name       VARCHAR(100) NOT NULL,
-    start_date      DATE         NOT NULL,
-    end_date        DATE         NOT NULL,
-    status          VARCHAR(20)  NOT NULL DEFAULT 'DRAFT'
-        CONSTRAINT chk_bfy_status CHECK (status IN ('DRAFT','ACTIVE','LOCKED','CLOSED')),
-    is_current      BOOLEAN      NOT NULL DEFAULT FALSE,
-    closed_by       VARCHAR(100),
-    closed_at       TIMESTAMP(6),
-    notes           TEXT,
-    created_by      VARCHAR(100),
-    updated_by      VARCHAR(100),
-    created_at      TIMESTAMP(6),
-    updated_at      TIMESTAMP(6),
-    UNIQUE (organization_id, year_code)
-);
-CREATE INDEX idx_bfy_org ON bgt_fiscal_years(organization_id);
-
-CREATE TABLE bgt_budget_heads (
-    id              BIGSERIAL    PRIMARY KEY,
-    organization_id BIGINT       NOT NULL REFERENCES org_organizations(id),
-    parent_id       BIGINT       REFERENCES bgt_budget_heads(id),
-    head_code       VARCHAR(50)  NOT NULL,
-    head_name       VARCHAR(200) NOT NULL,
-    head_type       VARCHAR(30)  NOT NULL DEFAULT 'EXPENSE'
-        CONSTRAINT chk_bbh_type CHECK (head_type IN (
-            'REVENUE','EXPENSE','CAPEX','OPEX','PRODUCTION','HR','COMMERCIAL','OTHER')),
-    description     TEXT,
-    is_active       BOOLEAN      NOT NULL DEFAULT TRUE,
-    display_order   INT          NOT NULL DEFAULT 0,
-    created_by      VARCHAR(100),
-    created_at      TIMESTAMP(6),
-    updated_at      TIMESTAMP(6),
-    UNIQUE (organization_id, head_code)
-);
-CREATE INDEX idx_bbh_org ON bgt_budget_heads(organization_id);
-
-CREATE TABLE bgt_budgets (
-    id                        BIGSERIAL       PRIMARY KEY,
-    organization_id           BIGINT          NOT NULL REFERENCES org_organizations(id),
-    business_unit_id          BIGINT          REFERENCES org_business_units(id),
-    fiscal_year_id            BIGINT          NOT NULL REFERENCES bgt_fiscal_years(id),
-    approval_request_id       BIGINT          REFERENCES apr_requests(id),
-    budget_no                 VARCHAR(50)     NOT NULL,
-    budget_name               VARCHAR(200)    NOT NULL,
-    budget_type               VARCHAR(30)     NOT NULL DEFAULT 'ANNUAL'
-        CONSTRAINT chk_bgt_type CHECK (budget_type IN (
-            'ANNUAL','QUARTERLY','MONTHLY','PROJECT','DEPARTMENTAL','CAPEX','ROLLING')),
-    period_start              DATE            NOT NULL,
-    period_end                DATE            NOT NULL,
-    currency                  VARCHAR(3)      NOT NULL DEFAULT 'BDT',
-    total_budgeted            NUMERIC(18,2)   NOT NULL DEFAULT 0,
-    total_revised             NUMERIC(18,2)   NOT NULL DEFAULT 0,
-    total_actual              NUMERIC(18,2)   NOT NULL DEFAULT 0,
-    total_committed           NUMERIC(18,2)   NOT NULL DEFAULT 0,
-    total_available           NUMERIC(18,2)   NOT NULL DEFAULT 0,
-    status                    VARCHAR(30)     NOT NULL DEFAULT 'DRAFT'
-        CONSTRAINT chk_bgt_status CHECK (status IN (
-            'DRAFT','SUBMITTED','IN_APPROVAL','APPROVED',
-            'ACTIVE','LOCKED','CLOSED','REJECTED','RETURNED')),
-    over_spend_policy         VARCHAR(20)     NOT NULL DEFAULT 'WARN'
-        CONSTRAINT chk_bgt_policy CHECK (over_spend_policy IN ('ALLOW','WARN','BLOCK')),
-    alert_threshold_pct       NUMERIC(5,2)    NOT NULL DEFAULT 80,
-    created_by                VARCHAR(100),
-    updated_by                VARCHAR(100),
-    created_at                TIMESTAMP(6),
-    updated_at                TIMESTAMP(6),
-    UNIQUE (organization_id, budget_no)
-);
-CREATE INDEX idx_bgt_org    ON bgt_budgets(organization_id);
-CREATE INDEX idx_bgt_fy     ON bgt_budgets(fiscal_year_id);
-CREATE INDEX idx_bgt_status ON bgt_budgets(status);
-
-CREATE TABLE bgt_budget_lines (
-    id               BIGSERIAL       PRIMARY KEY,
-    budget_id        BIGINT          NOT NULL REFERENCES bgt_budgets(id) ON DELETE CASCADE,
-    budget_head_id   BIGINT          NOT NULL REFERENCES bgt_budget_heads(id),
-    account_id       BIGINT          REFERENCES acc_chart_of_accounts(id),
-    cost_center_id   BIGINT          REFERENCES org_cost_centers(id),
-    department_id    BIGINT          REFERENCES org_departments(id),
-    line_number      INT             NOT NULL,
-    description      VARCHAR(500),
-    original_amount  NUMERIC(18,2)   NOT NULL DEFAULT 0,
-    revised_amount   NUMERIC(18,2)   NOT NULL DEFAULT 0,
-    actual_amount    NUMERIC(18,2)   NOT NULL DEFAULT 0,
-    committed_amount NUMERIC(18,2)   NOT NULL DEFAULT 0,
-    available_amount NUMERIC(18,2)   GENERATED ALWAYS AS
-                         (revised_amount - actual_amount - committed_amount) STORED,
-    jan_amount NUMERIC(18,2) NOT NULL DEFAULT 0, feb_amount NUMERIC(18,2) NOT NULL DEFAULT 0,
-    mar_amount NUMERIC(18,2) NOT NULL DEFAULT 0, apr_amount NUMERIC(18,2) NOT NULL DEFAULT 0,
-    may_amount NUMERIC(18,2) NOT NULL DEFAULT 0, jun_amount NUMERIC(18,2) NOT NULL DEFAULT 0,
-    jul_amount NUMERIC(18,2) NOT NULL DEFAULT 0, aug_amount NUMERIC(18,2) NOT NULL DEFAULT 0,
-    sep_amount NUMERIC(18,2) NOT NULL DEFAULT 0, oct_amount NUMERIC(18,2) NOT NULL DEFAULT 0,
-    nov_amount NUMERIC(18,2) NOT NULL DEFAULT 0, dec_amount NUMERIC(18,2) NOT NULL DEFAULT 0,
-    notes            TEXT,
-    created_by       VARCHAR(100),
-    updated_by       VARCHAR(100),
-    created_at       TIMESTAMP(6),
-    updated_at       TIMESTAMP(6)
-);
-CREATE INDEX idx_bbl_budget ON bgt_budget_lines(budget_id);
-CREATE INDEX idx_bbl_head   ON bgt_budget_lines(budget_head_id);
-
-CREATE TABLE bgt_actuals (
-    id                    BIGSERIAL       PRIMARY KEY,
-    organization_id       BIGINT          NOT NULL REFERENCES org_organizations(id),
-    budget_id             BIGINT          NOT NULL REFERENCES bgt_budgets(id),
-    budget_line_id        BIGINT          NOT NULL REFERENCES bgt_budget_lines(id),
-    journal_entry_id      BIGINT          NOT NULL REFERENCES acc_journal_entry_master(id),
-    journal_entry_line_id BIGINT          REFERENCES acc_journal_entry_lines(id),
-    source_document_type  VARCHAR(50),
-    source_document_id    BIGINT,
-    source_document_no    VARCHAR(100),
-    transaction_date      DATE            NOT NULL,
-    debit_amount          NUMERIC(18,2)   NOT NULL DEFAULT 0,
-    credit_amount         NUMERIC(18,2)   NOT NULL DEFAULT 0,
-    net_amount            NUMERIC(18,2)   NOT NULL DEFAULT 0,
-    narration             VARCHAR(500),
-    created_by            VARCHAR(100),
-    created_at            TIMESTAMP(6)
-);
-CREATE INDEX idx_ba_budget  ON bgt_actuals(budget_id);
-CREATE INDEX idx_ba_line    ON bgt_actuals(budget_line_id);
-CREATE INDEX idx_ba_journal ON bgt_actuals(journal_entry_id);
-
-CREATE TABLE bgt_encumbrances (
-    id                    BIGSERIAL       PRIMARY KEY,
-    organization_id       BIGINT          NOT NULL REFERENCES org_organizations(id),
-    budget_id             BIGINT          NOT NULL REFERENCES bgt_budgets(id),
-    budget_line_id        BIGINT          NOT NULL REFERENCES bgt_budget_lines(id),
-    source_document_id    BIGINT          NOT NULL REFERENCES global_business_documents(id),
-    source_document_type  VARCHAR(50)     NOT NULL,
-    source_document_no    VARCHAR(100)    NOT NULL,
-    committed_amount      NUMERIC(18,2)   NOT NULL,
-    released_amount       NUMERIC(18,2)   NOT NULL DEFAULT 0,
-    outstanding_amount    NUMERIC(18,2)   GENERATED ALWAYS AS (committed_amount - released_amount) STORED,
-    commitment_date       DATE            NOT NULL,
-    status                VARCHAR(20)     NOT NULL DEFAULT 'OPEN'
-        CONSTRAINT chk_be_status CHECK (status IN (
-            'OPEN','PARTIAL','FULLY_RELEASED','CANCELLED')),
-    notes                 TEXT,
-    created_by            VARCHAR(100),
-    created_at            TIMESTAMP(6),
-    updated_at            TIMESTAMP(6)
-);
-CREATE INDEX idx_be_budget ON bgt_encumbrances(budget_id);
-CREATE INDEX idx_be_status ON bgt_encumbrances(status);
-
-CREATE TABLE bgt_budget_notes (
-    id          BIGSERIAL    PRIMARY KEY,
-    budget_id   BIGINT       NOT NULL REFERENCES bgt_budgets(id) ON DELETE CASCADE,
-    author_id   BIGINT       REFERENCES sec_users(id),
-    note_text   TEXT         NOT NULL,
-    is_internal BOOLEAN      NOT NULL DEFAULT TRUE,
-    created_by  VARCHAR(100),
-    created_at  TIMESTAMP(6)
-);
-CREATE INDEX idx_bbn_budget ON bgt_budget_notes(budget_id);
-
--- ═══════════════════════════════════════════════════════════════════════════
--- MODULE 14 — CRM
--- ═══════════════════════════════════════════════════════════════════════════
-
-CREATE TABLE crm_leads (
-    id              BIGSERIAL    PRIMARY KEY,
-    organization_id BIGINT       NOT NULL REFERENCES org_organizations(id),
-    assigned_to_id  BIGINT       REFERENCES sec_users(id),
-    converted_to_id BIGINT       REFERENCES acc_chart_of_accounts_sub(id),
-    lead_no         VARCHAR(50)  NOT NULL,
-    company_name    VARCHAR(200),
-    contact_name    VARCHAR(200) NOT NULL,
-    contact_email   VARCHAR(100),
-    contact_phone   VARCHAR(20),
-    designation     VARCHAR(100),
-    country         VARCHAR(100),
-    city            VARCHAR(100),
-    source          VARCHAR(50),
-    lead_type       VARCHAR(20)  NOT NULL DEFAULT 'B2B',
-    product_interest TEXT,
-    status          VARCHAR(30)  NOT NULL DEFAULT 'NEW'
-        CONSTRAINT chk_crl_status CHECK (status IN (
-            'NEW','CONTACTED','QUALIFIED','UNQUALIFIED',
-            'CONVERTED','LOST','DORMANT')),
-    remarks         TEXT,
-    created_by      VARCHAR(100),
-    updated_by      VARCHAR(100),
-    created_at      TIMESTAMP(6),
-    updated_at      TIMESTAMP(6),
-    UNIQUE (organization_id, lead_no)
-);
-CREATE INDEX idx_crl_org    ON crm_leads(organization_id);
-CREATE INDEX idx_crl_status ON crm_leads(status);
-
-CREATE TABLE crm_opportunities (
-    id                  BIGSERIAL       PRIMARY KEY,
-    organization_id     BIGINT          NOT NULL REFERENCES org_organizations(id),
-    customer_id         BIGINT          REFERENCES acc_chart_of_accounts_sub(id),
-    lead_id             BIGINT          REFERENCES crm_leads(id),
-    assigned_to_id      BIGINT          REFERENCES sec_users(id),
-    opportunity_no      VARCHAR(50)     NOT NULL,
-    title               VARCHAR(200)    NOT NULL,
-    description         TEXT,
-    stage               VARCHAR(30)     NOT NULL DEFAULT 'PROSPECT'
-        CONSTRAINT chk_cro_stage CHECK (stage IN (
-            'PROSPECT','QUALIFIED','PROPOSAL','NEGOTIATION','WON','LOST')),
-    probability         NUMERIC(5,2)    NOT NULL DEFAULT 0,
-    estimated_value     NUMERIC(18,2),
-    currency            VARCHAR(3)      NOT NULL DEFAULT 'BDT',
-    expected_close_date DATE,
-    actual_close_date   DATE,
-    lost_reason         VARCHAR(500),
-    remarks             TEXT,
-    created_by          VARCHAR(100),
-    updated_by          VARCHAR(100),
-    created_at          TIMESTAMP(6),
-    updated_at          TIMESTAMP(6),
-    UNIQUE (organization_id, opportunity_no)
-);
-CREATE INDEX idx_cro_org   ON crm_opportunities(organization_id);
-CREATE INDEX idx_cro_stage ON crm_opportunities(stage);
-
-CREATE TABLE crm_activities (
-    id               BIGSERIAL    PRIMARY KEY,
-    organization_id  BIGINT       NOT NULL REFERENCES org_organizations(id),
-    opportunity_id   BIGINT       REFERENCES crm_opportunities(id),
-    lead_id          BIGINT       REFERENCES crm_leads(id),
-    customer_id      BIGINT       REFERENCES acc_chart_of_accounts_sub(id),
-    assigned_to_id   BIGINT       REFERENCES sec_users(id),
-    activity_type    VARCHAR(30)  NOT NULL
-        CONSTRAINT chk_cra_type CHECK (activity_type IN (
-            'CALL','EMAIL','MEETING','VISIT','DEMO',
-            'QUOTATION','FOLLOW_UP','NOTE','OTHER')),
-    subject          VARCHAR(200) NOT NULL,
-    description      TEXT,
-    activity_date    DATE         NOT NULL,
-    duration_minutes INT,
-    outcome          VARCHAR(500),
-    next_action      VARCHAR(500),
-    next_action_date DATE,
-    status           VARCHAR(20)  NOT NULL DEFAULT 'PLANNED'
-        CONSTRAINT chk_cra_status CHECK (status IN ('PLANNED','COMPLETED','CANCELLED')),
-    created_by       VARCHAR(100),
-    updated_by       VARCHAR(100),
-    created_at       TIMESTAMP(6),
-    updated_at       TIMESTAMP(6)
-);
-CREATE INDEX idx_cra_org  ON crm_activities(organization_id);
-CREATE INDEX idx_cra_opp  ON crm_activities(opportunity_id);
-CREATE INDEX idx_cra_date ON crm_activities(activity_date);
-
-CREATE TABLE crm_contacts (
-    id              BIGSERIAL    PRIMARY KEY,
-    organization_id BIGINT       NOT NULL REFERENCES org_organizations(id),
-    customer_id     BIGINT       REFERENCES acc_chart_of_accounts_sub(id),
-    first_name      VARCHAR(100) NOT NULL,
-    last_name       VARCHAR(100),
-    designation     VARCHAR(100),
-    department      VARCHAR(100),
-    email           VARCHAR(100),
-    phone           VARCHAR(20),
-    mobile          VARCHAR(20),
-    whatsapp        VARCHAR(20),
-    is_primary      BOOLEAN      NOT NULL DEFAULT FALSE,
-    is_active       BOOLEAN      NOT NULL DEFAULT TRUE,
-    notes           TEXT,
-    created_by      VARCHAR(100),
-    created_at      TIMESTAMP(6),
-    updated_at      TIMESTAMP(6)
-);
-CREATE INDEX idx_crc_customer ON crm_contacts(customer_id);
-
-CREATE TABLE crm_customer_feedback (
-    id                   BIGSERIAL    PRIMARY KEY,
-    organization_id      BIGINT       NOT NULL REFERENCES org_organizations(id),
-    customer_id          BIGINT       NOT NULL REFERENCES acc_chart_of_accounts_sub(id),
-    business_document_id BIGINT       REFERENCES global_business_documents(id),
-    feedback_date        DATE         NOT NULL DEFAULT CURRENT_DATE,
-    feedback_type        VARCHAR(30)  NOT NULL DEFAULT 'GENERAL',
-    rating               INT          CONSTRAINT chk_crf_rating CHECK (rating BETWEEN 1 AND 5),
-    subject              VARCHAR(200),
-    description          TEXT,
-    resolution           TEXT,
-    resolved_by          VARCHAR(100),
-    resolved_at          TIMESTAMP(6),
-    status               VARCHAR(20)  NOT NULL DEFAULT 'OPEN'
-        CONSTRAINT chk_crf_status CHECK (status IN ('OPEN','IN_PROGRESS','RESOLVED','CLOSED')),
-    created_by           VARCHAR(100),
-    created_at           TIMESTAMP(6),
-    updated_at           TIMESTAMP(6)
-);
-CREATE INDEX idx_crf_customer ON crm_customer_feedback(customer_id);
-CREATE INDEX idx_crf_status   ON crm_customer_feedback(status);
-
--- ═══════════════════════════════════════════════════════════════════════════
--- MODULE 15 — NOTIFICATIONS & AUDIT
--- ═══════════════════════════════════════════════════════════════════════════
-
-CREATE TABLE ntf_notifications (
-    id                BIGSERIAL    PRIMARY KEY,
-    organization_id   BIGINT       NOT NULL REFERENCES org_organizations(id),
-    recipient_id      BIGINT       NOT NULL REFERENCES sec_users(id),
-    notification_type VARCHAR(30)  NOT NULL DEFAULT 'IN_APP'
-        CONSTRAINT chk_ntf_type CHECK (notification_type IN (
-            'IN_APP','EMAIL','SMS','PUSH','WHATSAPP')),
-    category          VARCHAR(50),
-    title             VARCHAR(200) NOT NULL,
-    message           TEXT,
-    link              VARCHAR(500),
-    reference_type    VARCHAR(50),
-    reference_id      BIGINT,
-    is_read           BOOLEAN      NOT NULL DEFAULT FALSE,
-    read_at           TIMESTAMP(6),
-    sent_at           TIMESTAMP(6),
-    delivery_status   VARCHAR(20)  NOT NULL DEFAULT 'PENDING',
-    created_at        TIMESTAMP(6),
-    updated_at        TIMESTAMP(6)
-);
-CREATE INDEX idx_ntf_org       ON ntf_notifications(organization_id);
-CREATE INDEX idx_ntf_recipient ON ntf_notifications(recipient_id);
-CREATE INDEX idx_ntf_read      ON ntf_notifications(is_read);
-CREATE INDEX idx_ntf_created   ON ntf_notifications(created_at DESC);
-
-CREATE TABLE sys_audit_log (
-    id              BIGSERIAL    PRIMARY KEY,
-    organization_id BIGINT       REFERENCES org_organizations(id),
-    user_id         BIGINT       REFERENCES sec_users(id),
-    username        VARCHAR(100),
-    action          VARCHAR(50)  NOT NULL,
-    entity_type     VARCHAR(100),
-    entity_id       BIGINT,
-    entity_code     VARCHAR(100),
-    old_values      TEXT,
-    new_values      TEXT,
-    ip_address      VARCHAR(50),
-    user_agent      VARCHAR(500),
-    session_id      VARCHAR(100),
-    remarks         VARCHAR(500),
-    created_at      TIMESTAMP(6) NOT NULL DEFAULT NOW()
-) PARTITION BY RANGE (created_at);
-
-CREATE TABLE sys_audit_log_default PARTITION OF sys_audit_log DEFAULT;
-
-CREATE INDEX idx_sal_org     ON sys_audit_log(organization_id);
-CREATE INDEX idx_sal_user    ON sys_audit_log(user_id);
-CREATE INDEX idx_sal_entity  ON sys_audit_log(entity_type, entity_id);
-CREATE INDEX idx_sal_created ON sys_audit_log(created_at DESC);
-CREATE INDEX idx_sal_action  ON sys_audit_log(action);
-
--- ═══════════════════════════════════════════════════════════════════════════
--- VIEWS
--- ═══════════════════════════════════════════════════════════════════════════
-
-CREATE OR REPLACE VIEW v_approval_inbox AS
-SELECT ar.id, ar.organization_id, ar.document_type,
-       ar.reference_id, ar.reference_number AS doc_no,
-       ar.document_amount, ar.document_summary,
-       ar.current_level_number, ar.total_levels,
-       ar.current_approver_user_id, ar.requester_name,
-       ar.is_urgent, ar.due_date, ar.status,
-       ar.created_at AS submitted_at,
-       u.username    AS approver_username,
-       u.full_name   AS approver_full_name
-FROM apr_requests ar
-LEFT JOIN sec_users u ON u.id = ar.current_approver_user_id
-WHERE ar.status IN ('IN_APPROVAL','SUBMITTED');
-
-CREATE OR REPLACE VIEW v_stock_position AS
-SELECT sb.item_id, ii.item_code, ii.item_name, ii.item_type,
-       w.warehouse_code, w.warehouse_name, w.warehouse_type,
-       l.lot_number, l.qc_grade, l.status AS lot_status,
-       sb.quantity, sb.reserved_quantity,
-       (sb.quantity - sb.reserved_quantity) AS available_quantity,
-       sb.gross_weight, sb.net_weight,
-       sb.average_cost, sb.stock_value,
-       sb.last_transaction_time
-FROM global_inventory_stock_balances sb
-JOIN inv_items      ii ON ii.id = sb.item_id
-JOIN org_warehouses w  ON w.id  = sb.warehouse_id
-LEFT JOIN global_inv_lots l ON l.id = sb.lot_id
-WHERE sb.quantity > 0;
-
-CREATE OR REPLACE VIEW v_document_chain AS
-SELECT child.id, child.document_no, child.document_type, child.status,
-       child.total_amount, child.document_date, child.organization_id,
-       parent.id          AS parent_id,
-       parent.document_no AS parent_doc_no,
-       parent.document_type AS parent_type
-FROM global_business_documents child
-LEFT JOIN global_business_documents parent ON parent.id = child.parent_document_id;
-
--- ★ NEW: Production cost sheet view
-CREATE OR REPLACE VIEW v_production_cost_sheet AS
-SELECT
-    p.id AS production_id,
-    p.organization_id,
-    p.production_no,
-    p.production_date,
-    ii.item_code AS finished_item_code,
-    ii.item_name AS finished_item_name,
-    p.planned_quantity,
-    p.produced_quantity,
-    p.rejected_quantity,
-    p.waste_quantity,
-    -- Cost breakdown
-    p.material_cost,
-    p.labor_cost,
-    p.overhead_cost,
-    p.other_cost,
-    p.total_cost,
-    p.unit_cost,
-    -- Efficiency
-    CASE WHEN p.planned_quantity > 0
-         THEN ROUND((p.produced_quantity / p.planned_quantity) * 100, 2)
-         ELSE 0 END AS efficiency_pct,
-    CASE WHEN p.total_cost > 0
-         THEN ROUND((p.material_cost / p.total_cost) * 100, 2)
-         ELSE 0 END AS material_cost_pct,
-    p.status,
-    cc.cost_center_name,
-    w.warehouse_name AS output_warehouse
-FROM prd_productions p
-JOIN inv_items      ii ON ii.id = p.finished_item_id
-JOIN org_warehouses w  ON w.id  = p.output_warehouse_id
-LEFT JOIN org_cost_centers cc ON cc.id = p.cost_center_id;
-
--- ★ NEW: COGS summary (links sales → finished goods → production cost)
-CREATE OR REPLACE VIEW v_cogs_summary AS
-SELECT
-    gbd.organization_id,
-    gbd.document_no    AS sales_invoice_no,
-    gbd.document_date  AS invoice_date,
-    s.sub_account_name AS customer_name,
-    gbdl.item_id,
-    ii.item_code,
-    ii.item_name,
-    gbdl.quantity      AS sold_quantity,
-    gbdl.unit_price,
-    gbdl.line_amount   AS sales_amount,
-    -- COGS from production unit cost
-    l.unit_cost        AS production_unit_cost,
-    gbdl.quantity * COALESCE(l.unit_cost, ii.standard_cost, 0) AS cogs_amount,
-    gbdl.line_amount
-        - (gbdl.quantity * COALESCE(l.unit_cost, ii.standard_cost, 0)) AS gross_profit
-FROM global_business_documents gbd
-JOIN global_business_document_lines gbdl ON gbdl.document_id = gbd.id
-JOIN inv_items ii ON ii.id = gbdl.item_id
-LEFT JOIN acc_chart_of_accounts_sub s ON s.id = gbd.party_id
-LEFT JOIN global_inv_lots l ON l.id = gbdl.inventory_lot_id
-WHERE gbd.document_type = 'SALES_INVOICE'
-  AND gbd.is_deleted = FALSE;
-
-CREATE OR REPLACE VIEW v_budget_vs_actual AS
-SELECT b.organization_id, b.id AS budget_id, b.budget_no, b.budget_name,
-       b.period_start, b.period_end, b.status AS budget_status,
-       bl.id AS line_id,
-       bh.head_code, bh.head_name, bh.head_type,
-       acct.account_code, acct.account_name,
-       cc.cost_center_code, cc.cost_center_name,
-       d.name AS department_name,
-       bl.original_amount, bl.revised_amount,
-       bl.actual_amount, bl.committed_amount, bl.available_amount,
-       CASE WHEN bl.revised_amount > 0
-            THEN ROUND((bl.actual_amount / bl.revised_amount) * 100, 2)
-            ELSE 0 END AS actual_pct,
-       CASE WHEN bl.available_amount < 0 THEN 'OVER_BUDGET'
-            WHEN (bl.actual_amount + bl.committed_amount) >=
-                 bl.revised_amount * COALESCE(b.alert_threshold_pct, 80) / 100 THEN 'AT_RISK'
-            ELSE 'ON_TRACK' END AS health_status
-FROM bgt_budget_lines bl
-JOIN bgt_budgets      b    ON b.id  = bl.budget_id
-JOIN bgt_budget_heads bh   ON bh.id = bl.budget_head_id
-LEFT JOIN acc_chart_of_accounts acct ON acct.id = bl.account_id
-LEFT JOIN org_cost_centers      cc   ON cc.id   = bl.cost_center_id
-LEFT JOIN org_departments       d    ON d.id    = bl.department_id;
-
-CREATE OR REPLACE VIEW v_crm_pipeline AS
-SELECT o.id, o.organization_id,
-       s.sub_account_name AS customer_name,
-       o.title, o.stage, o.estimated_value, o.currency,
-       o.probability, o.expected_close_date,
-       u.username AS assigned_to,
-       ROUND(o.estimated_value * o.probability / 100, 2) AS weighted_value,
-       (o.expected_close_date - CURRENT_DATE)::INT        AS days_to_close
-FROM crm_opportunities o
-LEFT JOIN acc_chart_of_accounts_sub s ON s.id = o.customer_id
-LEFT JOIN sec_users u ON u.id = o.assigned_to_id
-WHERE o.stage NOT IN ('WON','LOST');
-
-CREATE OR REPLACE VIEW v_asset_register AS
-SELECT a.organization_id, a.asset_code, a.asset_name,
-       cat.name AS category, cat.code AS category_code,
-       a.depreciation_method, a.useful_life_years,
-       a.purchase_cost, a.total_cost,
-       a.accumulated_depreciation,
-       (a.total_cost - a.accumulated_depreciation) AS current_book_value,
-       a.residual_value, a.acquisition_date,
-       d.name AS department,
-       cc.cost_center_name,
-       a.status, a.condition, a.barcode
-FROM fa_assets a
-JOIN fa_asset_categories cat ON cat.id = a.asset_category_id
-LEFT JOIN org_departments  d  ON d.id   = a.department_id
-LEFT JOIN org_cost_centers cc ON cc.id  = a.cost_center_id
-WHERE a.status = 'ACTIVE';
-
--- ★ Labor cost allocation view (for production cost sheet)
-CREATE OR REPLACE VIEW v_labor_cost_by_month AS
-SELECT
-    hcca.organization_id,
-    hcca.cost_center_id,
-    cc.cost_center_name,
-    hcca.allocation_month,
-    COUNT(hcca.employee_id)         AS employee_count,
-    SUM(hcca.gross_salary)          AS total_gross_salary,
-    SUM(hcca.allocated_amount)      AS total_allocated_labor_cost
-FROM hrm_cost_center_allocations hcca
-JOIN org_cost_centers cc ON cc.id = hcca.cost_center_id
-GROUP BY hcca.organization_id, hcca.cost_center_id, cc.cost_center_name, hcca.allocation_month;
-
--- ═══════════════════════════════════════════════════════════════════════════
--- END OF SCHEMA
--- ═══════════════════════════════════════════════════════════════════════════
+create table spring_session
+(
+    primary_id            char(36) not null
+        constraint spring_session_pk
+            primary key,
+    session_id            char(36) not null,
+    creation_time         bigint   not null,
+    last_access_time      bigint   not null,
+    max_inactive_interval integer  not null,
+    expiry_time           bigint   not null,
+    principal_name        varchar(100)
+);
+
+alter table spring_session
+    owner to postgres;
+
+create unique index spring_session_ix1
+    on spring_session (session_id);
+
+create index spring_session_ix2
+    on spring_session (expiry_time);
+
+create index spring_session_ix3
+    on spring_session (principal_name);
+
+create table spring_session_attributes
+(
+    session_primary_id char(36)     not null
+        constraint spring_session_attributes_fk
+            references spring_session
+            on delete cascade,
+    attribute_name     varchar(200) not null,
+    attribute_bytes    bytea        not null,
+    constraint spring_session_attributes_pk
+        primary key (session_primary_id, attribute_name)
+);
+
+alter table spring_session_attributes
+    owner to postgres;
+
+create table app_menus
+(
+    id                  bigint generated by default as identity
+        primary key,
+    active              boolean      not null,
+    created_at          timestamp(6),
+    created_by          varchar(100),
+    deleted             boolean      not null,
+    description         varchar(255),
+    display_order       integer      not null,
+    icon                varchar(100),
+    menu_code           varchar(80)  not null
+        constraint uk265esd05vvsncffqmo4nwmj2l
+            unique,
+    menu_name           varchar(120) not null,
+    menu_type           varchar(20)  not null,
+    menu_url            varchar(300),
+    module_name         varchar(80),
+    parent_id           bigint,
+    required_permission varchar(120),
+    target              varchar(20),
+    updated_at          timestamp(6),
+    updated_by          varchar(100),
+    visible             boolean      not null
+);
+
+alter table app_menus
+    owner to postgres;
+
+create index idx_menu_parent
+    on app_menus (parent_id);
+
+create index idx_menu_order
+    on app_menus (display_order);
+
+create index idx_menu_active
+    on app_menus (active, deleted);
+
+create table ec_languages
+(
+    id               bigint generated by default as identity
+        primary key,
+    active           boolean     not null,
+    default_language boolean     not null,
+    language_code    varchar(20) not null
+        constraint uq_ec_language
+            unique,
+    language_name    varchar(100),
+    native_name      varchar(100),
+    rtl              boolean     not null
+);
+
+alter table ec_languages
+    owner to postgres;
+
+create table ec_product_tags
+(
+    id              bigint generated by default as identity
+        primary key,
+    organization_id bigint       not null,
+    slug            varchar(120) not null,
+    tag_name        varchar(100) not null,
+    constraint uq_ec_tag
+        unique (organization_id, slug)
+);
+
+alter table ec_product_tags
+    owner to postgres;
+
+create table ec_scheduled_jobs
+(
+    id              bigint generated by default as identity
+        primary key,
+    active          boolean not null,
+    cron_expression varchar(100),
+    error_message   text,
+    job_name        varchar(200),
+    last_result     varchar(20),
+    last_run        timestamp(6),
+    next_run        timestamp(6),
+    organization_id bigint
+);
+
+alter table ec_scheduled_jobs
+    owner to postgres;
+
+create index idx_ec_job_org
+    on ec_scheduled_jobs (organization_id);
+
+create table inv_item_uom
+(
+    id                bigint generated by default as identity
+        primary key,
+    active            boolean        not null,
+    category          varchar(30)    not null
+        constraint inv_item_uom_category_check
+            check ((category)::text = ANY
+                   ((ARRAY ['WEIGHT'::character varying, 'COUNT'::character varying, 'LENGTH'::character varying, 'VOLUME'::character varying, 'AREA'::character varying, 'PACKING'::character varying, 'UNIT'::character varying])::text[])),
+    code              varchar(20)    not null,
+    conversion_factor numeric(12, 6) not null,
+    created_at        timestamp(6),
+    is_base_unit      boolean        not null,
+    name              varchar(100)   not null,
+    organization_id   bigint         not null,
+    symbol            varchar(20),
+    updated_at        timestamp(6),
+    constraint uq_uom_org_code
+        unique (organization_id, code)
+);
+
+alter table inv_item_uom
+    owner to postgres;
+
+create index idx_uom_org
+    on inv_item_uom (organization_id);
+
+create table org_organizations
+(
+    id               bigint generated by default as identity
+        primary key,
+    about            text,
+    address          text,
+    bin_no           varchar(50),
+    city             varchar(100),
+    code             varchar(50)  not null
+        constraint uki5ja4r07g0sfro2jqlgwsl7ie
+            unique,
+    country          varchar(100),
+    created_at       timestamp(6),
+    created_by       varchar(100),
+    email            varchar(100),
+    established_date date,
+    is_active        boolean      not null,
+    logo_url         varchar(500),
+    name             varchar(200) not null,
+    name_bn          varchar(200),
+    phone            varchar(20),
+    postal_code      varchar(20),
+    state            varchar(100),
+    tax_id           varchar(50),
+    updated_at       timestamp(6),
+    updated_by       varchar(100),
+    vat_no           varchar(50),
+    website          varchar(255)
+);
+
+alter table org_organizations
+    owner to postgres;
+
+create table acc_chart_of_accounts
+(
+    id                 bigint generated by default as identity
+        primary key,
+    created_at         timestamp(6),
+    created_by         varchar(100),
+    updated_at         timestamp(6),
+    updated_by         varchar(100),
+    account_code       varchar(50)  not null
+        constraint uq_coa_code
+            unique,
+    account_name       varchar(200) not null,
+    account_nature     varchar(20)  not null
+        constraint acc_chart_of_accounts_account_nature_check
+            check ((account_nature)::text = ANY
+                   ((ARRAY ['DEBIT'::character varying, 'CREDIT'::character varying])::text[])),
+    account_type       varchar(20)  not null
+        constraint acc_chart_of_accounts_account_type_check
+            check ((account_type)::text = ANY
+                   ((ARRAY ['ASSET'::character varying, 'LIABILITY'::character varying, 'EQUITY'::character varying, 'REVENUE'::character varying, 'EXPENSE'::character varying])::text[])),
+    allow_manual_entry boolean      not null,
+    currency           varchar(10),
+    current_balance    numeric(18, 2),
+    description        varchar(1000),
+    is_active          boolean      not null,
+    is_control_account boolean      not null,
+    is_system          boolean      not null,
+    level              integer      not null,
+    opening_balance    numeric(18, 2),
+    tax_id             varchar(50),
+    organization_id    bigint       not null
+        constraint fk7mb0u5tin6lo3ktmy13d26dcr
+            references org_organizations,
+    parent_account_id  bigint
+        constraint fk8eg46434f76hglhinpd1hk53o
+            references acc_chart_of_accounts,
+    constraint uq_coa_org_code
+        unique (organization_id, account_code)
+);
+
+alter table acc_chart_of_accounts
+    owner to postgres;
+
+create index idx_coa_org
+    on acc_chart_of_accounts (organization_id);
+
+create index idx_coa_parent
+    on acc_chart_of_accounts (parent_account_id);
+
+create index idx_coa_type
+    on acc_chart_of_accounts (account_type);
+
+create table acc_journal_entry_master
+(
+    id                  bigint generated by default as identity
+        primary key,
+    created_at          timestamp(6),
+    created_by          varchar(100),
+    updated_at          timestamp(6),
+    updated_by          varchar(100),
+    allocated_amount    numeric(18, 2) not null,
+    bank_account_id     bigint,
+    cash_account_id     bigint,
+    cheque_date         date,
+    cheque_number       varchar(50),
+    due_date            date,
+    is_posted           boolean        not null,
+    is_reversed         boolean        not null,
+    narration           varchar(1000),
+    party_id            bigint,
+    party_type          varchar(20),
+    payment_mode        varchar(30),
+    posted_at           timestamp(6),
+    posted_by           varchar(100),
+    reference_no        varchar(100),
+    reversed_voucher_id bigint,
+    total_amount        numeric(18, 2),
+    total_credit        numeric(18, 2),
+    total_debit         numeric(18, 2),
+    voucher_date        date,
+    voucher_no          varchar(100)
+        constraint uk5ixbym7mjb1jqea9cr34gfl6o
+            unique,
+    voucher_status      varchar(20)    not null,
+    voucher_type        varchar(30)
+        constraint acc_journal_entry_master_voucher_type_check
+            check ((voucher_type)::text = ANY
+                   ((ARRAY ['JOURNAL_VOUCHER'::character varying, 'PURCHASE_VOUCHER'::character varying, 'SALES_VOUCHER'::character varying, 'PAYMENT_VOUCHER'::character varying, 'RECEIPT_VOUCHER'::character varying, 'CONTRA_VOUCHER'::character varying, 'EXPENSE_VOUCHER'::character varying, 'DEBIT_NOTE'::character varying, 'CREDIT_NOTE'::character varying, 'PAYROLL_VOUCHER'::character varying, 'PRODUCTION_VOUCHER'::character varying])::text[])),
+    organization_id     bigint         not null
+        constraint fkro3bs670skjchx8qc9tremtbp
+            references org_organizations
+);
+
+alter table acc_journal_entry_master
+    owner to postgres;
+
+create index idx_jem_org
+    on acc_journal_entry_master (organization_id);
+
+create index idx_jem_date
+    on acc_journal_entry_master (voucher_date);
+
+create index idx_jem_type
+    on acc_journal_entry_master (voucher_type);
+
+create index idx_jem_posted
+    on acc_journal_entry_master (is_posted);
+
+create index idx_jem_no
+    on acc_journal_entry_master (voucher_no);
+
+create index idx_jem_status
+    on acc_journal_entry_master (voucher_status);
+
+create index idx_jem_party
+    on acc_journal_entry_master (organization_id, party_type, party_id);
+
+create index idx_jem_due
+    on acc_journal_entry_master (due_date);
+
+create index idx_jem_allocated
+    on acc_journal_entry_master (organization_id, voucher_type, voucher_status);
+
+create table acc_mapping
+(
+    id                         bigint generated by default as identity
+        primary key,
+    created_at                 timestamp(6),
+    created_by                 varchar(100),
+    updated_at                 timestamp(6),
+    updated_by                 varchar(100),
+    allow_partial_posting      boolean      not null,
+    auto_post                  boolean      not null,
+    consolidate_entries        boolean      not null,
+    create_reversing_entry     boolean      not null,
+    credit_control_type        varchar(30)  not null,
+    debit_control_type         varchar(30)  not null,
+    default_narration_template varchar(500),
+    default_voucher_type       varchar(30),
+    description                varchar(500),
+    is_active                  boolean      not null,
+    is_default                 boolean      not null,
+    is_system                  boolean      not null,
+    mapping_code               varchar(30)  not null,
+    mapping_name               varchar(200) not null,
+    module_type                varchar(50)  not null,
+    require_approval           boolean      not null,
+    transaction_type           varchar(50)  not null,
+    update_sub_account_balance boolean      not null,
+    use_sub_ledger             boolean      not null,
+    voucher_prefix             varchar(20),
+    voucher_type               varchar(30),
+    organization_id            bigint       not null
+        constraint fkfo8yrykhbis6i4n6cgcl8w7tl
+            references org_organizations,
+    ait_account_id             bigint
+        constraint fksai0jyllb9ucrdfi70qh72wh3
+            references acc_chart_of_accounts,
+    default_credit_account_id  bigint
+        constraint fkb2omltg375ee9abgr98g0kv1h
+            references acc_chart_of_accounts,
+    default_debit_account_id   bigint
+        constraint fkqbkorogx6ju6njk9n2hcq1vb0
+            references acc_chart_of_accounts,
+    discount_account_id        bigint
+        constraint fk5v6fl79q6tt16ikhvs4qjg116
+            references acc_chart_of_accounts,
+    forex_gain_account_id      bigint
+        constraint fkt8374tim6vard1y4iq0ryxeyy
+            references acc_chart_of_accounts,
+    forex_loss_account_id      bigint
+        constraint fkdn0d2ibd131qh9opv6fx9mxaf
+            references acc_chart_of_accounts,
+    freight_account_id         bigint
+        constraint fkif44ill5fidb8d2gwj7u407l
+            references acc_chart_of_accounts,
+    input_vat_account_id       bigint
+        constraint fkk1oic1x0awlx0myco44ronqbw
+            references acc_chart_of_accounts,
+    output_vat_account_id      bigint
+        constraint fkpjwp93krryap8wcx3xs9dmly6
+            references acc_chart_of_accounts,
+    rounding_account_id        bigint
+        constraint fk14oy5mmjrb3jlymij4l22yje3
+            references acc_chart_of_accounts,
+    tds_account_id             bigint
+        constraint fko1sripm5qdb89rr7d2dvh9gh7
+            references acc_chart_of_accounts,
+    constraint uq_mapping_org_code
+        unique (organization_id, mapping_code)
+);
+
+alter table acc_mapping
+    owner to postgres;
+
+create index idx_mapping_org
+    on acc_mapping (organization_id);
+
+create table acc_periods
+(
+    id              bigint generated by default as identity
+        primary key,
+    created_at      timestamp(6),
+    created_by      varchar(100),
+    updated_at      timestamp(6),
+    updated_by      varchar(100),
+    closed_by       varchar(100),
+    closed_date     date,
+    description     varchar(1000),
+    end_date        date        not null,
+    fiscal_year     integer     not null,
+    is_active       boolean     not null,
+    is_closed       boolean     not null,
+    period_name     varchar(50) not null
+        constraint uk73i7mph9xad8yj4wjl9uvnfts
+            unique,
+    period_type     varchar(20) not null
+        constraint acc_periods_period_type_check
+            check ((period_type)::text = ANY
+                   ((ARRAY ['DAILY'::character varying, 'WEEKLY'::character varying, 'MONTHLY'::character varying, 'QUARTERLY'::character varying, 'YEARLY'::character varying, 'CUSTOM'::character varying])::text[])),
+    start_date      date        not null,
+    organization_id bigint      not null
+        constraint fk3vrohre0jf33qsrs9kdvkk03i
+            references org_organizations
+);
+
+alter table acc_periods
+    owner to postgres;
+
+create table acc_opening_balances
+(
+    id                     bigint generated by default as identity
+        primary key,
+    created_at             timestamp(6),
+    created_by             varchar(100),
+    updated_at             timestamp(6),
+    updated_by             varchar(100),
+    balance_type           varchar(50),
+    is_active              boolean,
+    is_posted              boolean        not null,
+    opening_credit_balance numeric(18, 2) not null,
+    opening_debit_balance  numeric(18, 2) not null,
+    posted_by              varchar(100),
+    posted_date            date,
+    remarks                varchar(1000),
+    organization_id        bigint         not null
+        constraint fk3f91qsdi31edb0v2fxl1nrevu
+            references org_organizations,
+    account_id             bigint         not null
+        constraint fk98l7cnihwt82dqn5f5w8f5qb7
+            references acc_chart_of_accounts,
+    accounting_period_id   bigint         not null
+        constraint fkqjlc06ntpyjk77bu5hsju578f
+            references acc_periods
+);
+
+alter table acc_opening_balances
+    owner to postgres;
+
+create index idx_ob_org
+    on acc_opening_balances (organization_id);
+
+create index idx_period_org
+    on acc_periods (organization_id);
+
+create table acc_policy
+(
+    id                         bigint generated by default as identity
+        primary key,
+    created_at                 timestamp(6),
+    created_by                 varchar(100),
+    updated_at                 timestamp(6),
+    updated_by                 varchar(100),
+    allow_backdating           boolean      not null,
+    allow_edit_after_post      boolean      not null,
+    allow_future_dating        boolean      not null,
+    allow_negative_amount      boolean      not null,
+    allow_reversal             boolean      not null,
+    allow_zero_amount          boolean      not null,
+    approval_threshold         numeric(18, 2),
+    auto_numbering             boolean      not null,
+    auto_post                  boolean      not null,
+    backdating_days            integer,
+    default_narration_template varchar(500),
+    description                varchar(500),
+    is_active                  boolean      not null,
+    is_default                 boolean      not null,
+    is_system                  boolean      not null,
+    maximum_amount             numeric(18, 2),
+    minimum_amount             numeric(18, 2),
+    module_type                varchar(30),
+    next_voucher_number        integer,
+    number_padding             integer,
+    policy_code                varchar(30)  not null,
+    policy_name                varchar(200) not null,
+    policy_type                varchar(30)  not null,
+    require_approval           boolean      not null,
+    voucher_prefix             varchar(20),
+    organization_id            bigint       not null
+        constraint fk23pwjiip6oo9efjgd96uwbc18
+            references org_organizations,
+    accounts_mapping_id        bigint
+        constraint fknmx79r40kq5viflrkf4d5w6eg
+            references acc_mapping,
+    default_credit_account_id  bigint
+        constraint fkg3kxjfhl2mv0bv801u3u0erxm
+            references acc_chart_of_accounts,
+    default_debit_account_id   bigint
+        constraint fk2oqc8335uee2xi4rwrisyorqo
+            references acc_chart_of_accounts,
+    constraint uq_policy_org_code
+        unique (organization_id, policy_code)
+);
+
+alter table acc_policy
+    owner to postgres;
+
+create table acc_auto_journal_templates
+(
+    id                 bigint generated by default as identity
+        primary key,
+    created_at         timestamp(6),
+    created_by         varchar(100),
+    updated_at         timestamp(6),
+    updated_by         varchar(100),
+    auto_post          boolean      not null,
+    description        varchar(500),
+    is_active          boolean      not null,
+    is_system          boolean      not null,
+    last_used_at       timestamp(6),
+    module_type        varchar(30)  not null,
+    narration_template varchar(500),
+    template_code      varchar(30)  not null,
+    template_name      varchar(200) not null,
+    transaction_type   varchar(50)  not null,
+    trigger_event      varchar(50),
+    trigger_mode       varchar(30)  not null,
+    usage_count        integer      not null,
+    validate_balance   boolean      not null,
+    voucher_type       varchar(30),
+    organization_id    bigint       not null
+        constraint fkbw3fkm290ykesyxoj3kfbuhaa
+            references org_organizations,
+    accounts_policy_id bigint
+        constraint fkbg9m3hqakw7ry4hiexgfe7kpc
+            references acc_policy,
+    constraint uq_ajt_org_code
+        unique (organization_id, template_code)
+);
+
+alter table acc_auto_journal_templates
+    owner to postgres;
+
+create index idx_ajt_org
+    on acc_auto_journal_templates (organization_id);
+
+create index idx_policy_org
+    on acc_policy (organization_id);
+
+create table acc_voucher_allocations
+(
+    id                  bigint generated by default as identity
+        primary key,
+    created_at          timestamp(6),
+    created_by          varchar(100),
+    updated_at          timestamp(6),
+    updated_by          varchar(100),
+    allocated_amount    numeric(18, 2) not null,
+    allocation_date     date,
+    discount_amount     numeric(18, 2) not null,
+    narration           varchar(500),
+    paying_voucher_no   varchar(100),
+    paying_voucher_type varchar(30),
+    source_party_id     bigint,
+    source_party_type   varchar(20),
+    source_voucher_no   varchar(100),
+    source_voucher_type varchar(30),
+    write_off_amount    numeric(18, 2) not null,
+    organization_id     bigint         not null
+        constraint fk5yynv9wb27wnf6sqt8rw34xnr
+            references org_organizations,
+    paying_voucher_id   bigint         not null
+        constraint fkqgmdurlcqffy0xbftidt17r7a
+            references acc_journal_entry_master,
+    source_voucher_id   bigint         not null
+        constraint fk3emtctxknopkqmyp2x43bkpiu
+            references acc_journal_entry_master,
+    constraint uq_alloc_src_pay
+        unique (source_voucher_id, paying_voucher_id)
+);
+
+alter table acc_voucher_allocations
+    owner to postgres;
+
+create index idx_va_source
+    on acc_voucher_allocations (source_voucher_id);
+
+create index idx_va_paying
+    on acc_voucher_allocations (paying_voucher_id);
+
+create index idx_va_org
+    on acc_voucher_allocations (organization_id);
+
+create index idx_va_date
+    on acc_voucher_allocations (allocation_date);
+
+create index idx_va_party
+    on acc_voucher_allocations (source_party_id, source_party_type);
+
+create table apr_configs
+(
+    id                      bigint generated by default as identity
+        primary key,
+    created_at              timestamp(6),
+    created_by              varchar(100),
+    updated_at              timestamp(6),
+    updated_by              varchar(100),
+    auto_escalation_hours   integer,
+    code                    varchar(50)  not null
+        constraint uq_aprc_code
+            unique,
+    description             varchar(1000),
+    document_type           varchar(50)  not null,
+    enable_reminders        boolean      not null,
+    flow_type               varchar(20)  not null,
+    is_active               boolean      not null,
+    max_amount              numeric(18, 2),
+    min_amount              numeric(18, 2),
+    module                  varchar(30)  not null,
+    name                    varchar(200) not null,
+    priority                integer,
+    reminder_interval_hours integer,
+    use_reporting_hierarchy boolean      not null,
+    organization_id         bigint       not null
+        constraint fkm3f2t0qm85hi9ygcbrqsskjwi
+            references org_organizations
+);
+
+alter table apr_configs
+    owner to postgres;
+
+create index idx_aprc_org
+    on apr_configs (organization_id);
+
+create table apr_voucher
+(
+    id                      bigint generated by default as identity
+        primary key,
+    created_at              timestamp(6),
+    created_by              varchar(100),
+    updated_at              timestamp(6),
+    updated_by              varchar(100),
+    approval_date           date,
+    approval_level          integer     not null,
+    approval_remarks        varchar(1000),
+    approval_status         varchar(20) not null,
+    approver_name           varchar(100),
+    approver_role           varchar(100),
+    organization_id         bigint      not null
+        constraint fk32x77i2fr1rhsaahaqdp1qtj7
+            references org_organizations,
+    journal_entry_master_id bigint      not null
+        constraint ukjsow9fkq4kfwxd2l5ucf9v4m9
+            unique
+        constraint fk77yfyhy5ew5up91ybkfxekmud
+            references acc_journal_entry_master
+);
+
+alter table apr_voucher
+    owner to postgres;
+
+create table bgt_approval_policies
+(
+    id                 bigint generated by default as identity
+        primary key,
+    budget_type        varchar(30) not null,
+    created_at         timestamp(6),
+    created_by         varchar(100),
+    is_active          boolean     not null,
+    max_amount         numeric(18, 2),
+    min_amount         numeric(18, 2),
+    require_cfo        boolean     not null,
+    require_md         boolean     not null,
+    updated_at         timestamp(6),
+    approval_config_id bigint
+        constraint fk1yv46eg9mo5ej2lakhvc1uwno
+            references apr_configs
+);
+
+alter table bgt_approval_policies
+    owner to postgres;
+
+create table bgt_budget_heads
+(
+    id              bigint generated by default as identity
+        primary key,
+    created_at      timestamp(6),
+    created_by      varchar(100),
+    updated_at      timestamp(6),
+    updated_by      varchar(100),
+    description     text,
+    display_order   integer      not null,
+    head_code       varchar(50)  not null,
+    head_name       varchar(200) not null,
+    head_type       varchar(30)  not null
+        constraint bgt_budget_heads_head_type_check
+            check ((head_type)::text = ANY
+                   ((ARRAY ['REVENUE'::character varying, 'EXPENSE'::character varying, 'CAPEX'::character varying, 'OPEX'::character varying, 'PRODUCTION'::character varying, 'HR'::character varying, 'COMMERCIAL'::character varying, 'OTHER'::character varying])::text[])),
+    is_active       boolean      not null,
+    organization_id bigint       not null
+        constraint fk3xut1hdfi7kggeuhr3skrlefb
+            references org_organizations,
+    parent_id       bigint
+        constraint fk1drweaixg1dq4tndpghla7q7m
+            references bgt_budget_heads,
+    constraint uq_bbh_org_code
+        unique (organization_id, head_code)
+);
+
+alter table bgt_budget_heads
+    owner to postgres;
+
+create index idx_bbh_org
+    on bgt_budget_heads (organization_id);
+
+create index idx_bbh_parent
+    on bgt_budget_heads (parent_id);
+
+create index idx_bbh_type
+    on bgt_budget_heads (head_type);
+
+create table bgt_fiscal_years
+(
+    id              bigint generated by default as identity
+        primary key,
+    created_at      timestamp(6),
+    created_by      varchar(100),
+    updated_at      timestamp(6),
+    updated_by      varchar(100),
+    closed_at       timestamp(6),
+    closed_by       varchar(100),
+    end_date        date         not null,
+    is_current      boolean      not null,
+    notes           text,
+    start_date      date         not null,
+    status          varchar(20)  not null
+        constraint bgt_fiscal_years_status_check
+            check ((status)::text = ANY
+                   ((ARRAY ['DRAFT'::character varying, 'ACTIVE'::character varying, 'LOCKED'::character varying, 'CLOSED'::character varying])::text[])),
+    year_code       varchar(20)  not null,
+    year_name       varchar(100) not null,
+    organization_id bigint       not null
+        constraint fk9m8ivavc4h1emqm3v3rvf3bjj
+            references org_organizations,
+    constraint uq_bfy_org_code
+        unique (organization_id, year_code)
+);
+
+alter table bgt_fiscal_years
+    owner to postgres;
+
+create index idx_bfy_org
+    on bgt_fiscal_years (organization_id);
+
+create index idx_bfy_current
+    on bgt_fiscal_years (is_current);
+
+create index idx_bfy_status
+    on bgt_fiscal_years (status);
+
+create table com_hs_codes
+(
+    id                         bigint generated by default as identity
+        primary key,
+    created_at                 timestamp(6),
+    created_by                 varchar(100),
+    updated_at                 timestamp(6),
+    updated_by                 varchar(100),
+    ait_percent                numeric(6, 2),
+    customs_duty_percent       numeric(6, 2),
+    description                varchar(500) not null,
+    hs_code                    varchar(20)  not null,
+    hs_type                    varchar(20)  not null
+        constraint com_hs_codes_hs_type_check
+            check ((hs_type)::text = ANY
+                   ((ARRAY ['EXPORT'::character varying, 'IMPORT'::character varying, 'BOTH'::character varying])::text[])),
+    is_active                  boolean      not null,
+    is_bonded_allowed          boolean      not null,
+    requires_export_permit     boolean      not null,
+    requires_import_permit     boolean      not null,
+    short_description          varchar(200),
+    supplementary_duty_percent numeric(6, 2),
+    vat_percent                numeric(6, 2),
+    organization_id            bigint       not null
+        constraint fkeilva7hpkm35e42nc6l0ytfuv
+            references org_organizations,
+    constraint uq_hs_org_code
+        unique (organization_id, hs_code)
+);
+
+alter table com_hs_codes
+    owner to postgres;
+
+create index idx_hscode_org
+    on com_hs_codes (organization_id);
+
+create table ec_api_configurations
+(
+    id              bigint generated by default as identity
+        primary key,
+    created_at      timestamp(6),
+    created_by      varchar(100),
+    updated_at      timestamp(6),
+    updated_by      varchar(100),
+    active          boolean not null,
+    api_key         text,
+    api_name        varchar(100),
+    api_secret      text,
+    api_url         varchar(700),
+    password        text,
+    sandbox_mode    boolean not null,
+    username        varchar(200),
+    webhook_url     varchar(700),
+    organization_id bigint  not null
+        constraint fkjc61eqw31o1r11fno9dl0exxq
+            references org_organizations,
+    constraint uq_ec_api_config
+        unique (organization_id, api_name)
+);
+
+alter table ec_api_configurations
+    owner to postgres;
+
+create index idx_ec_apiconfig_org
+    on ec_api_configurations (organization_id);
+
+create table ec_banners
+(
+    id               bigint generated by default as identity
+        primary key,
+    created_at       timestamp(6),
+    created_by       varchar(100),
+    updated_at       timestamp(6),
+    updated_by       varchar(100),
+    active           boolean      not null,
+    banner_code      varchar(50),
+    banner_name      varchar(200) not null,
+    banner_type      varchar(30)
+        constraint ec_banners_banner_type_check
+            check ((banner_type)::text = ANY
+                   ((ARRAY ['HOME_SLIDER'::character varying, 'HOME_TOP'::character varying, 'HOME_MIDDLE'::character varying, 'HOME_BOTTOM'::character varying, 'CATEGORY'::character varying, 'PRODUCT'::character varying, 'POPUP'::character varying, 'SIDEBAR'::character varying])::text[])),
+    button_text      varchar(100),
+    button_url       varchar(500),
+    description      text,
+    display_order    integer,
+    end_date         timestamp(6),
+    image_url        varchar(700),
+    mobile_image_url varchar(700),
+    open_in_new_tab  boolean      not null,
+    start_date       timestamp(6),
+    sub_title        varchar(500),
+    title            varchar(250),
+    organization_id  bigint       not null
+        constraint fksit9ldycks6r0fiov7xxtn4it
+            references org_organizations
+);
+
+alter table ec_banners
+    owner to postgres;
+
+create index idx_ec_banner_org
+    on ec_banners (organization_id);
+
+create index idx_ec_banner_type
+    on ec_banners (banner_type);
+
+create index idx_ec_banner_active
+    on ec_banners (active);
+
+create table ec_blog_categories
+(
+    id                 bigint generated by default as identity
+        primary key,
+    created_at         timestamp(6),
+    created_by         varchar(100),
+    updated_at         timestamp(6),
+    updated_by         varchar(100),
+    active             boolean not null,
+    category_name      varchar(200),
+    description        text,
+    display_order      integer,
+    slug               varchar(250),
+    organization_id    bigint  not null
+        constraint fk70eft8um4dpp12ofk8hbf6iwh
+            references org_organizations,
+    parent_category_id bigint
+        constraint fkonnxvg5gk9m2u0yt4ljtqy4n1
+            references ec_blog_categories,
+    constraint uq_ec_blog_cat
+        unique (organization_id, slug)
+);
+
+alter table ec_blog_categories
+    owner to postgres;
+
+create index idx_ec_blogcat_parent
+    on ec_blog_categories (parent_category_id);
+
+create index idx_ec_blogcat_org
+    on ec_blog_categories (organization_id);
+
+create table ec_campaigns
+(
+    id              bigint generated by default as identity
+        primary key,
+    created_at      timestamp(6),
+    created_by      varchar(100),
+    updated_at      timestamp(6),
+    updated_by      varchar(100),
+    active          boolean not null,
+    banner_image    varchar(700),
+    campaign_code   varchar(50),
+    campaign_name   varchar(200),
+    campaign_type   varchar(30)
+        constraint ec_campaigns_campaign_type_check
+            check ((campaign_type)::text = ANY
+                   ((ARRAY ['FLASH_SALE'::character varying, 'DISCOUNT'::character varying, 'BUY_X_GET_Y'::character varying, 'FREE_SHIPPING'::character varying, 'SEASONAL'::character varying, 'CLEARANCE'::character varying])::text[])),
+    description     text,
+    end_date        timestamp(6),
+    priority        integer,
+    start_date      timestamp(6),
+    organization_id bigint  not null
+        constraint fk6j76920ayyqsj3l9m0iaf8weo
+            references org_organizations,
+    constraint uq_ec_campaign
+        unique (organization_id, campaign_code)
+);
+
+alter table ec_campaigns
+    owner to postgres;
+
+create index idx_ec_campaign_org
+    on ec_campaigns (organization_id);
+
+create index idx_ec_campaign_dates
+    on ec_campaigns (start_date, end_date);
+
+create index idx_ec_campaign_active
+    on ec_campaigns (active);
+
+create table ec_categories
+(
+    id                 bigint generated by default as identity
+        primary key,
+    created_at         timestamp(6),
+    created_by         varchar(100),
+    updated_at         timestamp(6),
+    updated_by         varchar(100),
+    active             boolean      not null,
+    banner_url         varchar(700),
+    category_code      varchar(50)  not null,
+    category_name      varchar(200) not null,
+    deleted            boolean      not null,
+    description        text,
+    display_order      integer,
+    icon               varchar(100),
+    image_url          varchar(700),
+    is_featured        boolean      not null,
+    is_menu            boolean      not null,
+    level_no           integer,
+    meta_description   varchar(1000),
+    meta_keywords      varchar(500),
+    meta_title         varchar(255),
+    short_description  varchar(500),
+    slug               varchar(250) not null,
+    organization_id    bigint       not null
+        constraint fkk3gk0wg5t90cx5rm7lgslf366
+            references org_organizations,
+    parent_category_id bigint
+        constraint fkh2ffkexvn23m94mv3rx4icevb
+            references ec_categories,
+    constraint uq_ec_cat_code
+        unique (organization_id, category_code),
+    constraint uq_ec_cat_slug
+        unique (organization_id, slug)
+);
+
+alter table ec_categories
+    owner to postgres;
+
+create index idx_ec_cat_org
+    on ec_categories (organization_id);
+
+create index idx_ec_cat_parent
+    on ec_categories (parent_category_id);
+
+create index idx_ec_cat_slug
+    on ec_categories (slug);
+
+create index idx_ec_cat_active
+    on ec_categories (active);
+
+create index idx_ec_cat_featured
+    on ec_categories (is_featured);
+
+create table ec_category_attributes
+(
+    id              bigint generated by default as identity
+        primary key,
+    active          boolean      not null,
+    attribute_label varchar(150),
+    attribute_name  varchar(150) not null,
+    created_at      timestamp(6),
+    data_type       varchar(30)  not null
+        constraint ec_category_attributes_data_type_check
+            check ((data_type)::text = ANY
+                   ((ARRAY ['TEXT'::character varying, 'NUMBER'::character varying, 'BOOLEAN'::character varying, 'DATE'::character varying, 'LIST'::character varying, 'COLOR'::character varying])::text[])),
+    display_order   integer,
+    filterable      boolean      not null,
+    is_required     boolean      not null,
+    searchable      boolean      not null,
+    sortable        boolean      not null,
+    updated_at      timestamp(6),
+    category_id     bigint       not null
+        constraint fkbq6joamngpi3g5t47t2hnd8tr
+            references ec_categories
+);
+
+alter table ec_category_attributes
+    owner to postgres;
+
+create index idx_ec_catattr_cat
+    on ec_category_attributes (category_id);
+
+create table ec_coupon
+(
+    id                 bigint generated by default as identity
+        primary key,
+    created_at         timestamp(6),
+    created_by         varchar(100),
+    updated_at         timestamp(6),
+    updated_by         varchar(100),
+    active             boolean     not null,
+    coupon_code        varchar(50) not null,
+    coupon_name        varchar(200),
+    description        text,
+    discount_type      varchar(20)
+        constraint ec_coupon_discount_type_check
+            check ((discount_type)::text = ANY
+                   ((ARRAY ['PERCENTAGE'::character varying, 'FIXED'::character varying])::text[])),
+    discount_value     numeric(18, 2),
+    maximum_discount   numeric(18, 2),
+    minimum_order      numeric(18, 2),
+    usage_limit        integer,
+    usage_per_customer integer,
+    valid_from         timestamp(6),
+    valid_to           timestamp(6),
+    organization_id    bigint      not null
+        constraint fkeb0averh20s6cexa2y9htryus
+            references org_organizations,
+    constraint uq_ec_coupon
+        unique (organization_id, coupon_code)
+);
+
+alter table ec_coupon
+    owner to postgres;
+
+create index idx_ec_coupon_code
+    on ec_coupon (coupon_code);
+
+create index idx_ec_coupon_org
+    on ec_coupon (organization_id);
+
+create table ec_dashboard_kpis
+(
+    id                  bigint generated by default as identity
+        primary key,
+    created_at          timestamp(6),
+    created_by          varchar(100),
+    updated_at          timestamp(6),
+    updated_by          varchar(100),
+    abandoned_cart_rate numeric(8, 2),
+    average_order_value numeric(18, 2),
+    conversion_rate     numeric(8, 2),
+    kpi_date            date   not null,
+    new_customers       integer,
+    return_rate         numeric(8, 2),
+    total_customers     integer,
+    total_orders        integer,
+    total_sales         numeric(18, 2),
+    organization_id     bigint not null
+        constraint fk7eoog9v98rc09naxj6tmols0i
+            references org_organizations,
+    constraint uq_ec_kpi
+        unique (organization_id, kpi_date)
+);
+
+alter table ec_dashboard_kpis
+    owner to postgres;
+
+create index idx_ec_kpi_org
+    on ec_dashboard_kpis (organization_id);
+
+create index idx_ec_kpi_date
+    on ec_dashboard_kpis (kpi_date);
+
+create table ec_delivery_slots
+(
+    id              bigint generated by default as identity
+        primary key,
+    created_at      timestamp(6),
+    created_by      varchar(100),
+    updated_at      timestamp(6),
+    updated_by      varchar(100),
+    active          boolean not null,
+    end_time        time(0),
+    maximum_orders  integer,
+    slot_name       varchar(100),
+    start_time      time(0),
+    organization_id bigint  not null
+        constraint fkbxuhdj7xrbnkviekga7fqeu92
+            references org_organizations
+);
+
+alter table ec_delivery_slots
+    owner to postgres;
+
+create index idx_ec_slot_org
+    on ec_delivery_slots (organization_id);
+
+create table ec_document_mapping
+(
+    id                bigint generated by default as identity
+        primary key,
+    created_at        timestamp(6),
+    created_by        varchar(100),
+    updated_at        timestamp(6),
+    updated_by        varchar(100),
+    auto_create       boolean not null,
+    ec_document_type  varchar(100),
+    erp_document_type varchar(100),
+    organization_id   bigint  not null
+        constraint fk60p54etmoavdw6immau0j2tac
+            references org_organizations,
+    credit_account_id bigint
+        constraint fk6bir033q4rgddegnf3futfnb0
+            references acc_chart_of_accounts,
+    debit_account_id  bigint
+        constraint fkn3iuhu7no9smrtf6ribushkfq
+            references acc_chart_of_accounts,
+    constraint uq_ec_docmap
+        unique (organization_id, ec_document_type)
+);
+
+alter table ec_document_mapping
+    owner to postgres;
+
+create index idx_ec_docmap_org
+    on ec_document_mapping (organization_id);
+
+create table ec_feature_flags
+(
+    id              bigint generated by default as identity
+        primary key,
+    created_at      timestamp(6),
+    created_by      varchar(100),
+    updated_at      timestamp(6),
+    updated_by      varchar(100),
+    enabled         boolean not null,
+    feature_name    varchar(200),
+    notes           varchar(500),
+    organization_id bigint  not null
+        constraint fk3rs33w3q75menrch41a0is1bq
+            references org_organizations,
+    constraint uq_ec_feature
+        unique (organization_id, feature_name)
+);
+
+alter table ec_feature_flags
+    owner to postgres;
+
+create index idx_ec_feature_org
+    on ec_feature_flags (organization_id);
+
+create table ec_home_sections
+(
+    id               bigint generated by default as identity
+        primary key,
+    created_at       timestamp(6),
+    created_by       varchar(100),
+    updated_at       timestamp(6),
+    updated_by       varchar(100),
+    active           boolean not null,
+    display_order    integer,
+    max_products     integer,
+    section_code     varchar(50),
+    section_name     varchar(200),
+    section_subtitle varchar(500),
+    section_title    varchar(300),
+    section_type     varchar(30)
+        constraint ec_home_sections_section_type_check
+            check ((section_type)::text = ANY
+                   ((ARRAY ['FEATURED'::character varying, 'NEW_ARRIVAL'::character varying, 'BEST_SELLER'::character varying, 'TOP_RATED'::character varying, 'FLASH_SALE'::character varying, 'TRENDING'::character varying, 'CUSTOM'::character varying])::text[])),
+    organization_id  bigint  not null
+        constraint fk4ttrxt8g4k58imoqropnd2wrm
+            references org_organizations,
+    constraint uq_ec_home_section
+        unique (organization_id, section_code)
+);
+
+alter table ec_home_sections
+    owner to postgres;
+
+create index idx_ec_homesec_org
+    on ec_home_sections (organization_id);
+
+create table ec_loyalty_programs
+(
+    id              bigint generated by default as identity
+        primary key,
+    created_at      timestamp(6),
+    created_by      varchar(100),
+    updated_at      timestamp(6),
+    updated_by      varchar(100),
+    active          boolean not null,
+    earn_rate       numeric(12, 4),
+    expiry_days     integer,
+    minimum_points  integer,
+    program_name    varchar(200),
+    redeem_rate     numeric(12, 4),
+    organization_id bigint  not null
+        constraint fk4c7gyf6hochh5yguj0xculrg2
+            references org_organizations
+);
+
+alter table ec_loyalty_programs
+    owner to postgres;
+
+create index idx_ec_loyalty_org
+    on ec_loyalty_programs (organization_id);
+
+create table ec_menus
+(
+    id              bigint generated by default as identity
+        primary key,
+    created_at      timestamp(6),
+    created_by      varchar(100),
+    updated_at      timestamp(6),
+    updated_by      varchar(100),
+    active          boolean not null,
+    display_order   integer,
+    menu_icon       varchar(100),
+    menu_name       varchar(200),
+    menu_url        varchar(500),
+    target          varchar(30),
+    organization_id bigint  not null
+        constraint fk70fljgsacobxqetnu2fykoygs
+            references org_organizations,
+    parent_menu_id  bigint
+        constraint fk74cah3hdv1dovh386wbvtiegd
+            references ec_menus
+);
+
+alter table ec_menus
+    owner to postgres;
+
+create index idx_ec_menu_parent
+    on ec_menus (parent_menu_id);
+
+create index idx_ec_menu_org
+    on ec_menus (organization_id);
+
+create table ec_newsletter
+(
+    id                  bigint generated by default as identity
+        primary key,
+    created_at          timestamp(6),
+    created_by          varchar(100),
+    updated_at          timestamp(6),
+    updated_by          varchar(100),
+    email               varchar(200) not null,
+    full_name           varchar(200),
+    subscribed_at       timestamp(6),
+    subscription_status varchar(20)  not null
+        constraint ec_newsletter_subscription_status_check
+            check ((subscription_status)::text = ANY
+                   ((ARRAY ['SUBSCRIBED'::character varying, 'UNSUBSCRIBED'::character varying, 'BOUNCED'::character varying])::text[])),
+    unsubscribed_at     timestamp(6),
+    verification_token  varchar(255),
+    verified            boolean      not null,
+    organization_id     bigint       not null
+        constraint fk7upe09n7nm8j3xpi095lcti7w
+            references org_organizations,
+    constraint uq_ec_newsletter
+        unique (organization_id, email)
+);
+
+alter table ec_newsletter
+    owner to postgres;
+
+create index idx_ec_newsletter_status
+    on ec_newsletter (subscription_status);
+
+create index idx_ec_newsletter_org
+    on ec_newsletter (organization_id);
+
+create table ec_pages
+(
+    id              bigint generated by default as identity
+        primary key,
+    created_at      timestamp(6),
+    created_by      varchar(100),
+    updated_at      timestamp(6),
+    updated_by      varchar(100),
+    display_order   integer,
+    page_content    text,
+    page_title      varchar(250),
+    published       boolean not null,
+    seo_description varchar(1000),
+    seo_keywords    varchar(500),
+    seo_title       varchar(255),
+    slug            varchar(250),
+    organization_id bigint  not null
+        constraint fkccwv4uslp4n928hjucg6moiju
+            references org_organizations,
+    constraint uq_ec_page_slug
+        unique (organization_id, slug)
+);
+
+alter table ec_pages
+    owner to postgres;
+
+create table ec_seo_metadata
+(
+    id                  bigint generated by default as identity
+        primary key,
+    created_at          timestamp(6),
+    created_by          varchar(100),
+    updated_at          timestamp(6),
+    updated_by          varchar(100),
+    canonical_url       varchar(500),
+    entity_id           bigint      not null,
+    entity_type         varchar(30) not null
+        constraint ec_seo_metadata_entity_type_check
+            check ((entity_type)::text = ANY
+                   ((ARRAY ['PRODUCT'::character varying, 'CATEGORY'::character varying, 'BLOG'::character varying, 'PAGE'::character varying, 'BRAND'::character varying])::text[])),
+    meta_description    varchar(2000),
+    meta_keywords       varchar(1000),
+    meta_title          varchar(255),
+    og_description      varchar(1000),
+    og_image            varchar(700),
+    og_title            varchar(255),
+    robots              varchar(100),
+    schema_json         jsonb,
+    twitter_description varchar(1000),
+    twitter_image       varchar(700),
+    twitter_title       varchar(255),
+    organization_id     bigint      not null
+        constraint fktachsaagflt9splys53bdliii
+            references org_organizations,
+    constraint uq_ec_seo
+        unique (organization_id, entity_type, entity_id)
+);
+
+alter table ec_seo_metadata
+    owner to postgres;
+
+create index idx_ec_seo_entity
+    on ec_seo_metadata (entity_type, entity_id);
+
+create index idx_ec_seo_org
+    on ec_seo_metadata (organization_id);
+
+create table ec_settings
+(
+    id              bigint generated by default as identity
+        primary key,
+    created_at      timestamp(6),
+    created_by      varchar(100),
+    updated_at      timestamp(6),
+    updated_by      varchar(100),
+    data_type       varchar(30)
+        constraint ec_settings_data_type_check
+            check ((data_type)::text = ANY
+                   ((ARRAY ['STRING'::character varying, 'NUMBER'::character varying, 'BOOLEAN'::character varying, 'JSON'::character varying])::text[])),
+    description     text,
+    editable        boolean not null,
+    setting_group   varchar(100),
+    setting_key     varchar(150),
+    setting_value   text,
+    organization_id bigint  not null
+        constraint fk5h89r2jyn8c3ruuqlyvr2w68v
+            references org_organizations,
+    constraint uq_ec_setting
+        unique (organization_id, setting_group, setting_key)
+);
+
+alter table ec_settings
+    owner to postgres;
+
+create index idx_ec_setting_group
+    on ec_settings (organization_id, setting_group);
+
+create table ec_shipping_methods
+(
+    id               bigint generated by default as identity
+        primary key,
+    created_at       timestamp(6),
+    created_by       varchar(100),
+    updated_at       timestamp(6),
+    updated_by       varchar(100),
+    active           boolean not null,
+    api_enabled      boolean not null,
+    base_charge      numeric(18, 2),
+    cash_on_delivery boolean not null,
+    charge_per_kg    numeric(18, 2),
+    courier_name     varchar(100),
+    estimated_days   integer,
+    method_code      varchar(30),
+    method_name      varchar(100),
+    organization_id  bigint  not null
+        constraint fkr2fenc8ogqey4ta2l7626b2ww
+            references org_organizations,
+    constraint uq_ec_ship_method
+        unique (organization_id, method_code)
+);
+
+alter table ec_shipping_methods
+    owner to postgres;
+
+create index idx_ec_shipmethod_org
+    on ec_shipping_methods (organization_id);
+
+create table ec_shipping_zones
+(
+    id                   bigint generated by default as identity
+        primary key,
+    created_at           timestamp(6),
+    created_by           varchar(100),
+    updated_at           timestamp(6),
+    updated_by           varchar(100),
+    active               boolean not null,
+    country              varchar(100),
+    district             varchar(100),
+    division             varchar(100),
+    free_shipping        boolean not null,
+    minimum_order_amount numeric(18, 2),
+    shipping_charge      numeric(18, 2),
+    zone_code            varchar(30),
+    zone_name            varchar(150),
+    organization_id      bigint  not null
+        constraint fk70pq7k28f7h6hkie1uwlqi60i
+            references org_organizations,
+    constraint uq_ec_ship_zone
+        unique (organization_id, zone_code)
+);
+
+alter table ec_shipping_zones
+    owner to postgres;
+
+create index idx_ec_shipzone_org
+    on ec_shipping_zones (organization_id);
+
+create table ec_tax_classes
+(
+    id              bigint generated by default as identity
+        primary key,
+    created_at      timestamp(6),
+    created_by      varchar(100),
+    updated_at      timestamp(6),
+    updated_by      varchar(100),
+    active          boolean not null,
+    class_code      varchar(30),
+    class_name      varchar(150),
+    description     text,
+    organization_id bigint  not null
+        constraint fk8cguay53kr48d7fi79gssvrqs
+            references org_organizations,
+    constraint uq_ec_taxclass
+        unique (organization_id, class_code)
+);
+
+alter table ec_tax_classes
+    owner to postgres;
+
+create table ec_tax_rules
+(
+    id              bigint generated by default as identity
+        primary key,
+    created_at      timestamp(6),
+    created_by      varchar(100),
+    updated_at      timestamp(6),
+    updated_by      varchar(100),
+    active          boolean not null,
+    country         varchar(100),
+    district        varchar(100),
+    division        varchar(100),
+    effective_from  date,
+    effective_to    date,
+    tax_name        varchar(100),
+    tax_percent     numeric(8, 2),
+    organization_id bigint  not null
+        constraint fk1diy7rqubukq7qu6matnf8fno
+            references org_organizations,
+    tax_class_id    bigint
+        constraint fkkf6ghaoi1rg14mgsorjtxjxrx
+            references ec_tax_classes
+);
+
+alter table ec_tax_rules
+    owner to postgres;
+
+create index idx_ec_taxrule_class
+    on ec_tax_rules (tax_class_id);
+
+create index idx_ec_taxrule_org
+    on ec_tax_rules (organization_id);
+
+create table ec_url_redirects
+(
+    id              bigint generated by default as identity
+        primary key,
+    created_at      timestamp(6),
+    created_by      varchar(100),
+    updated_at      timestamp(6),
+    updated_by      varchar(100),
+    active          boolean      not null,
+    destination_url varchar(700) not null,
+    redirect_type   integer      not null,
+    source_url      varchar(700) not null,
+    organization_id bigint       not null
+        constraint fkm9nviytutu6jduq5sspxuvfnp
+            references org_organizations,
+    constraint uq_ec_redirect
+        unique (organization_id, source_url)
+);
+
+alter table ec_url_redirects
+    owner to postgres;
+
+create index idx_ec_redirect_src
+    on ec_url_redirects (source_url);
+
+create table fa_asset_categories
+(
+    id                        bigint generated by default as identity
+        primary key,
+    created_at                timestamp(6),
+    created_by                varchar(100),
+    updated_at                timestamp(6),
+    updated_by                varchar(100),
+    code                      varchar(50)  not null,
+    default_dep_method        varchar(30)  not null
+        constraint fa_asset_categories_default_dep_method_check
+            check ((default_dep_method)::text = ANY
+                   ((ARRAY ['STRAIGHT_LINE'::character varying, 'DECLINING_BALANCE'::character varying, 'UNITS_OF_PRODUCTION'::character varying])::text[])),
+    default_dep_rate          numeric(5, 2),
+    default_residual_pct      numeric(5, 2),
+    default_useful_life_years integer,
+    description               text,
+    is_active                 boolean      not null,
+    name                      varchar(200) not null,
+    organization_id           bigint       not null
+        constraint fk8xtu3uqvms2akmfbj3sxkyg0t
+            references org_organizations,
+    gl_accum_dep_account_id   bigint
+        constraint fk827ocnwycifg8fpr32jmcn91x
+            references acc_chart_of_accounts,
+    gl_asset_account_id       bigint
+        constraint fket405kcieiho18ueq9tuokhar
+            references acc_chart_of_accounts,
+    gl_dep_exp_account_id     bigint
+        constraint fk7vtk52cefuahl0amksgss0bjm
+            references acc_chart_of_accounts,
+    gl_disposal_account_id    bigint
+        constraint fknkjhfg66rcqycib02q7a9vpx8
+            references acc_chart_of_accounts,
+    parent_id                 bigint
+        constraint fkamb5g477pn4ajtgxylpaha2h6
+            references fa_asset_categories,
+    constraint uq_fac_org_code
+        unique (organization_id, code)
+);
+
+alter table fa_asset_categories
+    owner to postgres;
+
+create index idx_fac_org
+    on fa_asset_categories (organization_id);
+
+create index idx_fac_parent
+    on fa_asset_categories (parent_id);
+
+create table fa_depreciation_runs
+(
+    id                 bigint generated by default as identity
+        primary key,
+    created_at         timestamp(6),
+    created_by         varchar(100),
+    updated_at         timestamp(6),
+    updated_by         varchar(100),
+    period_end         date           not null,
+    period_start       date           not null,
+    posted_at          timestamp(6),
+    posted_by          varchar(100),
+    run_date           date           not null,
+    run_type           varchar(20)    not null
+        constraint fa_depreciation_runs_run_type_check
+            check ((run_type)::text = ANY
+                   ((ARRAY ['MONTHLY'::character varying, 'QUARTERLY'::character varying, 'ANNUAL'::character varying])::text[])),
+    status             varchar(20)    not null
+        constraint fa_depreciation_runs_status_check
+            check ((status)::text = ANY
+                   ((ARRAY ['DRAFT'::character varying, 'PROCESSING'::character varying, 'COMPLETED'::character varying, 'POSTED'::character varying, 'REVERSED'::character varying])::text[])),
+    total_assets       integer        not null,
+    total_depreciation numeric(18, 2) not null,
+    organization_id    bigint         not null
+        constraint fkj2srsn5rkwo3vwxpmfm0tr1dr
+            references org_organizations,
+    journal_entry_id   bigint
+        constraint fk5n3tidurh6cx4wbd9l9iiwns2
+            references acc_journal_entry_master
+);
+
+alter table fa_depreciation_runs
+    owner to postgres;
+
+create index idx_fdr_org
+    on fa_depreciation_runs (organization_id);
+
+create index idx_fdr_status
+    on fa_depreciation_runs (status);
+
+create table hrm_designations
+(
+    id               bigint generated by default as identity
+        primary key,
+    created_at       timestamp(6),
+    created_by       varchar(100),
+    updated_at       timestamp(6),
+    updated_by       varchar(100),
+    description      varchar(500),
+    designation_code varchar(50)  not null,
+    designation_name varchar(200) not null,
+    grade            varchar(20),
+    is_active        boolean      not null,
+    organization_id  bigint       not null
+        constraint fk146usoprdg7y57rlj1expsii3
+            references org_organizations,
+    constraint uq_desig_org_code
+        unique (organization_id, designation_code)
+);
+
+alter table hrm_designations
+    owner to postgres;
+
+create index idx_desig_org
+    on hrm_designations (organization_id);
+
+create table hrm_payroll_account_mappings
+(
+    id                                  bigint generated by default as identity
+        primary key,
+    created_at                          timestamp(6),
+    created_by                          varchar(100),
+    updated_at                          timestamp(6),
+    updated_by                          varchar(100),
+    organization_id                     bigint not null
+        constraint uq_pam_org
+            unique
+        constraint fkkm64gm1cy0gai145en423g8v
+            references org_organizations,
+    basic_salary_account_id             bigint
+        constraint fkthtjjohcdcykow4f4uce6jlwn
+            references acc_chart_of_accounts,
+    house_rent_account_id               bigint
+        constraint fk6xxou6iiu6emrxrw4acgjbq1r
+            references acc_chart_of_accounts,
+    income_tax_payable_account_id       bigint
+        constraint fkkgqs8i1j9o9umkmcmdbyoli90
+            references acc_chart_of_accounts,
+    medical_account_id                  bigint
+        constraint fk97x2ivwvnpkgj4mv8rr8kcerp
+            references acc_chart_of_accounts,
+    other_allowances_account_id         bigint
+        constraint fkdbpgmukdkashant5u6h568b6s
+            references acc_chart_of_accounts,
+    other_deductions_payable_account_id bigint
+        constraint fkrhvx1g95pqx0owadfr0fc0us9
+            references acc_chart_of_accounts,
+    overtime_account_id                 bigint
+        constraint fk34qkr4p4540fg8bh9t23wp5ui
+            references acc_chart_of_accounts,
+    provident_fund_payable_account_id   bigint
+        constraint fk2ri2jl2o5gsg8749va0t91wl1
+            references acc_chart_of_accounts,
+    salary_payable_account_id           bigint
+        constraint fk7btciiyoa7g1p5n2iiybbckn4
+            references acc_chart_of_accounts,
+    transport_account_id                bigint
+        constraint fkayfnpb6277s61cid5lap693uk
+            references acc_chart_of_accounts
+);
+
+alter table hrm_payroll_account_mappings
+    owner to postgres;
+
+create index idx_pam_org
+    on hrm_payroll_account_mappings (organization_id);
+
+create table hrm_payroll_runs
+(
+    id               bigint generated by default as identity
+        primary key,
+    created_at       timestamp(6),
+    created_by       varchar(100),
+    updated_at       timestamp(6),
+    updated_by       varchar(100),
+    approved_at      timestamp(6),
+    approved_by      varchar(100),
+    employee_count   integer        not null,
+    payroll_month    varchar(7)     not null,
+    remarks          text,
+    run_date         date           not null,
+    status           varchar(20)    not null
+        constraint hrm_payroll_runs_status_check
+            check ((status)::text = ANY
+                   ((ARRAY ['DRAFT'::character varying, 'PROCESSING'::character varying, 'COMPLETED'::character varying, 'APPROVED'::character varying, 'PAID'::character varying, 'CANCELLED'::character varying])::text[])),
+    total_deductions numeric(18, 2) not null,
+    total_gross      numeric(18, 2) not null,
+    total_net        numeric(18, 2) not null,
+    organization_id  bigint         not null
+        constraint fkjhld2nhyfgx7inlu9a6ev76w6
+            references org_organizations,
+    journal_entry_id bigint
+        constraint fkr0ahik2vyh92xlks9td8g8v9b
+            references acc_journal_entry_master,
+    constraint uq_pr_org_month
+        unique (organization_id, payroll_month)
+);
+
+alter table hrm_payroll_runs
+    owner to postgres;
+
+create index idx_pr_org
+    on hrm_payroll_runs (organization_id);
+
+create index idx_pr_month
+    on hrm_payroll_runs (payroll_month);
+
+create index idx_pr_status
+    on hrm_payroll_runs (status);
+
+create table inv_item_brands
+(
+    id              bigint generated by default as identity
+        primary key,
+    created_at      timestamp(6),
+    created_by      varchar(100),
+    updated_at      timestamp(6),
+    updated_by      varchar(100),
+    brand_code      varchar(30)  not null,
+    brand_name      varchar(150) not null,
+    description     text,
+    is_active       boolean      not null,
+    organization_id bigint       not null
+        constraint fkaei6lljmgvj6tthi87tkt0rs8
+            references org_organizations,
+    constraint uq_brand_org_code
+        unique (organization_id, brand_code)
+);
+
+alter table inv_item_brands
+    owner to postgres;
+
+create index idx_brand_org
+    on inv_item_brands (organization_id);
+
+create table inv_item_categories
+(
+    id                 bigint generated by default as identity
+        primary key,
+    created_at         timestamp(6),
+    created_by         varchar(100),
+    updated_at         timestamp(6),
+    updated_by         varchar(100),
+    category_code      varchar(50)  not null,
+    category_name      varchar(100) not null,
+    description        text,
+    is_active          boolean      not null,
+    item_type          varchar(30)
+        constraint inv_item_categories_item_type_check
+            check ((item_type)::text = ANY
+                   ((ARRAY ['RAW_MATERIAL'::character varying, 'SEMI_FINISHED'::character varying, 'FINISHED_GOOD'::character varying, 'SERVICE'::character varying, 'SPARE_PART'::character varying, 'CONSUMABLE'::character varying, 'MRO'::character varying, 'GENERAL'::character varying, 'FIXED_ASSET'::character varying])::text[])),
+    layer_type         varchar(20)  not null
+        constraint inv_item_categories_layer_type_check
+            check ((layer_type)::text = ANY
+                   ((ARRAY ['ROOT'::character varying, 'GROUP'::character varying, 'ITEM'::character varying])::text[])),
+    organization_id    bigint       not null
+        constraint fkfm7itcvhymlx12g48fdbkfb3
+            references org_organizations,
+    parent_category_id bigint
+        constraint fk84eh5t6j3j6ct0u9yurnc3pib
+            references inv_item_categories,
+    constraint uq_icat_org_code
+        unique (organization_id, category_code)
+);
+
+alter table inv_item_categories
+    owner to postgres;
+
+create index idx_icat_org
+    on inv_item_categories (organization_id);
+
+create index idx_icat_parent
+    on inv_item_categories (parent_category_id);
+
+create index idx_icat_type
+    on inv_item_categories (item_type);
+
+create table inv_item_models
+(
+    id              bigint generated by default as identity
+        primary key,
+    created_at      timestamp(6),
+    created_by      varchar(100),
+    updated_at      timestamp(6),
+    updated_by      varchar(100),
+    description     text,
+    is_active       boolean      not null,
+    model_code      varchar(30)  not null,
+    model_name      varchar(150) not null,
+    organization_id bigint       not null
+        constraint fkg5tibo2nuc7xbd09j5x2bofyi
+            references org_organizations,
+    brand_id        bigint
+        constraint fkln2pc9pndan4asymm9mnnmx84
+            references inv_item_brands,
+    constraint uq_model_org_brand_code
+        unique (organization_id, brand_id, model_code)
+);
+
+alter table inv_item_models
+    owner to postgres;
+
+create index idx_model_org
+    on inv_item_models (organization_id);
+
+create table inv_items
+(
+    id                 bigint generated by default as identity
+        primary key,
+    created_at         timestamp(6),
+    created_by         varchar(100),
+    updated_at         timestamp(6),
+    updated_by         varchar(100),
+    approved_at        timestamp(6),
+    approved_by        varchar(100),
+    barcode            varchar(100),
+    cas_number         varchar(50),
+    cost_price         numeric(12, 4),
+    depreciation_rate  numeric(5, 2),
+    description        text,
+    dimensions         varchar(100),
+    expiry_date        date,
+    has_lot_tracking   boolean      not null,
+    has_serial         boolean      not null,
+    hs_code_id         bigint,
+    internal_notes     text,
+    is_active          boolean      not null,
+    is_approved        boolean      not null,
+    is_hazardous       boolean      not null,
+    item_code          varchar(50)  not null,
+    item_name          varchar(200) not null,
+    item_name_bn       varchar(200),
+    item_type          varchar(30)  not null
+        constraint inv_items_item_type_check
+            check ((item_type)::text = ANY
+                   ((ARRAY ['RAW_MATERIAL'::character varying, 'SEMI_FINISHED'::character varying, 'FINISHED_GOOD'::character varying, 'SERVICE'::character varying, 'SPARE_PART'::character varying, 'CONSUMABLE'::character varying, 'MRO'::character varying, 'GENERAL'::character varying, 'FIXED_ASSET'::character varying])::text[])),
+    manufacturer       varchar(100),
+    maximum_stock      numeric(12, 3),
+    minimum_stock      numeric(12, 3),
+    model_name         varchar(100),
+    origin_id          bigint,
+    process_loss_pct   numeric(5, 2),
+    purchase_unit_code varchar(20)  not null,
+    reorder_level      numeric(12, 3),
+    safety_data_sheet  varchar(255),
+    sales_unit_code    varchar(20)  not null,
+    serial_number      varchar(100),
+    shelf_life_days    integer,
+    sku                varchar(100),
+    standard_cost      numeric(12, 4),
+    tax_rate           numeric(5, 2),
+    unit_of_measure    varchar(20)  not null,
+    unit_price         numeric(12, 4),
+    volume             numeric(12, 4),
+    warranty_months    integer,
+    weight             numeric(12, 4),
+    yield_percent      numeric(5, 2),
+    organization_id    bigint       not null
+        constraint fkkke3hnp87lbc2yux362cg63se
+            references org_organizations,
+    brand_id           bigint
+        constraint fkiylxmvkjrwslo5441sd8nhgt0
+            references inv_item_brands,
+    category_id        bigint       not null
+        constraint fkac4ow19t43jb38r0cfcihyxd4
+            references inv_item_categories,
+    model_id           bigint
+        constraint fkt1js5g9jiest3jwr08vw5fxts
+            references inv_item_models,
+    operation_unit_id  bigint       not null
+        constraint fk6wmqkrni3kls4332fdftyec5m
+            references inv_item_uom,
+    purchase_unit_id   bigint       not null
+        constraint fk42snx1q9flfgw1qskntkpkj5m
+            references inv_item_uom,
+    sales_unit_id      bigint       not null
+        constraint fkncndt08o5vlqm02lu0yk1nu38
+            references inv_item_uom,
+    constraint uq_item_org_code
+        unique (organization_id, item_code),
+    constraint uq_item_org_name
+        unique (organization_id, item_name)
+);
+
+alter table inv_items
+    owner to postgres;
+
+create table ec_product_catalog
+(
+    id                   bigint generated by default as identity
+        primary key,
+    created_at           timestamp(6),
+    created_by           varchar(100),
+    updated_at           timestamp(6),
+    updated_by           varchar(100),
+    active               boolean      not null,
+    best_seller          boolean      not null,
+    deleted              boolean      not null,
+    description          text,
+    featured             boolean      not null,
+    maximum_order_qty    numeric(12, 2),
+    minimum_order_qty    numeric(12, 2),
+    new_arrival          boolean      not null,
+    product_title        varchar(300) not null,
+    publish_date         timestamp(6),
+    published            boolean      not null,
+    recommended          boolean      not null,
+    return_policy        text,
+    seo_description      varchar(1000),
+    seo_keywords         varchar(500),
+    seo_title            varchar(255),
+    shipping_information text,
+    short_description    varchar(1000),
+    slug                 varchar(250) not null,
+    trending             boolean      not null,
+    warranty_information varchar(500),
+    youtube_video        varchar(500),
+    organization_id      bigint       not null
+        constraint fkb6ndeq11p0cpa7tjsif29irff
+            references org_organizations,
+    category_id          bigint
+        constraint fk7dflyol3mj8p5y1l5v4tudyyx
+            references ec_categories,
+    item_id              bigint       not null
+        constraint fkgkgt1elklqf80ramkl1g8vtt1
+            references inv_items,
+    constraint uq_ec_prod_slug
+        unique (organization_id, slug),
+    constraint uq_ec_prod_item
+        unique (organization_id, item_id)
+);
+
+alter table ec_product_catalog
+    owner to postgres;
+
+create table ec_home_section_products
+(
+    id            bigint generated by default as identity
+        primary key,
+    display_order integer,
+    product_id    bigint not null
+        constraint fk36xmrese9tec196n14801nw6t
+            references ec_product_catalog,
+    section_id    bigint not null
+        constraint fkqp5fixouy17908l5v9pg15ese
+            references ec_home_sections,
+    constraint uq_ec_home_prod
+        unique (section_id, product_id)
+);
+
+alter table ec_home_section_products
+    owner to postgres;
+
+create index idx_ec_homeprod_sec
+    on ec_home_section_products (section_id);
+
+create table ec_product_analytics
+(
+    id              bigint generated by default as identity
+        primary key,
+    analytics_date  date    not null,
+    cart_additions  integer not null,
+    conversion_rate numeric(8, 2),
+    product_views   integer not null,
+    purchases       integer not null,
+    returns         integer not null,
+    revenue         numeric(18, 2),
+    wishlist_count  integer not null,
+    product_id      bigint  not null
+        constraint fkp8d1451cw0w3m8ojmv5fuwrid
+            references ec_product_catalog,
+    constraint uq_ec_prodana
+        unique (product_id, analytics_date)
+);
+
+alter table ec_product_analytics
+    owner to postgres;
+
+create index idx_ec_prodana_prod
+    on ec_product_analytics (product_id);
+
+create index idx_ec_prodana_date
+    on ec_product_analytics (analytics_date);
+
+create table ec_product_attribute_values
+(
+    id                    bigint generated by default as identity
+        primary key,
+    attribute_value       text,
+    category_attribute_id bigint not null
+        constraint fkf5anotpfgdb91me4iqld147b0
+            references ec_category_attributes,
+    product_id            bigint not null
+        constraint fkta3j5gfyjji085kl6jdimb9j4
+            references ec_product_catalog,
+    constraint uq_ec_prodattr
+        unique (product_id, category_attribute_id)
+);
+
+alter table ec_product_attribute_values
+    owner to postgres;
+
+create index idx_ec_prodattr_prod
+    on ec_product_attribute_values (product_id);
+
+create index idx_ec_prod_org
+    on ec_product_catalog (organization_id);
+
+create index idx_ec_prod_item
+    on ec_product_catalog (item_id);
+
+create index idx_ec_prod_cat
+    on ec_product_catalog (category_id);
+
+create index idx_ec_prod_slug
+    on ec_product_catalog (slug);
+
+create index idx_ec_prod_featured
+    on ec_product_catalog (featured);
+
+create index idx_ec_prod_best
+    on ec_product_catalog (best_seller);
+
+create index idx_ec_prod_trending
+    on ec_product_catalog (trending);
+
+create index idx_ec_prod_pub
+    on ec_product_catalog (published, publish_date);
+
+create index idx_ec_prod_active
+    on ec_product_catalog (active, deleted);
+
+create table ec_product_images
+(
+    id            bigint generated by default as identity
+        primary key,
+    active        boolean      not null,
+    alt_text      varchar(255),
+    created_at    timestamp(6),
+    created_by    varchar(255),
+    display_order integer,
+    image_url     varchar(700) not null,
+    is_primary    boolean      not null,
+    thumbnail_url varchar(700),
+    product_id    bigint       not null
+        constraint fk1hgj3m2aaly9qsrqqcshw10rj
+            references ec_product_catalog
+);
+
+alter table ec_product_images
+    owner to postgres;
+
+create index idx_ec_prodimg_prod
+    on ec_product_images (product_id);
+
+create table ec_product_tag_map
+(
+    id         bigint generated by default as identity
+        primary key,
+    product_id bigint not null
+        constraint fknep2f708jphchtyuf75wyjvgl
+            references ec_product_catalog,
+    tag_id     bigint not null
+        constraint fkfl0yl173t92u8kch7wg7edmrq
+            references ec_product_tags,
+    constraint uq_ec_prod_tag
+        unique (product_id, tag_id)
+);
+
+alter table ec_product_tag_map
+    owner to postgres;
+
+create index idx_ec_prodtag_prod
+    on ec_product_tag_map (product_id);
+
+create table ec_product_variants
+(
+    id              bigint generated by default as identity
+        primary key,
+    active          boolean not null,
+    color           varchar(100),
+    compare_price   numeric(18, 2),
+    created_at      timestamp(6),
+    created_by      varchar(255),
+    deleted         boolean not null,
+    height_override numeric(12, 3),
+    length_override numeric(12, 3),
+    selling_price   numeric(18, 2),
+    size_name       varchar(100),
+    updated_at      timestamp(6),
+    updated_by      varchar(255),
+    variant_code    varchar(50),
+    variant_name    varchar(200),
+    weight_override numeric(12, 3),
+    width_override  numeric(12, 3),
+    item_id         bigint  not null
+        constraint fkqdku42we5682597fpm1md0lsa
+            references inv_items,
+    product_id      bigint  not null
+        constraint fkn4ydka9susrnkcsrxyh1yyimn
+            references ec_product_catalog,
+    constraint uq_ec_variant_item
+        unique (product_id, item_id)
+);
+
+alter table ec_product_variants
+    owner to postgres;
+
+create table ec_campaign_products
+(
+    id             bigint generated by default as identity
+        primary key,
+    active         boolean not null,
+    discount_type  varchar(20)
+        constraint ec_campaign_products_discount_type_check
+            check ((discount_type)::text = ANY
+                   ((ARRAY ['PERCENTAGE'::character varying, 'FIXED'::character varying])::text[])),
+    discount_value numeric(18, 2),
+    maximum_qty    numeric(12, 3),
+    special_price  numeric(18, 2),
+    campaign_id    bigint  not null
+        constraint fkki2t4cq9sqbx1qribe3b7bcyn
+            references ec_campaigns,
+    product_id     bigint  not null
+        constraint fkqs9hu4t7md2am2kl4uj1imp1d
+            references ec_product_catalog,
+    variant_id     bigint
+        constraint fk1k5qwgdo7ax2l2roueisseksw
+            references ec_product_variants,
+    constraint uq_ec_campprod
+        unique (campaign_id, product_id, variant_id)
+);
+
+alter table ec_campaign_products
+    owner to postgres;
+
+create index idx_ec_campprod_camp
+    on ec_campaign_products (campaign_id);
+
+create index idx_ec_campprod_prod
+    on ec_campaign_products (product_id);
+
+create index idx_ec_variant_prod
+    on ec_product_variants (product_id);
+
+create index idx_ec_variant_item
+    on ec_product_variants (item_id);
+
+create index idx_ec_variant_active
+    on ec_product_variants (active);
+
+create table ec_review_summary
+(
+    id                 bigint generated by default as identity
+        primary key,
+    created_at         timestamp(6),
+    created_by         varchar(100),
+    updated_at         timestamp(6),
+    updated_by         varchar(100),
+    average_rating     numeric(3, 2),
+    rating1            integer not null,
+    rating2            integer not null,
+    rating3            integer not null,
+    rating4            integer not null,
+    rating5            integer not null,
+    recommendation_pct numeric(5, 2),
+    total_reviews      integer not null,
+    organization_id    bigint  not null
+        constraint fk7701h5rboc4c4eyt0ky9m74cq
+            references org_organizations,
+    product_id         bigint  not null
+        constraint uq_ec_review_summary
+            unique
+        constraint fks1sivgkr8063py9sv7luvxxiw
+            references ec_product_catalog
+);
+
+alter table ec_review_summary
+    owner to postgres;
+
+create index idx_ec_reviewsum_prod
+    on ec_review_summary (product_id);
+
+create index idx_ec_reviewsum_org
+    on ec_review_summary (organization_id);
+
+create table global_inv_lots
+(
+    id                    bigint generated by default as identity
+        primary key,
+    bank_id               bigint,
+    batch_no              varchar(100),
+    bin_location          varchar(100),
+    country_of_origin_id  bigint,
+    created_at            timestamp(6),
+    created_by            varchar(100),
+    deleted               boolean      not null,
+    expiry_date           date,
+    gross_weight          numeric(12, 3),
+    item_type             varchar(30)  not null
+        constraint global_inv_lots_item_type_check
+            check ((item_type)::text = ANY
+                   ((ARRAY ['RAW_MATERIAL'::character varying, 'SEMI_FINISHED'::character varying, 'FINISHED_GOOD'::character varying, 'SERVICE'::character varying, 'SPARE_PART'::character varying, 'CONSUMABLE'::character varying, 'MRO'::character varying, 'GENERAL'::character varying, 'FIXED_ASSET'::character varying])::text[])),
+    lot_number            varchar(100) not null,
+    manufacturer_batch_no varchar(100),
+    manufacturing_date    date,
+    net_weight            numeric(12, 3),
+    organization_id       bigint       not null,
+    production_date       date,
+    production_order_id   bigint,
+    qc_by                 varchar(100),
+    qc_date               date,
+    qc_grade              varchar(50),
+    qc_passed             boolean,
+    qc_remarks            text,
+    received_date         date,
+    remarks               text,
+    serial_no             varchar(100),
+    shelf_location        varchar(100),
+    status                varchar(30)
+        constraint global_inv_lots_status_check
+            check ((status)::text = ANY
+                   ((ARRAY ['AVAILABLE'::character varying, 'RESERVED'::character varying, 'BLOCKED'::character varying, 'QC_HOLD'::character varying, 'EXPIRED'::character varying, 'CONSUMED'::character varying])::text[])),
+    supplier_id           bigint,
+    unit_cost             numeric(18, 4),
+    updated_at            timestamp(6),
+    updated_by            varchar(100),
+    version               bigint       not null,
+    warehouse_location    varchar(100),
+    item_id               bigint       not null
+        constraint fkgh58pv1l81ligt4wlu3q7rk3m
+            references inv_items
+);
+
+alter table global_inv_lots
+    owner to postgres;
+
+create index idx_lot_item
+    on global_inv_lots (item_id);
+
+create index idx_lot_org
+    on global_inv_lots (organization_id);
+
+create index idx_lot_status
+    on global_inv_lots (status);
+
+create index idx_lot_number
+    on global_inv_lots (lot_number);
+
+create index idx_lot_deleted
+    on global_inv_lots (deleted);
+
+create index idx_item_org
+    on inv_items (organization_id);
+
+create index idx_item_type
+    on inv_items (item_type);
+
+create index idx_item_cat
+    on inv_items (category_id);
+
+create index idx_item_active
+    on inv_items (is_active);
+
+create table org_business_units
+(
+    id              bigint generated by default as identity
+        primary key,
+    created_at      timestamp(6),
+    created_by      varchar(100),
+    updated_at      timestamp(6),
+    updated_by      varchar(100),
+    code            varchar(50)  not null,
+    description     varchar(1000),
+    is_active       boolean      not null,
+    name            varchar(200) not null,
+    organization_id bigint       not null
+        constraint fki6q2lbncqnygrtvhk8vny5n3x
+            references org_organizations,
+    constraint uq_bu_org_code
+        unique (organization_id, code)
+);
+
+alter table org_business_units
+    owner to postgres;
+
+create index idx_bu_org
+    on org_business_units (organization_id);
+
+create table org_cost_centers
+(
+    id                    bigint generated by default as identity
+        primary key,
+    created_at            timestamp(6),
+    created_by            varchar(100),
+    updated_at            timestamp(6),
+    updated_by            varchar(100),
+    cost_center_code      varchar(50)  not null
+        constraint ukc7mv2nlnq1omcvcalytdltgyr
+            unique,
+    cost_center_name      varchar(200) not null,
+    cost_center_type      varchar(20)
+        constraint org_cost_centers_cost_center_type_check
+            check ((cost_center_type)::text = ANY
+                   ((ARRAY ['DEPARTMENT'::character varying, 'PROJECT'::character varying, 'BRANCH'::character varying, 'DIVISION'::character varying, 'PRODUCT'::character varying, 'SERVICE'::character varying])::text[])),
+    description           varchar(1000),
+    is_active             boolean      not null,
+    manager_email         varchar(100),
+    manager_name          varchar(100),
+    organization_id       bigint       not null
+        constraint fkobd2rubf4gypsgybfmwrkrr2x
+            references org_organizations,
+    business_unit_id      bigint       not null
+        constraint fkdrgtnuuvrofeav26gacjkp97j
+            references org_business_units,
+    parent_cost_center_id bigint
+        constraint fkf01wbwpdvswytqltsu6wcg3wa
+            references org_cost_centers
+);
+
+alter table org_cost_centers
+    owner to postgres;
+
+create table acc_auto_journal_template_lines
+(
+    id                       bigint generated by default as identity
+        primary key,
+    created_at               timestamp(6),
+    created_by               varchar(100),
+    updated_at               timestamp(6),
+    updated_by               varchar(100),
+    amount_mode              varchar(30) not null,
+    amount_percentage        numeric(8, 4),
+    control_account_type     varchar(30),
+    entry_type               varchar(10) not null
+        constraint acc_auto_journal_template_lines_entry_type_check
+            check ((entry_type)::text = ANY
+                   ((ARRAY ['DEBIT'::character varying, 'CREDIT'::character varying])::text[])),
+    field_reference          varchar(100),
+    fixed_amount             numeric(18, 2),
+    formula                  varchar(500),
+    is_active                boolean     not null,
+    is_optional              boolean     not null,
+    is_tax_line              boolean     not null,
+    line_name                varchar(100),
+    line_narration           varchar(500),
+    line_number              integer     not null,
+    negate_amount            boolean     not null,
+    skip_if_zero             boolean     not null,
+    sort_order               integer     not null,
+    tax_code                 varchar(20),
+    tax_rate                 numeric(8, 4),
+    organization_id          bigint      not null
+        constraint fkblq84rao89q4wcvsorew6ustf
+            references org_organizations,
+    account_id               bigint
+        constraint fk5b02idk1xhwoeld9bgvk9us02
+            references acc_chart_of_accounts,
+    auto_journal_template_id bigint      not null
+        constraint fkgk0h09x3fainskvcdb2vpc8o4
+            references acc_auto_journal_templates,
+    control_account_id       bigint
+        constraint fkfc60gase91gccjb8edygyaw8t
+            references acc_chart_of_accounts,
+    cost_center_id           bigint
+        constraint fkif1a19kauyqqpmttcexmvh62e
+            references org_cost_centers
+);
+
+alter table acc_auto_journal_template_lines
+    owner to postgres;
+
+create index idx_ajtl_template
+    on acc_auto_journal_template_lines (auto_journal_template_id);
+
+create table acc_mapping_details
+(
+    id                   bigint generated by default as identity
+        primary key,
+    created_at           timestamp(6),
+    created_by           varchar(100),
+    updated_at           timestamp(6),
+    updated_by           varchar(100),
+    amount_type          varchar(30) not null,
+    condition            varchar(500),
+    condition_operator   varchar(20),
+    condition_value      varchar(200),
+    control_account_type varchar(30),
+    entry_description    varchar(500),
+    entry_name           varchar(100),
+    entry_type           varchar(10) not null
+        constraint acc_mapping_details_entry_type_check
+            check ((entry_type)::text = ANY
+                   ((ARRAY ['DEBIT'::character varying, 'CREDIT'::character varying])::text[])),
+    field_reference      varchar(100),
+    fixed_amount         numeric(18, 2),
+    formula              varchar(500),
+    inherit_cost_center  boolean     not null,
+    is_active            boolean     not null,
+    is_optional          boolean     not null,
+    is_tax_entry         boolean     not null,
+    line_narration       varchar(500),
+    line_number          integer     not null,
+    negate_amount        boolean     not null,
+    percentage           numeric(8, 4),
+    round_amount         boolean     not null,
+    skip_if_zero         boolean     not null,
+    sort_order           integer     not null,
+    tax_code             varchar(20),
+    tax_rate             numeric(8, 4),
+    organization_id      bigint      not null
+        constraint fk2jp44xsfci51ekte0t87poj9w
+            references org_organizations,
+    account_id           bigint
+        constraint fkthwh6ly7kjikppjmq4kpp4qxm
+            references acc_chart_of_accounts,
+    accounts_mapping_id  bigint      not null
+        constraint fkk1es6px4ov072ys8cfmf3u1xj
+            references acc_mapping,
+    cost_center_id       bigint
+        constraint fkfnobtmxad1xdetcaeocjstfbm
+            references org_cost_centers
+);
+
+alter table acc_mapping_details
+    owner to postgres;
+
+create index idx_amd_mapping
+    on acc_mapping_details (accounts_mapping_id);
+
+create index idx_cc_bu
+    on org_cost_centers (business_unit_id);
+
+create index idx_cc_parent
+    on org_cost_centers (parent_cost_center_id);
+
+create table org_departments
+(
+    id                   bigint generated by default as identity
+        primary key,
+    created_at           timestamp(6),
+    created_by           varchar(100),
+    updated_at           timestamp(6),
+    updated_by           varchar(100),
+    active               boolean      not null,
+    code                 varchar(50)
+        constraint ukgfae5yel86q41kw1tl5pbr80a
+            unique,
+    description          varchar(500),
+    head_employee_id     bigint,
+    name                 varchar(100) not null
+        constraint uktb3nvc5p49dyxs7j7j63hck6w
+            unique,
+    organization_id      bigint       not null
+        constraint fkrcgb95ct5dn4l9u2cuqtvfa35
+            references org_organizations,
+    parent_department_id bigint
+        constraint fk4fh03my0kbf0apct4bw5tmomg
+            references org_departments
+);
+
+alter table org_departments
+    owner to postgres;
+
+create index idx_dept_org
+    on org_departments (organization_id);
+
+create index idx_dept_parent
+    on org_departments (parent_department_id);
+
+create index idx_org_code
+    on org_organizations (code);
+
+create index idx_org_active
+    on org_organizations (is_active);
+
+create table org_warehouses
+(
+    id               bigint generated by default as identity
+        primary key,
+    created_at       timestamp(6),
+    created_by       varchar(100),
+    updated_at       timestamp(6),
+    updated_by       varchar(100),
+    address          text,
+    contact_number   varchar(20),
+    is_active        boolean      not null,
+    item_type        varchar(30)  not null
+        constraint org_warehouses_item_type_check
+            check ((item_type)::text = ANY
+                   ((ARRAY ['RAW_MATERIAL'::character varying, 'SEMI_FINISHED'::character varying, 'FINISHED_GOOD'::character varying, 'SERVICE'::character varying, 'SPARE_PART'::character varying, 'CONSUMABLE'::character varying, 'MRO'::character varying, 'GENERAL'::character varying, 'FIXED_ASSET'::character varying])::text[])),
+    manager_name     varchar(100),
+    warehouse_code   varchar(50)  not null
+        constraint uk3o67m4s0wu9k8fx62x8527oqk
+            unique,
+    warehouse_name   varchar(200) not null,
+    organization_id  bigint       not null
+        constraint fkqxspquiec6afd3so24y5c5q1n
+            references org_organizations,
+    business_unit_id bigint       not null
+        constraint fkmibt9m4ns1fovovg1tj6u18o4
+            references org_business_units
+);
+
+alter table org_warehouses
+    owner to postgres;
+
+create table global_inventory_stock_balances
+(
+    id                    bigint generated by default as identity
+        primary key,
+    average_cost          numeric(18, 4),
+    gross_weight          numeric(12, 3),
+    last_transaction_time timestamp(6),
+    net_weight            numeric(12, 3),
+    quantity              numeric(18, 3) not null,
+    reserved_quantity     numeric(18, 3) not null,
+    stock_value           numeric(18, 2),
+    item_id               bigint         not null
+        constraint fkb2jang1gkhf4401g2hde6uw3c
+            references inv_items,
+    lot_id                bigint
+        constraint fks6m006wsgjtqeirym2jtsgrkb
+            references global_inv_lots,
+    warehouse_id          bigint         not null
+        constraint fkkflw13lbrg23edhpyemoh0c1w
+            references org_warehouses,
+    constraint uq_stock_item_wh_lot
+        unique (item_id, warehouse_id, lot_id)
+);
+
+alter table global_inventory_stock_balances
+    owner to postgres;
+
+create index idx_stock_item
+    on global_inventory_stock_balances (item_id);
+
+create index idx_stock_wh
+    on global_inventory_stock_balances (warehouse_id);
+
+create index idx_stock_lot
+    on global_inventory_stock_balances (lot_id);
+
+create index idx_wh_bu
+    on org_warehouses (business_unit_id);
+
+create table prd_bom
+(
+    id               bigint generated by default as identity
+        primary key,
+    created_at       timestamp(6),
+    created_by       varchar(100),
+    updated_at       timestamp(6),
+    updated_by       varchar(100),
+    approved_at      timestamp(6),
+    approved_by      varchar(100),
+    bom_code         varchar(50)    not null,
+    bom_name         varchar(200)   not null,
+    bom_version      varchar(20)    not null,
+    description      text,
+    is_active        boolean        not null,
+    is_default       boolean        not null,
+    notes            text,
+    output_quantity  numeric(14, 3) not null,
+    yield_percent    numeric(5, 2)  not null,
+    organization_id  bigint         not null
+        constraint fkpcdmo8aal7w1bfhmljis7fwhi
+            references org_organizations,
+    finished_item_id bigint         not null
+        constraint fkcflt3qur04ir0jngpctr786nj
+            references inv_items,
+    output_unit_id   bigint         not null
+        constraint fkj5on42n3y8j5xeb2rj8b5t4gk
+            references inv_item_uom,
+    constraint uq_bom_org_code
+        unique (organization_id, bom_code)
+);
+
+alter table prd_bom
+    owner to postgres;
+
+create index idx_bom_org
+    on prd_bom (organization_id);
+
+create index idx_bom_item
+    on prd_bom (finished_item_id);
+
+create table prd_bom_items
+(
+    id          bigint generated by default as identity
+        primary key,
+    created_at  timestamp(6),
+    created_by  varchar(100),
+    is_optional boolean        not null,
+    line_number integer        not null,
+    quantity    numeric(14, 4) not null,
+    remarks     text,
+    scrap_pct   numeric(5, 2)  not null,
+    bom_id      bigint         not null
+        constraint fks9n7ich1bdasvpv71qlvp19v2
+            references prd_bom,
+    raw_item_id bigint         not null
+        constraint fk70nu37nhhv3kevbmrye9o3jhy
+            references inv_items,
+    unit_id     bigint         not null
+        constraint fk813444ygrxfp8b13xvpov8vmk
+            references inv_item_uom
+);
+
+alter table prd_bom_items
+    owner to postgres;
+
+create index idx_bom_items_bom
+    on prd_bom_items (bom_id);
+
+create index idx_bom_items_item
+    on prd_bom_items (raw_item_id);
+
+create table sec_org_modules
+(
+    id              bigint generated by default as identity
+        primary key,
+    active          boolean     not null,
+    granted_at      timestamp(6),
+    granted_by      varchar(100),
+    module_key      varchar(60) not null,
+    notes           varchar(500),
+    revoked_at      timestamp(6),
+    revoked_by      varchar(100),
+    organization_id bigint      not null
+        constraint fkgrj4dhs9wcepgteq4iqqs0qe3
+            references org_organizations,
+    constraint uq_org_module
+        unique (organization_id, module_key)
+);
+
+alter table sec_org_modules
+    owner to postgres;
+
+create index idx_om_org
+    on sec_org_modules (organization_id);
+
+create index idx_om_module
+    on sec_org_modules (module_key);
+
+create index idx_om_active
+    on sec_org_modules (active);
+
+create table sec_permissions
+(
+    id          bigint generated by default as identity
+        primary key,
+    active      boolean      not null,
+    category    varchar(50),
+    created_at  timestamp(6),
+    description varchar(255),
+    http_method varchar(10),
+    module      varchar(80),
+    name        varchar(100) not null
+        constraint uklaogcgq1sokgabmifpey6w9aj
+            unique,
+    updated_at  timestamp(6),
+    url_pattern varchar(255)
+);
+
+alter table sec_permissions
+    owner to postgres;
+
+create index idx_perm_name
+    on sec_permissions (name);
+
+create index idx_perm_module
+    on sec_permissions (module);
+
+create table sec_roles
+(
+    id          bigint generated by default as identity
+        primary key,
+    active      boolean      not null,
+    created_at  timestamp(6),
+    description varchar(255),
+    master_role varchar(60),
+    name        varchar(100) not null
+        constraint ukpfhhsqpowxuqfctb4x4obr7aa
+            unique,
+    name_bn     varchar(250),
+    updated_at  timestamp(6)
+);
+
+alter table sec_roles
+    owner to postgres;
+
+create table sec_mrole_menus
+(
+    id         bigint generated by default as identity
+        primary key,
+    can_create boolean not null,
+    can_delete boolean not null,
+    can_edit   boolean not null,
+    can_view   boolean not null,
+    created_at timestamp(6),
+    updated_at timestamp(6),
+    menu_id    bigint  not null
+        constraint fkkpnrgk8n5mtror65lvt5jqr3u
+            references app_menus,
+    role_id    bigint  not null
+        constraint fkletotvm039j1r1nb0hgufqqg
+            references sec_roles,
+    constraint uq_rma_role_menu
+        unique (role_id, menu_id)
+);
+
+alter table sec_mrole_menus
+    owner to postgres;
+
+create index idx_rma_role
+    on sec_mrole_menus (role_id);
+
+create index idx_rma_menu
+    on sec_mrole_menus (menu_id);
+
+create table sec_role_permissions
+(
+    role_id       bigint not null
+        constraint fk1m7vyrgd0qhhogorvv5fkg7ha
+            references sec_roles,
+    permission_id bigint not null
+        constraint fkkldfjpvk3a63ywq1agxogqm11
+            references sec_permissions,
+    primary key (role_id, permission_id)
+);
+
+alter table sec_role_permissions
+    owner to postgres;
+
+create table sec_users
+(
+    id                      bigint generated by default as identity
+        primary key,
+    account_non_expired     boolean      not null,
+    account_non_locked      boolean      not null,
+    created_at              timestamp(6),
+    created_by              varchar(100),
+    credentials_non_expired boolean      not null,
+    default_dashboard       varchar(35)
+        constraint sec_users_default_dashboard_check
+            check ((default_dashboard)::text = ANY
+                   ((ARRAY ['DEFAULT'::character varying, 'ACCOUNTS'::character varying, 'INVENTORY'::character varying, 'PRODUCTION'::character varying, 'SALES'::character varying, 'PURCHASE'::character varying, 'HRM'::character varying, 'COMMERCIAL'::character varying, 'HR'::character varying, 'FINANCE'::character varying])::text[])),
+    deleted                 boolean      not null,
+    email                   varchar(150) not null
+        constraint uq_user_email
+            unique,
+    enabled                 boolean      not null,
+    full_name               varchar(200),
+    last_login_at           timestamp(6),
+    password                varchar(255) not null,
+    phone                   varchar(30)
+        constraint uq_user_phone
+            unique,
+    updated_at              timestamp(6),
+    updated_by              varchar(100),
+    username                varchar(80)  not null
+        constraint uq_user_username
+            unique,
+    organization_id         bigint       not null
+        constraint fkll99q0lquiso1pqkqmg60hdt3
+            references org_organizations
+);
+
+alter table sec_users
+    owner to postgres;
+
+create table apr_delegations
+(
+    id                bigint generated by default as identity
+        primary key,
+    created_at        timestamp(6),
+    created_by        varchar(100),
+    updated_at        timestamp(6),
+    updated_by        varchar(100),
+    delegation_code   varchar(50) not null
+        constraint uq_aprd_code
+            unique,
+    document_type     varchar(50),
+    end_date          date        not null,
+    is_active         boolean     not null,
+    max_amount        numeric(18, 2),
+    module            varchar(30),
+    notify_delegator  boolean     not null,
+    reason            varchar(1000),
+    revocation_reason varchar(500),
+    revoked_at        timestamp(6),
+    start_date        date        not null,
+    status            varchar(20) not null,
+    organization_id   bigint      not null
+        constraint fkj0g28s7k8n7xfosmmgnvnv09x
+            references org_organizations,
+    delegate_id       bigint      not null
+        constraint fk8xe2d03ln0vkhngbr4pqbicui
+            references sec_users,
+    delegator_id      bigint      not null
+        constraint fkjhgivyh1j14x99e3v7oibdg1l
+            references sec_users,
+    revoked_by_id     bigint
+        constraint fkjiecun0v8bgqpdko2wa3p5wsc
+            references sec_users
+);
+
+alter table apr_delegations
+    owner to postgres;
+
+create index idx_aprdel_org
+    on apr_delegations (organization_id);
+
+create index idx_aprdel_delegator
+    on apr_delegations (delegator_id);
+
+create table apr_levels
+(
+    id                       bigint generated by default as identity
+        primary key,
+    created_at               timestamp(6),
+    created_by               varchar(100),
+    updated_at               timestamp(6),
+    updated_by               varchar(100),
+    approver_description     varchar(200),
+    can_approve_with_changes boolean      not null,
+    can_delegate             boolean      not null,
+    can_forward              boolean      not null,
+    can_hold                 boolean      not null,
+    description              varchar(500),
+    is_active                boolean      not null,
+    level_name               varchar(100) not null,
+    level_number             integer      not null,
+    organization_id          bigint       not null
+        constraint fkndfkm28oh56bmd1ncjqe9rpso
+            references org_organizations,
+    approval_config_id       bigint       not null
+        constraint fkfv2mn0r1xl1de0gg661htldw0
+            references apr_configs,
+    approver_user_id         bigint
+        constraint fk17itumse1phtvi894ym79h9hy
+            references sec_users
+);
+
+alter table apr_levels
+    owner to postgres;
+
+create index idx_aprl_config
+    on apr_levels (approval_config_id);
+
+create table apr_requests
+(
+    id                        bigint generated by default as identity
+        primary key,
+    created_at                timestamp(6),
+    created_by                varchar(100),
+    updated_at                timestamp(6),
+    updated_by                varchar(100),
+    completed_at              timestamp(6),
+    current_approver_role     varchar(80),
+    current_level_number      integer      not null,
+    document_amount           numeric(18, 2),
+    document_date             date,
+    document_summary          varchar(500),
+    document_type             varchar(50)  not null,
+    due_date                  date,
+    final_action_by           varchar(100),
+    final_remarks             varchar(1000),
+    is_urgent                 boolean      not null,
+    reference_id              bigint       not null,
+    reference_number          varchar(100) not null,
+    requester_name            varchar(200),
+    status                    varchar(20)  not null,
+    total_levels              integer      not null,
+    organization_id           bigint       not null
+        constraint fkq6r8ak6gvwkhy2d7bw4de1q3m
+            references org_organizations,
+    approval_config_id        bigint
+        constraint fk29qi6s3cryff8uwf9o6imcl9r
+            references apr_configs,
+    current_approval_level_id bigint
+        constraint fk40ow6i1ykmp8059hxhhg9m3rq
+            references apr_levels,
+    current_approver_user_id  bigint
+        constraint fk7sd73ipk8baxa9vxl5o2604sm
+            references sec_users,
+    requester_id              bigint       not null
+        constraint fkn8fwn8ck5sn6g93dnqmbja22l
+            references sec_users
+);
+
+alter table apr_requests
+    owner to postgres;
+
+create table apr_histories
+(
+    id                     bigint generated by default as identity
+        primary key,
+    action                 varchar(30)  not null,
+    action_at              timestamp(6),
+    actor_department       varchar(150),
+    actor_designation      varchar(100),
+    actor_name             varchar(150) not null,
+    comments               varchar(2000),
+    created_at             timestamp(6),
+    ip_address             varchar(50),
+    is_auto_action         boolean      not null,
+    level_name             varchar(100) not null,
+    level_number           integer      not null,
+    rejection_reason       varchar(1000),
+    response_time_minutes  bigint,
+    return_reason          varchar(1000),
+    status                 varchar(20)  not null,
+    actor_user_id          bigint
+        constraint fk7pmhbug46hdx8ukw3vrkux146
+            references sec_users,
+    approval_level_id      bigint
+        constraint fklm4u52r4k5kip134vo8yvhx6i
+            references apr_levels,
+    approval_request_id    bigint       not null
+        constraint fk3ja2njibmfu5l91twhbuke8xp
+            references apr_requests,
+    delegated_from_user_id bigint
+        constraint fk8mtqfek3bfjrjb7a50g0j99wl
+            references sec_users
+);
+
+alter table apr_histories
+    owner to postgres;
+
+create index idx_aprh_request
+    on apr_histories (approval_request_id);
+
+create index idx_aprh_user
+    on apr_histories (actor_user_id);
+
+create table apr_notifications
+(
+    id                  bigint generated by default as identity
+        primary key,
+    body                text,
+    created_at          timestamp(6),
+    delivery_status     varchar(20)  not null,
+    failure_reason      varchar(500),
+    is_read             boolean      not null,
+    link                varchar(255),
+    notification_type   varchar(20)  not null,
+    organization_id     bigint       not null,
+    read_at             timestamp(6),
+    reason              varchar(30)  not null,
+    recipient_email     varchar(200),
+    recipient_phone     varchar(50),
+    retry_count         integer      not null,
+    sent_at             timestamp(6),
+    subject             varchar(200) not null,
+    updated_at          timestamp(6),
+    approval_request_id bigint       not null
+        constraint fk41t9slyeifbags91xsmlrgqsu
+            references apr_requests,
+    recipient_id        bigint       not null
+        constraint fk4lx8ctrjwwa0w0e6unxi9fenr
+            references sec_users
+);
+
+alter table apr_notifications
+    owner to postgres;
+
+create index idx_aprnot_org
+    on apr_notifications (organization_id);
+
+create index idx_aprnot_user
+    on apr_notifications (recipient_id);
+
+create index idx_aprr_org
+    on apr_requests (organization_id);
+
+create index idx_aprr_status
+    on apr_requests (status);
+
+create index idx_aprr_ref
+    on apr_requests (reference_id, document_type);
+
+create index idx_aprr_req
+    on apr_requests (requester_id);
+
+create index idx_aprr_approver
+    on apr_requests (current_approver_user_id);
+
+create table bgt_budgets
+(
+    id                        bigint generated by default as identity
+        primary key,
+    created_at                timestamp(6),
+    created_by                varchar(100),
+    updated_at                timestamp(6),
+    updated_by                varchar(100),
+    alert_threshold_pct       numeric(5, 2)  not null,
+    allow_inter_line_transfer boolean        not null,
+    approval_status           varchar(30),
+    budget_name               varchar(200)   not null,
+    budget_no                 varchar(50)    not null,
+    budget_type               varchar(30)    not null
+        constraint bgt_budgets_budget_type_check
+            check ((budget_type)::text = ANY
+                   ((ARRAY ['ANNUAL'::character varying, 'QUARTERLY'::character varying, 'MONTHLY'::character varying, 'PROJECT'::character varying, 'DEPARTMENTAL'::character varying, 'CAPEX'::character varying, 'ROLLING'::character varying])::text[])),
+    business_unit_id          bigint,
+    currency                  varchar(3)     not null,
+    description               text,
+    exchange_rate             numeric(18, 4) not null,
+    is_template               boolean        not null,
+    over_spend_policy         varchar(20)    not null
+        constraint bgt_budgets_over_spend_policy_check
+            check ((over_spend_policy)::text = ANY
+                   ((ARRAY ['ALLOW'::character varying, 'WARN'::character varying, 'BLOCK'::character varying])::text[])),
+    period_end                date           not null,
+    period_start              date           not null,
+    period_type               varchar(20)    not null,
+    status                    varchar(30)    not null
+        constraint bgt_budgets_status_check
+            check ((status)::text = ANY
+                   ((ARRAY ['DRAFT'::character varying, 'SUBMITTED'::character varying, 'IN_APPROVAL'::character varying, 'APPROVED'::character varying, 'ACTIVE'::character varying, 'LOCKED'::character varying, 'CLOSED'::character varying, 'REJECTED'::character varying, 'RETURNED'::character varying])::text[])),
+    total_actual              numeric(18, 2) not null,
+    total_available           numeric(18, 2) not null,
+    total_budgeted            numeric(18, 2) not null,
+    total_committed           numeric(18, 2) not null,
+    total_revised             numeric(18, 2) not null,
+    version                   integer        not null,
+    organization_id           bigint         not null
+        constraint fkt44702ivwujiy0b8yexywkr9a
+            references org_organizations,
+    approval_request_id       bigint
+        constraint fknexoyl8b3x2mvnluyw6nlvhvy
+            references apr_requests,
+    fiscal_year_id            bigint         not null
+        constraint fk54id6y9r21cnvmsetcjcujm1c
+            references bgt_fiscal_years,
+    constraint uq_bgt_org_no
+        unique (organization_id, budget_no)
+);
+
+alter table bgt_budgets
+    owner to postgres;
+
+create table bgt_budget_lines
+(
+    id               bigint generated by default as identity
+        primary key,
+    created_at       timestamp(6),
+    created_by       varchar(100),
+    updated_at       timestamp(6),
+    updated_by       varchar(100),
+    actual_amount    numeric(18, 2) not null,
+    apr_amount       numeric(18, 2),
+    aug_amount       numeric(18, 2),
+    committed_amount numeric(18, 2) not null,
+    dec_amount       numeric(18, 2),
+    description      varchar(500),
+    feb_amount       numeric(18, 2),
+    jan_amount       numeric(18, 2),
+    jul_amount       numeric(18, 2),
+    jun_amount       numeric(18, 2),
+    line_number      integer        not null,
+    mar_amount       numeric(18, 2),
+    may_amount       numeric(18, 2),
+    notes            text,
+    nov_amount       numeric(18, 2),
+    oct_amount       numeric(18, 2),
+    original_amount  numeric(18, 2) not null,
+    revised_amount   numeric(18, 2) not null,
+    sep_amount       numeric(18, 2),
+    organization_id  bigint         not null
+        constraint fk1y52c2g9k2tq39rmmko5aa0ud
+            references org_organizations,
+    account_id       bigint
+        constraint fkke5bu3b4v8yh1gw59ag7p46jr
+            references acc_chart_of_accounts,
+    budget_id        bigint         not null
+        constraint fkpoq92br77ddygsbus5u8orf52
+            references bgt_budgets,
+    budget_head_id   bigint         not null
+        constraint fko6ho55at2j20qkoxklntthvw1
+            references bgt_budget_heads,
+    cost_center_id   bigint
+        constraint fkpvjaskjcy98l3mvw9xja5vr3c
+            references org_cost_centers,
+    department_id    bigint
+        constraint fk4dip7w0bjkxshrmykp84l7tyd
+            references org_departments
+);
+
+alter table bgt_budget_lines
+    owner to postgres;
+
+create table bgt_alerts
+(
+    id                bigint generated by default as identity
+        primary key,
+    alert_type        varchar(30) not null
+        constraint bgt_alerts_alert_type_check
+            check ((alert_type)::text = ANY
+                   ((ARRAY ['THRESHOLD_WARNING'::character varying, 'OVER_BUDGET'::character varying, 'ENCUMBRANCE_EXPIRY'::character varying, 'BUDGET_EXPIRY'::character varying])::text[])),
+    created_at        timestamp(6),
+    is_resolved       boolean     not null,
+    message           text,
+    notification_sent boolean     not null,
+    resolved_at       timestamp(6),
+    resolved_by       varchar(100),
+    sent_at           timestamp(6),
+    threshold_pct     numeric(5, 2),
+    triggered_at      timestamp(6),
+    updated_at        timestamp(6),
+    budget_id         bigint      not null
+        constraint fk540jjmy8b399qr9xg19yv9pmg
+            references bgt_budgets,
+    budget_line_id    bigint
+        constraint fk36rwxyvydy05dprxu9rpsr48
+            references bgt_budget_lines,
+    notify_user_id    bigint
+        constraint fkatn5lyrv2ix0lqfdxyjmxj4dp
+            references sec_users
+);
+
+alter table bgt_alerts
+    owner to postgres;
+
+create index idx_bal_budget
+    on bgt_alerts (budget_id);
+
+create index idx_bal_type
+    on bgt_alerts (alert_type);
+
+create index idx_bal_user
+    on bgt_alerts (notify_user_id);
+
+create index idx_bbl_budget
+    on bgt_budget_lines (budget_id);
+
+create index idx_bbl_head
+    on bgt_budget_lines (budget_head_id);
+
+create index idx_bbl_acct
+    on bgt_budget_lines (account_id);
+
+create index idx_bbl_cc
+    on bgt_budget_lines (cost_center_id);
+
+create table bgt_budget_notes
+(
+    id             bigint generated by default as identity
+        primary key,
+    attachment_url varchar(500),
+    created_at     timestamp(6),
+    created_by     varchar(100),
+    is_internal    boolean not null,
+    note_text      text    not null,
+    author_id      bigint
+        constraint fkd86c74b8jsq08vyniv2x52vjw
+            references sec_users,
+    budget_id      bigint  not null
+        constraint fkgc68rvvx32joqqe5xretxfn7j
+            references bgt_budgets
+);
+
+alter table bgt_budget_notes
+    owner to postgres;
+
+create index idx_bbn_budget
+    on bgt_budget_notes (budget_id);
+
+create table bgt_budget_revisions
+(
+    id                  bigint generated by default as identity
+        primary key,
+    created_at          timestamp(6),
+    created_by          varchar(100),
+    updated_at          timestamp(6),
+    updated_by          varchar(100),
+    approved_at         timestamp(6),
+    approved_by         varchar(100),
+    justification       text,
+    reason              text           not null,
+    revision_no         varchar(50)    not null,
+    revision_number     integer        not null,
+    revision_type       varchar(30)    not null
+        constraint bgt_budget_revisions_revision_type_check
+            check ((revision_type)::text = ANY
+                   ((ARRAY ['REALLOCATION'::character varying, 'SUPPLEMENTARY'::character varying, 'REDUCTION'::character varying, 'TECHNICAL'::character varying])::text[])),
+    status              varchar(30)    not null
+        constraint bgt_budget_revisions_status_check
+            check ((status)::text = ANY
+                   ((ARRAY ['DRAFT'::character varying, 'SUBMITTED'::character varying, 'IN_APPROVAL'::character varying, 'APPROVED'::character varying, 'REJECTED'::character varying])::text[])),
+    total_decrease      numeric(18, 2) not null,
+    total_increase      numeric(18, 2) not null,
+    organization_id     bigint         not null
+        constraint fknie2vx71kwsknwh7348yoxrn8
+            references org_organizations,
+    approval_request_id bigint
+        constraint fkdhn1oiw489b7ss1h5aaqh5j9u
+            references apr_requests,
+    budget_id           bigint         not null
+        constraint fk5f053oawpy2vh3f0re9et3qw6
+            references bgt_budgets,
+    constraint uq_bbr_budget_rev
+        unique (budget_id, revision_number)
+);
+
+alter table bgt_budget_revisions
+    owner to postgres;
+
+create table bgt_budget_revision_lines
+(
+    id             bigint generated by default as identity
+        primary key,
+    change_amount  numeric(18, 2) not null,
+    closing_amount numeric(18, 2) not null,
+    created_at     timestamp(6),
+    direction      varchar(1)     not null,
+    opening_amount numeric(18, 2) not null,
+    reason         text,
+    budget_line_id bigint         not null
+        constraint fkhqjm6y23s7qj485x4tx1cha4s
+            references bgt_budget_lines,
+    revision_id    bigint         not null
+        constraint fkt54yj3qri2muybhk7ifjyo3hn
+            references bgt_budget_revisions
+);
+
+alter table bgt_budget_revision_lines
+    owner to postgres;
+
+create index idx_bbrl_rev
+    on bgt_budget_revision_lines (revision_id);
+
+create index idx_bbrl_line
+    on bgt_budget_revision_lines (budget_line_id);
+
+create index idx_bbr_budget
+    on bgt_budget_revisions (budget_id);
+
+create index idx_bgt_org
+    on bgt_budgets (organization_id);
+
+create index idx_bgt_fy
+    on bgt_budgets (fiscal_year_id);
+
+create index idx_bgt_status
+    on bgt_budgets (status);
+
+create index idx_bgt_bu
+    on bgt_budgets (business_unit_id);
+
+create table bgt_transfers
+(
+    id              bigint generated by default as identity
+        primary key,
+    approved_at     timestamp(6),
+    approved_by     varchar(100),
+    created_at      timestamp(6),
+    created_by      varchar(100),
+    organization_id bigint         not null,
+    reason          text           not null,
+    status          varchar(20)    not null
+        constraint bgt_transfers_status_check
+            check ((status)::text = ANY
+                   ((ARRAY ['PENDING'::character varying, 'APPROVED'::character varying, 'REJECTED'::character varying])::text[])),
+    transfer_amount numeric(18, 2) not null,
+    transfer_date   date           not null,
+    transfer_no     varchar(50)    not null,
+    budget_id       bigint         not null
+        constraint fkpaqgwghef1rmdetdi4qvkk3sh
+            references bgt_budgets,
+    from_line_id    bigint         not null
+        constraint fk3oeeitnf32ebr0awxycylysr2
+            references bgt_budget_lines,
+    to_line_id      bigint         not null
+        constraint fkjeso58ag00tqmteperxw5tdsl
+            references bgt_budget_lines,
+    constraint uq_bt_org_no
+        unique (organization_id, transfer_no)
+);
+
+alter table bgt_transfers
+    owner to postgres;
+
+create index idx_bt_budget
+    on bgt_transfers (budget_id);
+
+create table ec_audit_logs
+(
+    id              bigint generated by default as identity
+        primary key,
+    action          varchar(30)
+        constraint ec_audit_logs_action_check
+            check ((action)::text = ANY
+                   ((ARRAY ['INSERT'::character varying, 'UPDATE'::character varying, 'DELETE'::character varying, 'LOGIN'::character varying, 'LOGOUT'::character varying, 'EXPORT'::character varying, 'IMPORT'::character varying])::text[])),
+    created_at      timestamp(6),
+    entity_id       bigint,
+    entity_name     varchar(100),
+    ip_address      varchar(50),
+    new_data        jsonb,
+    old_data        jsonb,
+    organization_id bigint,
+    user_agent      text,
+    user_id         bigint
+        constraint fkr16g9soptgyw3eubg65q6cejh
+            references sec_users
+);
+
+alter table ec_audit_logs
+    owner to postgres;
+
+create index idx_ec_audit_entity
+    on ec_audit_logs (entity_name, entity_id);
+
+create index idx_ec_audit_user
+    on ec_audit_logs (user_id);
+
+create index idx_ec_audit_org
+    on ec_audit_logs (organization_id);
+
+create index idx_ec_audit_time
+    on ec_audit_logs (created_at);
+
+create table ec_blog_posts
+(
+    id                bigint generated by default as identity
+        primary key,
+    created_at        timestamp(6),
+    created_by        varchar(100),
+    updated_at        timestamp(6),
+    updated_by        varchar(100),
+    active            boolean not null,
+    content           text,
+    featured_image    varchar(700),
+    publish_date      timestamp(6),
+    published         boolean not null,
+    seo_description   varchar(1000),
+    seo_keywords      varchar(500),
+    seo_title         varchar(255),
+    short_description text,
+    slug              varchar(300),
+    title             varchar(300),
+    total_views       bigint  not null,
+    organization_id   bigint  not null
+        constraint fkf0u810974ja8twv4mto4koo5
+            references org_organizations,
+    author_user_id    bigint
+        constraint fkfuyb0ya3xucbscutq868nmu7v
+            references sec_users,
+    category_id       bigint
+        constraint fkns68f36k7tmd4y9aj6na353uv
+            references ec_blog_categories,
+    constraint uq_ec_blog_slug
+        unique (organization_id, slug)
+);
+
+alter table ec_blog_posts
+    owner to postgres;
+
+create index idx_ec_blog_cat
+    on ec_blog_posts (category_id);
+
+create index idx_ec_blog_pub
+    on ec_blog_posts (published);
+
+create index idx_ec_blog_org
+    on ec_blog_posts (organization_id);
+
+create table ec_media_library
+(
+    id              bigint generated by default as identity
+        primary key,
+    created_at      timestamp(6),
+    created_by      varchar(100),
+    updated_at      timestamp(6),
+    updated_by      varchar(100),
+    alt_text        varchar(300),
+    file_name       varchar(300),
+    file_size       bigint,
+    file_url        varchar(700),
+    image_height    integer,
+    image_width     integer,
+    mime_type       varchar(100),
+    original_name   varchar(300),
+    thumbnail_url   varchar(700),
+    uploaded_at     timestamp(6),
+    organization_id bigint not null
+        constraint fk3r8i2qembnalt8c0pbk41ujhn
+            references org_organizations,
+    uploaded_by     bigint
+        constraint fk3xp1nh3qy05hhbaglhkyevbwb
+            references sec_users
+);
+
+alter table ec_media_library
+    owner to postgres;
+
+create index idx_ec_media_org
+    on ec_media_library (organization_id);
+
+create table hrm_employees
+(
+    id                         bigint generated by default as identity
+        primary key,
+    created_at                 timestamp(6),
+    created_by                 varchar(100),
+    updated_at                 timestamp(6),
+    updated_by                 varchar(100),
+    annual_leave_days          integer      not null,
+    bank_account_number        varchar(50),
+    bank_branch                varchar(50),
+    bank_name                  varchar(50),
+    basic_salary               numeric(12, 2),
+    blood_group                varchar(10),
+    casual_leave_days          integer      not null,
+    confirmation_date          date,
+    date_of_birth              date         not null,
+    email                      varchar(100),
+    emergency_contact_name     varchar(100),
+    emergency_contact_phone    varchar(20),
+    emergency_contact_relation varchar(100),
+    employee_code              varchar(50)  not null
+        constraint ukolle8i2619obh2f8ktg6oddkc
+            unique,
+    employee_type              varchar(20)  not null
+        constraint hrm_employees_employee_type_check
+            check ((employee_type)::text = ANY
+                   ((ARRAY ['PERMANENT'::character varying, 'CONTRACT'::character varying, 'TEMPORARY'::character varying, 'INTERN'::character varying, 'PART_TIME'::character varying, 'CONSULTANT'::character varying])::text[])),
+    exit_date                  date,
+    first_name                 varchar(100) not null,
+    gender                     varchar(20)  not null
+        constraint hrm_employees_gender_check
+            check ((gender)::text = ANY
+                   ((ARRAY ['MALE'::character varying, 'FEMALE'::character varying, 'OTHER'::character varying])::text[])),
+    gross_salary               numeric(12, 2),
+    joining_date               date         not null,
+    last_name                  varchar(100) not null,
+    marital_status             varchar(20),
+    national_id                varchar(50)
+        constraint uklld1s3lg5yamm7rh7hqs030pu
+            unique,
+    notes                      varchar(1000),
+    passport_number            varchar(50)
+        constraint uk2im3w66ptuveo2wsevokxme7d
+            unique,
+    phone                      varchar(20)  not null
+        constraint ukro75l4uubnckqudd6x3hjfh1b
+            unique,
+    probation_end_date         date,
+    profile_picture            varchar(255),
+    resignation_date           date,
+    sick_leave_days            integer      not null,
+    status                     varchar(20)  not null
+        constraint hrm_employees_status_check
+            check ((status)::text = ANY
+                   ((ARRAY ['ACTIVE'::character varying, 'INACTIVE'::character varying, 'ON_LEAVE'::character varying, 'SUSPENDED'::character varying, 'TERMINATED'::character varying, 'RESIGNED'::character varying, 'RETIRED'::character varying])::text[])),
+    work_location              varchar(50),
+    work_shift                 varchar(50),
+    organization_id            bigint       not null
+        constraint fka6mx6o0ho9x99tcimwyjqes3w
+            references org_organizations,
+    department_id              bigint       not null
+        constraint fklrar7880r8rseomomwkyfbjf0
+            references org_departments,
+    designation_id             bigint       not null
+        constraint fkpe7oarjqky7htfbm2xa4lugau
+            references hrm_designations,
+    reporting_manager_id       bigint
+        constraint fkey9efkijjguheex4oel2j8fpn
+            references hrm_employees,
+    user_id                    bigint
+        constraint uk3nvrmk95wuh31xgvu0ettl4jn
+            unique
+        constraint fkada94sfdjpo6om5m2hk1ildxs
+            references sec_users,
+    constraint uq_emp_org_code
+        unique (organization_id, employee_code)
+);
+
+alter table hrm_employees
+    owner to postgres;
+
+create table hrm_attendances
+(
+    id              bigint generated by default as identity
+        primary key,
+    att_date        date        not null,
+    check_in        time(0),
+    check_out       time(0),
+    created_at      timestamp(6),
+    created_by      varchar(100),
+    organization_id bigint      not null,
+    remarks         varchar(500),
+    source          varchar(20),
+    status          varchar(20) not null
+        constraint hrm_attendances_status_check
+            check ((status)::text = ANY
+                   ((ARRAY ['PRESENT'::character varying, 'ABSENT'::character varying, 'LATE'::character varying, 'HALF_DAY'::character varying, 'HOLIDAY'::character varying, 'LEAVE'::character varying, 'WEEKEND'::character varying])::text[])),
+    updated_at      timestamp(6),
+    working_hours   numeric(5, 2),
+    employee_id     bigint      not null
+        constraint fkbfnfg25o1d669pk0sjtpc1y3j
+            references hrm_employees,
+    constraint uq_att_emp_date
+        unique (employee_id, att_date)
+);
+
+alter table hrm_attendances
+    owner to postgres;
+
+create index idx_att_emp
+    on hrm_attendances (employee_id);
+
+create index idx_att_date
+    on hrm_attendances (att_date);
+
+create index idx_att_org
+    on hrm_attendances (organization_id);
+
+create table hrm_cost_center_allocations
+(
+    id               bigint generated by default as identity
+        primary key,
+    allocated_amount numeric(12, 2) not null,
+    allocation_month varchar(7)     not null,
+    allocation_pct   numeric(5, 2)  not null,
+    created_at       timestamp(6),
+    created_by       varchar(100),
+    gross_salary     numeric(12, 2) not null,
+    organization_id  bigint         not null,
+    remarks          varchar(500),
+    updated_at       timestamp(6),
+    cost_center_id   bigint         not null
+        constraint fkmhjujs6f2ly7p6ufw79gfo5vo
+            references org_cost_centers,
+    employee_id      bigint         not null
+        constraint fkippvmq0is95iqqoqolqoiadr6
+            references hrm_employees,
+    payroll_run_id   bigint
+        constraint fk4vlym7941jom3itv32wp28vy4
+            references hrm_payroll_runs,
+    constraint uq_hcca_emp_cc_month
+        unique (employee_id, cost_center_id, allocation_month)
+);
+
+alter table hrm_cost_center_allocations
+    owner to postgres;
+
+create index idx_hcca_emp
+    on hrm_cost_center_allocations (employee_id);
+
+create index idx_hcca_cc
+    on hrm_cost_center_allocations (cost_center_id);
+
+create index idx_hcca_month
+    on hrm_cost_center_allocations (allocation_month);
+
+create index idx_hcca_payrun
+    on hrm_cost_center_allocations (payroll_run_id);
+
+create table hrm_employee_addresses
+(
+    id            bigint generated by default as identity
+        primary key,
+    address_line1 varchar(200),
+    address_line2 varchar(200),
+    address_type  varchar(20) not null
+        constraint hrm_employee_addresses_address_type_check
+            check ((address_type)::text = ANY
+                   ((ARRAY ['PRESENT'::character varying, 'PERMANENT'::character varying, 'OFFICE'::character varying])::text[])),
+    city          varchar(100),
+    country       varchar(100),
+    created_at    timestamp(6),
+    created_by    varchar(100),
+    district      varchar(100),
+    is_default    boolean     not null,
+    postal_code   varchar(20),
+    employee_id   bigint      not null
+        constraint fksvy65phame5p88h09j3rcdr2a
+            references hrm_employees
+);
+
+alter table hrm_employee_addresses
+    owner to postgres;
+
+create index idx_hea_emp
+    on hrm_employee_addresses (employee_id);
+
+create table hrm_employee_leaves
+(
+    id                  bigint generated by default as identity
+        primary key,
+    created_at          timestamp(6),
+    created_by          varchar(100),
+    updated_at          timestamp(6),
+    updated_by          varchar(100),
+    approved_at         timestamp(6),
+    approved_by         varchar(100),
+    end_date            date          not null,
+    leave_type          varchar(30)   not null,
+    reason              text,
+    start_date          date          not null,
+    status              varchar(20)   not null
+        constraint hrm_employee_leaves_status_check
+            check ((status)::text = ANY
+                   ((ARRAY ['PENDING'::character varying, 'APPROVED'::character varying, 'REJECTED'::character varying, 'CANCELLED'::character varying])::text[])),
+    total_days          numeric(5, 1) not null,
+    organization_id     bigint        not null
+        constraint fkke54s42kstoirlpa2p7j1un4g
+            references org_organizations,
+    approval_request_id bigint
+        constraint fk6q6uh85xmlp7wbo6nxg9v8et5
+            references apr_requests,
+    employee_id         bigint        not null
+        constraint fk4g8kifsbojxn5ayrpnu613m9f
+            references hrm_employees
+);
+
+alter table hrm_employee_leaves
+    owner to postgres;
+
+create index idx_leave_emp
+    on hrm_employee_leaves (employee_id);
+
+create index idx_leave_status
+    on hrm_employee_leaves (status);
+
+create table hrm_employee_salaries
+(
+    id                  bigint generated by default as identity
+        primary key,
+    basic_salary        numeric(12, 2) not null,
+    created_at          timestamp(6),
+    created_by          varchar(100),
+    effective_date      date           not null,
+    end_date            date,
+    gross_salary        numeric(12, 2) not null,
+    house_rent          numeric(12, 2) not null,
+    income_tax          numeric(12, 2) not null,
+    is_current          boolean        not null,
+    medical_allowance   numeric(12, 2) not null,
+    net_salary          numeric(12, 2) not null,
+    other_allowances    numeric(12, 2) not null,
+    other_deductions    numeric(12, 2) not null,
+    provident_fund      numeric(12, 2) not null,
+    remarks             varchar(500),
+    transport_allowance numeric(12, 2) not null,
+    employee_id         bigint         not null
+        constraint fkqc9yglc464lknv7uwvgw9uap1
+            references hrm_employees
+);
+
+alter table hrm_employee_salaries
+    owner to postgres;
+
+create index idx_sal_emp
+    on hrm_employee_salaries (employee_id);
+
+create index idx_sal_current
+    on hrm_employee_salaries (is_current);
+
+create index idx_emp_org
+    on hrm_employees (organization_id);
+
+create index idx_emp_dept
+    on hrm_employees (department_id);
+
+create index idx_emp_desig
+    on hrm_employees (designation_id);
+
+create index idx_emp_mgr
+    on hrm_employees (reporting_manager_id);
+
+create index idx_emp_status
+    on hrm_employees (status);
+
+create table hrm_payroll_run_lines
+(
+    id                  bigint generated by default as identity
+        primary key,
+    absent_days         integer,
+    basic_salary        numeric(12, 2) not null,
+    created_at          timestamp(6),
+    gross_salary        numeric(12, 2) not null,
+    house_rent          numeric(12, 2) not null,
+    income_tax          numeric(12, 2) not null,
+    leave_days          integer,
+    loan_deduction      numeric(12, 2) not null,
+    medical_allowance   numeric(12, 2) not null,
+    net_salary          numeric(12, 2) not null,
+    other_allowances    numeric(12, 2) not null,
+    other_deductions    numeric(12, 2) not null,
+    overtime            numeric(12, 2) not null,
+    payment_status      varchar(20)    not null
+        constraint hrm_payroll_run_lines_payment_status_check
+            check ((payment_status)::text = ANY
+                   ((ARRAY ['PENDING'::character varying, 'PAID'::character varying, 'CANCELLED'::character varying])::text[])),
+    provident_fund      numeric(12, 2) not null,
+    transport_allowance numeric(12, 2) not null,
+    working_days        integer,
+    cost_center_id      bigint
+        constraint fk5ri48ldkxduhbjkxg6jf12bqb
+            references org_cost_centers,
+    employee_id         bigint         not null
+        constraint fk7046tmuonev9cus9grt5qp6kb
+            references hrm_employees,
+    payroll_run_id      bigint         not null
+        constraint fkkjkvsqt5ukrq3atq62sqejc89
+            references hrm_payroll_runs
+);
+
+alter table hrm_payroll_run_lines
+    owner to postgres;
+
+create index idx_prl_run
+    on hrm_payroll_run_lines (payroll_run_id);
+
+create index idx_prl_emp
+    on hrm_payroll_run_lines (employee_id);
+
+create table ntf_notifications
+(
+    id                bigint generated by default as identity
+        primary key,
+    category          varchar(50),
+    created_at        timestamp(6),
+    delivery_status   varchar(20)  not null,
+    failure_reason    varchar(500),
+    is_read           boolean      not null,
+    link              varchar(500),
+    message           text,
+    notification_type varchar(30)  not null
+        constraint ntf_notifications_notification_type_check
+            check ((notification_type)::text = ANY
+                   ((ARRAY ['IN_APP'::character varying, 'EMAIL'::character varying, 'SMS'::character varying, 'PUSH'::character varying, 'WHATSAPP'::character varying])::text[])),
+    organization_id   bigint       not null,
+    read_at           timestamp(6),
+    reference_id      bigint,
+    reference_type    varchar(50),
+    sent_at           timestamp(6),
+    title             varchar(200) not null,
+    updated_at        timestamp(6),
+    recipient_id      bigint       not null
+        constraint fkm0lcfbe1gcmx5lyie1p73tcid
+            references sec_users
+);
+
+alter table ntf_notifications
+    owner to postgres;
+
+create index idx_ntf_org
+    on ntf_notifications (organization_id);
+
+create index idx_ntf_recipient
+    on ntf_notifications (recipient_id);
+
+create index idx_ntf_read
+    on ntf_notifications (is_read);
+
+create index idx_ntf_created
+    on ntf_notifications (created_at);
+
+create table sec_org_admin_scopes
+(
+    id              bigint generated by default as identity
+        primary key,
+    active          boolean not null,
+    granted_at      timestamp(6),
+    granted_by      varchar(100),
+    notes           varchar(500),
+    organization_id bigint  not null
+        constraint fklkm4sq1trtr06gctuc02sslyi
+            references org_organizations,
+    user_id         bigint  not null
+        constraint fk1ba9bsl707p51ggrmp2i1ya7i
+            references sec_users,
+    constraint uq_oas_user_org
+        unique (user_id, organization_id)
+);
+
+alter table sec_org_admin_scopes
+    owner to postgres;
+
+create index idx_oas_user
+    on sec_org_admin_scopes (user_id);
+
+create index idx_oas_org
+    on sec_org_admin_scopes (organization_id);
+
+create table sec_user_access_scopes
+(
+    id           bigint generated by default as identity
+        primary key,
+    created_at   timestamp(6),
+    reference_id bigint      not null,
+    scope_type   varchar(30) not null
+        constraint sec_user_access_scopes_scope_type_check
+            check ((scope_type)::text = ANY
+                   ((ARRAY ['ORGANIZATION'::character varying, 'BUSINESS_UNIT'::character varying, 'COST_CENTER'::character varying, 'WAREHOUSE'::character varying])::text[])),
+    user_id      bigint      not null
+        constraint fkmfi41akusuh0ko8u9q80bldad
+            references sec_users,
+    constraint uq_uas_user_scope_ref
+        unique (user_id, scope_type, reference_id)
+);
+
+alter table sec_user_access_scopes
+    owner to postgres;
+
+create index idx_uas_user
+    on sec_user_access_scopes (user_id);
+
+create index idx_uas_scope
+    on sec_user_access_scopes (scope_type);
+
+create index idx_uas_ref
+    on sec_user_access_scopes (reference_id);
+
+create table sec_user_org_business_units
+(
+    user_id          bigint not null
+        constraint fk7hdt4s37iypja3f0yjcdpiedw
+            references sec_users,
+    business_unit_id bigint not null
+        constraint fkaqi67mr53g3mgr0p9phigotvj
+            references org_business_units,
+    primary key (user_id, business_unit_id)
+);
+
+alter table sec_user_org_business_units
+    owner to postgres;
+
+create table sec_user_org_cost_centers
+(
+    user_id        bigint not null
+        constraint fknnmehw09fpuidyocnno32xbyr
+            references sec_users,
+    cost_center_id bigint not null
+        constraint fk2u5fbwhknaloij9pu4bixqyrh
+            references org_cost_centers,
+    primary key (user_id, cost_center_id)
+);
+
+alter table sec_user_org_cost_centers
+    owner to postgres;
+
+create table sec_user_organizations
+(
+    user_id         bigint not null
+        constraint fk4fe9rimsm1vqs8pp9l2mr18nr
+            references sec_users,
+    organization_id bigint not null
+        constraint fkhql55ll69ptpgpkom8bx2hlw0
+            references org_organizations,
+    primary key (user_id, organization_id)
+);
+
+alter table sec_user_organizations
+    owner to postgres;
+
+create table sec_user_roles
+(
+    user_id bigint not null
+        constraint fk6d32hv6ac0uyqu7ott0ywlwoh
+            references sec_users,
+    role_id bigint not null
+        constraint fk8mgpk2jr7d5v3in5m15diobsv
+            references sec_roles,
+    primary key (user_id, role_id)
+);
+
+alter table sec_user_roles
+    owner to postgres;
+
+create table sec_user_warehouses
+(
+    user_id      bigint not null
+        constraint fk7f4nj9v16hmx8297335cx1acs
+            references sec_users,
+    warehouse_id bigint not null
+        constraint fkperqtbpabptvb816e2y4u5fep
+            references org_warehouses,
+    primary key (user_id, warehouse_id)
+);
+
+alter table sec_user_warehouses
+    owner to postgres;
+
+create index idx_user_username
+    on sec_users (username);
+
+create index idx_user_email
+    on sec_users (email);
+
+create index idx_user_deleted
+    on sec_users (deleted);
+
+create table stp_banks
+(
+    id                           bigint generated by default as identity
+        primary key,
+    created_at                   timestamp(6),
+    created_by                   varchar(100),
+    updated_at                   timestamp(6),
+    updated_by                   varchar(100),
+    bank_category                varchar(30),
+    bank_code                    varchar(20)  not null,
+    bank_name                    varchar(200) not null,
+    bank_name_local              varchar(200),
+    bank_type                    varchar(30)  not null
+        constraint stp_banks_bank_type_check
+            check ((bank_type)::text = ANY
+                   ((ARRAY ['COMMERCIAL'::character varying, 'STATE_OWNED'::character varying, 'PRIVATE'::character varying, 'FOREIGN'::character varying, 'SPECIALIZED'::character varying, 'ISLAMIC'::character varying, 'DEVELOPMENT'::character varying, 'COOPERATIVE'::character varying])::text[])),
+    central_bank_code            varchar(20),
+    correspondent_account_number varchar(50),
+    correspondent_bank_name      varchar(200),
+    correspondent_swift_code     varchar(11),
+    head_office_address          varchar(500),
+    head_office_city             varchar(100),
+    head_office_country          varchar(100),
+    head_office_email            varchar(100),
+    head_office_phone            varchar(50),
+    is_active                    boolean      not null,
+    rating                       varchar(30)  not null
+        constraint stp_banks_rating_check
+            check ((rating)::text = ANY
+                   ((ARRAY ['UNRATED'::character varying, 'EXCELLENT'::character varying, 'GOOD'::character varying, 'AVERAGE'::character varying, 'POOR'::character varying, 'BLACKLISTED'::character varying])::text[])),
+    routing_number_prefix        varchar(9),
+    short_name                   varchar(50),
+    supports_btb_lc              boolean      not null,
+    supports_export_lc           boolean      not null,
+    supports_import_lc           boolean      not null,
+    supports_inland_lc           boolean      not null,
+    supports_lc                  boolean      not null,
+    supports_online_banking      boolean      not null,
+    swift_code                   varchar(11),
+    website                      varchar(200),
+    organization_id              bigint       not null
+        constraint fk7m101jov7tu9n5504v8fms28t
+            references org_organizations,
+    constraint uq_bank_org_code
+        unique (organization_id, bank_code)
+);
+
+alter table stp_banks
+    owner to postgres;
+
+create table acc_chart_of_accounts_sub
+(
+    sub_account_type            varchar(31)  not null
+        constraint acc_chart_of_accounts_sub_sub_account_type_check
+            check ((sub_account_type)::text = ANY
+                   ((ARRAY ['BANK'::character varying, 'CASH'::character varying, 'CUSTOMER'::character varying, 'EMPLOYEE'::character varying, 'GENERAL'::character varying, 'INTER_COMPANY'::character varying, 'LC'::character varying, 'SUPPLIER'::character varying])::text[])),
+    id                          bigint generated by default as identity
+        primary key,
+    created_at                  timestamp(6),
+    created_by                  varchar(100),
+    updated_at                  timestamp(6),
+    updated_by                  varchar(100),
+    account_number              varchar(50)
+        constraint ukcrlqyjxfsntlj138xw40dyyn8
+            unique,
+    account_title               varchar(200),
+    address                     varchar(500),
+    approval_limit              numeric(18, 2),
+    bank_account_code           varchar(50)
+        constraint ukjq8x73fw7yktf31iimaupoylw
+            unique,
+    bank_account_ledger_id      bigint,
+    bank_account_type           varchar(20),
+    bank_name                   varchar(200),
+    beneficiary_bank_account_id bigint,
+    beneficiary_bank_id         bigint,
+    branch_address              varchar(200),
+    branch_code                 varchar(10),
+    branch_name                 varchar(100),
+    branch_phone                varchar(20),
+    btb_lc_no                   varchar(100),
+    btma_certificate_required   boolean,
+    buyer_bank_account_id       bigint,
+    buyer_bank_id               bigint,
+    cash_account_code           varchar(50)
+        constraint ukouab30ywmi6yp6tvn9ys37fvh
+            unique,
+    cash_account_type           varchar(20),
+    certifications              text,
+    city                        varchar(50),
+    contact_email               varchar(100),
+    contact_person              varchar(200),
+    contact_phone               varchar(20),
+    country                     varchar(50),
+    credit_days                 integer,
+    credit_limit                numeric(18, 2),
+    currency                    varchar(20),
+    current_balance             numeric(18, 2),
+    custodian                   varchar(100),
+    custodian_email             varchar(100),
+    custodian_phone             varchar(20),
+    customer_code               varchar(50),
+    customer_group              varchar(50),
+    customer_id                 bigint,
+    description                 varchar(1000),
+    exchange_rate               numeric(18, 4),
+    expiry_date                 date,
+    foreign_bank_id             bigint,
+    iban_number                 varchar(34),
+    interest_rate               numeric(8, 4),
+    is_active                   boolean      not null,
+    is_export_customer          boolean,
+    is_import_supplier          boolean,
+    issue_date                  date,
+    lc_amount                   numeric(18, 2),
+    lc_number                   varchar(100)
+        constraint uk9b3lfxcmt6lb5gs1cyof0uox0
+            unique,
+    lc_status                   varchar(30),
+    lc_type                     varchar(30),
+    lead_time_days              integer,
+    location                    varchar(100),
+    loyalty_points              integer,
+    manual_lc_number            varchar(100),
+    margin_account_id           bigint,
+    master_lc_date              date,
+    master_lc_no                varchar(100),
+    maximum_limit               numeric(18, 2),
+    minimum_limit               numeric(18, 2),
+    opening_balance             numeric(18, 2),
+    overdraft_interest_rate     numeric(8, 4),
+    overdraft_limit             numeric(18, 2),
+    partial_shipment_allowed    boolean,
+    payment_term                varchar(30),
+    payment_terms               varchar(100),
+    postal_code                 varchar(20),
+    preferred_currency          varchar(3),
+    receiving_date              date,
+    remarks                     varchar(1000),
+    requires_approval           boolean      not null,
+    routing_number              varchar(9),
+    sales_representative        varchar(100),
+    shipment_date               date,
+    shipment_mode               varchar(20),
+    state                       varchar(50),
+    sub_account_code            varchar(50)  not null
+        constraint uk4jbleouqhrkuju9onykdx0r8x
+            unique,
+    sub_account_name            varchar(200) not null,
+    supplier_code               varchar(50),
+    supplier_id                 bigint,
+    swift_code                  varchar(11),
+    tax_id                      varchar(50),
+    tenure_days                 integer,
+    terms_condition             text,
+    transaction_currency        varchar(20),
+    vat_registration_no         varchar(50),
+    organization_id             bigint       not null
+        constraint fkjen6gpym605ym5ydc8jviepvj
+            references org_organizations,
+    bank_id                     bigint
+        constraint fk7w15cfe8siqwptecp0lytpfs4
+            references stp_banks,
+    main_account_id             bigint       not null
+        constraint fkb8wu0st36em6bl7fqcx4akxfo
+            references acc_chart_of_accounts
+);
+
+alter table acc_chart_of_accounts_sub
+    owner to postgres;
+
+create index idx_sub_org
+    on acc_chart_of_accounts_sub (organization_id);
+
+create index idx_sub_type
+    on acc_chart_of_accounts_sub (sub_account_type);
+
+create index idx_sub_main
+    on acc_chart_of_accounts_sub (main_account_id);
+
+create index idx_sub_bank
+    on acc_chart_of_accounts_sub (bank_id);
+
+create table acc_journal_entry_lines
+(
+    id                 bigint generated by default as identity
+        primary key,
+    created_at         timestamp(6),
+    created_by         varchar(100),
+    updated_at         timestamp(6),
+    updated_by         varchar(100),
+    amount             numeric(18, 2) not null,
+    base_amount        numeric(18, 2),
+    currency_code      varchar(20),
+    entry_type         varchar(10)    not null
+        constraint acc_journal_entry_lines_entry_type_check
+            check ((entry_type)::text = ANY
+                   ((ARRAY ['DEBIT'::character varying, 'CREDIT'::character varying])::text[])),
+    exchange_rate      numeric(18, 6),
+    external_reference varchar(100),
+    is_tax_line        boolean        not null,
+    line_number        integer        not null,
+    narration          varchar(500),
+    reference_no       varchar(100),
+    source_id          bigint,
+    source_number      varchar(100),
+    source_type        varchar(50),
+    tax_code           varchar(20),
+    organization_id    bigint         not null
+        constraint fkgbmojtjtlvq18ib65iisn8fua
+            references org_organizations,
+    account_id         bigint         not null
+        constraint fk1edkg9muapiu1dimdl9eq24an
+            references acc_chart_of_accounts,
+    cost_center_id     bigint
+        constraint fk78fefrg8hibl4xfilbpa72bl9
+            references org_cost_centers,
+    journal_entry_id   bigint         not null
+        constraint fk38a7cb5lqa8wvbai5vusrj8fm
+            references acc_journal_entry_master,
+    sub_account_id     bigint
+        constraint fkhc3el9qrktc59c5led0oi4n7f
+            references acc_chart_of_accounts_sub
+);
+
+alter table acc_journal_entry_lines
+    owner to postgres;
+
+create index idx_jel_journal
+    on acc_journal_entry_lines (journal_entry_id);
+
+create index idx_jel_account
+    on acc_journal_entry_lines (account_id);
+
+create index idx_jel_sub
+    on acc_journal_entry_lines (sub_account_id);
+
+create index idx_jel_cc
+    on acc_journal_entry_lines (cost_center_id);
+
+create index idx_jel_org
+    on acc_journal_entry_lines (organization_id);
+
+create index idx_jel_source
+    on acc_journal_entry_lines (source_type, source_id);
+
+create table bgt_actuals
+(
+    id                    bigint generated by default as identity
+        primary key,
+    created_at            timestamp(6),
+    created_by            varchar(100),
+    credit_amount         numeric(18, 2) not null,
+    debit_amount          numeric(18, 2) not null,
+    narration             varchar(500),
+    net_amount            numeric(18, 2) not null,
+    source_document_id    bigint,
+    source_document_no    varchar(100),
+    source_document_type  varchar(50),
+    transaction_date      date           not null,
+    budget_id             bigint         not null
+        constraint fk4sl6tnfs3xktkn4ks057xfdqb
+            references bgt_budgets,
+    budget_line_id        bigint         not null
+        constraint fkfhnyik5pb7nkxntftmi4r3jf1
+            references bgt_budget_lines,
+    journal_entry_id      bigint         not null
+        constraint fkknvhv508gxoy52kbp47kj7fae
+            references acc_journal_entry_master,
+    journal_entry_line_id bigint
+        constraint fke6cy7w039qmrqgge4c65709xm
+            references acc_journal_entry_lines
+);
+
+alter table bgt_actuals
+    owner to postgres;
+
+create index idx_ba_budget
+    on bgt_actuals (budget_id);
+
+create index idx_ba_line
+    on bgt_actuals (budget_line_id);
+
+create index idx_ba_journal
+    on bgt_actuals (journal_entry_id);
+
+create index idx_ba_jel
+    on bgt_actuals (journal_entry_line_id);
+
+create index idx_ba_date
+    on bgt_actuals (transaction_date);
+
+create table com_commercial_invoice
+(
+    id                bigint generated by default as identity
+        primary key,
+    bl_number         varchar(255),
+    container_no      varchar(255),
+    created_at        timestamp(6),
+    currency          varchar(10),
+    delivery_id       bigint,
+    exchange_rate     numeric(18, 4),
+    grn_id            bigint,
+    incoterms         varchar(255),
+    invoice_date      date,
+    invoice_no        varchar(255) not null
+        constraint uq_ci_invoice_no
+            unique,
+    invoice_type      varchar(20)
+        constraint com_commercial_invoice_invoice_type_check
+            check ((invoice_type)::text = ANY
+                   ((ARRAY ['EXPORT'::character varying, 'IMPORT'::character varying])::text[])),
+    organization_id   bigint,
+    port_of_discharge varchar(255),
+    port_of_loading   varchar(255),
+    remarks           text,
+    status            varchar(20)
+        constraint com_commercial_invoice_status_check
+            check ((status)::text = ANY
+                   ((ARRAY ['DRAFT'::character varying, 'FINALIZED'::character varying, 'POSTED'::character varying, 'CANCELLED'::character varying])::text[])),
+    total_amount      numeric(18, 2),
+    total_amount_bdt  numeric(18, 2),
+    updated_at        timestamp(6),
+    vessel_name       varchar(255),
+    lc_id             bigint
+        constraint fkhnhmb36pramoxa14q3e95a5sk
+            references acc_chart_of_accounts_sub,
+    party_id          bigint
+        constraint fkhhfhtxi379doiawriiy1n6n6b
+            references acc_chart_of_accounts_sub
+);
+
+alter table com_commercial_invoice
+    owner to postgres;
+
+create index idx_ci_org
+    on com_commercial_invoice (organization_id);
+
+create index idx_ci_lc
+    on com_commercial_invoice (lc_id);
+
+create table com_commercial_invoice_item
+(
+    id                 bigint generated by default as identity
+        primary key,
+    delivery_detail_id bigint,
+    description        varchar(500),
+    quantity           numeric(18, 3) not null,
+    total_amount       numeric(18, 2) not null,
+    unit               varchar(20),
+    unit_price         numeric(18, 4) not null,
+    invoice_id         bigint         not null
+        constraint fkmvtde3cnxp7m6f4am2r2dm5xh
+            references com_commercial_invoice,
+    item_id            bigint         not null
+        constraint fkfa3q9evf2qpg9vyrha0bu4g3q
+            references inv_items
+);
+
+alter table com_commercial_invoice_item
+    owner to postgres;
+
+create index idx_cii_invoice
+    on com_commercial_invoice_item (invoice_id);
+
+create table crm_contacts
+(
+    id              bigint generated by default as identity
+        primary key,
+    created_at      timestamp(6),
+    created_by      varchar(100),
+    updated_at      timestamp(6),
+    updated_by      varchar(100),
+    department      varchar(100),
+    designation     varchar(100),
+    email           varchar(100),
+    first_name      varchar(100) not null,
+    is_active       boolean      not null,
+    is_primary      boolean      not null,
+    last_name       varchar(100),
+    mobile          varchar(20),
+    notes           text,
+    phone           varchar(20),
+    whatsapp        varchar(20),
+    organization_id bigint       not null
+        constraint fko5uc94u1pu2de3djk6ysgmyrp
+            references org_organizations,
+    customer_id     bigint
+        constraint fkt4jg6w8xyca27kyw3s21bn81a
+            references acc_chart_of_accounts_sub
+);
+
+alter table crm_contacts
+    owner to postgres;
+
+create index idx_crc_customer
+    on crm_contacts (customer_id);
+
+create index idx_crc_org
+    on crm_contacts (organization_id);
+
+create table crm_leads
+(
+    id               bigint generated by default as identity
+        primary key,
+    created_at       timestamp(6),
+    created_by       varchar(100),
+    updated_at       timestamp(6),
+    updated_by       varchar(100),
+    city             varchar(100),
+    company_name     varchar(200),
+    contact_email    varchar(100),
+    contact_name     varchar(200) not null,
+    contact_phone    varchar(20),
+    country          varchar(100),
+    designation      varchar(100),
+    estimated_qty_kg numeric(14, 2),
+    lead_no          varchar(50)  not null,
+    lead_type        varchar(20)  not null,
+    product_interest text,
+    remarks          text,
+    source           varchar(50),
+    status           varchar(30)  not null
+        constraint crm_leads_status_check
+            check ((status)::text = ANY
+                   ((ARRAY ['NEW'::character varying, 'CONTACTED'::character varying, 'QUALIFIED'::character varying, 'UNQUALIFIED'::character varying, 'CONVERTED'::character varying, 'LOST'::character varying, 'DORMANT'::character varying])::text[])),
+    organization_id  bigint       not null
+        constraint fkiuxjx4162p4c19qj1nku9h1p5
+            references org_organizations,
+    assigned_to_id   bigint
+        constraint fkfrvxbx8de0qndt6tig83s6phc
+            references sec_users,
+    converted_to_id  bigint
+        constraint fkd5j0pv1q9jq3ws2wdj1ox8woq
+            references acc_chart_of_accounts_sub,
+    constraint uq_crl_org_no
+        unique (organization_id, lead_no)
+);
+
+alter table crm_leads
+    owner to postgres;
+
+create index idx_crl_org
+    on crm_leads (organization_id);
+
+create index idx_crl_status
+    on crm_leads (status);
+
+create index idx_crl_source
+    on crm_leads (source);
+
+create table crm_opportunities
+(
+    id                  bigint generated by default as identity
+        primary key,
+    created_at          timestamp(6),
+    created_by          varchar(100),
+    updated_at          timestamp(6),
+    updated_by          varchar(100),
+    actual_close_date   date,
+    currency            varchar(3)    not null,
+    description         text,
+    estimated_value     numeric(18, 2),
+    expected_close_date date,
+    lost_reason         varchar(500),
+    opportunity_no      varchar(50)   not null,
+    probability         numeric(5, 2) not null,
+    remarks             text,
+    stage               varchar(30)   not null
+        constraint crm_opportunities_stage_check
+            check ((stage)::text = ANY
+                   ((ARRAY ['PROSPECT'::character varying, 'QUALIFIED'::character varying, 'PROPOSAL'::character varying, 'NEGOTIATION'::character varying, 'WON'::character varying, 'LOST'::character varying])::text[])),
+    title               varchar(200)  not null,
+    organization_id     bigint        not null
+        constraint fkla5cciobwchpykofr9e7mtlak
+            references org_organizations,
+    assigned_to_id      bigint
+        constraint fkfncs2syxehy0oabhfepqbasua
+            references sec_users,
+    customer_id         bigint
+        constraint fkg0hjcpr3jryhy8g466kw1ci7k
+            references acc_chart_of_accounts_sub,
+    lead_id             bigint
+        constraint fk7np0l66yhaow9wb79nee8h95h
+            references crm_leads,
+    constraint uq_cro_org_no
+        unique (organization_id, opportunity_no)
+);
+
+alter table crm_opportunities
+    owner to postgres;
+
+create table crm_activities
+(
+    id               bigint generated by default as identity
+        primary key,
+    created_at       timestamp(6),
+    created_by       varchar(100),
+    updated_at       timestamp(6),
+    updated_by       varchar(100),
+    activity_date    date         not null,
+    activity_type    varchar(30)  not null
+        constraint crm_activities_activity_type_check
+            check ((activity_type)::text = ANY
+                   ((ARRAY ['CALL'::character varying, 'EMAIL'::character varying, 'MEETING'::character varying, 'VISIT'::character varying, 'SAMPLE_SENT'::character varying, 'QUOTATION'::character varying, 'FOLLOW_UP'::character varying, 'NOTE'::character varying, 'OTHER'::character varying])::text[])),
+    description      text,
+    duration_minutes integer,
+    next_action      varchar(500),
+    next_action_date date,
+    outcome          varchar(500),
+    status           varchar(20)  not null
+        constraint crm_activities_status_check
+            check ((status)::text = ANY
+                   ((ARRAY ['PLANNED'::character varying, 'COMPLETED'::character varying, 'CANCELLED'::character varying])::text[])),
+    subject          varchar(200) not null,
+    organization_id  bigint       not null
+        constraint fkkp701ocsdogh4vwedckv0uut4
+            references org_organizations,
+    assigned_to_id   bigint
+        constraint fk1ul5xdvfrtus8re2jdibmj58v
+            references sec_users,
+    customer_id      bigint
+        constraint fkmluk240xrfgylnm07ifiv429j
+            references acc_chart_of_accounts_sub,
+    lead_id          bigint
+        constraint fk8ui8vof3mtwp7h6auj4lq5dbx
+            references crm_leads,
+    opportunity_id   bigint
+        constraint fkcu1l3ovbf6iewux8mllyuhwh3
+            references crm_opportunities
+);
+
+alter table crm_activities
+    owner to postgres;
+
+create index idx_cra_org
+    on crm_activities (organization_id);
+
+create index idx_cra_opp
+    on crm_activities (opportunity_id);
+
+create index idx_cra_date
+    on crm_activities (activity_date);
+
+create index idx_cra_user
+    on crm_activities (assigned_to_id);
+
+create index idx_cro_org
+    on crm_opportunities (organization_id);
+
+create index idx_cro_stage
+    on crm_opportunities (stage);
+
+create index idx_cro_customer
+    on crm_opportunities (customer_id);
+
+create index idx_cro_lead
+    on crm_opportunities (lead_id);
+
+create table ec_customers
+(
+    id                 bigint generated by default as identity
+        primary key,
+    account_status     varchar(20)    not null
+        constraint ec_customers_account_status_check
+            check ((account_status)::text = ANY
+                   ((ARRAY ['ACTIVE'::character varying, 'BLOCKED'::character varying, 'PENDING'::character varying, 'DELETED'::character varying])::text[])),
+    active             boolean        not null,
+    company_name       varchar(200),
+    created_at         timestamp(6),
+    created_by         varchar(255),
+    customer_code      varchar(50)    not null,
+    customer_group     varchar(50),
+    date_of_birth      date,
+    deleted            boolean        not null,
+    email              varchar(200),
+    email_verified     boolean        not null,
+    first_name         varchar(100)   not null,
+    full_name          varchar(200),
+    gender             varchar(20)
+        constraint ec_customers_gender_check
+            check ((gender)::text = ANY
+                   ((ARRAY ['MALE'::character varying, 'FEMALE'::character varying, 'OTHER'::character varying])::text[])),
+    last_login_at      timestamp(6),
+    last_name          varchar(100),
+    national_id        varchar(100),
+    organization_id    bigint         not null,
+    password_hash      varchar(255),
+    phone              varchar(30)    not null,
+    phone_verified     boolean        not null,
+    profile_image      varchar(500),
+    reward_points      integer        not null,
+    tax_number         varchar(100),
+    total_orders       integer        not null,
+    total_purchase     numeric(18, 2) not null,
+    updated_at         timestamp(6),
+    updated_by         varchar(255),
+    erp_sub_account_id bigint
+        constraint fknvs23kn447w4dqrdat1bthueo
+            references acc_chart_of_accounts_sub,
+    user_id            bigint
+        constraint fke83gsrv3yc4rb3hnw88ub9sri
+            references sec_users,
+    constraint uq_ec_customer_code
+        unique (organization_id, customer_code)
+);
+
+alter table ec_customers
+    owner to postgres;
+
+create table ec_affiliates
+(
+    id               bigint generated by default as identity
+        primary key,
+    created_at       timestamp(6),
+    created_by       varchar(100),
+    updated_at       timestamp(6),
+    updated_by       varchar(100),
+    affiliate_code   varchar(100),
+    commission_rate  numeric(8, 2),
+    payable_amount   numeric(18, 2),
+    status           varchar(20) not null
+        constraint ec_affiliates_status_check
+            check ((status)::text = ANY
+                   ((ARRAY ['ACTIVE'::character varying, 'BLOCKED'::character varying, 'SUSPENDED'::character varying])::text[])),
+    total_commission numeric(18, 2),
+    total_sales      numeric(18, 2),
+    organization_id  bigint      not null
+        constraint fk80ro6x5xlxrsunqwp0xeji92m
+            references org_organizations,
+    customer_id      bigint
+        constraint fkdlb7nm0qhcat8p4e2ywg5wqyh
+            references ec_customers,
+    constraint uq_ec_affiliate
+        unique (organization_id, affiliate_code)
+);
+
+alter table ec_affiliates
+    owner to postgres;
+
+create index idx_ec_affiliate_cust
+    on ec_affiliates (customer_id);
+
+create index idx_ec_affiliate_org
+    on ec_affiliates (organization_id);
+
+create table ec_cart
+(
+    id              bigint generated by default as identity
+        primary key,
+    created_at      timestamp(6),
+    created_by      varchar(100),
+    updated_at      timestamp(6),
+    updated_by      varchar(100),
+    active          boolean        not null,
+    cart_status     varchar(20)    not null
+        constraint ec_cart_cart_status_check
+            check ((cart_status)::text = ANY
+                   ((ARRAY ['ACTIVE'::character varying, 'ORDERED'::character varying, 'ABANDONED'::character varying, 'EXPIRED'::character varying])::text[])),
+    coupon_discount numeric(18, 2) not null,
+    discount_amount numeric(18, 2) not null,
+    expires_at      timestamp(6),
+    grand_total     numeric(18, 2) not null,
+    session_id      varchar(150),
+    shipping_charge numeric(18, 2) not null,
+    subtotal        numeric(18, 2) not null,
+    tax_amount      numeric(18, 2) not null,
+    total_items     integer        not null,
+    organization_id bigint         not null
+        constraint fk5bj5m7v3kjg9b442fp5byvx40
+            references org_organizations,
+    customer_id     bigint
+        constraint fkrlq1rna7vytm6586bw6w91krs
+            references ec_customers
+);
+
+alter table ec_cart
+    owner to postgres;
+
+create table ec_abandoned_cart
+(
+    id                 bigint generated by default as identity
+        primary key,
+    abandoned_at       timestamp(6),
+    recovered          boolean not null,
+    recovered_order_id bigint,
+    reminder_sent      boolean not null,
+    cart_id            bigint  not null
+        constraint fk1n71hyq5wflpeob7n475115tk
+            references ec_cart,
+    customer_id        bigint
+        constraint fk4e5ko0m8152ebj7cdwm3eybaa
+            references ec_customers
+);
+
+alter table ec_abandoned_cart
+    owner to postgres;
+
+create index idx_ec_abandoned_cust
+    on ec_abandoned_cart (customer_id);
+
+create index idx_ec_abandoned_order
+    on ec_abandoned_cart (recovered_order_id);
+
+create index idx_ec_cart_cust
+    on ec_cart (customer_id);
+
+create index idx_ec_cart_session
+    on ec_cart (session_id);
+
+create index idx_ec_cart_status
+    on ec_cart (cart_status);
+
+create index idx_ec_cart_org
+    on ec_cart (organization_id);
+
+create table ec_cart_items
+(
+    id              bigint generated by default as identity
+        primary key,
+    created_at      timestamp(6),
+    discount_amount numeric(18, 2),
+    line_total      numeric(18, 2) not null,
+    quantity        numeric(12, 3) not null,
+    remarks         varchar(500),
+    tax_amount      numeric(18, 2),
+    unit_price      numeric(18, 2) not null,
+    cart_id         bigint         not null
+        constraint fk8a8y74mp529gl4n9ojje6i2p
+            references ec_cart,
+    product_id      bigint         not null
+        constraint fk4sh0t9sw7lwkc1d4hn4weo331
+            references ec_product_catalog,
+    variant_id      bigint
+        constraint fkti2yhxh6rfov7dpkenye5vwdy
+            references ec_product_variants,
+    constraint uq_ec_cart_product
+        unique (cart_id, product_id, variant_id)
+);
+
+alter table ec_cart_items
+    owner to postgres;
+
+create index idx_ec_cartitem_cart
+    on ec_cart_items (cart_id);
+
+create index idx_ec_cartitem_prod
+    on ec_cart_items (product_id);
+
+create table ec_coupon_usage
+(
+    id              bigint generated by default as identity
+        primary key,
+    discount_amount numeric(18, 2),
+    order_id        bigint,
+    used_at         timestamp(6),
+    coupon_id       bigint not null
+        constraint fkm3wa80fjt7ubgs709j04ifsqm
+            references ec_coupon,
+    customer_id     bigint
+        constraint fk9ad9qsc2vyjlyqae9p22ar26w
+            references ec_customers
+);
+
+alter table ec_coupon_usage
+    owner to postgres;
+
+create index idx_ec_couponuse_coupon
+    on ec_coupon_usage (coupon_id);
+
+create index idx_ec_couponuse_cust
+    on ec_coupon_usage (customer_id);
+
+create index idx_ec_couponuse_order
+    on ec_coupon_usage (order_id);
+
+create table ec_customer_addresses
+(
+    id               bigint generated by default as identity
+        primary key,
+    active           boolean not null,
+    address_line1    varchar(300),
+    address_line2    varchar(300),
+    address_type     varchar(20)
+        constraint ec_customer_addresses_address_type_check
+            check ((address_type)::text = ANY
+                   ((ARRAY ['HOME'::character varying, 'OFFICE'::character varying, 'BILLING'::character varying, 'SHIPPING'::character varying, 'OTHER'::character varying])::text[])),
+    area             varchar(150),
+    contact_person   varchar(200),
+    contact_phone    varchar(30),
+    country          varchar(100),
+    created_at       timestamp(6),
+    created_by       varchar(255),
+    default_billing  boolean not null,
+    default_shipping boolean not null,
+    district         varchar(100),
+    division         varchar(100),
+    landmark         varchar(200),
+    latitude         numeric(12, 8),
+    longitude        numeric(12, 8),
+    post_code        varchar(20),
+    upazila          varchar(100),
+    updated_at       timestamp(6),
+    updated_by       varchar(255),
+    customer_id      bigint  not null
+        constraint fkafemdhqqda5v37lfytjcp9tc3
+            references ec_customers
+);
+
+alter table ec_customer_addresses
+    owner to postgres;
+
+create index idx_ec_custaddr_cust
+    on ec_customer_addresses (customer_id);
+
+create table ec_customer_devices
+(
+    id          bigint generated by default as identity
+        primary key,
+    active      boolean not null,
+    app_version varchar(50),
+    device_name varchar(200),
+    device_type varchar(50),
+    device_uuid varchar(200),
+    last_active timestamp(6),
+    os_name     varchar(100),
+    push_token  text,
+    customer_id bigint  not null
+        constraint fkrfal7wl0b15u1yryj5k01uyhn
+            references ec_customers
+);
+
+alter table ec_customer_devices
+    owner to postgres;
+
+create index idx_ec_device_cust
+    on ec_customer_devices (customer_id);
+
+create table ec_customer_login_history
+(
+    id               bigint generated by default as identity
+        primary key,
+    browser          varchar(150),
+    device           varchar(150),
+    ip_address       varchar(50),
+    login_source     varchar(50),
+    login_status     varchar(20),
+    login_time       timestamp(6),
+    logout_time      timestamp(6),
+    operating_system varchar(150),
+    customer_id      bigint not null
+        constraint fkj3si0x0kr94gqjh47xeku2jd0
+            references ec_customers
+);
+
+alter table ec_customer_login_history
+    owner to postgres;
+
+create index idx_ec_login_cust
+    on ec_customer_login_history (customer_id);
+
+create index idx_ec_login_time
+    on ec_customer_login_history (login_time);
+
+create table ec_customer_otp
+(
+    id          bigint generated by default as identity
+        primary key,
+    created_at  timestamp(6),
+    email       varchar(200),
+    expiry_time timestamp(6),
+    otp_code    varchar(10),
+    otp_type    varchar(30)
+        constraint ec_customer_otp_otp_type_check
+            check ((otp_type)::text = ANY
+                   ((ARRAY ['LOGIN'::character varying, 'REGISTER'::character varying, 'FORGOT_PASSWORD'::character varying, 'VERIFY_PHONE'::character varying, 'VERIFY_EMAIL'::character varying])::text[])),
+    phone       varchar(30),
+    verified    boolean not null,
+    customer_id bigint
+        constraint fkevatyfwhwht1q0em8dddkufqj
+            references ec_customers
+);
+
+alter table ec_customer_otp
+    owner to postgres;
+
+create index idx_ec_otp_cust
+    on ec_customer_otp (customer_id);
+
+create index idx_ec_otp_phone
+    on ec_customer_otp (phone);
+
+create index idx_ec_otp_email
+    on ec_customer_otp (email);
+
+create table ec_customer_wallet
+(
+    id               bigint generated by default as identity
+        primary key,
+    amount           numeric(18, 2) not null,
+    balance_after    numeric(18, 2) not null,
+    created_at       timestamp(6),
+    created_by       varchar(100),
+    narration        varchar(500),
+    reference_id     bigint,
+    reference_type   varchar(50),
+    transaction_type varchar(20)
+        constraint ec_customer_wallet_transaction_type_check
+            check ((transaction_type)::text = ANY
+                   ((ARRAY ['CREDIT'::character varying, 'DEBIT'::character varying])::text[])),
+    customer_id      bigint         not null
+        constraint fkrny8qhb8e0us2l3rh5u9xd7ji
+            references ec_customers
+);
+
+alter table ec_customer_wallet
+    owner to postgres;
+
+create index idx_ec_wallet_cust
+    on ec_customer_wallet (customer_id);
+
+create index idx_ec_wallet_ref
+    on ec_customer_wallet (reference_type, reference_id);
+
+create index idx_ec_wallet_time
+    on ec_customer_wallet (created_at);
+
+create index idx_ec_cust_org
+    on ec_customers (organization_id);
+
+create index idx_ec_cust_email
+    on ec_customers (email);
+
+create index idx_ec_cust_phone
+    on ec_customers (phone);
+
+create index idx_ec_cust_status
+    on ec_customers (account_status);
+
+create index idx_ec_cust_sub
+    on ec_customers (erp_sub_account_id);
+
+create index idx_ec_cust_user
+    on ec_customers (user_id);
+
+create table ec_gift_cards
+(
+    id              bigint generated by default as identity
+        primary key,
+    created_at      timestamp(6),
+    created_by      varchar(100),
+    updated_at      timestamp(6),
+    updated_by      varchar(100),
+    active          boolean not null,
+    balance_amount  numeric(18, 2),
+    expiry_date     date,
+    gift_card_code  varchar(100),
+    initial_amount  numeric(18, 2),
+    organization_id bigint  not null
+        constraint fkcldukbuxkjj15f9qemlbb1jes
+            references org_organizations,
+    customer_id     bigint
+        constraint fkecmc6tuggp1dhjw1p4r6ox9gr
+            references ec_customers,
+    constraint uq_ec_gift_card
+        unique (organization_id, gift_card_code)
+);
+
+alter table ec_gift_cards
+    owner to postgres;
+
+create index idx_ec_giftcard_cust
+    on ec_gift_cards (customer_id);
+
+create index idx_ec_giftcard_org
+    on ec_gift_cards (organization_id);
+
+create table ec_gl_account_defaults
+(
+    id                          bigint generated by default as identity
+        primary key,
+    created_at                  timestamp(6),
+    created_by                  varchar(100),
+    updated_at                  timestamp(6),
+    updated_by                  varchar(100),
+    organization_id             bigint not null
+        constraint fkis3u8e9tplycfhny3ay2y78hm
+            references org_organizations,
+    accounts_receivable_id      bigint
+        constraint fkffyskivnd6thsbhm7tykvrkt5
+            references acc_chart_of_accounts,
+    cogs_account_id             bigint
+        constraint fkihutmpo8cxyr5adcd14w3wg54
+            references acc_chart_of_accounts,
+    default_bank_sub_account_id bigint
+        constraint fksaldiaqyx2sull06fxyig15sj
+            references acc_chart_of_accounts_sub,
+    discount_expense_account_id bigint
+        constraint fktpc6hc6nujwbldwaj0xek4ard
+            references acc_chart_of_accounts,
+    sales_returns_account_id    bigint
+        constraint fkb0ndhtqyv73hea54khlxd9nga
+            references acc_chart_of_accounts,
+    sales_revenue_account_id    bigint
+        constraint fk1p22aq9hfh2kmdsq79jmda111
+            references acc_chart_of_accounts,
+    shipping_income_account_id  bigint
+        constraint fknsawyn2pj815tjc5g6hubv3ee
+            references acc_chart_of_accounts,
+    vat_payable_account_id      bigint
+        constraint fkjd9r76j1jcfgj9pglkm8i7v3w
+            references acc_chart_of_accounts
+);
+
+alter table ec_gl_account_defaults
+    owner to postgres;
+
+create index idx_ec_gl_defaults_org
+    on ec_gl_account_defaults (organization_id);
+
+create table ec_notifications
+(
+    id                bigint generated by default as identity
+        primary key,
+    created_at        timestamp(6),
+    created_by        varchar(100),
+    updated_at        timestamp(6),
+    updated_by        varchar(100),
+    message           text,
+    notification_type varchar(30)
+        constraint ec_notifications_notification_type_check
+            check ((notification_type)::text = ANY
+                   ((ARRAY ['EMAIL'::character varying, 'SMS'::character varying, 'PUSH'::character varying, 'IN_APP'::character varying])::text[])),
+    read_flag         boolean not null,
+    sent_at           timestamp(6),
+    title             varchar(300),
+    organization_id   bigint  not null
+        constraint fkhvnjl2h1peif9ephvg6toxmkh
+            references org_organizations,
+    customer_id       bigint
+        constraint fkqfth1jtjag01cgsv1vcikw5uf
+            references ec_customers
+);
+
+alter table ec_notifications
+    owner to postgres;
+
+create index idx_ec_notif_cust
+    on ec_notifications (customer_id);
+
+create index idx_ec_notif_org
+    on ec_notifications (organization_id);
+
+create table ec_orders
+(
+    id                     bigint generated by default as identity
+        primary key,
+    created_at             timestamp(6),
+    created_by             varchar(100),
+    updated_at             timestamp(6),
+    updated_by             varchar(100),
+    active                 boolean        not null,
+    admin_note             text,
+    cancelled_at           timestamp(6),
+    cart_id                bigint,
+    completed_at           timestamp(6),
+    coupon_discount        numeric(18, 2),
+    currency_code          varchar(10),
+    customer_note          text,
+    due_amount             numeric(18, 2),
+    exchange_rate          numeric(18, 6),
+    expected_delivery_date date,
+    grand_total            numeric(18, 2) not null,
+    order_date             timestamp(6),
+    order_no               varchar(50)    not null,
+    order_source           varchar(30)    not null
+        constraint ec_orders_order_source_check
+            check ((order_source)::text = ANY
+                   ((ARRAY ['WEB'::character varying, 'ANDROID'::character varying, 'IOS'::character varying, 'POS'::character varying, 'FACEBOOK'::character varying, 'API'::character varying])::text[])),
+    order_status           varchar(30)    not null
+        constraint ec_orders_order_status_check
+            check ((order_status)::text = ANY
+                   ((ARRAY ['PENDING'::character varying, 'CONFIRMED'::character varying, 'PROCESSING'::character varying, 'PACKING'::character varying, 'READY_TO_SHIP'::character varying, 'SHIPPED'::character varying, 'OUT_FOR_DELIVERY'::character varying, 'DELIVERED'::character varying, 'COMPLETED'::character varying, 'CANCELLED'::character varying, 'RETURNED'::character varying, 'REFUNDED'::character varying])::text[])),
+    paid_amount            numeric(18, 2),
+    payment_status         varchar(20)    not null
+        constraint ec_orders_payment_status_check
+            check ((payment_status)::text = ANY
+                   ((ARRAY ['UNPAID'::character varying, 'PARTIAL'::character varying, 'PAID'::character varying, 'REFUNDED'::character varying])::text[])),
+    product_discount       numeric(18, 2),
+    shipping_charge        numeric(18, 2),
+    shipping_status        varchar(20)    not null
+        constraint ec_orders_shipping_status_check
+            check ((shipping_status)::text = ANY
+                   ((ARRAY ['PENDING'::character varying, 'PACKED'::character varying, 'SHIPPED'::character varying, 'DELIVERED'::character varying, 'RETURNED'::character varying])::text[])),
+    subtotal               numeric(18, 2),
+    tax_amount             numeric(18, 2),
+    organization_id        bigint         not null
+        constraint fkeyinmpbrib6gg548i66vh8sxv
+            references org_organizations,
+    customer_id            bigint
+        constraint fkbtw5a1s8g7tvpr1fat7in1rl1
+            references ec_customers,
+    journal_entry_id       bigint
+        constraint fk5o7pqdr4wmu9x29wp4go9aauk
+            references acc_journal_entry_master,
+    constraint uq_ec_order_no
+        unique (organization_id, order_no)
+);
+
+alter table ec_orders
+    owner to postgres;
+
+create table ec_order_addresses
+(
+    id            bigint generated by default as identity
+        primary key,
+    address_line1 varchar(300),
+    address_line2 varchar(300),
+    address_type  varchar(20)
+        constraint ec_order_addresses_address_type_check
+            check ((address_type)::text = ANY
+                   ((ARRAY ['BILLING'::character varying, 'SHIPPING'::character varying])::text[])),
+    country       varchar(100),
+    district      varchar(100),
+    division      varchar(100),
+    email         varchar(200),
+    full_name     varchar(200),
+    landmark      varchar(200),
+    phone         varchar(30),
+    postcode      varchar(20),
+    upazila       varchar(100),
+    order_id      bigint not null
+        constraint fkj4vywstgblyqvfr790arl1g3x
+            references ec_orders
+);
+
+alter table ec_order_addresses
+    owner to postgres;
+
+create index idx_ec_orderaddr_order
+    on ec_order_addresses (order_id);
+
+create table ec_order_delivery_slots
+(
+    id               bigint generated by default as identity
+        primary key,
+    confirmed        boolean not null,
+    delivery_date    date    not null,
+    delivery_slot_id bigint  not null
+        constraint fkpnbryyn9ibjnenxkj3xyex6wj
+            references ec_delivery_slots,
+    order_id         bigint  not null
+        constraint fkhqoxfv1e1raeue4hqb1cl7wpu
+            references ec_orders
+);
+
+alter table ec_order_delivery_slots
+    owner to postgres;
+
+create index idx_ec_orderslot_order
+    on ec_order_delivery_slots (order_id);
+
+create index idx_ec_orderslot_date
+    on ec_order_delivery_slots (delivery_date);
+
+create table ec_order_items
+(
+    id               bigint generated by default as identity
+        primary key,
+    cost_price       numeric(18, 2),
+    discount_amount  numeric(18, 2),
+    line_total       numeric(18, 2) not null,
+    profit_amount    numeric(18, 2),
+    quantity         numeric(12, 3) not null,
+    remarks          varchar(500),
+    tax_amount       numeric(18, 2),
+    unit_price       numeric(18, 2) not null,
+    inventory_lot_id bigint
+        constraint fkc7jxbywcgkbfken79dftubvf0
+            references global_inv_lots,
+    item_id          bigint         not null
+        constraint fki4uijle77fvfki56fglynggvc
+            references inv_items,
+    order_id         bigint         not null
+        constraint fkbpm0fb496q8e6rthith2ci2j2
+            references ec_orders,
+    product_id       bigint         not null
+        constraint fk5oiqu0afl8cd6ondjn6hdvl12
+            references ec_product_catalog,
+    variant_id       bigint
+        constraint fk73pejbry50qguetpiit1rqfx9
+            references ec_product_variants,
+    warehouse_id     bigint
+        constraint fk6qotkwpvv7r296pxryswsdlas
+            references org_warehouses
+);
+
+alter table ec_order_items
+    owner to postgres;
+
+create index idx_ec_orderitem_order
+    on ec_order_items (order_id);
+
+create index idx_ec_orderitem_prod
+    on ec_order_items (product_id);
+
+create index idx_ec_orderitem_item
+    on ec_order_items (item_id);
+
+create index idx_ec_orderitem_lot
+    on ec_order_items (inventory_lot_id);
+
+create index idx_ec_orderitem_wh
+    on ec_order_items (warehouse_id);
+
+create table ec_order_notes
+(
+    id         bigint generated by default as identity
+        primary key,
+    created_at timestamp(6),
+    created_by varchar(100),
+    note       text,
+    note_type  varchar(20)
+        constraint ec_order_notes_note_type_check
+            check ((note_type)::text = ANY
+                   ((ARRAY ['CUSTOMER'::character varying, 'ADMIN'::character varying, 'SYSTEM'::character varying])::text[])),
+    order_id   bigint not null
+        constraint fkowu74ff7okqasqwii93y0xxh8
+            references ec_orders
+);
+
+alter table ec_order_notes
+    owner to postgres;
+
+create index idx_ec_ordernote_order
+    on ec_order_notes (order_id);
+
+create table ec_order_status_history
+(
+    id         bigint generated by default as identity
+        primary key,
+    changed_at timestamp(6),
+    changed_by varchar(100),
+    ip_address varchar(50),
+    remarks    text,
+    status     varchar(30) not null,
+    order_id   bigint      not null
+        constraint fk1tkbcoelpvls7f3233olpjbq3
+            references ec_orders
+);
+
+alter table ec_order_status_history
+    owner to postgres;
+
+create index idx_ec_orderhist_order
+    on ec_order_status_history (order_id);
+
+create index idx_ec_orderhist_time
+    on ec_order_status_history (changed_at);
+
+create index idx_ec_order_cust
+    on ec_orders (customer_id);
+
+create index idx_ec_order_status
+    on ec_orders (order_status);
+
+create index idx_ec_order_payment
+    on ec_orders (payment_status);
+
+create index idx_ec_order_ship
+    on ec_orders (shipping_status);
+
+create index idx_ec_order_date
+    on ec_orders (order_date);
+
+create index idx_ec_order_org
+    on ec_orders (organization_id);
+
+create index idx_ec_order_gl
+    on ec_orders (journal_entry_id);
+
+create table ec_payments
+(
+    id                       bigint generated by default as identity
+        primary key,
+    created_at               timestamp(6),
+    created_by               varchar(100),
+    updated_at               timestamp(6),
+    updated_by               varchar(100),
+    currency                 varchar(10),
+    exchange_rate            numeric(18, 6),
+    gateway_fee              numeric(18, 2),
+    gateway_transaction_id   varchar(200),
+    paid_amount              numeric(18, 2) not null,
+    payment_date             timestamp(6),
+    payment_method           varchar(30)
+        constraint ec_payments_payment_method_check
+            check ((payment_method)::text = ANY
+                   ((ARRAY ['BKASH'::character varying, 'NAGAD'::character varying, 'ROCKET'::character varying, 'SSLCOMMERZ'::character varying, 'STRIPE'::character varying, 'PAYPAL'::character varying, 'BANK'::character varying, 'COD'::character varying, 'WALLET'::character varying, 'CASH'::character varying])::text[])),
+    payment_no               varchar(50)    not null,
+    payment_status           varchar(20)    not null
+        constraint ec_payments_payment_status_check
+            check ((payment_status)::text = ANY
+                   ((ARRAY ['PENDING'::character varying, 'SUCCESS'::character varying, 'FAILED'::character varying, 'CANCELLED'::character varying, 'REFUNDED'::character varying, 'PARTIAL'::character varying])::text[])),
+    remarks                  text,
+    transaction_reference    varchar(200),
+    organization_id          bigint         not null
+        constraint fknfdhf4vl178pydavgtklgggu9
+            references org_organizations,
+    journal_entry_id         bigint
+        constraint fkekl6duoxnu6i8i9spqw6dsth9
+            references acc_journal_entry_master,
+    order_id                 bigint         not null
+        constraint fkb43h4virsrcqrc13bu4pvpekm
+            references ec_orders,
+    receiving_sub_account_id bigint
+        constraint fk64nc4dcg7xysa03bi0m9h3ach
+            references acc_chart_of_accounts_sub,
+    constraint uq_ec_payment_no
+        unique (organization_id, payment_no)
+);
+
+alter table ec_payments
+    owner to postgres;
+
+create table ec_payment_transactions
+(
+    id                bigint generated by default as identity
+        primary key,
+    gateway_name      varchar(50),
+    gateway_reference varchar(200),
+    gateway_status    varchar(50),
+    request_payload   jsonb,
+    response_payload  jsonb,
+    transaction_time  timestamp(6),
+    transaction_type  varchar(20)
+        constraint ec_payment_transactions_transaction_type_check
+            check ((transaction_type)::text = ANY
+                   ((ARRAY ['AUTHORIZE'::character varying, 'CAPTURE'::character varying, 'REFUND'::character varying, 'VOID'::character varying])::text[])),
+    payment_id        bigint not null
+        constraint fk8qoavpa5w2t8lkjb28rxojdag
+            references ec_payments
+);
+
+alter table ec_payment_transactions
+    owner to postgres;
+
+create index idx_ec_pmttx_payment
+    on ec_payment_transactions (payment_id);
+
+create index idx_ec_pmttx_time
+    on ec_payment_transactions (transaction_time);
+
+create index idx_ec_payment_order
+    on ec_payments (order_id);
+
+create index idx_ec_payment_status
+    on ec_payments (payment_status);
+
+create index idx_ec_payment_method
+    on ec_payments (payment_method);
+
+create index idx_ec_payment_gl
+    on ec_payments (journal_entry_id);
+
+create index idx_ec_payment_sub
+    on ec_payments (receiving_sub_account_id);
+
+create index idx_ec_payment_org
+    on ec_payments (organization_id);
+
+create index idx_ec_payment_date
+    on ec_payments (payment_date);
+
+create table ec_product_questions
+(
+    id              bigint generated by default as identity
+        primary key,
+    created_at      timestamp(6),
+    created_by      varchar(100),
+    updated_at      timestamp(6),
+    updated_by      varchar(100),
+    active          boolean     not null,
+    anonymous       boolean     not null,
+    question_status varchar(20) not null
+        constraint ec_product_questions_question_status_check
+            check ((question_status)::text = ANY
+                   ((ARRAY ['PENDING'::character varying, 'APPROVED'::character varying, 'REJECTED'::character varying, 'ANSWERED'::character varying])::text[])),
+    question_text   text        not null,
+    question_title  varchar(250),
+    views           integer     not null,
+    organization_id bigint      not null
+        constraint fknjxaxcq5khaeift3jlydmkf3o
+            references org_organizations,
+    customer_id     bigint
+        constraint fk9lka95ifmw6q9p2ngy5863fab
+            references ec_customers,
+    product_id      bigint      not null
+        constraint fk31mtuwog1e447jqs47c4ekq0j
+            references ec_product_catalog
+);
+
+alter table ec_product_questions
+    owner to postgres;
+
+create table ec_product_answers
+(
+    id                   bigint generated by default as identity
+        primary key,
+    answer_status        varchar(20) not null
+        constraint ec_product_answers_answer_status_check
+            check ((answer_status)::text = ANY
+                   ((ARRAY ['PENDING'::character varying, 'APPROVED'::character varying, 'REJECTED'::character varying])::text[])),
+    answer_text          text        not null,
+    created_at           timestamp(6),
+    helpful_count        integer     not null,
+    official_answer      boolean     not null,
+    answered_by_customer bigint
+        constraint fkhjqfety0snftgl7e2px9bpu3
+            references ec_customers,
+    answered_by_user     bigint
+        constraint fk4hqqg5493wycfjrb6678rxvkn
+            references sec_users,
+    question_id          bigint      not null
+        constraint fkfq7rr5dscmpp9r0je13af2chu
+            references ec_product_questions
+);
+
+alter table ec_product_answers
+    owner to postgres;
+
+create index idx_ec_answer_q
+    on ec_product_answers (question_id);
+
+create index idx_ec_qa_prod
+    on ec_product_questions (product_id);
+
+create index idx_ec_qa_status
+    on ec_product_questions (question_status);
+
+create index idx_ec_qa_org
+    on ec_product_questions (organization_id);
+
+create table ec_recently_viewed
+(
+    id          bigint generated by default as identity
+        primary key,
+    device_info varchar(255),
+    ip_address  varchar(50),
+    viewed_at   timestamp(6),
+    customer_id bigint
+        constraint fkfkn8ug81uold4fgw0ixj804jn
+            references ec_customers,
+    product_id  bigint not null
+        constraint fklxs6soo5mpxhrljxt3od74egv
+            references ec_product_catalog
+);
+
+alter table ec_recently_viewed
+    owner to postgres;
+
+create index idx_ec_recent_cust
+    on ec_recently_viewed (customer_id);
+
+create index idx_ec_recent_prod
+    on ec_recently_viewed (product_id);
+
+create index idx_ec_recent_time
+    on ec_recently_viewed (viewed_at);
+
+create table ec_referrals
+(
+    id                bigint generated by default as identity
+        primary key,
+    referral_bonus    numeric(18, 2),
+    referral_date     timestamp(6),
+    affiliate_id      bigint
+        constraint fkbhd7pr7tcfcck98afnirxyti3
+            references ec_affiliates,
+    referred_customer bigint
+        constraint fknxsptlu4xpssxtpm5f48o9204
+            references ec_customers
+);
+
+alter table ec_referrals
+    owner to postgres;
+
+create index idx_ec_referral_aff
+    on ec_referrals (affiliate_id);
+
+create table ec_returns
+(
+    id               bigint generated by default as identity
+        primary key,
+    created_at       timestamp(6),
+    created_by       varchar(100),
+    updated_at       timestamp(6),
+    updated_by       varchar(100),
+    refund_amount    numeric(18, 2),
+    remarks          text,
+    return_date      timestamp(6),
+    return_no        varchar(50) not null,
+    return_reason    text,
+    return_status    varchar(30) not null
+        constraint ec_returns_return_status_check
+            check ((return_status)::text = ANY
+                   ((ARRAY ['REQUESTED'::character varying, 'APPROVED'::character varying, 'REJECTED'::character varying, 'RECEIVED'::character varying, 'REFUNDED'::character varying, 'COMPLETED'::character varying])::text[])),
+    organization_id  bigint      not null
+        constraint fk2k9cxcmqgfuhj07n7y86cagmm
+            references org_organizations,
+    customer_id      bigint
+        constraint fk893oh4k2cong4v8jo6dvvmbgc
+            references ec_customers,
+    journal_entry_id bigint
+        constraint fk86gn6kknxaaa4qs6udng4tk35
+            references acc_journal_entry_master,
+    order_id         bigint      not null
+        constraint fk7yq8a0whbns8s14hgotyiswnh
+            references ec_orders,
+    constraint uq_ec_return_no
+        unique (organization_id, return_no)
+);
+
+alter table ec_returns
+    owner to postgres;
+
+create table ec_refunds
+(
+    id                    bigint generated by default as identity
+        primary key,
+    created_at            timestamp(6),
+    created_by            varchar(100),
+    updated_at            timestamp(6),
+    updated_by            varchar(100),
+    refund_amount         numeric(18, 2),
+    refund_date           timestamp(6),
+    refund_method         varchar(30)
+        constraint ec_refunds_refund_method_check
+            check ((refund_method)::text = ANY
+                   ((ARRAY ['BKASH'::character varying, 'NAGAD'::character varying, 'ROCKET'::character varying, 'CARD'::character varying, 'BANK'::character varying, 'WALLET'::character varying, 'CASH'::character varying])::text[])),
+    refund_no             varchar(50),
+    remarks               text,
+    transaction_reference varchar(150),
+    organization_id       bigint not null
+        constraint fk1g8fl5v3g2odviqk0roymi48p
+            references org_organizations,
+    return_id             bigint not null
+        constraint fkrmgtxht03vrmflu5ls9muoglg
+            references ec_returns,
+    journal_entry_id      bigint
+        constraint fk2bjmkes7181u2hgm8nnx2t6bl
+            references acc_journal_entry_master
+);
+
+alter table ec_refunds
+    owner to postgres;
+
+create index idx_ec_refund_return
+    on ec_refunds (return_id);
+
+create index idx_ec_refund_gl
+    on ec_refunds (journal_entry_id);
+
+create table ec_return_items
+(
+    id               bigint generated by default as identity
+        primary key,
+    approved_qty     numeric(12, 3),
+    condition_status varchar(30)
+        constraint ec_return_items_condition_status_check
+            check ((condition_status)::text = ANY
+                   ((ARRAY ['GOOD'::character varying, 'DAMAGED'::character varying, 'USED'::character varying, 'DEFECTIVE'::character varying])::text[])),
+    quantity         numeric(12, 3),
+    reason           varchar(500),
+    return_id        bigint not null
+        constraint fkcfg48o7rfc0y7m7kirqd44jtn
+            references ec_returns,
+    order_item_id    bigint not null
+        constraint fkcpu5ppqlxol2db61tlowjovw2
+            references ec_order_items
+);
+
+alter table ec_return_items
+    owner to postgres;
+
+create index idx_ec_returnitem_ret
+    on ec_return_items (return_id);
+
+create index idx_ec_return_order
+    on ec_returns (order_id);
+
+create index idx_ec_return_status
+    on ec_returns (return_status);
+
+create index idx_ec_return_gl
+    on ec_returns (journal_entry_id);
+
+create table ec_reviews
+(
+    id                bigint generated by default as identity
+        primary key,
+    created_at        timestamp(6),
+    created_by        varchar(100),
+    updated_at        timestamp(6),
+    updated_by        varchar(100),
+    active            boolean     not null,
+    approved_at       timestamp(6),
+    approved_by       varchar(100),
+    cons              text,
+    dislikes_count    integer     not null,
+    helpful_count     integer     not null,
+    likes_count       integer     not null,
+    pros              text,
+    rating            integer     not null,
+    recommendation    boolean,
+    report_count      integer     not null,
+    review_status     varchar(20) not null
+        constraint ec_reviews_review_status_check
+            check ((review_status)::text = ANY
+                   ((ARRAY ['PENDING'::character varying, 'APPROVED'::character varying, 'REJECTED'::character varying, 'HIDDEN'::character varying])::text[])),
+    review_text       text,
+    review_title      varchar(200),
+    verified_purchase boolean     not null,
+    organization_id   bigint      not null
+        constraint fksskmuaxsweee0uxo37d4x3t3m
+            references org_organizations,
+    customer_id       bigint      not null
+        constraint fkdf80auukhg7b5eokd5tg2qfxf
+            references ec_customers,
+    order_item_id     bigint
+        constraint fkkrmp3psahdsw9vi1ay7qsnq63
+            references ec_order_items,
+    product_id        bigint      not null
+        constraint fkcsce2tchy6amkd1ndw12vf2be
+            references ec_product_catalog
+);
+
+alter table ec_reviews
+    owner to postgres;
+
+create table ec_review_images
+(
+    id            bigint generated by default as identity
+        primary key,
+    display_order integer,
+    image_url     varchar(700) not null,
+    thumbnail_url varchar(700),
+    review_id     bigint       not null
+        constraint fkkexvtq4l2qd2dxwkkdqadutjt
+            references ec_reviews
+);
+
+alter table ec_review_images
+    owner to postgres;
+
+create index idx_ec_reviewimg_rev
+    on ec_review_images (review_id);
+
+create table ec_review_votes
+(
+    id          bigint generated by default as identity
+        primary key,
+    vote_type   varchar(20)
+        constraint ec_review_votes_vote_type_check
+            check ((vote_type)::text = ANY
+                   ((ARRAY ['HELPFUL'::character varying, 'NOT_HELPFUL'::character varying])::text[])),
+    voted_at    timestamp(6),
+    customer_id bigint not null
+        constraint fkk73o52xkjh1yhgcol8ra5ryds
+            references ec_customers,
+    review_id   bigint not null
+        constraint fkc4nvdigo6ohcaoxd36suq6i8u
+            references ec_reviews,
+    constraint uq_ec_review_vote
+        unique (review_id, customer_id)
+);
+
+alter table ec_review_votes
+    owner to postgres;
+
+create index idx_ec_reviewvote_rev
+    on ec_review_votes (review_id);
+
+create index idx_ec_review_prod
+    on ec_reviews (product_id);
+
+create index idx_ec_review_cust
+    on ec_reviews (customer_id);
+
+create index idx_ec_review_rating
+    on ec_reviews (rating);
+
+create index idx_ec_review_status
+    on ec_reviews (review_status);
+
+create index idx_ec_review_org
+    on ec_reviews (organization_id);
+
+create table ec_reward_points
+(
+    id               bigint generated by default as identity
+        primary key,
+    created_at       timestamp(6),
+    points           integer not null,
+    reference_id     bigint,
+    reference_type   varchar(50),
+    remarks          varchar(500),
+    transaction_type varchar(20)
+        constraint ec_reward_points_transaction_type_check
+            check ((transaction_type)::text = ANY
+                   ((ARRAY ['EARN'::character varying, 'REDEEM'::character varying, 'ADJUST'::character varying])::text[])),
+    customer_id      bigint  not null
+        constraint fkdfn695mwlllomf46fbmevsip5
+            references ec_customers
+);
+
+alter table ec_reward_points
+    owner to postgres;
+
+create index idx_ec_reward_cust
+    on ec_reward_points (customer_id);
+
+create table ec_saved_for_later
+(
+    id          bigint generated by default as identity
+        primary key,
+    created_at  timestamp(6),
+    quantity    numeric(12, 3) not null,
+    customer_id bigint         not null
+        constraint fkm4a7ahmt2jyhi4klo9cxhg0do
+            references ec_customers,
+    product_id  bigint         not null
+        constraint fk9agnd5aydj067cwwem9cpdkbi
+            references ec_product_catalog,
+    variant_id  bigint
+        constraint fk3d23d09axk860xo1pclufh46t
+            references ec_product_variants,
+    constraint uq_ec_saved
+        unique (customer_id, product_id, variant_id)
+);
+
+alter table ec_saved_for_later
+    owner to postgres;
+
+create index idx_ec_saved_cust
+    on ec_saved_for_later (customer_id);
+
+create table ec_shipping
+(
+    id                 bigint generated by default as identity
+        primary key,
+    created_at         timestamp(6),
+    created_by         varchar(100),
+    updated_at         timestamp(6),
+    updated_by         varchar(100),
+    courier_name       varchar(100),
+    delivered_date     timestamp(6),
+    expected_delivery  date,
+    package_height     numeric(12, 3),
+    package_length     numeric(12, 3),
+    package_weight     numeric(12, 3),
+    package_width      numeric(12, 3),
+    remarks            text,
+    shipment_no        varchar(50),
+    shipped_date       timestamp(6),
+    shipping_charge    numeric(18, 2),
+    shipping_status    varchar(20) not null
+        constraint ec_shipping_shipping_status_check
+            check ((shipping_status)::text = ANY
+                   ((ARRAY ['PENDING'::character varying, 'PICKED'::character varying, 'PACKED'::character varying, 'SHIPPED'::character varying, 'IN_TRANSIT'::character varying, 'OUT_FOR_DELIVERY'::character varying, 'DELIVERED'::character varying, 'FAILED'::character varying, 'RETURNED'::character varying, 'CANCELLED'::character varying])::text[])),
+    tracking_number    varchar(150),
+    organization_id    bigint      not null
+        constraint fkbohkjlf9ubj2im3ctt9k57nvq
+            references org_organizations,
+    order_id           bigint      not null
+        constraint fktparv92wvxf4bxhh8hfidou5k
+            references ec_orders,
+    shipping_method_id bigint
+        constraint fkliv8f1qcm30xwxha7p0vcpout
+            references ec_shipping_methods,
+    warehouse_id       bigint
+        constraint fkelauyne9onnt5qsd1p49m7pwx
+            references org_warehouses
+);
+
+alter table ec_shipping
+    owner to postgres;
+
+create table ec_shipment_packages
+(
+    id          bigint generated by default as identity
+        primary key,
+    height      numeric(12, 3),
+    item_count  integer,
+    length      numeric(12, 3),
+    package_no  varchar(50),
+    remarks     text,
+    weight      numeric(12, 3),
+    width       numeric(12, 3),
+    shipping_id bigint not null
+        constraint fkqf4d3ljcvdk7ouyq04gx8t95g
+            references ec_shipping
+);
+
+alter table ec_shipment_packages
+    owner to postgres;
+
+create index idx_ec_package_ship
+    on ec_shipment_packages (shipping_id);
+
+create index idx_ec_shipping_order
+    on ec_shipping (order_id);
+
+create index idx_ec_shipping_status
+    on ec_shipping (shipping_status);
+
+create index idx_ec_shipping_wh
+    on ec_shipping (warehouse_id);
+
+create index idx_ec_shipping_org
+    on ec_shipping (organization_id);
+
+create table ec_shipping_api_logs
+(
+    id               bigint generated by default as identity
+        primary key,
+    api_name         varchar(100),
+    created_at       timestamp(6),
+    request_payload  jsonb,
+    response_code    varchar(50),
+    response_payload jsonb,
+    success          boolean,
+    shipping_id      bigint
+        constraint fkaulr7n5x7njhqcseo1bw6oix0
+            references ec_shipping
+);
+
+alter table ec_shipping_api_logs
+    owner to postgres;
+
+create index idx_ec_shipapi_ship
+    on ec_shipping_api_logs (shipping_id);
+
+create index idx_ec_shipapi_time
+    on ec_shipping_api_logs (created_at);
+
+create table ec_shipping_tracking
+(
+    id                bigint generated by default as identity
+        primary key,
+    event_time        timestamp(6),
+    remarks           text,
+    tracking_location varchar(200),
+    tracking_status   varchar(50),
+    shipping_id       bigint not null
+        constraint fkavvcfg2gsbkvshajb9u27vxte
+            references ec_shipping
+);
+
+alter table ec_shipping_tracking
+    owner to postgres;
+
+create index idx_ec_tracking_ship
+    on ec_shipping_tracking (shipping_id);
+
+create index idx_ec_tracking_time
+    on ec_shipping_tracking (event_time);
+
+create table ec_wishlist
+(
+    id          bigint generated by default as identity
+        primary key,
+    created_at  timestamp(6),
+    customer_id bigint not null
+        constraint fkr4ddk7a83ft4mhe1dqr5nyr2b
+            references ec_customers,
+    product_id  bigint not null
+        constraint fkmki40lfo4e3k8ijjaxhciy64y
+            references ec_product_catalog,
+    constraint uq_ec_wishlist
+        unique (customer_id, product_id)
+);
+
+alter table ec_wishlist
+    owner to postgres;
+
+create index idx_ec_wishlist_cust
+    on ec_wishlist (customer_id);
+
+create index idx_ec_wishlist_prod
+    on ec_wishlist (product_id);
+
+create table global_business_documents
+(
+    id                   bigint generated by default as identity
+        primary key,
+    accounting_posted    boolean      not null,
+    approval_status      varchar(30),
+    bl_number            varchar(100),
+    challan_no           varchar(100),
+    contact_number       varchar(20),
+    contact_person       varchar(100),
+    container_number     varchar(100),
+    created_at           timestamp(6),
+    created_by           varchar(100),
+    currency             varchar(20),
+    deleted_at           timestamp(6),
+    deleted_by           varchar(100),
+    delivery_address     varchar(500),
+    delivery_date        date,
+    discount_amount      numeric(18, 2),
+    document_date        date         not null,
+    document_no          varchar(100) not null
+        constraint uk2oxpupr5m34bvxfl3onrow70t
+            unique,
+    document_no_manual   varchar(100),
+    document_type        varchar(50)  not null
+        constraint global_business_documents_document_type_check
+            check ((document_type)::text = ANY
+                   ((ARRAY ['PURCHASE_REQUISITION'::character varying, 'REQUEST_FOR_QUOTATION'::character varying, 'COMPARATIVE_STATEMENT'::character varying, 'PURCHASE_ORDER'::character varying, 'GOODS_RECEIPT_NOTE'::character varying, 'PURCHASE_INVOICE'::character varying, 'SALES_QUOTATION'::character varying, 'SALES_ORDER'::character varying, 'DELIVERY_ORDER'::character varying, 'DELIVERY_CHALLAN'::character varying, 'SALES_INVOICE'::character varying, 'STORE_REQUISITION'::character varying, 'MATERIAL_ISSUE'::character varying, 'MATERIAL_RECEIVE'::character varying, 'STOCK_TRANSFER'::character varying, 'STOCK_ADJUSTMENT'::character varying, 'PRODUCTION_ORDER'::character varying, 'PRODUCTION_REQUISITION'::character varying, 'PRODUCTION_MATERIAL_ISSUE'::character varying, 'FINISHED_GOODS_RECEIVE'::character varying, 'DEBIT_NOTE'::character varying, 'CREDIT_NOTE'::character varying, 'EXPORT_PROFORMA_INVOICE'::character varying, 'IMPORT_PROFORMA_INVOICE'::character varying, 'LETTER_OF_CREDIT'::character varying])::text[])),
+    driver_name          varchar(100),
+    due_amount           numeric(18, 2),
+    exchange_rate        numeric(18, 4),
+    incoterms            varchar(50),
+    is_deleted           boolean      not null,
+    other_charges        numeric(18, 2),
+    paid_amount          numeric(18, 2),
+    port_of_discharge    varchar(50),
+    port_of_loading      varchar(50),
+    reference_no         varchar(100),
+    remarks              text,
+    required_date        date,
+    status               varchar(30)  not null,
+    stock_posted         boolean      not null,
+    subtotal_amount      numeric(18, 2),
+    tax_amount           numeric(18, 2),
+    terms_and_conditions text,
+    total_amount         numeric(18, 2),
+    updated_at           timestamp(6),
+    updated_by           varchar(100),
+    validity_date        date,
+    vehicle_number       varchar(100),
+    vessel_name          varchar(100),
+    approval_request_id  bigint
+        constraint fkrt42vanl8w7pwdi9m30o0lu5g
+            references apr_requests,
+    department_id        bigint
+        constraint fkbykgro7j344te8kpcp2tygnr5
+            references org_departments,
+    organization_id      bigint       not null
+        constraint fkshfb4whxsya6rnhi83w8xiik6
+            references org_organizations,
+    parent_document_id   bigint
+        constraint fkck03h3n3t7qjskrnm7dfwocdu
+            references global_business_documents,
+    party_id             bigint
+        constraint fk6bu4to7lhiy4xcdqmfuur3rd9
+            references acc_chart_of_accounts_sub,
+    source_warehouse_id  bigint
+        constraint fkto0w5e779dmlv6hxcvgvmqe7n
+            references org_warehouses,
+    warehouse_id         bigint
+        constraint fkqulkcvsc90q00dx7coh1ftppm
+            references org_warehouses
+);
+
+alter table global_business_documents
+    owner to postgres;
+
+create table bgt_encumbrances
+(
+    id                    bigint generated by default as identity
+        primary key,
+    commitment_date       date           not null,
+    committed_amount      numeric(18, 2) not null,
+    created_at            timestamp(6),
+    created_by            varchar(100),
+    expected_invoice_date date,
+    notes                 text,
+    released_amount       numeric(18, 2) not null,
+    source_document_no    varchar(100)   not null,
+    source_document_type  varchar(50)    not null,
+    status                varchar(20)    not null
+        constraint bgt_encumbrances_status_check
+            check ((status)::text = ANY
+                   ((ARRAY ['OPEN'::character varying, 'PARTIAL'::character varying, 'FULLY_RELEASED'::character varying, 'CANCELLED'::character varying])::text[])),
+    updated_at            timestamp(6),
+    budget_id             bigint         not null
+        constraint fk5161wiipa5lkd5ff517bwhcdp
+            references bgt_budgets,
+    budget_line_id        bigint         not null
+        constraint fkg1wsihg5gqm4b2xvb8984yu1k
+            references bgt_budget_lines,
+    source_document_id    bigint         not null
+        constraint fk1vtv1e697j5866rm719s9br8i
+            references global_business_documents
+);
+
+alter table bgt_encumbrances
+    owner to postgres;
+
+create index idx_be_budget
+    on bgt_encumbrances (budget_id);
+
+create index idx_be_line
+    on bgt_encumbrances (budget_line_id);
+
+create index idx_be_status
+    on bgt_encumbrances (status);
+
+create table com_document_terms
+(
+    id              bigint generated by default as identity
+        primary key,
+    description     text,
+    global_terms_id bigint,
+    sort_order      integer,
+    title           varchar(200) not null,
+    document_id     bigint
+        constraint fkm1hb1ia9gp8fdsdq0kolb3ebu
+            references global_business_documents,
+    invoice_id      bigint
+        constraint fko9x4oie1r81iscmeloihtmoqb
+            references com_commercial_invoice
+);
+
+alter table com_document_terms
+    owner to postgres;
+
+create index idx_cdterm_doc
+    on com_document_terms (document_id);
+
+create table com_lc_document_mapping
+(
+    id               bigint generated by default as identity
+        primary key,
+    allocated_amount numeric(18, 2),
+    utilized_amount  numeric(18, 2),
+    document_id      bigint
+        constraint fkhfa4f06xryvgghf53cvmutvj8
+            references global_business_documents,
+    lc_id            bigint
+        constraint fkp4lwp3vmuyej6lkdj8c9t48tj
+            references acc_chart_of_accounts_sub
+);
+
+alter table com_lc_document_mapping
+    owner to postgres;
+
+create table com_lc_settlement
+(
+    id              bigint generated by default as identity
+        primary key,
+    amount_bdt      numeric(18, 2),
+    amount_usd      numeric(18, 2),
+    charges         numeric(18, 2),
+    commission      numeric(18, 2),
+    exchange_rate   numeric(18, 4),
+    interest        numeric(18, 2),
+    loan_amount     numeric(18, 2),
+    margin_used     numeric(18, 2),
+    organization_id bigint,
+    settlement_date date,
+    settlement_type varchar(20)
+        constraint com_lc_settlement_settlement_type_check
+            check ((settlement_type)::text = ANY
+                   ((ARRAY ['SIGHT'::character varying, 'USANCE'::character varying, 'LOAN_ADJUSTMENT'::character varying])::text[])),
+    status          varchar(20)
+        constraint com_lc_settlement_status_check
+            check ((status)::text = ANY
+                   ((ARRAY ['PENDING'::character varying, 'PARTIAL'::character varying, 'SETTLED'::character varying, 'REVERSED'::character varying])::text[])),
+    document_id     bigint
+        constraint fkksppwlnlybtbsy4sdf1hunrq8
+            references global_business_documents,
+    lc_id           bigint
+        constraint fkmm7192ytmge107g1tcsdopwra
+            references acc_chart_of_accounts_sub
+);
+
+alter table com_lc_settlement
+    owner to postgres;
+
+create table crm_customer_feedback
+(
+    id                   bigint generated by default as identity
+        primary key,
+    created_at           timestamp(6),
+    created_by           varchar(100),
+    updated_at           timestamp(6),
+    updated_by           varchar(100),
+    description          text,
+    feedback_date        date        not null,
+    feedback_type        varchar(30) not null,
+    rating               integer,
+    resolution           text,
+    resolved_at          timestamp(6),
+    resolved_by          varchar(100),
+    status               varchar(20) not null
+        constraint crm_customer_feedback_status_check
+            check ((status)::text = ANY
+                   ((ARRAY ['OPEN'::character varying, 'IN_PROGRESS'::character varying, 'RESOLVED'::character varying, 'CLOSED'::character varying])::text[])),
+    subject              varchar(200),
+    organization_id      bigint      not null
+        constraint fk752sbsmqdmbr0pyg3xmpxmewj
+            references org_organizations,
+    business_document_id bigint
+        constraint fk1uemygfktee1v843o9s92swya
+            references global_business_documents,
+    customer_id          bigint      not null
+        constraint fkea1tor4q1b57nhhvn4w4q1371
+            references acc_chart_of_accounts_sub
+);
+
+alter table crm_customer_feedback
+    owner to postgres;
+
+create index idx_crf_customer
+    on crm_customer_feedback (customer_id);
+
+create index idx_crf_status
+    on crm_customer_feedback (status);
+
+create table fa_assets
+(
+    id                       bigint generated by default as identity
+        primary key,
+    created_at               timestamp(6),
+    created_by               varchar(100),
+    updated_at               timestamp(6),
+    updated_by               varchar(100),
+    accumulated_depreciation numeric(18, 2) not null,
+    acquisition_date         date           not null,
+    asset_code               varchar(50)    not null,
+    asset_name               varchar(200)   not null,
+    barcode                  varchar(100),
+    capitalisation_date      date,
+    condition                varchar(20),
+    currency                 varchar(3)     not null,
+    current_book_value       numeric(18, 2),
+    depreciation_method      varchar(30)    not null
+        constraint fa_assets_depreciation_method_check
+            check ((depreciation_method)::text = ANY
+                   ((ARRAY ['STRAIGHT_LINE'::character varying, 'DECLINING_BALANCE'::character varying, 'UNITS_OF_PRODUCTION'::character varying])::text[])),
+    depreciation_rate        numeric(5, 2),
+    depreciation_start_date  date,
+    description              text,
+    exchange_rate            numeric(18, 4) not null,
+    installation_cost        numeric(18, 2) not null,
+    insurance_expiry_date    date,
+    insurance_policy_no      varchar(100),
+    last_dep_run_date        date,
+    location                 varchar(200),
+    manufacturer             varchar(100),
+    model                    varchar(100),
+    notes                    text,
+    purchase_cost            numeric(18, 2) not null,
+    residual_value           numeric(18, 2) not null,
+    serial_number            varchar(100),
+    status                   varchar(30)    not null
+        constraint fa_assets_status_check
+            check ((status)::text = ANY
+                   ((ARRAY ['ACTIVE'::character varying, 'DISPOSED'::character varying, 'TRANSFERRED'::character varying, 'SOLD'::character varying, 'WRITTEN_OFF'::character varying, 'UNDER_MAINTENANCE'::character varying])::text[])),
+    useful_life_years        integer,
+    warranty_expiry_date     date,
+    organization_id          bigint         not null
+        constraint fkc1cw9q6al8aw6ywrjp3yup4ax
+            references org_organizations,
+    asset_category_id        bigint         not null
+        constraint fkod5a21sou2v3w08q1281nsbll
+            references fa_asset_categories,
+    cost_center_id           bigint
+        constraint fkpe07f73m5rtdrs8co9ocjumcy
+            references org_cost_centers,
+    department_id            bigint
+        constraint fk9kg0f0trar7fy33hufbvqnceg
+            references org_departments,
+    linked_grn_id            bigint
+        constraint fkerfh3wbssjd9m6jdju6vo8cqf
+            references global_business_documents,
+    linked_item_id           bigint
+        constraint fk79eeg5q4na0qxijl21mbjavc5
+            references inv_items,
+    linked_po_id             bigint
+        constraint fkcayuojyhqy07691fit7tda8kq
+            references global_business_documents,
+    responsible_employee_id  bigint
+        constraint fki0mxrk1lh2ti1no1plt8wugr5
+            references hrm_employees,
+    supplier_id              bigint
+        constraint fkpdm0k10gj1hcwoh78d853bylj
+            references acc_chart_of_accounts_sub,
+    warehouse_id             bigint
+        constraint fkltdft2jsgdtaas05fp8fycsnt
+            references org_warehouses,
+    constraint uq_fa_org_code
+        unique (organization_id, asset_code)
+);
+
+alter table fa_assets
+    owner to postgres;
+
+create table fa_asset_disposals
+(
+    id                          bigint generated by default as identity
+        primary key,
+    accumulated_dep_at_disposal numeric(18, 2) not null,
+    approved_at                 timestamp(6),
+    approved_by                 varchar(100),
+    book_value_at_disposal      numeric(18, 2) not null,
+    buyer_name                  varchar(200),
+    created_at                  timestamp(6),
+    created_by                  varchar(100),
+    disposal_date               date           not null,
+    disposal_type               varchar(30)    not null
+        constraint fa_asset_disposals_disposal_type_check
+            check ((disposal_type)::text = ANY
+                   ((ARRAY ['SALE'::character varying, 'WRITE_OFF'::character varying, 'TRANSFER'::character varying, 'SCRAP'::character varying, 'DONATION'::character varying])::text[])),
+    disposal_value              numeric(18, 2) not null,
+    gain_loss                   numeric(18, 2),
+    organization_id             bigint         not null,
+    reason                      text,
+    asset_id                    bigint         not null
+        constraint fkkwljbkawb99h6a3f2abbi3ct
+            references fa_assets,
+    journal_entry_id            bigint
+        constraint fkij3l2nfw8p529bue4fsq3g33h
+            references acc_journal_entry_master,
+    transfer_to_dept_id         bigint
+        constraint fkrs7whp7ch1wmxm9gnisa9u453
+            references org_departments,
+    transfer_to_employee_id     bigint
+        constraint fk4vng3tex6nnu421w84x5cnbds
+            references hrm_employees
+);
+
+alter table fa_asset_disposals
+    owner to postgres;
+
+create index idx_fad_org
+    on fa_asset_disposals (organization_id);
+
+create index idx_fad_asset
+    on fa_asset_disposals (asset_id);
+
+create index idx_fa_org
+    on fa_assets (organization_id);
+
+create index idx_fa_cat
+    on fa_assets (asset_category_id);
+
+create index idx_fa_status
+    on fa_assets (status);
+
+create index idx_fa_dept
+    on fa_assets (department_id);
+
+create table fa_depreciation_run_lines
+(
+    id                  bigint generated by default as identity
+        primary key,
+    closing_book_value  numeric(18, 2) not null,
+    created_at          timestamp(6),
+    depreciation_amount numeric(18, 2) not null,
+    depreciation_method varchar(30)    not null,
+    notes               text,
+    opening_book_value  numeric(18, 2) not null,
+    rate_applied        numeric(5, 2),
+    units_produced      numeric(14, 3),
+    asset_id            bigint         not null
+        constraint fkf60sw41xqpf7rt6v0iksexef9
+            references fa_assets,
+    depreciation_run_id bigint         not null
+        constraint fkjkvsuh053l9ox0k2ek12hvvqn
+            references fa_depreciation_runs
+);
+
+alter table fa_depreciation_run_lines
+    owner to postgres;
+
+create index idx_fdrl_run
+    on fa_depreciation_run_lines (depreciation_run_id);
+
+create index idx_fdrl_asset
+    on fa_depreciation_run_lines (asset_id);
+
+create table global_business_document_lines
+(
+    id               bigint generated by default as identity
+        primary key,
+    accepted_qty     numeric(18, 3),
+    batch_number     varchar(100),
+    created_at       timestamp(6),
+    created_by       varchar(100),
+    delivered_qty    numeric(18, 3),
+    description      varchar(1000),
+    discount_amount  numeric(18, 2),
+    expected_date    date,
+    item_code        varchar(100),
+    item_name        varchar(500),
+    line_amount      numeric(18, 2),
+    line_number      integer        not null,
+    organization_id  bigint         not null,
+    quality_remarks  text,
+    quality_status   varchar(30),
+    quantity         numeric(18, 3) not null,
+    received_qty     numeric(18, 3),
+    rejected_qty     numeric(18, 3),
+    remarks          text,
+    tax_amount       numeric(18, 2),
+    unit_code        varchar(20),
+    unit_price       numeric(18, 4),
+    updated_at       timestamp(6),
+    updated_by       varchar(100),
+    cost_center_id   bigint
+        constraint fkj5bj0hpd1hgp48el1k68uj8na
+            references org_cost_centers,
+    document_id      bigint         not null
+        constraint fkr6u4lsec2cbuocptpunb1boq2
+            references global_business_documents,
+    inventory_lot_id bigint
+        constraint fkgl6cnqdkgt6hey3ivewc8h2nk
+            references global_inv_lots,
+    item_id          bigint         not null
+        constraint fksremfbh5kisvtp0euij9yk1wp
+            references inv_items,
+    source_line_id   bigint
+        constraint fkl19r5qbswrfq6q6sotdycy1b1
+            references global_business_document_lines
+);
+
+alter table global_business_document_lines
+    owner to postgres;
+
+create table global_business_document_line_lots
+(
+    id               bigint generated by default as identity
+        primary key,
+    created_at       timestamp(6),
+    created_by       varchar(100),
+    gross_weight     numeric(12, 3),
+    net_weight       numeric(12, 3),
+    quantity         numeric(18, 3) not null,
+    remarks          text,
+    total_cost       numeric(18, 2),
+    unit_cost        numeric(18, 4),
+    document_line_id bigint         not null
+        constraint fkn91mwcwkn5b10ohr1x1bg6om6
+            references global_business_document_lines,
+    lot_id           bigint         not null
+        constraint fkp7t8x0k8d42wxrd8dkq8b2n1m
+            references global_inv_lots
+);
+
+alter table global_business_document_line_lots
+    owner to postgres;
+
+create index idx_gbdll_line
+    on global_business_document_line_lots (document_line_id);
+
+create index idx_gbdll_lot
+    on global_business_document_line_lots (lot_id);
+
+create index idx_gbdl_doc
+    on global_business_document_lines (document_id);
+
+create index idx_gbdl_item
+    on global_business_document_lines (item_id);
+
+create index idx_gbdl_lot
+    on global_business_document_lines (inventory_lot_id);
+
+create index idx_gbd_org
+    on global_business_documents (organization_id);
+
+create index idx_gbd_type
+    on global_business_documents (document_type);
+
+create index idx_gbd_status
+    on global_business_documents (status);
+
+create index idx_gbd_party
+    on global_business_documents (party_id);
+
+create index idx_gbd_parent
+    on global_business_documents (parent_document_id);
+
+create index idx_gbd_wh
+    on global_business_documents (warehouse_id);
+
+create index idx_gbd_date
+    on global_business_documents (document_date);
+
+create index idx_gbd_no
+    on global_business_documents (document_no);
+
+create index idx_gbd_deleted
+    on global_business_documents (is_deleted);
+
+create table global_inventory_transactions
+(
+    id                   bigint generated by default as identity
+        primary key,
+    balance_after        numeric(18, 3),
+    created_at           timestamp(6),
+    document_type        varchar(50)    not null,
+    gross_weight         numeric(12, 3),
+    movement_type        varchar(50)    not null
+        constraint global_inventory_transactions_movement_type_check
+            check ((movement_type)::text = ANY
+                   ((ARRAY ['PURCHASE_RECEIPT'::character varying, 'SUPPLIER_RETURN'::character varying, 'PRODUCTION_RECEIPT'::character varying, 'TRANSFER_IN'::character varying, 'ADJUSTMENT_IN'::character varying, 'RETURN_FROM_CUSTOMER'::character varying, 'SALES_ISSUE'::character varying, 'PRODUCTION_MATERIAL_ISSUE'::character varying, 'TRANSFER_OUT'::character varying, 'ADJUSTMENT_OUT'::character varying, 'RETURN_TO_SUPPLIER'::character varying, 'STORE_ISSUE'::character varying])::text[])),
+    net_weight           numeric(12, 3),
+    organization_id      bigint         not null,
+    quantity             numeric(18, 3) not null,
+    remarks              varchar(255),
+    total_cost           numeric(18, 2),
+    transaction_date     date,
+    unit_cost            numeric(18, 4),
+    business_document_id bigint         not null
+        constraint fkcykht7htp8c6jy0pnkge28x1b
+            references global_business_documents,
+    item_id              bigint         not null
+        constraint fk9gc3vrdko2wonn5ftfifo72vi
+            references inv_items,
+    lot_id               bigint
+        constraint fkl9feg3ca6lhyilmt1e4pm20up
+            references global_inv_lots,
+    warehouse_id         bigint         not null
+        constraint fk8pp793c9seytn3gto52m38rkc
+            references org_warehouses
+);
+
+alter table global_inventory_transactions
+    owner to postgres;
+
+create index idx_invtx_item
+    on global_inventory_transactions (item_id);
+
+create index idx_invtx_wh
+    on global_inventory_transactions (warehouse_id);
+
+create index idx_invtx_doc
+    on global_inventory_transactions (business_document_id);
+
+create index idx_invtx_date
+    on global_inventory_transactions (transaction_date);
+
+create index idx_invtx_org
+    on global_inventory_transactions (organization_id);
+
+create table prd_productions
+(
+    id                  bigint generated by default as identity
+        primary key,
+    created_at          timestamp(6),
+    created_by          varchar(100),
+    updated_at          timestamp(6),
+    updated_by          varchar(100),
+    actual_end_date     date,
+    actual_start_date   date,
+    approval_status     varchar(30),
+    labor_cost          numeric(18, 2) not null,
+    material_cost       numeric(18, 2) not null,
+    other_cost          numeric(18, 2) not null,
+    overhead_cost       numeric(18, 2) not null,
+    planned_end_date    date,
+    planned_quantity    numeric(14, 3) not null,
+    planned_start_date  date,
+    produced_quantity   numeric(14, 3) not null,
+    production_date     date           not null,
+    production_no       varchar(50)    not null,
+    rejected_quantity   numeric(14, 3) not null,
+    remarks             text,
+    status              varchar(30)    not null
+        constraint prd_productions_status_check
+            check ((status)::text = ANY
+                   ((ARRAY ['DRAFT'::character varying, 'SUBMITTED'::character varying, 'APPROVED'::character varying, 'RELEASED'::character varying, 'IN_PROGRESS'::character varying, 'COMPLETED'::character varying, 'REJECTED'::character varying, 'CANCELLED'::character varying])::text[])),
+    total_cost          numeric(18, 2) not null,
+    unit_cost           numeric(18, 4) not null,
+    waste_quantity      numeric(14, 3) not null,
+    organization_id     bigint         not null
+        constraint fkopkdy9cdks5d2mgp2expsgfqt
+            references org_organizations,
+    approval_request_id bigint
+        constraint fkfnw584gn9i852r57txku8hrmj
+            references apr_requests,
+    bom_id              bigint
+        constraint fkmowcc5mrdvi8feqn2bb079fhy
+            references prd_bom,
+    cost_center_id      bigint
+        constraint fkjiewb2wr3u74ow11fluoyrvui
+            references org_cost_centers,
+    finished_item_id    bigint         not null
+        constraint fkh7fhd2iibriij3m7aw1x76aod
+            references inv_items,
+    journal_entry_id    bigint
+        constraint fksktyc3v4u9fxl737x320ip8kv
+            references acc_journal_entry_master,
+    output_unit_id      bigint         not null
+        constraint fk6o45an520v1x762j4kenpdg9n
+            references inv_item_uom,
+    output_warehouse_id bigint         not null
+        constraint fk80aowkdcne2u3m4g3rwyhgi7f
+            references org_warehouses,
+    sales_order_id      bigint
+        constraint fkjg0vny1mn2d2c65eec4lw7cyo
+            references global_business_documents,
+    constraint uq_prd2_org_no
+        unique (organization_id, production_no)
+);
+
+alter table prd_productions
+    owner to postgres;
+
+create table prd_production_inputs
+(
+    id               bigint generated by default as identity
+        primary key,
+    actual_quantity  numeric(14, 3) not null,
+    created_at       timestamp(6),
+    created_by       varchar(100),
+    line_number      integer        not null,
+    planned_quantity numeric(14, 3),
+    remarks          text,
+    scrap_quantity   numeric(14, 3) not null,
+    total_cost       numeric(18, 2) not null,
+    unit_cost        numeric(18, 4) not null,
+    bom_item_id      bigint
+        constraint fke8tb4oewv5ocmj5o23pj83u8h
+            references prd_bom_items,
+    lot_id           bigint
+        constraint fkkbsr1ka2nguns4p8bjbsvpn1p
+            references global_inv_lots,
+    production_id    bigint         not null
+        constraint fk7muevflhm6df971b0bvchin8e
+            references prd_productions,
+    raw_item_id      bigint         not null
+        constraint fkfhl51scrpc2btbkf8r4u6cqsx
+            references inv_items,
+    unit_id          bigint         not null
+        constraint fk6hyfkhi9khhntf7au4utq5okk
+            references inv_item_uom,
+    warehouse_id     bigint         not null
+        constraint fkpe55p29qkaxgdxmlk5ib3nsgn
+            references org_warehouses
+);
+
+alter table prd_production_inputs
+    owner to postgres;
+
+create index idx_prdi_prod
+    on prd_production_inputs (production_id);
+
+create index idx_prdi_item
+    on prd_production_inputs (raw_item_id);
+
+create index idx_prdi_lot
+    on prd_production_inputs (lot_id);
+
+create table prd_production_outputs
+(
+    id                bigint generated by default as identity
+        primary key,
+    batch_no          varchar(100),
+    created_at        timestamp(6),
+    created_by        varchar(100),
+    line_number       integer        not null,
+    quantity          numeric(14, 3) not null,
+    rejected_quantity numeric(14, 3) not null,
+    remarks           text,
+    total_cost        numeric(18, 2) not null,
+    unit_cost         numeric(18, 4) not null,
+    finished_item_id  bigint         not null
+        constraint fkca8u10cl4cv8v5g79n7ci072m
+            references inv_items,
+    lot_id            bigint
+        constraint fksels73gdvioy4o3knl1c2mro9
+            references global_inv_lots,
+    production_id     bigint         not null
+        constraint fkcx2qsfy8tot6nbtqfk8i8dpro
+            references prd_productions,
+    unit_id           bigint         not null
+        constraint fkfan7d9u2880xi8d7i09nthupm
+            references inv_item_uom,
+    warehouse_id      bigint         not null
+        constraint fkl103131a90fjalvs41jp9ntbh
+            references org_warehouses
+);
+
+alter table prd_production_outputs
+    owner to postgres;
+
+create index idx_prdo_prod
+    on prd_production_outputs (production_id);
+
+create index idx_prdo_item
+    on prd_production_outputs (finished_item_id);
+
+create index idx_prd2_org
+    on prd_productions (organization_id);
+
+create index idx_prd2_status
+    on prd_productions (status);
+
+create index idx_prd2_item
+    on prd_productions (finished_item_id);
+
+create index idx_prd2_date
+    on prd_productions (production_date);
+
+create index idx_prd2_bom
+    on prd_productions (bom_id);
+
+create index idx_prd2_so
+    on prd_productions (sales_order_id);
+
+create index idx_bank_org
+    on stp_banks (organization_id);
+
+create table stp_currencies
+(
+    id             bigint generated by default as identity
+        primary key,
+    active         boolean      not null,
+    code           varchar(3)   not null
+        constraint uk2jg2r4qbrdlvbbgvwm92kybxf
+            unique,
+    decimal_places integer      not null,
+    name           varchar(100) not null,
+    symbol         varchar(10)
+);
+
+alter table stp_currencies
+    owner to postgres;
+
+create table stp_document_file
+(
+    id                 bigint generated by default as identity
+        primary key,
+    document_category  varchar(200),
+    document_type      varchar(50) not null,
+    file_name          varchar(255),
+    file_path          varchar(500),
+    file_size          bigint,
+    file_type          varchar(100),
+    original_file_name varchar(255),
+    reference_id       bigint      not null,
+    remarks            varchar(500),
+    uploaded_at        timestamp(6),
+    uploaded_by        varchar(255)
+);
+
+alter table stp_document_file
+    owner to postgres;
+
+create index idx_docfile_ref
+    on stp_document_file (document_type, reference_id);
+
+create table stp_document_sequences
+(
+    id              bigint generated by default as identity
+        primary key,
+    created_at      timestamp(6),
+    last_seq        integer     not null,
+    organization_id bigint      not null,
+    prefix          varchar(20) not null,
+    updated_at      timestamp(6),
+    year_code       varchar(7)  not null,
+    constraint uq_docseq_org_prefix_year
+        unique (organization_id, prefix, year_code)
+);
+
+alter table stp_document_sequences
+    owner to postgres;
+
+create index idx_docseq_org
+    on stp_document_sequences (organization_id);
+
+create table stp_location_countries
+(
+    id          bigint generated by default as identity
+        primary key,
+    active      boolean      not null,
+    created_at  timestamp(6),
+    iso_code    varchar(3)   not null
+        constraint ukag7uy3idk68huoxeu1tdk5t5j
+            unique,
+    iso_code2   varchar(2)   not null,
+    name        varchar(150) not null,
+    name_native varchar(150),
+    phone_code  varchar(10),
+    currency_id bigint       not null
+        constraint fk9rq2g20g6q7d024ofmywxn4ax
+            references stp_currencies
+);
+
+alter table stp_location_countries
+    owner to postgres;
+
+create table stp_terms_master
+(
+    id            bigint generated by default as identity
+        primary key,
+    description   text,
+    document_type varchar(50)  not null,
+    is_active     boolean      not null,
+    is_default    boolean      not null,
+    sort_order    integer,
+    title         varchar(200) not null
+);
+
+alter table stp_terms_master
+    owner to postgres;
+
+create table sys_audit_log
+(
+    id              bigint generated by default as identity
+        primary key,
+    action          varchar(50)  not null,
+    created_at      timestamp(6) not null,
+    entity_code     varchar(100),
+    entity_id       bigint,
+    entity_type     varchar(100),
+    ip_address      varchar(50),
+    new_values      text,
+    old_values      text,
+    organization_id bigint,
+    remarks         varchar(500),
+    session_id      varchar(100),
+    user_agent      varchar(500),
+    username        varchar(100),
+    user_id         bigint
+        constraint fkm6y25whn340q7l46snthopus2
+            references sec_users
+);
+
+alter table sys_audit_log
+    owner to postgres;
+
+create index idx_sal_org
+    on sys_audit_log (organization_id);
+
+create index idx_sal_user
+    on sys_audit_log (user_id);
+
+create index idx_sal_entity
+    on sys_audit_log (entity_type, entity_id);
+
+create index idx_sal_created
+    on sys_audit_log (created_at);
+
+create index idx_sal_action
+    on sys_audit_log (action);
+
+create table trv_airlines
+(
+    id           bigint generated by default as identity
+        primary key,
+    airline_code varchar(3)   not null
+        constraint ukm28n6qc4xp2nngtxne72pa7iy
+            unique,
+    airline_name varchar(150) not null,
+    created_at   timestamp(6),
+    is_active    boolean      not null
+);
+
+alter table trv_airlines
+    owner to postgres;
+
+create table trv_airports
+(
+    id           bigint generated by default as identity
+        primary key,
+    airport_code varchar(3)   not null
+        constraint ukmxehf6fd8hacbx4my3o2s0cq5
+            unique,
+    airport_name varchar(200) not null,
+    city         varchar(100),
+    country      varchar(100),
+    created_at   timestamp(6)
+);
+
+alter table trv_airports
+    owner to postgres;
+
+create table trv_bookings
+(
+    id                  bigint generated by default as identity
+        primary key,
+    created_at          timestamp(6),
+    created_by          varchar(100),
+    updated_at          timestamp(6),
+    updated_by          varchar(100),
+    approval_request_id bigint,
+    booking_date        date           not null,
+    booking_no          varchar(50)    not null,
+    booking_type        varchar(20)    not null
+        constraint trv_bookings_booking_type_check
+            check ((booking_type)::text = ANY
+                   ((ARRAY ['PACKAGE'::character varying, 'HOTEL'::character varying, 'AIR'::character varying, 'COMBINED'::character varying])::text[])),
+    currency            varchar(3)     not null,
+    discount_amount     numeric(18, 2) not null,
+    due_amount          numeric(18, 2) not null,
+    exchange_rate       numeric(18, 4) not null,
+    journal_entry_id    bigint,
+    lead_id             bigint,
+    opportunity_id      bigint,
+    paid_amount         numeric(18, 2) not null,
+    party_id            bigint,
+    remarks             varchar(1000),
+    sales_agent_id      bigint,
+    status              varchar(20)    not null
+        constraint trv_bookings_status_check
+            check ((status)::text = ANY
+                   ((ARRAY ['DRAFT'::character varying, 'CONFIRMED'::character varying, 'PARTIALLY_PAID'::character varying, 'PAID'::character varying, 'CANCELLED'::character varying, 'COMPLETED'::character varying])::text[])),
+    subtotal_amount     numeric(18, 2) not null,
+    tax_amount          numeric(18, 2) not null,
+    total_amount        numeric(18, 2) not null,
+    travel_end_date     date,
+    travel_start_date   date,
+    organization_id     bigint         not null
+        constraint fkdtm8i2kxlcpd6haytu02y3km1
+            references org_organizations,
+    constraint uq_trv_booking_org_no
+        unique (organization_id, booking_no)
+);
+
+alter table trv_bookings
+    owner to postgres;
+
+create table trv_booking_notes
+(
+    id         bigint generated by default as identity
+        primary key,
+    booking_id bigint      not null
+        constraint fks2y7bciiwwhxu0j5p5w9s8bvy
+            references trv_bookings,
+    created_at timestamp(6),
+    created_by varchar(100),
+    note_text  oid         not null,
+    note_type  varchar(20) not null
+        constraint trv_booking_notes_note_type_check
+            check ((note_type)::text = ANY
+                   ((ARRAY ['INTERNAL'::character varying, 'CUSTOMER'::character varying])::text[]))
+);
+
+alter table trv_booking_notes
+    owner to postgres;
+
+create table trv_booking_services
+(
+    id              bigint generated by default as identity
+        primary key,
+    cost_center_id  bigint,
+    created_at      timestamp(6),
+    created_by      varchar(100),
+    description     varchar(500),
+    discount_amount numeric(18, 2) not null,
+    line_total      numeric(18, 2) not null,
+    quantity        numeric(12, 3) not null,
+    reference_id    bigint,
+    service_type    varchar(20)    not null
+        constraint trv_booking_services_service_type_check
+            check ((service_type)::text = ANY
+                   ((ARRAY ['HOTEL'::character varying, 'AIR'::character varying, 'PACKAGE'::character varying, 'TOUR'::character varying, 'VISA'::character varying])::text[])),
+    tax_amount      numeric(18, 2) not null,
+    unit_cost       numeric(18, 2) not null,
+    unit_price      numeric(18, 2) not null,
+    updated_at      timestamp(6),
+    updated_by      varchar(100),
+    booking_id      bigint         not null
+        constraint fkdvpck3i20792r8fowlaamguqe
+            references trv_bookings
+);
+
+alter table trv_booking_services
+    owner to postgres;
+
+create table trv_booking_status_history
+(
+    id         bigint generated by default as identity
+        primary key,
+    booking_id bigint      not null
+        constraint fknkyc6cqldunru9cfalobjikaj
+            references trv_bookings,
+    changed_at timestamp(6),
+    changed_by varchar(100),
+    remarks    varchar(500),
+    status     varchar(20) not null
+);
+
+alter table trv_booking_status_history
+    owner to postgres;
+
+create table trv_cabin_classes
+(
+    id         bigint generated by default as identity
+        primary key,
+    class_code varchar(10)  not null
+        constraint ukc8vw09raxhikj9iupddtvjqmb
+            unique,
+    class_name varchar(100) not null
+);
+
+alter table trv_cabin_classes
+    owner to postgres;
+
+create table trv_air_tickets
+(
+    id                     bigint generated by default as identity
+        primary key,
+    created_at             timestamp(6),
+    created_by             varchar(100),
+    updated_at             timestamp(6),
+    updated_by             varchar(100),
+    agent_vendor_address   varchar(500),
+    agent_vendor_email     varchar(150),
+    agent_vendor_mocat_no  varchar(50),
+    agent_vendor_name      varchar(200),
+    airline_id             bigint
+        constraint fkcwsm0g0478ngkqux410s6ggur
+            references trv_airlines,
+    arrival_date           date,
+    arrival_time           time(0),
+    booking_reference      varchar(100),
+    booking_service_id     bigint         not null
+        constraint fk321gux3b3s3ynsybgghwqgh0i
+            references trv_booking_services,
+    cabin_class_id         bigint
+        constraint fkomjpbw44l4ugaup7dwguc9vvv
+            references trv_cabin_classes,
+    departure_date         date,
+    departure_time         time(0),
+    destination_airport_id bigint
+        constraint fkkd6nmyerijc0741fhrne6uyjk
+            references trv_airports,
+    fare_amount            numeric(18, 2) not null,
+    issue_date             date,
+    origin_airport_id      bigint
+        constraint fk6huql5jhlm97tulytlwd0o4re
+            references trv_airports,
+    pnr                    varchar(20),
+    status                 varchar(20)    not null
+        constraint trv_air_tickets_status_check
+            check ((status)::text = ANY
+                   ((ARRAY ['ISSUED'::character varying, 'CANCELLED'::character varying, 'REFUNDED'::character varying])::text[])),
+    supplier_reference     varchar(100),
+    tax_amount             numeric(18, 2) not null,
+    total_amount           numeric(18, 2) not null,
+    organization_id        bigint         not null
+        constraint fkptf368wh71538gejmbu0uosbl
+            references org_organizations
+);
+
+alter table trv_air_tickets
+    owner to postgres;
+
+create table trv_air_ticket_segments
+(
+    id                      bigint generated by default as identity
+        primary key,
+    air_ticket_id           bigint  not null
+        constraint fk239cqyloandyp0fbls70pb3bb
+            references trv_air_tickets,
+    aircraft_model          varchar(100),
+    airline_id              bigint
+        constraint fk4tl5duxpqjel5kngfxfyud7y4
+            references trv_airlines,
+    arrival_date            date,
+    arrival_terminal        varchar(50),
+    arrival_time            time(0),
+    baggage_allowance       varchar(100),
+    cabin_class_id          bigint
+        constraint fk8j29aikkms4wpicy2rf7wipbe
+            references trv_cabin_classes,
+    departure_date          date,
+    departure_terminal      varchar(50),
+    departure_time          time(0),
+    destination_airport_id  bigint
+        constraint fks8hfiuli1qu83s2lquc0veqga
+            references trv_airports,
+    flight_duration_minutes integer,
+    flight_number           varchar(20),
+    origin_airport_id       bigint
+        constraint fkpfs67fo4ohc0k8mlpmitxuwns
+            references trv_airports,
+    segment_order           integer not null
+);
+
+alter table trv_air_ticket_segments
+    owner to postgres;
+
+create table trv_document_mapping
+(
+    id                bigint generated by default as identity
+        primary key,
+    created_at        timestamp(6),
+    created_by        varchar(100),
+    updated_at        timestamp(6),
+    updated_by        varchar(100),
+    auto_create       boolean     not null,
+    credit_account_id bigint,
+    debit_account_id  bigint,
+    erp_document_type varchar(50),
+    trv_document_type varchar(50) not null,
+    organization_id   bigint      not null
+        constraint fk5sajn2wvpnk409gakgb5p9bh3
+            references org_organizations,
+    constraint uq_trv_docmap
+        unique (organization_id, trv_document_type)
+);
+
+alter table trv_document_mapping
+    owner to postgres;
+
+create table trv_documents
+(
+    id                 bigint generated by default as identity
+        primary key,
+    created_at         timestamp(6),
+    created_by         varchar(100),
+    updated_at         timestamp(6),
+    updated_by         varchar(100),
+    content_type       varchar(150),
+    document_type      varchar(30)  not null
+        constraint trv_documents_document_type_check
+            check ((document_type)::text = ANY
+                   ((ARRAY ['PASSPORT'::character varying, 'VISA'::character varying, 'TICKET'::character varying, 'PHOTO'::character varying, 'INVOICE'::character varying, 'CONFIRMATION'::character varying, 'RECEIPT'::character varying, 'OTHER'::character varying])::text[])),
+    entity_id          bigint       not null,
+    entity_type        varchar(30)  not null
+        constraint trv_documents_entity_type_check
+            check ((entity_type)::text = ANY
+                   ((ARRAY ['BOOKING'::character varying, 'PASSENGER'::character varying, 'HOTEL_BOOKING'::character varying, 'AIR_TICKET'::character varying, 'VISA_APPLICATION'::character varying, 'PACKAGE_BOOKING'::character varying, 'TOUR_BOOKING'::character varying, 'SUPPLIER_COST'::character varying])::text[])),
+    file_path          varchar(500) not null,
+    file_size_bytes    bigint,
+    original_file_name varchar(255) not null,
+    remarks            varchar(500),
+    stored_file_name   varchar(255) not null,
+    organization_id    bigint       not null
+        constraint fkt9f8tit6oa76l96j9pfnxr9fe
+            references org_organizations
+);
+
+alter table trv_documents
+    owner to postgres;
+
+create table trv_gl_account_defaults
+(
+    id                          bigint generated by default as identity
+        primary key,
+    created_at                  timestamp(6),
+    created_by                  varchar(100),
+    updated_at                  timestamp(6),
+    updated_by                  varchar(100),
+    accounts_receivable_id      bigint,
+    cost_of_service_account_id  bigint,
+    supplier_payable_default_id bigint,
+    travel_revenue_account_id   bigint,
+    organization_id             bigint not null
+        constraint uq_trv_gldef_org
+            unique
+        constraint fkpfcqot8qfn0cug7cyfw1q9717
+            references org_organizations
+);
+
+alter table trv_gl_account_defaults
+    owner to postgres;
+
+create table trv_hotel_categories
+(
+    id              bigint generated by default as identity
+        primary key,
+    created_at      timestamp(6),
+    created_by      varchar(100),
+    updated_at      timestamp(6),
+    updated_by      varchar(100),
+    category_name   varchar(100) not null,
+    description     varchar(500),
+    organization_id bigint       not null
+        constraint fktc3q97i2ge94f73f0swk8hcsk
+            references org_organizations
+);
+
+alter table trv_hotel_categories
+    owner to postgres;
+
+create table trv_hotels
+(
+    id              bigint generated by default as identity
+        primary key,
+    created_at      timestamp(6),
+    created_by      varchar(100),
+    updated_at      timestamp(6),
+    updated_by      varchar(100),
+    address         varchar(500),
+    category_id     bigint
+        constraint fkoigx8b6fvwjwni8y41evoghl7
+            references trv_hotel_categories,
+    city            varchar(100),
+    contact_email   varchar(150),
+    contact_person  varchar(150),
+    contact_phone   varchar(30),
+    country         varchar(100),
+    hotel_code      varchar(30)  not null,
+    hotel_name      varchar(200) not null,
+    is_active       boolean      not null,
+    star_rating     integer,
+    organization_id bigint       not null
+        constraint fkkiu4i6js80s106vm37v9856c0
+            references org_organizations,
+    constraint uq_trv_hotel_org_code
+        unique (organization_id, hotel_code)
+);
+
+alter table trv_hotels
+    owner to postgres;
+
+create table trv_meal_plans
+(
+    id          bigint generated by default as identity
+        primary key,
+    created_at  timestamp(6),
+    description varchar(300),
+    plan_code   varchar(10)  not null
+        constraint ukddhhf1pco46sbkfufua2o9gx3
+            unique,
+    plan_name   varchar(100) not null
+);
+
+alter table trv_meal_plans
+    owner to postgres;
+
+create table trv_packages
+(
+    id              bigint generated by default as identity
+        primary key,
+    created_at      timestamp(6),
+    created_by      varchar(100),
+    updated_at      timestamp(6),
+    updated_by      varchar(100),
+    base_price      numeric(18, 2) not null,
+    category        varchar(50),
+    currency        varchar(3)     not null,
+    description     varchar(2000),
+    destination     varchar(150),
+    duration_days   integer,
+    duration_nights integer,
+    is_active       boolean        not null,
+    package_code    varchar(30)    not null,
+    package_name    varchar(200)   not null,
+    organization_id bigint         not null
+        constraint fkhp2ikg5ckeu29y2rdmqk7kunr
+            references org_organizations,
+    constraint uq_trv_pkg_org_code
+        unique (organization_id, package_code)
+);
+
+alter table trv_packages
+    owner to postgres;
+
+create table trv_package_bookings
+(
+    id                  bigint generated by default as identity
+        primary key,
+    created_at          timestamp(6),
+    created_by          varchar(100),
+    updated_at          timestamp(6),
+    updated_by          varchar(100),
+    booking_service_id  bigint         not null
+        constraint fk6w0vt2upy8npq6fqpcw5tbina
+            references trv_booking_services,
+    confirmation_number varchar(100),
+    package_id          bigint         not null
+        constraint fkssdmubpa75cwdpexc93wj1t8q
+            references trv_packages,
+    pax_count           integer        not null,
+    status              varchar(20)    not null
+        constraint trv_package_bookings_status_check
+            check ((status)::text = ANY
+                   ((ARRAY ['PENDING'::character varying, 'CONFIRMED'::character varying, 'CANCELLED'::character varying, 'COMPLETED'::character varying])::text[])),
+    supplier_reference  varchar(100),
+    total_amount        numeric(18, 2) not null,
+    travel_date         date,
+    organization_id     bigint         not null
+        constraint fkfhkv45wtnc591tyfh386xux9d
+            references org_organizations
+);
+
+alter table trv_package_bookings
+    owner to postgres;
+
+create table trv_package_inclusions
+(
+    id             bigint generated by default as identity
+        primary key,
+    description    varchar(300) not null,
+    inclusion_type varchar(10)  not null
+        constraint trv_package_inclusions_inclusion_type_check
+            check ((inclusion_type)::text = ANY
+                   ((ARRAY ['INCLUDED'::character varying, 'EXCLUDED'::character varying])::text[])),
+    package_id     bigint       not null
+        constraint fkohold8irqxckgxe99vipl3dhg
+            references trv_packages
+);
+
+alter table trv_package_inclusions
+    owner to postgres;
+
+create table trv_package_itinerary_days
+(
+    id          bigint generated by default as identity
+        primary key,
+    day_number  integer not null,
+    description varchar(1000),
+    title       varchar(200),
+    package_id  bigint  not null
+        constraint fk49a219utivmx7bbqvt413r1pg
+            references trv_packages
+);
+
+alter table trv_package_itinerary_days
+    owner to postgres;
+
+create table trv_passengers
+(
+    id                bigint generated by default as identity
+        primary key,
+    created_at        timestamp(6),
+    created_by        varchar(100),
+    updated_at        timestamp(6),
+    updated_by        varchar(100),
+    date_of_birth     date,
+    email             varchar(150),
+    first_name        varchar(100) not null,
+    gender            varchar(10)
+        constraint trv_passengers_gender_check
+            check ((gender)::text = ANY
+                   ((ARRAY ['MALE'::character varying, 'FEMALE'::character varying, 'OTHER'::character varying])::text[])),
+    is_lead_passenger boolean      not null,
+    last_name         varchar(100),
+    nationality       varchar(100),
+    passenger_type    varchar(10)  not null
+        constraint trv_passengers_passenger_type_check
+            check ((passenger_type)::text = ANY
+                   ((ARRAY ['ADULT'::character varying, 'CHILD'::character varying, 'INFANT'::character varying])::text[])),
+    passport_expiry   date,
+    passport_number   varchar(50),
+    phone             varchar(30),
+    remarks           varchar(500),
+    title             varchar(10),
+    organization_id   bigint       not null
+        constraint fkoskpf1s7fo5e4n0exml5t3jff
+            references org_organizations,
+    booking_id        bigint       not null
+        constraint fk44w60f7evlst4k7pkjgpoghb4
+            references trv_bookings
+);
+
+alter table trv_passengers
+    owner to postgres;
+
+create table trv_passenger_preferences
+(
+    id                  bigint generated by default as identity
+        primary key,
+    dietary_restriction varchar(300),
+    meal_preference     varchar(100),
+    passenger_id        bigint not null
+        constraint ukj3mislj84as2ibl3jjy4t7erb
+            unique
+        constraint fk79vra43fm0or5bcx0aef00j9g
+            references trv_passengers,
+    remarks             varchar(500),
+    seat_preference     varchar(100),
+    special_assistance  varchar(300)
+);
+
+alter table trv_passenger_preferences
+    owner to postgres;
+
+create table trv_passenger_tickets
+(
+    id                bigint generated by default as identity
+        primary key,
+    air_ticket_id     bigint      not null
+        constraint fkaetdamtb03uv1lcgfl1rnw355
+            references trv_air_tickets,
+    baggage_allowance varchar(100),
+    passenger_id      bigint      not null
+        constraint fkrtdbnqw4dm0dyh4llx7g3x4sr
+            references trv_passengers,
+    seat_number       varchar(20),
+    status            varchar(20) not null
+        constraint trv_passenger_tickets_status_check
+            check ((status)::text = ANY
+                   ((ARRAY ['ISSUED'::character varying, 'CANCELLED'::character varying, 'REFUNDED'::character varying])::text[])),
+    ticket_number     varchar(50)
+);
+
+alter table trv_passenger_tickets
+    owner to postgres;
+
+create table trv_room_types
+(
+    id              bigint generated by default as identity
+        primary key,
+    created_at      timestamp(6),
+    created_by      varchar(100),
+    updated_at      timestamp(6),
+    updated_by      varchar(100),
+    base_price      numeric(18, 2),
+    currency        varchar(3),
+    hotel_id        bigint       not null
+        constraint fk4dhpjea0169uoenja3ngt50gy
+            references trv_hotels,
+    is_active       boolean      not null,
+    max_occupancy   integer,
+    room_type_name  varchar(150) not null,
+    organization_id bigint       not null
+        constraint fk7tjuhxa668940kvjf8xdl8ifq
+            references org_organizations
+);
+
+alter table trv_room_types
+    owner to postgres;
+
+create table trv_hotel_bookings
+(
+    id                  bigint generated by default as identity
+        primary key,
+    created_at          timestamp(6),
+    created_by          varchar(100),
+    updated_at          timestamp(6),
+    updated_by          varchar(100),
+    adults              integer        not null,
+    booking_service_id  bigint         not null
+        constraint fk2dn0lsi5snioshccmmoa11nep
+            references trv_booking_services,
+    check_in_date       date           not null,
+    check_out_date      date           not null,
+    children            integer        not null,
+    confirmation_number varchar(100),
+    hotel_id            bigint         not null
+        constraint fkqqltyhqyyhic90el1lllq9gui
+            references trv_hotels,
+    meal_plan_id        bigint
+        constraint fkl6c7b8wds08th333wviyiqh44
+            references trv_meal_plans,
+    nights              integer,
+    rate_per_night      numeric(18, 2),
+    room_type_id        bigint
+        constraint fksjhtlq4cnh794ileioiq1rnvg
+            references trv_room_types,
+    rooms_count         integer        not null,
+    status              varchar(20)    not null
+        constraint trv_hotel_bookings_status_check
+            check ((status)::text = ANY
+                   ((ARRAY ['PENDING'::character varying, 'CONFIRMED'::character varying, 'CANCELLED'::character varying, 'COMPLETED'::character varying])::text[])),
+    supplier_reference  varchar(100),
+    total_amount        numeric(18, 2) not null,
+    organization_id     bigint         not null
+        constraint fkdw3tk9ra6r4riyxp8u74sknty
+            references org_organizations
+);
+
+alter table trv_hotel_bookings
+    owner to postgres;
+
+create table trv_hotel_cancellations
+(
+    id                bigint generated by default as identity
+        primary key,
+    cancellation_date date           not null,
+    created_at        timestamp(6),
+    created_by        varchar(100),
+    hotel_booking_id  bigint         not null
+        constraint fkcjqq70jhupikqcawrdcwebilv
+            references trv_hotel_bookings,
+    penalty_amount    numeric(18, 2) not null,
+    reason            varchar(500),
+    refund_amount     numeric(18, 2) not null,
+    status            varchar(20)    not null
+        constraint trv_hotel_cancellations_status_check
+            check ((status)::text = ANY
+                   ((ARRAY ['REQUESTED'::character varying, 'APPROVED'::character varying, 'REJECTED'::character varying, 'COMPLETED'::character varying])::text[]))
+);
+
+alter table trv_hotel_cancellations
+    owner to postgres;
+
+create table trv_hotel_rooms
+(
+    id                 bigint generated by default as identity
+        primary key,
+    hotel_booking_id   bigint not null
+        constraint fksaqeer0qlb23v2a1bv50divx
+            references trv_hotel_bookings,
+    room_number        varchar(30),
+    room_type_snapshot varchar(150)
+);
+
+alter table trv_hotel_rooms
+    owner to postgres;
+
+create table trv_hotel_guests
+(
+    id               bigint generated by default as identity
+        primary key,
+    hotel_booking_id bigint not null
+        constraint fkgv1d6unjwmbim3jy4xjq8e2h
+            references trv_hotel_bookings,
+    passenger_id     bigint not null
+        constraint fk94j8rtbhdj18v1fweekv99anw
+            references trv_passengers,
+    room_id          bigint
+        constraint fkgfd2ockvjym1wy6t0juxog2u1
+            references trv_hotel_rooms
+);
+
+alter table trv_hotel_guests
+    owner to postgres;
+
+create table trv_room_facilities
+(
+    id            bigint generated by default as identity
+        primary key,
+    created_at    timestamp(6),
+    facility_name varchar(150) not null,
+    room_type_id  bigint       not null
+        constraint fkqil14wndakivyyn5kgmfdfn7l
+            references trv_room_types
+);
+
+alter table trv_room_facilities
+    owner to postgres;
+
+create table trv_supplier_costs
+(
+    id                 bigint generated by default as identity
+        primary key,
+    created_at         timestamp(6),
+    created_by         varchar(100),
+    updated_at         timestamp(6),
+    updated_by         varchar(100),
+    booking_service_id bigint         not null
+        constraint fk8djrpo5xya7dp2cy5soep9vr0
+            references trv_booking_services,
+    cost_amount        numeric(18, 2) not null,
+    currency           varchar(3)     not null,
+    invoice_reference  varchar(100),
+    payment_status     varchar(20)    not null
+        constraint trv_supplier_costs_payment_status_check
+            check ((payment_status)::text = ANY
+                   ((ARRAY ['UNPAID'::character varying, 'PARTIAL'::character varying, 'PAID'::character varying])::text[])),
+    supplier_id        bigint,
+    organization_id    bigint         not null
+        constraint fkl8xyuuj8opbyvsdc03vnuvtvx
+            references org_organizations
+);
+
+alter table trv_supplier_costs
+    owner to postgres;
+
+create table trv_tour_guides
+(
+    id         bigint generated by default as identity
+        primary key,
+    email      varchar(150),
+    guide_name varchar(150) not null,
+    is_active  boolean      not null,
+    languages  varchar(200),
+    phone      varchar(30)
+);
+
+alter table trv_tour_guides
+    owner to postgres;
+
+create table trv_tours
+(
+    id              bigint generated by default as identity
+        primary key,
+    created_at      timestamp(6),
+    created_by      varchar(100),
+    updated_at      timestamp(6),
+    updated_by      varchar(100),
+    base_price      numeric(18, 2) not null,
+    currency        varchar(3)     not null,
+    description     varchar(1000),
+    destination     varchar(150),
+    duration_hours  numeric(6, 2),
+    is_active       boolean        not null,
+    tour_code       varchar(30)    not null,
+    tour_name       varchar(200)   not null,
+    organization_id bigint         not null
+        constraint fko53g2amj4qieajjhisr2ata9x
+            references org_organizations,
+    constraint uq_trv_tour_org_code
+        unique (organization_id, tour_code)
+);
+
+alter table trv_tours
+    owner to postgres;
+
+create table trv_tour_bookings
+(
+    id                  bigint generated by default as identity
+        primary key,
+    created_at          timestamp(6),
+    created_by          varchar(100),
+    updated_at          timestamp(6),
+    updated_by          varchar(100),
+    booking_service_id  bigint         not null
+        constraint fkg11hx41hrymt7pmsnl16jsifn
+            references trv_booking_services,
+    confirmation_number varchar(100),
+    guide_id            bigint
+        constraint fk5wnghbk9cvpqd9byhhriqaxbd
+            references trv_tour_guides,
+    pax_count           integer        not null,
+    status              varchar(20)    not null
+        constraint trv_tour_bookings_status_check
+            check ((status)::text = ANY
+                   ((ARRAY ['PENDING'::character varying, 'CONFIRMED'::character varying, 'CANCELLED'::character varying, 'COMPLETED'::character varying])::text[])),
+    total_amount        numeric(18, 2) not null,
+    tour_date           date,
+    tour_id             bigint         not null
+        constraint fkodiggk0517hgo8twcq6jsx61d
+            references trv_tours,
+    organization_id     bigint         not null
+        constraint fkmlcqxvaddemwaa726lchm3sub
+            references org_organizations
+);
+
+alter table trv_tour_bookings
+    owner to postgres;
+
+create table trv_visa_types
+(
+    id              bigint generated by default as identity
+        primary key,
+    country         varchar(100)   not null,
+    currency        varchar(3)     not null,
+    description     varchar(500),
+    fee_amount      numeric(18, 2) not null,
+    processing_days integer,
+    visa_category   varchar(100)   not null
+);
+
+alter table trv_visa_types
+    owner to postgres;
+
+create table trv_visa_applications
+(
+    id                 bigint generated by default as identity
+        primary key,
+    created_at         timestamp(6),
+    created_by         varchar(100),
+    updated_at         timestamp(6),
+    updated_by         varchar(100),
+    application_number varchar(100),
+    approval_date      date,
+    booking_service_id bigint         not null
+        constraint fk5183ib69v042jh8g55h2fe245
+            references trv_booking_services,
+    expected_date      date,
+    fee_amount         numeric(18, 2) not null,
+    passenger_id       bigint         not null
+        constraint fkg23rn1k50g1u1oygsc59qupr4
+            references trv_passengers,
+    remarks            varchar(1000),
+    status             varchar(20)    not null
+        constraint trv_visa_applications_status_check
+            check ((status)::text = ANY
+                   ((ARRAY ['PENDING'::character varying, 'SUBMITTED'::character varying, 'APPROVED'::character varying, 'REJECTED'::character varying, 'COLLECTED'::character varying])::text[])),
+    submission_date    date,
+    visa_type_id       bigint         not null
+        constraint fker92fuud6df90dpvemmkc58vo
+            references trv_visa_types,
+    organization_id    bigint         not null
+        constraint fk2n6nc66smjx16rwg5l8qydkvd
+            references org_organizations
+);
+
+alter table trv_visa_applications
+    owner to postgres;
+
+create table trv_visa_documents
+(
+    id                  bigint generated by default as identity
+        primary key,
+    document_name       varchar(150) not null,
+    is_received         boolean      not null,
+    remarks             varchar(300),
+    visa_application_id bigint       not null
+        constraint fk2bova59urg3yfbpigbrqk9okh
+            references trv_visa_applications
+);
+
+alter table trv_visa_documents
+    owner to postgres;
+
+create table user_context
+(
+    id                              bigint generated by default as identity
+        primary key,
+    approval_default_view           varchar(20),
+    approval_desktop_notification   boolean,
+    approval_email_enabled          boolean,
+    approval_notification_frequency varchar(20),
+    approval_push_enabled           boolean,
+    approval_refresh_interval       integer,
+    approval_sms_enabled            boolean,
+    approval_sound_enabled          boolean,
+    approval_whatsapp_enabled       boolean,
+    last_viewed_notification_id     bigint,
+    show_approval_badge             boolean,
+    business_unit_id                bigint
+        constraint fkpsi57qcwbr2fysx2xva82rdf2
+            references org_business_units,
+    cost_center_id                  bigint
+        constraint fk8oo4fh7s3aehi1rgbqg1kgj7k
+            references org_cost_centers,
+    organization_id                 bigint
+        constraint fk14yktgccw83d3d0l8yglefk4a
+            references org_organizations,
+    user_id                         bigint not null
+        constraint ukhqvshjev4tce58hu2vq1nwjhi
+            unique
+        constraint fkjyxw3pod982g24xs9hsx5d1yp
+            references sec_users,
+    warehouse_id                    bigint
+        constraint fkj8ouyx0xky1j8cdlha06h09hi
+            references org_warehouses
+);
+
+alter table user_context
+    owner to postgres;
+

@@ -11,6 +11,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
@@ -55,6 +56,21 @@ public class TravelOperationsServiceImpl implements TravelOperationsService {
         e.setTotalAmount(dto.getTotalAmount());
         e.setConfirmationNumber(dto.getConfirmationNumber());
         e.setSupplierReference(dto.getSupplierReference());
+
+        // ── Booking source / policy fields ─────────────────────────────────────
+        e.setBookingSource(dto.getBookingSource() != null
+            ? TrvHotelBooking.BookingSource.valueOf(dto.getBookingSource()) : null);
+        e.setCancellationPolicy(dto.getCancellationPolicy());
+        e.setFreeCancellationUntil(dto.getFreeCancellationUntil());
+        e.setDepositAmount(dto.getDepositAmount() != null ? dto.getDepositAmount() : BigDecimal.ZERO);
+        e.setBalanceDueDate(dto.getBalanceDueDate());
+        e.setSpecialRequests(dto.getSpecialRequests());
+        e.setBookingCurrency(dto.getBookingCurrency() != null ? dto.getBookingCurrency() : "BDT");
+        e.setTaxAmount(dto.getTaxAmount() != null ? dto.getTaxAmount() : BigDecimal.ZERO);
+        e.setNetAmount(dto.getNetAmount() != null ? dto.getNetAmount() : BigDecimal.ZERO);
+        e.setVendorConfirmationReceived(dto.getVendorConfirmationReceived() != null
+            ? dto.getVendorConfirmationReceived() : false);
+        e.setVendorRemarks(dto.getVendorRemarks());
         if (e.getStatus() == null) e.setStatus(TrvHotelBooking.Status.PENDING);
         e.setBookingServiceId(dto.getBookingServiceId());
         e.setHotelId(dto.getHotelId());
@@ -103,6 +119,17 @@ public class TravelOperationsServiceImpl implements TravelOperationsService {
             .status(e.getStatus() != null ? e.getStatus().name() : null)
             .bookingServiceId(e.getBookingServiceId()).hotelId(e.getHotelId())
             .roomTypeId(e.getRoomTypeId()).mealPlanId(e.getMealPlanId())
+            .bookingSource(e.getBookingSource() != null ? e.getBookingSource().name() : null)
+            .cancellationPolicy(e.getCancellationPolicy())
+            .freeCancellationUntil(e.getFreeCancellationUntil())
+            .depositAmount(e.getDepositAmount())
+            .balanceDueDate(e.getBalanceDueDate())
+            .specialRequests(e.getSpecialRequests())
+            .bookingCurrency(e.getBookingCurrency())
+            .taxAmount(e.getTaxAmount())
+            .netAmount(e.getNetAmount())
+            .vendorConfirmationReceived(e.getVendorConfirmationReceived())
+            .vendorRemarks(e.getVendorRemarks())
             .build();
 
         List<TrvHotelRoom> rooms = hotelRoomRepo.findByHotelBookingId(id);
@@ -143,18 +170,24 @@ public class TravelOperationsServiceImpl implements TravelOperationsService {
                    TO_CHAR(hb.check_out_date,'DD-Mon-YYYY') AS check_out_date, hb.nights,
                    h.hotel_name, COALESCE(rt.room_type_name,'—') AS room_type_name,
                    hb.rooms_count, COALESCE(hb.total_amount::text,'0') AS total_amount,
+                   COALESCE(hb.deposit_amount::text,'0') AS deposit_amount,
+                   COALESCE(hb.booking_source,'—') AS booking_source,
                    hb.confirmation_number,
+                   CASE WHEN hb.vendor_confirmation_received THEN '<span class="badge bg-success">Yes</span>' ELSE '<span class="badge bg-warning">No</span>' END AS vendor_confirmed,
                    CASE hb.status
                        WHEN 'PENDING'   THEN '<span class="badge bg-secondary">Pending</span>'
                        WHEN 'CONFIRMED' THEN '<span class="badge bg-success">Confirmed</span>'
                        WHEN 'CANCELLED' THEN '<span class="badge bg-danger">Cancelled</span>'
                        WHEN 'COMPLETED' THEN '<span class="badge bg-dark">Completed</span>'
+                       WHEN 'NO_SHOW'   THEN '<span class="badge bg-info">No Show</span>'
                    END AS status_badge,
                    '<div class="btn-group">'
                      || '<a href="javascript:;" onclick="hbShow('   || hb.id || ')" class="btn btn-white btn-sm" title="View"><i class="fas fa-eye text-success"></i></a>'
-                     || '<a href="javascript:;" onclick="hbEdit('   || hb.id || ')" class="btn btn-white btn-sm" title="Edit"><i class="fa-regular fa-pen-to-square text-warning"></i></a>'
+                     || CASE WHEN hb.status = 'PENDING' THEN '<a href="javascript:;" onclick="hbEdit('   || hb.id || ')" class="btn btn-white btn-sm" title="Edit"><i class="fa-regular fa-pen-to-square text-warning"></i></a>' ELSE '' END
                      || CASE WHEN hb.status = 'PENDING' THEN '<a href="javascript:;" onclick="hbConfirm(' || hb.id || ')" class="btn btn-white btn-sm" title="Confirm"><i class="fas fa-check-circle text-primary"></i></a>' ELSE '' END
-                     || '<a href="javascript:;" onclick="hbDelete(' || hb.id || ')" class="btn btn-white btn-sm" title="Delete"><i class="fa-regular fa-trash-can text-danger"></i></a>'
+                     || CASE WHEN hb.status IN ('CONFIRMED','PENDING') THEN '<a href="javascript:;" onclick="hbCancel(' || hb.id || ')" class="btn btn-white btn-sm" title="Cancel"><i class="fas fa-ban text-danger"></i></a>' ELSE '' END
+                     || CASE WHEN hb.status = 'CONFIRMED' THEN '<a href="javascript:;" onclick="hbComplete(' || hb.id || ')" class="btn btn-white btn-sm" title="Check Out / Complete"><i class="fas fa-door-open text-dark"></i></a>' ELSE '' END
+                     || CASE WHEN hb.status = 'PENDING' THEN '<a href="javascript:;" onclick="hbDelete(' || hb.id || ')" class="btn btn-white btn-sm" title="Delete"><i class="fa-regular fa-trash-can text-danger"></i></a>' ELSE '' END
                      || '</div>' AS actions
             FROM   trv_hotel_bookings hb
             JOIN   trv_booking_services bs ON bs.id = hb.booking_service_id
@@ -186,6 +219,19 @@ public class TravelOperationsServiceImpl implements TravelOperationsService {
         e.setTaxAmount(dto.getTaxAmount());
         e.setTotalAmount(dto.getTotalAmount());
         e.setSupplierReference(dto.getSupplierReference());
+
+        // ── Ticket-level fields ────────────────────────────────────────────────
+        e.setTicketNumber(dto.getTicketNumber());
+        e.setValidatingCarrier(dto.getValidatingCarrier());
+        e.setFareBasis(dto.getFareBasis());
+        e.setCommissionAmount(dto.getCommissionAmount());
+        e.setCommissionRate(dto.getCommissionRate());
+        e.setNetFare(dto.getNetFare());
+        e.setServiceFeeAmount(dto.getServiceFeeAmount());
+        e.setTourCode(dto.getTourCode());
+        e.setEndorsementRestrictions(dto.getEndorsementRestrictions());
+        e.setTicketTimeLimit(dto.getTicketTimeLimit());
+        e.setAdditionalCollection(dto.getAdditionalCollection());
 
         // ── Vendor / Agent header fields ──────────────────────────────────────
         e.setIssueDate(dto.getIssueDate());
@@ -259,6 +305,8 @@ public class TravelOperationsServiceImpl implements TravelOperationsService {
                     .ticketNumber(ptd.getTicketNumber())
                     .seatNumber(ptd.getSeatNumber())
                     .baggageAllowance(ptd.getBaggageAllowance())
+                    .farePortion(ptd.getFarePortion())
+                    .taxPortion(ptd.getTaxPortion())
                     .status(ptd.getStatus() != null
                         ? TrvPassengerTicket.Status.valueOf(ptd.getStatus()) : TrvPassengerTicket.Status.ISSUED)
                     .build());
@@ -278,6 +326,17 @@ public class TravelOperationsServiceImpl implements TravelOperationsService {
             .arrivalDate(e.getArrivalDate()).arrivalTime(e.getArrivalTime())
             .fareAmount(e.getFareAmount()).taxAmount(e.getTaxAmount()).totalAmount(e.getTotalAmount())
             .supplierReference(e.getSupplierReference())
+            .ticketNumber(e.getTicketNumber())
+            .validatingCarrier(e.getValidatingCarrier())
+            .fareBasis(e.getFareBasis())
+            .commissionAmount(e.getCommissionAmount())
+            .commissionRate(e.getCommissionRate())
+            .netFare(e.getNetFare())
+            .serviceFeeAmount(e.getServiceFeeAmount())
+            .tourCode(e.getTourCode())
+            .endorsementRestrictions(e.getEndorsementRestrictions())
+            .ticketTimeLimit(e.getTicketTimeLimit())
+            .additionalCollection(e.getAdditionalCollection())
             .issueDate(e.getIssueDate())
             .bookingReference(e.getBookingReference())
             .agentVendorName(e.getAgentVendorName())
@@ -327,7 +386,14 @@ public class TravelOperationsServiceImpl implements TravelOperationsService {
                     .id(pt.getId()).passengerId(pt.getPassengerId()).passengerName(name)
                     .ticketNumber(pt.getTicketNumber()).seatNumber(pt.getSeatNumber())
                     .baggageAllowance(pt.getBaggageAllowance())
+                    .farePortion(pt.getFarePortion())
+                    .taxPortion(pt.getTaxPortion())
                     .status(pt.getStatus() != null ? pt.getStatus().name() : null)
+                    .checkInStatus(pt.getCheckInStatus() != null ? pt.getCheckInStatus().name() : null)
+                    .checkInTime(pt.getCheckInTime())
+                    .boardingTime(pt.getBoardingTime())
+                    .gateNumber(pt.getGateNumber())
+                    .departureGate(pt.getDepartureGate())
                     .build();
             }).collect(Collectors.toList()));
         return dto;
@@ -357,21 +423,29 @@ public class TravelOperationsServiceImpl implements TravelOperationsService {
         return jdbcTemplate.queryForList("""
             SELECT at.id, ROW_NUMBER() OVER (ORDER BY at.id DESC) AS sl,
                    b.booking_no, COALESCE(at.pnr,'—') AS pnr,
+                   COALESCE(at.ticket_number,'—') AS ticket_number,
                    COALESCE(al.airline_name,'—') AS airline_name,
                    COALESCE(o.airport_code,'—') || ' → ' || COALESCE(d.airport_code,'—') AS route,
                    TO_CHAR(COALESCE(at.departure_date, s1.departure_date),'DD-Mon-YYYY') AS departure_date,
+                   COALESCE(at.fare_amount::text,'0') AS fare_amount,
+                   COALESCE(at.tax_amount::text,'0') AS tax_amount,
                    COALESCE(at.total_amount::text,'0') AS total_amount,
                    (SELECT COUNT(*) FROM trv_passenger_tickets pt WHERE pt.air_ticket_id = at.id) AS pax_count,
+                   (SELECT COUNT(*) FROM trv_passenger_tickets pt WHERE pt.air_ticket_id = at.id AND pt.status = 'CHECKED_IN') AS checked_in_count,
                    (SELECT COUNT(*) FROM trv_air_ticket_segments ts WHERE ts.air_ticket_id = at.id) AS segments_count,
                    CASE at.status
                        WHEN 'ISSUED'   THEN '<span class="badge bg-success">Issued</span>'
+                       WHEN 'VOID'     THEN '<span class="badge bg-secondary">Void</span>'
                        WHEN 'CANCELLED' THEN '<span class="badge bg-danger">Cancelled</span>'
-                       WHEN 'REFUNDED'  THEN '<span class="badge bg-secondary">Refunded</span>'
+                       WHEN 'REFUNDED'  THEN '<span class="badge bg-info">Refunded</span>'
+                       WHEN 'EXCHANGED' THEN '<span class="badge bg-primary">Exchanged</span>'
                    END AS status_badge,
                    '<div class="btn-group">'
                      || '<a href="javascript:;" onclick="atShow('   || at.id || ')" class="btn btn-white btn-sm" title="View"><i class="fas fa-eye text-success"></i></a>'
-                     || '<a href="javascript:;" onclick="atEdit('   || at.id || ')" class="btn btn-white btn-sm" title="Edit"><i class="fa-regular fa-pen-to-square text-warning"></i></a>'
-                     || '<a href="javascript:;" onclick="atDelete(' || at.id || ')" class="btn btn-white btn-sm" title="Delete"><i class="fa-regular fa-trash-can text-danger"></i></a>'
+                     || CASE WHEN at.status = 'ISSUED' THEN '<a href="javascript:;" onclick="atEdit('   || at.id || ')" class="btn btn-white btn-sm" title="Edit"><i class="fa-regular fa-pen-to-square text-warning"></i></a>' ELSE '' END
+                     || CASE WHEN at.status = 'ISSUED' THEN '<a href="javascript:;" onclick="atVoid('   || at.id || ')" class="btn btn-white btn-sm" title="Void"><i class="fas fa-ban text-secondary"></i></a>' ELSE '' END
+                     || CASE WHEN at.status = 'ISSUED' THEN '<a href="javascript:;" onclick="atCancel(' || at.id || ')" class="btn btn-white btn-sm" title="Cancel"><i class="fa-regular fa-trash-can text-danger"></i></a>' ELSE '' END
+                     || CASE WHEN at.status IN ('ISSUED','CANCELLED') THEN '<a href="javascript:;" onclick="atRefund(' || at.id || ')" class="btn btn-white btn-sm" title="Refund"><i class="fas fa-undo text-info"></i></a>' ELSE '' END
                      || '</div>' AS actions
             FROM   trv_air_tickets at
             JOIN   trv_booking_services bs ON bs.id = at.booking_service_id
@@ -381,9 +455,9 @@ public class TravelOperationsServiceImpl implements TravelOperationsService {
             LEFT   JOIN trv_airports d  ON d.id  = at.destination_airport_id
             LEFT   JOIN trv_air_ticket_segments s1 ON s1.air_ticket_id = at.id AND s1.segment_order = 1
             WHERE  b.organization_id = ?
-              AND  (b.booking_no ILIKE ? OR at.pnr ILIKE ? OR al.airline_name ILIKE ?)
+              AND  (b.booking_no ILIKE ? OR at.pnr ILIKE ? OR al.airline_name ILIKE ? OR at.ticket_number ILIKE ?)
             ORDER  BY at.id DESC
-            """, SecurityHelper.requireOrgId(), like, like, like);
+            """, SecurityHelper.requireOrgId(), like, like, like, like);
     }
 
     // =========================================================================

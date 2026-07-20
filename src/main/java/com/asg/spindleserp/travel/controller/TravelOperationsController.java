@@ -132,6 +132,42 @@ public class TravelOperationsController {
         return res;
     }
 
+    @PostMapping("/air-tickets/confirm/{id}")
+    @ResponseBody
+    public Map<String, Object> atConfirm(@PathVariable Long id) {
+        Map<String, Object> res = new HashMap<>();
+        try { opsService.changeAirTicketStatus(id, "ISSUED"); res.put("success", true); res.put("message", "Air ticket issued."); }
+        catch (Exception e) { res.put("success", false); res.put("message", e.getMessage()); }
+        return res;
+    }
+
+    @PostMapping("/air-tickets/void/{id}")
+    @ResponseBody
+    public Map<String, Object> atVoid(@PathVariable Long id) {
+        Map<String, Object> res = new HashMap<>();
+        try { opsService.changeAirTicketStatus(id, "VOID"); res.put("success", true); res.put("message", "Air ticket voided."); }
+        catch (Exception e) { res.put("success", false); res.put("message", e.getMessage()); }
+        return res;
+    }
+
+    @PostMapping("/air-tickets/cancel/{id}")
+    @ResponseBody
+    public Map<String, Object> atCancel(@PathVariable Long id) {
+        Map<String, Object> res = new HashMap<>();
+        try { opsService.changeAirTicketStatus(id, "CANCELLED"); res.put("success", true); res.put("message", "Air ticket cancelled."); }
+        catch (Exception e) { res.put("success", false); res.put("message", e.getMessage()); }
+        return res;
+    }
+
+    @PostMapping("/air-tickets/refund/{id}")
+    @ResponseBody
+    public Map<String, Object> atRefund(@PathVariable Long id) {
+        Map<String, Object> res = new HashMap<>();
+        try { opsService.changeAirTicketStatus(id, "REFUNDED"); res.put("success", true); res.put("message", "Air ticket refunded."); }
+        catch (Exception e) { res.put("success", false); res.put("message", e.getMessage()); }
+        return res;
+    }
+
     // ── SUPPLIER COSTS ────────────────────────────────────────────────────────
 
     @GetMapping("/supplier-costs/list")
@@ -161,6 +197,24 @@ public class TravelOperationsController {
     }
 
     // ── LOOKUPS (Select2) ─────────────────────────────────────────────────────
+
+    @PostMapping("/hotel-bookings/cancel/{id}")
+    @ResponseBody
+    public Map<String, Object> hbCancel(@PathVariable Long id) {
+        Map<String, Object> res = new HashMap<>();
+        try { opsService.changeHotelBookingStatus(id, "CANCELLED"); res.put("success", true); res.put("message", "Hotel booking cancelled."); }
+        catch (Exception e) { res.put("success", false); res.put("message", e.getMessage()); }
+        return res;
+    }
+
+    @PostMapping("/hotel-bookings/complete/{id}")
+    @ResponseBody
+    public Map<String, Object> hbComplete(@PathVariable Long id) {
+        Map<String, Object> res = new HashMap<>();
+        try { opsService.changeHotelBookingStatus(id, "COMPLETED"); res.put("success", true); res.put("message", "Hotel stay completed. Checked out."); }
+        catch (Exception e) { res.put("success", false); res.put("message", e.getMessage()); }
+        return res;
+    }
 
     @GetMapping("/service-lines/search")
     @ResponseBody

@@ -11,13 +11,14 @@
     <li class="breadcrumb-item">Travel</li>
     <li class="breadcrumb-item active">Hotel Bookings</li>
   </ol>
-  <h1 class="page-header">Hotel Bookings <small>fulfillment for HOTEL service lines</small></h1>
+  <h1 class="page-header">Hotel Bookings <small>fulfillment, stay lifecycle &amp; vendor management for HOTEL service lines</small></h1>
 
   <div class="d-flex gap-2 mb-3 flex-wrap">
     <a th:href="@{/travel/bookings}"       class="btn btn-sm btn-outline-primary"><i class="fa fa-ticket-alt me-1"></i> Bookings</a>
     <a th:href="@{/travel/hotel-bookings}" class="btn btn-sm btn-primary"><i class="fa fa-bed me-1"></i> Hotel Bookings</a>
     <a th:href="@{/travel/air-tickets}"    class="btn btn-sm btn-outline-primary"><i class="fa fa-plane-departure me-1"></i> Air Tickets</a>
-    <a th:href="@{/travel/packages}"       class="btn btn-sm btn-outline-primary"><i class="fa fa-suitcase-rolling me-1"></i> Packages</a>
+    <a th:href="@{/travel/packages}"        class="btn btn-sm btn-outline-primary"><i class="fa fa-suitcase-rolling me-1"></i> Packages</a>
+    <a th:href="@{/travel/tours}"           class="btn btn-sm btn-outline-primary"><i class="fa fa-route me-1"></i> Tours</a>
   </div>
 
   <div class="panel panel-inverse">
@@ -31,9 +32,9 @@
       <table class="table table-striped table-bordered align-middle">
         <thead><tr>
           <th width="1%">SL</th><th>Booking</th><th>Check-in</th><th>Check-out</th><th>Nights</th>
-          <th>Hotel</th><th>Room Type</th><th class="text-center">Rooms</th>
-          <th class="text-end">Total</th><th>Confirmation#</th>
-          <th class="text-center">Status</th><th class="text-center" width="16%">Actions</th>
+          <th>Hotel</th><th>Room</th><th class="text-center">Rooms</th>
+          <th class="text-end">Total</th><th>Source</th><th class="text-center">Vndr</th>
+          <th class="text-center">Status</th><th class="text-center" width="18%">Actions</th>
         </tr></thead>
         <tbody id="hbBody"></tbody>
       </table>
@@ -41,7 +42,7 @@
 
     <!-- HOTEL BOOKING MODAL -->
     <div tabindex="-1" id="hbModal" class="modal fade">
-      <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+      <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
         <div class="modal-content">
           <div class="modal-header">
             <h5 class="modal-title" id="hbModalTitle"><i class="fa fa-bed me-1 text-success"></i> New Hotel Booking</h5>
@@ -51,7 +52,7 @@
             <div class="modal-body">
               <div class="hs-box">
                 <input type="hidden" id="hbId">
-                <div class="row g-2">
+                <div class="row g-2 mb-3">
                   <div class="col-12 view-group">
                     <select id="hbServiceLineId" class="form-select hs_span_view"></select>
                     <label class="input-label">Booking Service Line <span class="text-danger">*</span></label>
@@ -76,26 +77,103 @@
                     <input id="hbCheckOut" type="date" class="form-control hs_span_view" required>
                     <label class="input-label">Check-out <span class="text-danger">*</span></label>
                   </div>
-                  <div class="col-md-4 view-group">
+                  <div class="col-md-3 view-group">
                     <input id="hbRooms" type="number" min="1" class="form-control hs_span_view" value="1">
                     <label class="input-label">Rooms</label>
                   </div>
-                  <div class="col-md-4 view-group">
+                  <div class="col-md-3 view-group">
                     <input id="hbAdults" type="number" min="1" class="form-control hs_span_view" value="1">
                     <label class="input-label">Adults</label>
                   </div>
-                  <div class="col-md-4 view-group">
+                  <div class="col-md-3 view-group">
                     <input id="hbChildren" type="number" min="0" class="form-control hs_span_view" value="0">
                     <label class="input-label">Children</label>
                   </div>
-                  <div class="col-md-6 view-group">
-                    <input id="hbRatePerNight" type="number" step="0.01" class="form-control hs_span_view">
-                    <label class="input-label">Rate / Night</label>
+                </div>
+
+                <!-- Booking Source & Policy (collapsible new section) -->
+                <div class="card mb-3 border">
+                  <div class="card-header py-2 px-3 d-flex justify-content-between align-items-center" style="cursor:pointer" data-bs-toggle="collapse" data-bs-target="#hbPolicyBody">
+                    <strong class="small"><i class="fa fa-file-contract me-1"></i> Booking Source &amp; Policy</strong>
+                    <i class="fa fa-chevron-down small"></i>
                   </div>
-                  <div class="col-md-6 view-group">
-                    <input id="hbTotalAmount" type="number" step="0.01" class="form-control hs_span_view">
-                    <label class="input-label">Total Amount</label>
+                  <div id="hbPolicyBody" class="collapse show p-3">
+                    <div class="row g-2">
+                      <div class="col-md-4 view-group">
+                        <select id="hbBookingSource" class="form-select hs_span_view">
+                          <option value="DIRECT">Direct</option>
+                          <option value="ONLINE_TRAVEL_AGENCY">Online Travel Agency</option>
+                          <option value="CORPORATE">Corporate</option>
+                          <option value="TRAVEL_AGENT">Travel Agent</option>
+                          <option value="GDS">GDS</option>
+                          <option value="OTHER">Other</option>
+                        </select>
+                        <label class="input-label">Booking Source</label>
+                      </div>
+                      <div class="col-md-4 view-group">
+                        <input id="hbFreeCancellationUntil" type="date" class="form-control hs_span_view">
+                        <label class="input-label">Free Cancellation Until</label>
+                      </div>
+                      <div class="col-md-4 view-group">
+                        <input id="hbBalanceDueDate" type="date" class="form-control hs_span_view">
+                        <label class="input-label">Balance Due Date</label>
+                      </div>
+                      <div class="col-12 view-group">
+                        <textarea id="hbCancellationPolicy" class="form-control hs_span_view" rows="1" maxlength="2000" placeholder="Cancellation policy text…"></textarea>
+                        <label class="input-label">Cancellation Policy</label>
+                      </div>
+                      <div class="col-12 view-group">
+                        <textarea id="hbSpecialRequests" class="form-control hs_span_view" rows="1" maxlength="2000" placeholder="Special requests, preferences…"></textarea>
+                        <label class="input-label">Special Requests</label>
+                      </div>
+                    </div>
                   </div>
+                </div>
+
+                <!-- Pricing -->
+                <div class="card mb-3 border">
+                  <div class="card-header py-2 px-3 d-flex justify-content-between align-items-center" style="cursor:pointer" data-bs-toggle="collapse" data-bs-target="#hbPriceBody">
+                    <strong class="small"><i class="fa fa-calculator me-1"></i> Pricing &amp; Payment</strong>
+                    <i class="fa fa-chevron-down small"></i>
+                  </div>
+                  <div id="hbPriceBody" class="collapse show p-3">
+                    <div class="row g-2">
+                      <div class="col-md-4 view-group">
+                        <input id="hbRatePerNight" type="number" step="0.01" class="form-control hs_span_view" oninput="hbCalcTotals()">
+                        <label class="input-label">Rate / Night</label>
+                      </div>
+                      <div class="col-md-4 view-group">
+                        <input id="hbTaxAmount" type="number" step="0.01" class="form-control hs_span_view" value="0" oninput="hbCalcTotals()">
+                        <label class="input-label">Tax Amount</label>
+                      </div>
+                      <div class="col-md-4 view-group">
+                        <input id="hbTotalAmount" type="number" step="0.01" class="form-control hs_span_view bg-light" readonly>
+                        <label class="input-label">Total Amount</label>
+                      </div>
+                      <div class="col-md-4 view-group">
+                        <input id="hbDepositAmount" type="number" step="0.01" class="form-control hs_span_view" value="0" oninput="hbCalcTotals()">
+                        <label class="input-label">Deposit Paid</label>
+                      </div>
+                      <div class="col-md-4 view-group">
+                        <input id="hbNetAmount" type="number" step="0.01" class="form-control hs_span_view bg-light" value="0" readonly>
+                        <label class="input-label">Net Amount (Total - Tax)</label>
+                      </div>
+                      <div class="col-md-4 view-group">
+                        <select id="hbBookingCurrency" class="form-select hs_span_view">
+                          <option value="BDT">BDT (৳)</option>
+                          <option value="USD">USD ($)</option>
+                          <option value="EUR">EUR (€)</option>
+                          <option value="GBP">GBP (£)</option>
+                          <option value="INR">INR (₹)</option>
+                        </select>
+                        <label class="input-label">Currency</label>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Confirmation & Vendor -->
+                <div class="row g-2 mb-3">
                   <div class="col-md-6 view-group">
                     <input id="hbConfirmationNumber" type="text" class="form-control hs_span_view" maxlength="100">
                     <label class="input-label">Confirmation Number</label>
@@ -103,6 +181,16 @@
                   <div class="col-md-6 view-group">
                     <input id="hbSupplierReference" type="text" class="form-control hs_span_view" maxlength="100">
                     <label class="input-label">Supplier Reference</label>
+                  </div>
+                  <div class="col-md-4 view-group">
+                    <div class="form-check form-switch mt-2">
+                      <input id="hbVendorConfirmed" type="checkbox" class="form-check-input" role="switch">
+                      <label class="form-check-label" for="hbVendorConfirmed">Vendor Confirmation Received</label>
+                    </div>
+                  </div>
+                  <div class="col-12 view-group">
+                    <textarea id="hbVendorRemarks" class="form-control hs_span_view" rows="1" maxlength="1000" placeholder="Internal vendor notes…"></textarea>
+                    <label class="input-label">Vendor Remarks (Internal)</label>
                   </div>
                 </div>
               </div>
@@ -123,7 +211,7 @@
     <div tabindex="-1" id="hbViewModal" class="modal fade">
       <div class="modal-dialog modal-dialog-centered modal-lg">
         <div class="modal-content">
-          <div class="modal-header"><h5 class="modal-title">Hotel Booking Details</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+          <div class="modal-header"><h5 class="modal-title"><i class="fa fa-bed me-1 text-primary"></i> Hotel Booking Details</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
           <div class="modal-body" id="hbViewBody"></div>
           <div class="modal-footer"><button type="button" class="btn btn-white" data-bs-dismiss="modal">Close</button></div>
         </div>
@@ -151,10 +239,11 @@
             '<tr><td>' + r.sl + '</td><td>' + r.booking_no + '</td><td>' + r.check_in_date + '</td><td>' + r.check_out_date + '</td>'
             + '<td>' + r.nights + '</td><td>' + r.hotel_name + '</td><td>' + r.room_type_name + '</td>'
             + '<td class="text-center">' + r.rooms_count + '</td><td class="text-end">' + parseFloat(r.total_amount || 0).toFixed(2) + '</td>'
-            + '<td>' + (r.confirmation_number || '—') + '</td><td class="text-center">' + r.status_badge + '</td>'
+            + '<td>' + r.booking_source + '</td><td class="text-center">' + r.vendor_confirmed + '</td>'
+            + '<td class="text-center">' + r.status_badge + '</td>'
             + '<td class="text-center">' + r.actions + '</td></tr>');
         });
-        if (!(res.data || []).length) body.innerHTML = '<tr><td colspan="12" class="text-center text-muted py-3">No hotel bookings found.</td></tr>';
+        if (!(res.data || []).length) body.innerHTML = '<tr><td colspan="13" class="text-center text-muted py-3">No hotel bookings found.</td></tr>';
       });
     };
 
@@ -195,6 +284,20 @@
       });
     }
 
+    /* ── Auto-calc totals ─────────────────────────────────────────────── */
+    window.hbCalcTotals = function () {
+      var rate = parseFloat(document.getElementById('hbRatePerNight').value) || 0;
+      var nights = 1;
+      var ci = document.getElementById('hbCheckIn').value;
+      var co = document.getElementById('hbCheckOut').value;
+      if (ci && co) nights = Math.max(1, Math.round((new Date(co) - new Date(ci)) / 86400000));
+      var rooms = parseInt(document.getElementById('hbRooms').value) || 1;
+      var total = rate * nights * rooms;
+      var tax = parseFloat(document.getElementById('hbTaxAmount').value) || 0;
+      document.getElementById('hbTotalAmount').value = (total + tax).toFixed(2);
+      document.getElementById('hbNetAmount').value = total.toFixed(2);
+    };
+
     window.hbOpenCreate = function () {
       _resetForm();
       _loadServiceLines(); _loadHotels(); _loadMealPlans();
@@ -207,11 +310,28 @@
       secureFetch(BASE + '/show/' + id).then(function (res) {
         if (!res.success) { Swal.fire('Error', res.message, 'error'); return; }
         var o = res.obj.defaultData;
-        var html = '<div class="row g-2">'
+        var html = '<div class="hs-box"><div class="row g-2">'
           + _vf('Check-in', o.checkInDate) + _vf('Check-out', o.checkOutDate) + _vf('Nights', o.nights)
           + _vf('Rooms', o.roomsCount) + _vf('Adults', o.adults) + _vf('Children', o.children)
-          + _vf('Total', parseFloat(o.totalAmount || 0).toFixed(2)) + _vf('Confirmation#', o.confirmationNumber || '—')
-          + _vf('Status', o.status) + '</div>';
+          + _vf('Hotel', o.hotelDisplay || '—') + _vf('Room Type', o.roomTypeDisplay || '—')
+          + _vf('Meal Plan', o.mealPlanDisplay || '—')
+          + '</div><hr><div class="row g-2">'
+          + _vf('Source', o.bookingSource || '—') + _vf('Booking Currency', o.bookingCurrency || '—')
+          + _vf('Rate/Night', parseFloat(o.ratePerNight || 0).toFixed(2))
+          + _vf('Total', parseFloat(o.totalAmount || 0).toFixed(2))
+          + _vf('Tax', parseFloat(o.taxAmount || 0).toFixed(2))
+          + _vf('Net', parseFloat(o.netAmount || 0).toFixed(2))
+          + _vf('Deposit', parseFloat(o.depositAmount || 0).toFixed(2))
+          + _vf('Free Cancel Until', o.freeCancellationUntil || '—')
+          + _vf('Balance Due', o.balanceDueDate || '—')
+          + _vf('Confirmation#', o.confirmationNumber || '—')
+          + _vf('Vendor Confirmed', o.vendorConfirmationReceived ? '<span class="badge bg-success">Yes</span>' : '<span class="badge bg-warning">No</span>')
+          + _vf('Status', o.status)
+          + '</div>';
+        if (o.specialRequests) html += '<div class="mt-2 p-2 bg-light rounded small"><strong>Special Requests:</strong> ' + o.specialRequests + '</div>';
+        if (o.cancellationPolicy) html += '<div class="mt-2 p-2 bg-danger-subtle rounded small"><strong>Cancellation Policy:</strong> ' + o.cancellationPolicy + '</div>';
+        if (o.vendorRemarks) html += '<div class="mt-2 p-2 bg-warning-subtle rounded small"><strong>Vendor Remarks:</strong> ' + o.vendorRemarks + '</div>';
+
         document.getElementById('hbViewBody').innerHTML = html;
         bootstrap.Modal.getOrCreateInstance(document.getElementById('hbViewModal')).show();
       });
@@ -231,10 +351,28 @@
         document.getElementById('hbRooms').value = o.roomsCount || 1;
         document.getElementById('hbAdults').value = o.adults || 1;
         document.getElementById('hbChildren').value = o.children || 0;
+
+        // Source & Policy
+        document.getElementById('hbBookingSource').value = o.bookingSource || 'DIRECT';
+        document.getElementById('hbFreeCancellationUntil').value = o.freeCancellationUntil || '';
+        document.getElementById('hbBalanceDueDate').value = o.balanceDueDate || '';
+        document.getElementById('hbCancellationPolicy').value = o.cancellationPolicy || '';
+        document.getElementById('hbSpecialRequests').value = o.specialRequests || '';
+
+        // Pricing
         document.getElementById('hbRatePerNight').value = o.ratePerNight || '';
+        document.getElementById('hbTaxAmount').value = o.taxAmount || 0;
         document.getElementById('hbTotalAmount').value = o.totalAmount || '';
+        document.getElementById('hbDepositAmount').value = o.depositAmount || 0;
+        document.getElementById('hbNetAmount').value = o.netAmount || 0;
+        document.getElementById('hbBookingCurrency').value = o.bookingCurrency || 'BDT';
+
+        // Vendor
         document.getElementById('hbConfirmationNumber').value = o.confirmationNumber || '';
         document.getElementById('hbSupplierReference').value = o.supplierReference || '';
+        document.getElementById('hbVendorConfirmed').checked = o.vendorConfirmationReceived === true;
+        document.getElementById('hbVendorRemarks').value = o.vendorRemarks || '';
+
         document.getElementById('hbModalTitle').innerHTML = '<i class="fa fa-pencil me-1 text-warning"></i> Edit Hotel Booking';
         document.getElementById('hbBtnText').textContent = 'Update';
         bootstrap.Modal.getOrCreateInstance(document.getElementById('hbModal')).show();
@@ -245,6 +383,24 @@
       secureFetch(BASE + '/confirm/' + id, { method: 'POST' }).then(function (d) {
         if (d.success) { Swal.fire({ icon: 'success', timer: 1400, showConfirmButton: false, title: d.message }); hbReload(); }
         else { Swal.fire('Error', d.message, 'error'); } });
+    };
+
+    window.hbCancel = function (id) {
+      Swal.fire({ title: 'Cancel hotel booking?', icon: 'warning', showCancelButton: true, confirmButtonColor: '#dc3545' }).then(function (r) {
+        if (!r.isConfirmed) return;
+        secureFetch(BASE + '/cancel/' + id, { method: 'POST' }).then(function (d) {
+          if (d.success) { Swal.fire({ icon: 'success', timer: 1400, showConfirmButton: false, title: d.message }); hbReload(); }
+          else { Swal.fire('Error', d.message, 'error'); } });
+      });
+    };
+
+    window.hbComplete = function (id) {
+      Swal.fire({ title: 'Check out / Complete?', text: 'Mark this stay as completed.', icon: 'question', showCancelButton: true, confirmButtonColor: '#1e293b' }).then(function (r) {
+        if (!r.isConfirmed) return;
+        secureFetch(BASE + '/complete/' + id, { method: 'POST' }).then(function (d) {
+          if (d.success) { Swal.fire({ icon: 'success', timer: 1400, showConfirmButton: false, title: d.message }); hbReload(); }
+          else { Swal.fire('Error', d.message, 'error'); } });
+      });
     };
 
     window.hbDelete = function (id) {
@@ -259,28 +415,45 @@
       e.preventDefault();
       var sb = document.getElementById('hbSubmitBtn'), sp = document.getElementById('hbSpinner'), bt = document.getElementById('hbBtnText');
       hsDisableButton(sb, sp, bt);
+
+      var ci = document.getElementById('hbCheckIn').value;
+      var co = document.getElementById('hbCheckOut').value;
+      var nights = 1;
+      if (ci && co) nights = Math.max(1, Math.round((new Date(co) - new Date(ci)) / 86400000));
+
       secureFetch(BASE + '/save', { method: 'POST', body: JSON.stringify({
         id: document.getElementById('hbId').value || null,
         bookingServiceId: document.getElementById('hbServiceLineId').value || null,
         hotelId: document.getElementById('hbHotelId').value || null,
         roomTypeId: document.getElementById('hbRoomTypeId').value || null,
         mealPlanId: document.getElementById('hbMealPlanId').value || null,
-        checkInDate: document.getElementById('hbCheckIn').value,
-        checkOutDate: document.getElementById('hbCheckOut').value,
+        checkInDate: ci,
+        checkOutDate: co,
         roomsCount: parseInt(document.getElementById('hbRooms').value) || 1,
         adults: parseInt(document.getElementById('hbAdults').value) || 1,
         children: parseInt(document.getElementById('hbChildren').value) || 0,
+        bookingSource: document.getElementById('hbBookingSource').value || null,
+        freeCancellationUntil: document.getElementById('hbFreeCancellationUntil').value || null,
+        balanceDueDate: document.getElementById('hbBalanceDueDate').value || null,
+        cancellationPolicy: document.getElementById('hbCancellationPolicy').value || null,
+        specialRequests: document.getElementById('hbSpecialRequests').value || null,
         ratePerNight: parseFloat(document.getElementById('hbRatePerNight').value) || null,
+        taxAmount: parseFloat(document.getElementById('hbTaxAmount').value) || 0,
         totalAmount: parseFloat(document.getElementById('hbTotalAmount').value) || 0,
+        netAmount: parseFloat(document.getElementById('hbNetAmount').value) || 0,
+        depositAmount: parseFloat(document.getElementById('hbDepositAmount').value) || 0,
+        bookingCurrency: document.getElementById('hbBookingCurrency').value || 'BDT',
         confirmationNumber: document.getElementById('hbConfirmationNumber').value || null,
-        supplierReference: document.getElementById('hbSupplierReference').value || null
+        supplierReference: document.getElementById('hbSupplierReference').value || null,
+        vendorConfirmationReceived: document.getElementById('hbVendorConfirmed').checked,
+        vendorRemarks: document.getElementById('hbVendorRemarks').value || null
       }) }).then(function (d) {
         if (d.success) { Swal.fire({ icon: 'success', timer: 1400, showConfirmButton: false, title: d.message }); bootstrap.Modal.getOrCreateInstance(document.getElementById('hbModal')).hide(); hbReload(); }
         else { Swal.fire('Error', d.message, 'error'); }
       }).finally(function () { hsEnableButton(sb, sp, bt); });
     }
 
-    function _resetForm() { document.getElementById('hbForm').reset(); document.getElementById('hbId').value = ''; }
+    function _resetForm() { document.getElementById('hbForm').reset(); document.getElementById('hbId').value = ''; document.getElementById('hbVendorConfirmed').checked = false; document.getElementById('hbTotalAmount').value = ''; document.getElementById('hbNetAmount').value = ''; }
     function _vf(label, value) { return '<div class="col-md-4 view-group"><label class="view-label">' + label + '</label><span class="form-control hs_span_show">' + (value != null ? value : '—') + '</span></div>'; }
   })();
   </script>

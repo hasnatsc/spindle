@@ -16,7 +16,9 @@ import java.util.List;
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class TrvHotelBooking extends BaseEntity implements Serializable {
 
-    public enum Status { PENDING, CONFIRMED, CANCELLED, COMPLETED }
+    public enum Status { PENDING, CONFIRMED, CANCELLED, COMPLETED, NO_SHOW }
+
+    public enum BookingSource { DIRECT, ONLINE_TRAVEL_AGENCY, CORPORATE, TRAVEL_AGENT, GDS, OTHER }
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -73,6 +75,47 @@ public class TrvHotelBooking extends BaseEntity implements Serializable {
 
     @Column(name = "meal_plan_id")
     private Long mealPlanId;
+
+    // ── Booking source / channel ───────────────────────────────────────────
+    @Builder.Default
+    @Enumerated(EnumType.STRING)
+    @Column(name = "booking_source", length = 25)
+    private BookingSource bookingSource = BookingSource.DIRECT;
+
+    @Column(name = "cancellation_policy", length = 2000)
+    private String cancellationPolicy;
+
+    @Column(name = "free_cancellation_until")
+    private LocalDate freeCancellationUntil;
+
+    @Builder.Default
+    @Column(name = "deposit_amount", precision = 18, scale = 2)
+    private BigDecimal depositAmount = BigDecimal.ZERO;
+
+    @Column(name = "balance_due_date")
+    private LocalDate balanceDueDate;
+
+    @Column(name = "special_requests", length = 2000)
+    private String specialRequests;
+
+    @Builder.Default
+    @Column(name = "booking_currency", nullable = false, length = 3)
+    private String bookingCurrency = "BDT";
+
+    @Builder.Default
+    @Column(name = "tax_amount", precision = 18, scale = 2)
+    private BigDecimal taxAmount = BigDecimal.ZERO;
+
+    @Builder.Default
+    @Column(name = "net_amount", precision = 18, scale = 2)
+    private BigDecimal netAmount = BigDecimal.ZERO;
+
+    @Builder.Default
+    @Column(name = "vendor_confirmation_received", nullable = false)
+    private Boolean vendorConfirmationReceived = false;
+
+    @Column(name = "vendor_remarks", length = 1000)
+    private String vendorRemarks;
 
     // ── JPA object mappings ────────────────────────────────────────────────
 

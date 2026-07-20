@@ -691,38 +691,38 @@ FROM acc_chart_of_accounts m WHERE m.account_code = '2101' AND m.organization_id
     ON CONFLICT ON CONSTRAINT uk4jbleouqhrkuju9onykdx0r8x DO NOTHING;
 
 -- ── EMPLOYEE sub-accounts (under Employee Advances, 1108) ────────────────
-INSERT INTO acc_chart_of_accounts_sub
-(sub_account_code, sub_account_name, sub_account_type, employee_id, custodian,
- is_active, requires_approval, organization_id, main_account_id, opening_balance, current_balance,
- created_at, updated_at, created_by, updated_by)
-SELECT 'EMP-0001', 'Rashed Karim', 'EMPLOYEE', e.id, 'Rashed Karim',
-       true, true, 1, m.id, 0.00, 0.00, NOW(), NOW(), 'system', 'system'
-FROM acc_chart_of_accounts m, hrm_employees e
-WHERE m.account_code = '1108' AND m.organization_id = 1
-  AND e.employee_code = 'EMP-001' AND e.organization_id = 1
-    ON CONFLICT ON CONSTRAINT uk4jbleouqhrkuju9onykdx0r8x DO NOTHING;
-
-INSERT INTO acc_chart_of_accounts_sub
-(sub_account_code, sub_account_name, sub_account_type, employee_id, custodian,
- is_active, requires_approval, organization_id, main_account_id, opening_balance, current_balance,
- created_at, updated_at, created_by, updated_by)
-SELECT 'EMP-0002', 'Nusrat Jahan', 'EMPLOYEE', e.id, 'Nusrat Jahan',
-       true, true, 1, m.id, 0.00, 0.00, NOW(), NOW(), 'system', 'system'
-FROM acc_chart_of_accounts m, hrm_employees e
-WHERE m.account_code = '1108' AND m.organization_id = 1
-  AND e.employee_code = 'EMP-002' AND e.organization_id = 1
-    ON CONFLICT ON CONSTRAINT uk4jbleouqhrkuju9onykdx0r8x DO NOTHING;
-
-INSERT INTO acc_chart_of_accounts_sub
-(sub_account_code, sub_account_name, sub_account_type, employee_id, custodian,
- is_active, requires_approval, organization_id, main_account_id, opening_balance, current_balance,
- created_at, updated_at, created_by, updated_by)
-SELECT 'EMP-0003', 'Farhana Akter', 'EMPLOYEE', e.id, 'Farhana Akter',
-       true, true, 1, m.id, 0.00, 0.00, NOW(), NOW(), 'system', 'system'
-FROM acc_chart_of_accounts m, hrm_employees e
-WHERE m.account_code = '1108' AND m.organization_id = 1
-  AND e.employee_code = 'EMP-003' AND e.organization_id = 1
-    ON CONFLICT ON CONSTRAINT uk4jbleouqhrkuju9onykdx0r8x DO NOTHING;
+-- INSERT INTO acc_chart_of_accounts_sub
+-- (sub_account_code, sub_account_name, sub_account_type, employee_id, custodian,
+--  is_active, requires_approval, organization_id, main_account_id, opening_balance, current_balance,
+--  created_at, updated_at, created_by, updated_by)
+-- SELECT 'EMP-0001', 'Rashed Karim', 'EMPLOYEE', e.id, 'Rashed Karim',
+--        true, true, 1, m.id, 0.00, 0.00, NOW(), NOW(), 'system', 'system'
+-- FROM acc_chart_of_accounts m, hrm_employees e
+-- WHERE m.account_code = '1108' AND m.organization_id = 1
+--   AND e.employee_code = 'EMP-001' AND e.organization_id = 1
+--     ON CONFLICT ON CONSTRAINT uk4jbleouqhrkuju9onykdx0r8x DO NOTHING;
+--
+-- INSERT INTO acc_chart_of_accounts_sub
+-- (sub_account_code, sub_account_name, sub_account_type, employee_id, custodian,
+--  is_active, requires_approval, organization_id, main_account_id, opening_balance, current_balance,
+--  created_at, updated_at, created_by, updated_by)
+-- SELECT 'EMP-0002', 'Nusrat Jahan', 'EMPLOYEE', e.id, 'Nusrat Jahan',
+--        true, true, 1, m.id, 0.00, 0.00, NOW(), NOW(), 'system', 'system'
+-- FROM acc_chart_of_accounts m, hrm_employees e
+-- WHERE m.account_code = '1108' AND m.organization_id = 1
+--   AND e.employee_code = 'EMP-002' AND e.organization_id = 1
+--     ON CONFLICT ON CONSTRAINT uk4jbleouqhrkuju9onykdx0r8x DO NOTHING;
+--
+-- INSERT INTO acc_chart_of_accounts_sub
+-- (sub_account_code, sub_account_name, sub_account_type, employee_id, custodian,
+--  is_active, requires_approval, organization_id, main_account_id, opening_balance, current_balance,
+--  created_at, updated_at, created_by, updated_by)
+-- SELECT 'EMP-0003', 'Farhana Akter', 'EMPLOYEE', e.id, 'Farhana Akter',
+--        true, true, 1, m.id, 0.00, 0.00, NOW(), NOW(), 'system', 'system'
+-- FROM acc_chart_of_accounts m, hrm_employees e
+-- WHERE m.account_code = '1108' AND m.organization_id = 1
+--   AND e.employee_code = 'EMP-003' AND e.organization_id = 1
+--     ON CONFLICT ON CONSTRAINT uk4jbleouqhrkuju9onykdx0r8x DO NOTHING;
 
 COMMIT;
 

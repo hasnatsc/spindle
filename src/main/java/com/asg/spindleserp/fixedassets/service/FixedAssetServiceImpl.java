@@ -944,7 +944,7 @@ public class FixedAssetServiceImpl implements FixedAssetService {
                 AND warranty_expiry_date BETWEEN ?::date AND ?::date)  AS warranty_expiring
         FROM (
           SELECT *, (acquisition_date >= ?::date) AS acquired_in_month
-          FROM fa_assets WHERE 1=1""" + f + """
+          FROM fa_assets WHERE 1=1""" + f + " " + """
         ) t
         """;
         List<Map<String, Object>> kpiRows = jdbcTemplate.queryForList(kpiSql,
@@ -991,7 +991,7 @@ public class FixedAssetServiceImpl implements FixedAssetService {
         String lastRunSql = """
         SELECT status, total_assets, total_depreciation,
                TO_CHAR(period_end,'DD-Mon-YYYY') AS period_end
-        FROM fa_depreciation_runs WHERE 1=1""" + f + """
+        FROM fa_depreciation_runs WHERE 1=1""" + f + " " + """
          ORDER BY id DESC LIMIT 1""";
         List<Map<String, Object>> lastRunRows = jdbcTemplate.queryForList(lastRunSql);
         if (!lastRunRows.isEmpty()) {
@@ -1014,7 +1014,7 @@ public class FixedAssetServiceImpl implements FixedAssetService {
                COALESCE(SUM(a.accumulated_depreciation),0) AS accum_dep
         FROM fa_assets a
         JOIN fa_asset_categories c ON c.id = a.asset_category_id
-        WHERE 1=1""" + fA + """
+        WHERE 1=1""" + fA + " " + """
         GROUP BY c.id, c.code, c.name
         ORDER BY purchase_cost DESC"""));
 
@@ -1040,7 +1040,7 @@ public class FixedAssetServiceImpl implements FixedAssetService {
                a.status, a.location
         FROM fa_assets a
         JOIN fa_asset_categories c ON c.id = a.asset_category_id
-        WHERE 1=1""" + fA + """
+        WHERE 1=1""" + fA + " " + """
         ORDER BY a.acquisition_date DESC, a.id DESC
         LIMIT 10"""));
 
@@ -1055,7 +1055,7 @@ public class FixedAssetServiceImpl implements FixedAssetService {
                COALESCE(d.buyer_name,'—')        AS buyer_name
         FROM fa_asset_disposals d
         JOIN fa_assets a ON a.id = d.asset_id
-        WHERE 1=1""" + (orgId!=null?" AND d.organization_id="+orgId:"") + """
+        WHERE 1=1""" + (orgId!=null?" AND d.organization_id="+orgId:"") + " " + """
         ORDER BY d.disposal_date DESC, d.id DESC
         LIMIT 10"""));
 
@@ -1067,7 +1067,7 @@ public class FixedAssetServiceImpl implements FixedAssetService {
                total_assets,
                COALESCE(total_depreciation,0) AS total_depreciation,
                COALESCE(posted_by,'—') AS posted_by
-        FROM fa_depreciation_runs WHERE 1=1""" + f + """
+        FROM fa_depreciation_runs WHERE 1=1""" + f + " " + """
         ORDER BY id DESC LIMIT 6"""));
 
         // ── 11. 12-month depreciation trend ─────────────────────────────────────
@@ -1077,7 +1077,7 @@ public class FixedAssetServiceImpl implements FixedAssetService {
                COALESCE(SUM(total_depreciation),0)                AS total_depreciation
         FROM fa_depreciation_runs
         WHERE status = 'POSTED'
-          AND period_end >= (CURRENT_DATE - INTERVAL '12 months')""" + f + """
+          AND period_end >= (CURRENT_DATE - INTERVAL '12 months')""" + f + " " + """
         GROUP BY DATE_TRUNC('month', period_end)
         ORDER BY month_order"""));
 
@@ -1091,7 +1091,7 @@ public class FixedAssetServiceImpl implements FixedAssetService {
         FROM fa_assets a
         WHERE a.status = 'ACTIVE'
           AND a.insurance_expiry_date IS NOT NULL
-          AND a.insurance_expiry_date BETWEEN ?::date AND ?::date""" + fA + """
+          AND a.insurance_expiry_date BETWEEN ?::date AND ?::date""" + fA + " " + """
         ORDER BY a.insurance_expiry_date
         LIMIT 10""", today, exp90));
 

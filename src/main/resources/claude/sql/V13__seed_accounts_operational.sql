@@ -117,6 +117,7 @@ WHERE NOT EXISTS (SELECT 1 FROM acc_periods WHERE period_name = 'JUN-2025');
 
 -- PURCHASE_INVOICE
 INSERT INTO acc_mapping (organization_id, mapping_code, mapping_name, module_type, transaction_type, default_voucher_type,
+    debit_control_type, credit_control_type,
     default_debit_account_id, default_credit_account_id,
     input_vat_account_id, discount_account_id, freight_account_id,
     is_active, is_default, is_system, auto_post, allow_partial_posting,
@@ -124,6 +125,7 @@ INSERT INTO acc_mapping (organization_id, mapping_code, mapping_name, module_typ
     update_sub_account_balance, use_sub_ledger,
     default_narration_template, voucher_prefix, description, created_by, created_at, updated_at)
 SELECT 1, 'PUR_INVOICE', 'Purchase Invoice', 'PURCHASE', 'PURCHASE_INVOICE', 'PURCHASE_VOUCHER',
+    'GENERAL', 'SUPPLIER',
     (SELECT id FROM acc_chart_of_accounts WHERE account_code = '1310'), -- DR: Raw Materials
     (SELECT id FROM acc_chart_of_accounts WHERE account_code = '2110'), -- CR: Accounts Payable
     (SELECT id FROM acc_chart_of_accounts WHERE account_code = '1151'), -- Input VAT Local
@@ -138,12 +140,14 @@ WHERE NOT EXISTS (SELECT 1 FROM acc_mapping WHERE organization_id = 1 AND mappin
 
 -- PURCHASE_RETURN  (Debit Note)
 INSERT INTO acc_mapping (organization_id, mapping_code, mapping_name, module_type, transaction_type, default_voucher_type,
+    debit_control_type, credit_control_type,
     default_debit_account_id, default_credit_account_id,
     is_active, is_default, is_system, auto_post, allow_partial_posting,
     consolidate_entries, create_reversing_entry, require_approval,
     update_sub_account_balance, use_sub_ledger,
     default_narration_template, voucher_prefix, description, created_by, created_at, updated_at)
 SELECT 1, 'PUR_RETURN', 'Purchase Return (Debit Note)', 'PURCHASE', 'PURCHASE_RETURN', 'DEBIT_NOTE',
+    'SUPPLIER', 'GENERAL',
     (SELECT id FROM acc_chart_of_accounts WHERE account_code = '2110'), -- DR: Accounts Payable
     (SELECT id FROM acc_chart_of_accounts WHERE account_code = '1310'), -- CR: Raw Materials
     TRUE, TRUE, TRUE, FALSE, TRUE,
@@ -155,11 +159,13 @@ WHERE NOT EXISTS (SELECT 1 FROM acc_mapping WHERE organization_id = 1 AND mappin
 
 -- PURCHASE_ORDER
 INSERT INTO acc_mapping (organization_id, mapping_code, mapping_name, module_type, transaction_type, default_voucher_type,
+    debit_control_type, credit_control_type,
     is_active, is_default, is_system, auto_post, allow_partial_posting,
     consolidate_entries, create_reversing_entry, require_approval,
     update_sub_account_balance, use_sub_ledger,
     default_narration_template, voucher_prefix, description, created_by, created_at, updated_at)
 SELECT 1, 'PUR_ORDER', 'Purchase Order', 'PURCHASE', 'PURCHASE_ORDER', 'JOURNAL_VOUCHER',
+    'GENERAL', 'GENERAL',
     TRUE, FALSE, TRUE, FALSE, FALSE,
     FALSE, FALSE, TRUE,
     FALSE, FALSE,
@@ -169,12 +175,14 @@ WHERE NOT EXISTS (SELECT 1 FROM acc_mapping WHERE organization_id = 1 AND mappin
 
 -- GRN (Goods Receipt)
 INSERT INTO acc_mapping (organization_id, mapping_code, mapping_name, module_type, transaction_type, default_voucher_type,
+    debit_control_type, credit_control_type,
     default_debit_account_id, default_credit_account_id,
     is_active, is_default, is_system, auto_post, allow_partial_posting,
     consolidate_entries, create_reversing_entry, require_approval,
     update_sub_account_balance, use_sub_ledger,
     default_narration_template, voucher_prefix, description, created_by, created_at, updated_at)
 SELECT 1, 'GOODS_RECEIPT', 'Goods Receipt Note (GRN)', 'PURCHASE', 'GRN', 'JOURNAL_VOUCHER',
+    'GENERAL', 'SUPPLIER',
     (SELECT id FROM acc_chart_of_accounts WHERE account_code = '1310'), -- DR: Raw Materials
     (SELECT id FROM acc_chart_of_accounts WHERE account_code = '2110'), -- CR: Goods Received Not Invoiced (AP)
     TRUE, TRUE, TRUE, TRUE, FALSE,
@@ -186,12 +194,14 @@ WHERE NOT EXISTS (SELECT 1 FROM acc_mapping WHERE organization_id = 1 AND mappin
 
 -- SUPPLIER_PAYMENT
 INSERT INTO acc_mapping (organization_id, mapping_code, mapping_name, module_type, transaction_type, default_voucher_type,
+    debit_control_type, credit_control_type,
     default_debit_account_id, default_credit_account_id,
     is_active, is_default, is_system, auto_post, allow_partial_posting,
     consolidate_entries, create_reversing_entry, require_approval,
     update_sub_account_balance, use_sub_ledger,
     default_narration_template, voucher_prefix, description, created_by, created_at, updated_at)
 SELECT 1, 'SUP_PAYMENT', 'Supplier Payment', 'PURCHASE', 'SUPPLIER_PAYMENT', 'PAYMENT_VOUCHER',
+    'SUPPLIER', 'BANK',
     (SELECT id FROM acc_chart_of_accounts WHERE account_code = '2110'), -- DR: Accounts Payable
     (SELECT id FROM acc_chart_of_accounts WHERE account_code = '1115'), -- CR: Bank - Main
     TRUE, TRUE, TRUE, FALSE, TRUE,
@@ -203,12 +213,14 @@ WHERE NOT EXISTS (SELECT 1 FROM acc_mapping WHERE organization_id = 1 AND mappin
 
 -- ADVANCE_PAYMENT
 INSERT INTO acc_mapping (organization_id, mapping_code, mapping_name, module_type, transaction_type, default_voucher_type,
+    debit_control_type, credit_control_type,
     default_debit_account_id, default_credit_account_id,
     is_active, is_default, is_system, auto_post, allow_partial_posting,
     consolidate_entries, create_reversing_entry, require_approval,
     update_sub_account_balance, use_sub_ledger,
     default_narration_template, voucher_prefix, description, created_by, created_at, updated_at)
 SELECT 1, 'ADV_PAYMENT', 'Advance Payment to Supplier', 'PURCHASE', 'ADVANCE_PAYMENT', 'PAYMENT_VOUCHER',
+    'SUPPLIER', 'BANK',
     (SELECT id FROM acc_chart_of_accounts WHERE account_code = '1500'), -- DR: Advances to Suppliers
     (SELECT id FROM acc_chart_of_accounts WHERE account_code = '1115'), -- CR: Bank - Main
     TRUE, TRUE, TRUE, FALSE, FALSE,
@@ -222,6 +234,7 @@ WHERE NOT EXISTS (SELECT 1 FROM acc_mapping WHERE organization_id = 1 AND mappin
 
 -- SALES_INVOICE
 INSERT INTO acc_mapping (organization_id, mapping_code, mapping_name, module_type, transaction_type, default_voucher_type,
+    debit_control_type, credit_control_type,
     default_debit_account_id, default_credit_account_id,
     output_vat_account_id, discount_account_id, freight_account_id,
     is_active, is_default, is_system, auto_post, allow_partial_posting,
@@ -229,6 +242,7 @@ INSERT INTO acc_mapping (organization_id, mapping_code, mapping_name, module_typ
     update_sub_account_balance, use_sub_ledger,
     default_narration_template, voucher_prefix, description, created_by, created_at, updated_at)
 SELECT 1, 'SAL_INVOICE', 'Sales Invoice', 'SALES', 'SALES_INVOICE', 'SALES_VOUCHER',
+    'CUSTOMER', 'GENERAL',
     (SELECT id FROM acc_chart_of_accounts WHERE account_code = '1200'), -- DR: Accounts Receivable
     (SELECT id FROM acc_chart_of_accounts WHERE account_code = '4110'), -- CR: Sales Revenue
     (SELECT id FROM acc_chart_of_accounts WHERE account_code = '2311'), -- Output VAT
@@ -243,12 +257,14 @@ WHERE NOT EXISTS (SELECT 1 FROM acc_mapping WHERE organization_id = 1 AND mappin
 
 -- SALES_RETURN  (Credit Note)
 INSERT INTO acc_mapping (organization_id, mapping_code, mapping_name, module_type, transaction_type, default_voucher_type,
+    debit_control_type, credit_control_type,
     default_debit_account_id, default_credit_account_id,
     is_active, is_default, is_system, auto_post, allow_partial_posting,
     consolidate_entries, create_reversing_entry, require_approval,
     update_sub_account_balance, use_sub_ledger,
     default_narration_template, voucher_prefix, description, created_by, created_at, updated_at)
 SELECT 1, 'SAL_RETURN', 'Sales Return (Credit Note)', 'SALES', 'SALES_RETURN', 'CREDIT_NOTE',
+    'GENERAL', 'CUSTOMER',
     (SELECT id FROM acc_chart_of_accounts WHERE account_code = '4110'), -- DR: Sales Revenue
     (SELECT id FROM acc_chart_of_accounts WHERE account_code = '1200'), -- CR: Accounts Receivable
     TRUE, TRUE, TRUE, FALSE, TRUE,
@@ -260,11 +276,13 @@ WHERE NOT EXISTS (SELECT 1 FROM acc_mapping WHERE organization_id = 1 AND mappin
 
 -- SALES_ORDER
 INSERT INTO acc_mapping (organization_id, mapping_code, mapping_name, module_type, transaction_type, default_voucher_type,
+    debit_control_type, credit_control_type,
     is_active, is_default, is_system, auto_post, allow_partial_posting,
     consolidate_entries, create_reversing_entry, require_approval,
     update_sub_account_balance, use_sub_ledger,
     default_narration_template, voucher_prefix, description, created_by, created_at, updated_at)
 SELECT 1, 'SAL_ORDER', 'Sales Order', 'SALES', 'SALES_ORDER', 'JOURNAL_VOUCHER',
+    'GENERAL', 'GENERAL',
     TRUE, FALSE, TRUE, FALSE, FALSE,
     FALSE, FALSE, FALSE,
     FALSE, FALSE,
@@ -274,12 +292,14 @@ WHERE NOT EXISTS (SELECT 1 FROM acc_mapping WHERE organization_id = 1 AND mappin
 
 -- DELIVERY_NOTE
 INSERT INTO acc_mapping (organization_id, mapping_code, mapping_name, module_type, transaction_type, default_voucher_type,
+    debit_control_type, credit_control_type,
     default_debit_account_id, default_credit_account_id,
     is_active, is_default, is_system, auto_post, allow_partial_posting,
     consolidate_entries, create_reversing_entry, require_approval,
     update_sub_account_balance, use_sub_ledger,
     default_narration_template, voucher_prefix, description, created_by, created_at, updated_at)
 SELECT 1, 'DEL_NOTE', 'Delivery Note / COGS Entry', 'SALES', 'DELIVERY_NOTE', 'JOURNAL_VOUCHER',
+    'GENERAL', 'GENERAL',
     (SELECT id FROM acc_chart_of_accounts WHERE account_code = '5110'), -- DR: COGS
     (SELECT id FROM acc_chart_of_accounts WHERE account_code = '1330'), -- CR: Finished Goods
     TRUE, TRUE, TRUE, TRUE, FALSE,
@@ -291,12 +311,14 @@ WHERE NOT EXISTS (SELECT 1 FROM acc_mapping WHERE organization_id = 1 AND mappin
 
 -- CUSTOMER_RECEIPT
 INSERT INTO acc_mapping (organization_id, mapping_code, mapping_name, module_type, transaction_type, default_voucher_type,
+    debit_control_type, credit_control_type,
     default_debit_account_id, default_credit_account_id,
     is_active, is_default, is_system, auto_post, allow_partial_posting,
     consolidate_entries, create_reversing_entry, require_approval,
     update_sub_account_balance, use_sub_ledger,
     default_narration_template, voucher_prefix, description, created_by, created_at, updated_at)
 SELECT 1, 'CUST_RECEIPT', 'Customer Receipt', 'SALES', 'CUSTOMER_RECEIPT', 'RECEIPT_VOUCHER',
+    'BANK', 'CUSTOMER',
     (SELECT id FROM acc_chart_of_accounts WHERE account_code = '1115'), -- DR: Bank - Main
     (SELECT id FROM acc_chart_of_accounts WHERE account_code = '1200'), -- CR: Accounts Receivable
     TRUE, TRUE, TRUE, FALSE, TRUE,
@@ -308,12 +330,14 @@ WHERE NOT EXISTS (SELECT 1 FROM acc_mapping WHERE organization_id = 1 AND mappin
 
 -- ADVANCE_RECEIPT
 INSERT INTO acc_mapping (organization_id, mapping_code, mapping_name, module_type, transaction_type, default_voucher_type,
+    debit_control_type, credit_control_type,
     default_debit_account_id, default_credit_account_id,
     is_active, is_default, is_system, auto_post, allow_partial_posting,
     consolidate_entries, create_reversing_entry, require_approval,
     update_sub_account_balance, use_sub_ledger,
     default_narration_template, voucher_prefix, description, created_by, created_at, updated_at)
 SELECT 1, 'ADV_RECEIPT', 'Advance Receipt from Customer', 'SALES', 'ADVANCE_RECEIPT', 'RECEIPT_VOUCHER',
+    'BANK', 'CUSTOMER',
     (SELECT id FROM acc_chart_of_accounts WHERE account_code = '1115'), -- DR: Bank - Main
     (SELECT id FROM acc_chart_of_accounts WHERE account_code = '2500'), -- CR: Unearned Revenue
     TRUE, TRUE, TRUE, FALSE, FALSE,
@@ -327,12 +351,14 @@ WHERE NOT EXISTS (SELECT 1 FROM acc_mapping WHERE organization_id = 1 AND mappin
 
 -- STOCK_RECEIPT
 INSERT INTO acc_mapping (organization_id, mapping_code, mapping_name, module_type, transaction_type, default_voucher_type,
+    debit_control_type, credit_control_type,
     default_debit_account_id, default_credit_account_id,
     is_active, is_default, is_system, auto_post, allow_partial_posting,
     consolidate_entries, create_reversing_entry, require_approval,
     update_sub_account_balance, use_sub_ledger,
     default_narration_template, voucher_prefix, description, created_by, created_at, updated_at)
 SELECT 1, 'STK_RECEIPT', 'Stock Receipt / Adjustment In', 'INVENTORY', 'STOCK_RECEIPT', 'JOURNAL_VOUCHER',
+    'GENERAL', 'GENERAL',
     (SELECT id FROM acc_chart_of_accounts WHERE account_code = '1310'), -- DR: Raw Materials
     (SELECT id FROM acc_chart_of_accounts WHERE account_code = '3300'), -- CR: Retained Earnings (adjustment)
     TRUE, TRUE, TRUE, TRUE, FALSE,
@@ -344,12 +370,14 @@ WHERE NOT EXISTS (SELECT 1 FROM acc_mapping WHERE organization_id = 1 AND mappin
 
 -- STOCK_ISSUE
 INSERT INTO acc_mapping (organization_id, mapping_code, mapping_name, module_type, transaction_type, default_voucher_type,
+    debit_control_type, credit_control_type,
     default_debit_account_id, default_credit_account_id,
     is_active, is_default, is_system, auto_post, allow_partial_posting,
     consolidate_entries, create_reversing_entry, require_approval,
     update_sub_account_balance, use_sub_ledger,
     default_narration_template, voucher_prefix, description, created_by, created_at, updated_at)
 SELECT 1, 'STK_ISSUE', 'Stock Issue / Write-off', 'INVENTORY', 'STOCK_ISSUE', 'JOURNAL_VOUCHER',
+    'GENERAL', 'GENERAL',
     (SELECT id FROM acc_chart_of_accounts WHERE account_code = '5110'), -- DR: COGS / Write-off
     (SELECT id FROM acc_chart_of_accounts WHERE account_code = '1310'), -- CR: Raw Materials
     TRUE, TRUE, TRUE, TRUE, FALSE,
@@ -361,11 +389,13 @@ WHERE NOT EXISTS (SELECT 1 FROM acc_mapping WHERE organization_id = 1 AND mappin
 
 -- STOCK_TRANSFER
 INSERT INTO acc_mapping (organization_id, mapping_code, mapping_name, module_type, transaction_type, default_voucher_type,
+    debit_control_type, credit_control_type,
     is_active, is_default, is_system, auto_post, allow_partial_posting,
     consolidate_entries, create_reversing_entry, require_approval,
     update_sub_account_balance, use_sub_ledger,
     default_narration_template, voucher_prefix, description, created_by, created_at, updated_at)
 SELECT 1, 'STK_TRANSFER', 'Inter-Warehouse Stock Transfer', 'INVENTORY', 'STOCK_TRANSFER', 'JOURNAL_VOUCHER',
+    'GENERAL', 'GENERAL',
     TRUE, TRUE, TRUE, TRUE, FALSE,
     FALSE, FALSE, FALSE,
     FALSE, FALSE,
@@ -375,12 +405,14 @@ WHERE NOT EXISTS (SELECT 1 FROM acc_mapping WHERE organization_id = 1 AND mappin
 
 -- STOCK_ADJUSTMENT
 INSERT INTO acc_mapping (organization_id, mapping_code, mapping_name, module_type, transaction_type, default_voucher_type,
+    debit_control_type, credit_control_type,
     default_debit_account_id, default_credit_account_id,
     is_active, is_default, is_system, auto_post, allow_partial_posting,
     consolidate_entries, create_reversing_entry, require_approval,
     update_sub_account_balance, use_sub_ledger,
     default_narration_template, voucher_prefix, description, created_by, created_at, updated_at)
 SELECT 1, 'STK_ADJUST', 'Stock Adjustment (Net)', 'INVENTORY', 'STOCK_ADJUSTMENT', 'JOURNAL_VOUCHER',
+    'GENERAL', 'GENERAL',
     (SELECT id FROM acc_chart_of_accounts WHERE account_code = '1310'), -- DR: Raw Materials
     (SELECT id FROM acc_chart_of_accounts WHERE account_code = '3300'), -- CR: Retained Earnings
     TRUE, TRUE, TRUE, TRUE, FALSE,
@@ -394,12 +426,14 @@ WHERE NOT EXISTS (SELECT 1 FROM acc_mapping WHERE organization_id = 1 AND mappin
 
 -- PRODUCTION_ISSUE  (Material to WIP)
 INSERT INTO acc_mapping (organization_id, mapping_code, mapping_name, module_type, transaction_type, default_voucher_type,
+    debit_control_type, credit_control_type,
     default_debit_account_id, default_credit_account_id,
     is_active, is_default, is_system, auto_post, allow_partial_posting,
     consolidate_entries, create_reversing_entry, require_approval,
     update_sub_account_balance, use_sub_ledger,
     default_narration_template, voucher_prefix, description, created_by, created_at, updated_at)
 SELECT 1, 'PRD_ISSUE', 'Production Material Issue', 'PRODUCTION', 'PRODUCTION_ISSUE', 'JOURNAL_VOUCHER',
+    'GENERAL', 'GENERAL',
     (SELECT id FROM acc_chart_of_accounts WHERE account_code = '1320'), -- DR: Work in Progress
     (SELECT id FROM acc_chart_of_accounts WHERE account_code = '1310'), -- CR: Raw Materials
     TRUE, TRUE, TRUE, TRUE, FALSE,
@@ -411,12 +445,14 @@ WHERE NOT EXISTS (SELECT 1 FROM acc_mapping WHERE organization_id = 1 AND mappin
 
 -- PRODUCTION_RECEIPT  (WIP to Finished Goods)
 INSERT INTO acc_mapping (organization_id, mapping_code, mapping_name, module_type, transaction_type, default_voucher_type,
+    debit_control_type, credit_control_type,
     default_debit_account_id, default_credit_account_id,
     is_active, is_default, is_system, auto_post, allow_partial_posting,
     consolidate_entries, create_reversing_entry, require_approval,
     update_sub_account_balance, use_sub_ledger,
     default_narration_template, voucher_prefix, description, created_by, created_at, updated_at)
 SELECT 1, 'PRD_RECEIPT', 'Production Receipt (FG)', 'PRODUCTION', 'PRODUCTION_RECEIPT', 'JOURNAL_VOUCHER',
+    'GENERAL', 'GENERAL',
     (SELECT id FROM acc_chart_of_accounts WHERE account_code = '1330'), -- DR: Finished Goods
     (SELECT id FROM acc_chart_of_accounts WHERE account_code = '1320'), -- CR: Work in Progress
     TRUE, TRUE, TRUE, TRUE, FALSE,
@@ -430,6 +466,7 @@ WHERE NOT EXISTS (SELECT 1 FROM acc_mapping WHERE organization_id = 1 AND mappin
 
 -- SALARY_PROCESSING
 INSERT INTO acc_mapping (organization_id, mapping_code, mapping_name, module_type, transaction_type, default_voucher_type,
+    debit_control_type, credit_control_type,
     default_debit_account_id, default_credit_account_id,
     tds_account_id,
     is_active, is_default, is_system, auto_post, allow_partial_posting,
@@ -437,6 +474,7 @@ INSERT INTO acc_mapping (organization_id, mapping_code, mapping_name, module_typ
     update_sub_account_balance, use_sub_ledger,
     default_narration_template, voucher_prefix, description, created_by, created_at, updated_at)
 SELECT 1, 'SAL_PROCESS', 'Salary Processing', 'PAYROLL', 'SALARY_PROCESSING', 'JOURNAL_VOUCHER',
+    'GENERAL', 'GENERAL',
     (SELECT id FROM acc_chart_of_accounts WHERE account_code = '5211'), -- DR: Salaries & Wages
     (SELECT id FROM acc_chart_of_accounts WHERE account_code = '2210'), -- CR: Salaries Payable
     (SELECT id FROM acc_chart_of_accounts WHERE account_code = '2230'), -- TDS: Employee Income Tax
@@ -449,12 +487,14 @@ WHERE NOT EXISTS (SELECT 1 FROM acc_mapping WHERE organization_id = 1 AND mappin
 
 -- SALARY_PAYMENT
 INSERT INTO acc_mapping (organization_id, mapping_code, mapping_name, module_type, transaction_type, default_voucher_type,
+    debit_control_type, credit_control_type,
     default_debit_account_id, default_credit_account_id,
     is_active, is_default, is_system, auto_post, allow_partial_posting,
     consolidate_entries, create_reversing_entry, require_approval,
     update_sub_account_balance, use_sub_ledger,
     default_narration_template, voucher_prefix, description, created_by, created_at, updated_at)
 SELECT 1, 'SAL_PAYMENT', 'Salary Payment', 'PAYROLL', 'SALARY_PAYMENT', 'PAYMENT_VOUCHER',
+    'GENERAL', 'BANK',
     (SELECT id FROM acc_chart_of_accounts WHERE account_code = '2210'), -- DR: Salaries Payable
     (SELECT id FROM acc_chart_of_accounts WHERE account_code = '1116'), -- CR: Bank - Payroll
     TRUE, TRUE, TRUE, FALSE, FALSE,
@@ -468,12 +508,14 @@ WHERE NOT EXISTS (SELECT 1 FROM acc_mapping WHERE organization_id = 1 AND mappin
 
 -- ASSET_PURCHASE
 INSERT INTO acc_mapping (organization_id, mapping_code, mapping_name, module_type, transaction_type, default_voucher_type,
+    debit_control_type, credit_control_type,
     default_debit_account_id, default_credit_account_id,
     is_active, is_default, is_system, auto_post, allow_partial_posting,
     consolidate_entries, create_reversing_entry, require_approval,
     update_sub_account_balance, use_sub_ledger,
     default_narration_template, voucher_prefix, description, created_by, created_at, updated_at)
 SELECT 1, 'ASSET_PUR', 'Fixed Asset Purchase', 'FIXED_ASSETS', 'ASSET_PURCHASE', 'JOURNAL_VOUCHER',
+    'GENERAL', 'SUPPLIER',
     (SELECT id FROM acc_chart_of_accounts WHERE account_code = '1630'), -- DR: Machinery & Equipment
     (SELECT id FROM acc_chart_of_accounts WHERE account_code = '2110'), -- CR: Accounts Payable
     TRUE, TRUE, TRUE, FALSE, FALSE,
@@ -485,12 +527,14 @@ WHERE NOT EXISTS (SELECT 1 FROM acc_mapping WHERE organization_id = 1 AND mappin
 
 -- ASSET_DISPOSAL
 INSERT INTO acc_mapping (organization_id, mapping_code, mapping_name, module_type, transaction_type, default_voucher_type,
+    debit_control_type, credit_control_type,
     default_debit_account_id, default_credit_account_id,
     is_active, is_default, is_system, auto_post, allow_partial_posting,
     consolidate_entries, create_reversing_entry, require_approval,
     update_sub_account_balance, use_sub_ledger,
     default_narration_template, voucher_prefix, description, created_by, created_at, updated_at)
 SELECT 1, 'ASSET_DISP', 'Fixed Asset Disposal', 'FIXED_ASSETS', 'ASSET_DISPOSAL', 'JOURNAL_VOUCHER',
+    'GENERAL', 'GENERAL',
     (SELECT id FROM acc_chart_of_accounts WHERE account_code = '1115'), -- DR: Bank (proceeds)
     (SELECT id FROM acc_chart_of_accounts WHERE account_code = '1630'), -- CR: Machinery (cost)
     TRUE, TRUE, TRUE, FALSE, FALSE,
@@ -502,12 +546,14 @@ WHERE NOT EXISTS (SELECT 1 FROM acc_mapping WHERE organization_id = 1 AND mappin
 
 -- DEPRECIATION
 INSERT INTO acc_mapping (organization_id, mapping_code, mapping_name, module_type, transaction_type, default_voucher_type,
+    debit_control_type, credit_control_type,
     default_debit_account_id, default_credit_account_id,
     is_active, is_default, is_system, auto_post, allow_partial_posting,
     consolidate_entries, create_reversing_entry, require_approval,
     update_sub_account_balance, use_sub_ledger,
     default_narration_template, voucher_prefix, description, created_by, created_at, updated_at)
 SELECT 1, 'DEPRECIATION', 'Depreciation Run', 'FIXED_ASSETS', 'DEPRECIATION', 'JOURNAL_VOUCHER',
+    'GENERAL', 'GENERAL',
     (SELECT id FROM acc_chart_of_accounts WHERE account_code = '5510'), -- DR: Depreciation Expense
     (SELECT id FROM acc_chart_of_accounts WHERE account_code = '1631'), -- CR: Accum. Depreciation Machinery
     TRUE, TRUE, TRUE, FALSE, FALSE,
@@ -521,12 +567,14 @@ WHERE NOT EXISTS (SELECT 1 FROM acc_mapping WHERE organization_id = 1 AND mappin
 
 -- LC_OPENING
 INSERT INTO acc_mapping (organization_id, mapping_code, mapping_name, module_type, transaction_type, default_voucher_type,
+    debit_control_type, credit_control_type,
     default_debit_account_id, default_credit_account_id,
     is_active, is_default, is_system, auto_post, allow_partial_posting,
     consolidate_entries, create_reversing_entry, require_approval,
     update_sub_account_balance, use_sub_ledger,
     default_narration_template, voucher_prefix, description, created_by, created_at, updated_at)
 SELECT 1, 'LC_OPEN', 'LC Opening / Margin', 'LC_MANAGEMENT', 'LC_OPENING', 'JOURNAL_VOUCHER',
+    'LC', 'BANK',
     (SELECT id FROM acc_chart_of_accounts WHERE account_code = '1180'), -- DR: LC Margin
     (SELECT id FROM acc_chart_of_accounts WHERE account_code = '1115'), -- CR: Bank
     TRUE, TRUE, TRUE, FALSE, FALSE,
@@ -538,11 +586,13 @@ WHERE NOT EXISTS (SELECT 1 FROM acc_mapping WHERE organization_id = 1 AND mappin
 
 -- LC_AMENDMENT
 INSERT INTO acc_mapping (organization_id, mapping_code, mapping_name, module_type, transaction_type, default_voucher_type,
+    debit_control_type, credit_control_type,
     is_active, is_default, is_system, auto_post, allow_partial_posting,
     consolidate_entries, create_reversing_entry, require_approval,
     update_sub_account_balance, use_sub_ledger,
     default_narration_template, voucher_prefix, description, created_by, created_at, updated_at)
 SELECT 1, 'LC_AMEND', 'LC Amendment', 'LC_MANAGEMENT', 'LC_AMENDMENT', 'JOURNAL_VOUCHER',
+    'LC', 'BANK',
     TRUE, FALSE, TRUE, FALSE, FALSE,
     FALSE, FALSE, TRUE,
     FALSE, FALSE,
@@ -552,12 +602,14 @@ WHERE NOT EXISTS (SELECT 1 FROM acc_mapping WHERE organization_id = 1 AND mappin
 
 -- LC_PAYMENT
 INSERT INTO acc_mapping (organization_id, mapping_code, mapping_name, module_type, transaction_type, default_voucher_type,
+    debit_control_type, credit_control_type,
     default_debit_account_id, default_credit_account_id,
     is_active, is_default, is_system, auto_post, allow_partial_posting,
     consolidate_entries, create_reversing_entry, require_approval,
     update_sub_account_balance, use_sub_ledger,
     default_narration_template, voucher_prefix, description, created_by, created_at, updated_at)
 SELECT 1, 'LC_PAY', 'LC Settlement Payment', 'LC_MANAGEMENT', 'LC_PAYMENT', 'PAYMENT_VOUCHER',
+    'LC', 'BANK',
     (SELECT id FROM acc_chart_of_accounts WHERE account_code = '2110'), -- DR: Accounts Payable
     (SELECT id FROM acc_chart_of_accounts WHERE account_code = '1115'), -- CR: Bank
     TRUE, TRUE, TRUE, FALSE, FALSE,
@@ -571,12 +623,14 @@ WHERE NOT EXISTS (SELECT 1 FROM acc_mapping WHERE organization_id = 1 AND mappin
 
 -- PETTY_CASH
 INSERT INTO acc_mapping (organization_id, mapping_code, mapping_name, module_type, transaction_type, default_voucher_type,
+    debit_control_type, credit_control_type,
     default_debit_account_id, default_credit_account_id,
     is_active, is_default, is_system, auto_post, allow_partial_posting,
     consolidate_entries, create_reversing_entry, require_approval,
     update_sub_account_balance, use_sub_ledger,
     default_narration_template, voucher_prefix, description, created_by, created_at, updated_at)
 SELECT 1, 'PETTY_CASH', 'Petty Cash Expense', 'CASH_MANAGEMENT', 'PETTY_CASH', 'EXPENSE_VOUCHER',
+    'GENERAL', 'CASH',
     (SELECT id FROM acc_chart_of_accounts WHERE account_code = '5200'), -- DR: Operating Expenses
     (SELECT id FROM acc_chart_of_accounts WHERE account_code = '1112'), -- CR: Petty Cash
     TRUE, TRUE, TRUE, FALSE, FALSE,
@@ -588,12 +642,14 @@ WHERE NOT EXISTS (SELECT 1 FROM acc_mapping WHERE organization_id = 1 AND mappin
 
 -- EXPENSE_CLAIM
 INSERT INTO acc_mapping (organization_id, mapping_code, mapping_name, module_type, transaction_type, default_voucher_type,
+    debit_control_type, credit_control_type,
     default_debit_account_id, default_credit_account_id,
     is_active, is_default, is_system, auto_post, allow_partial_posting,
     consolidate_entries, create_reversing_entry, require_approval,
     update_sub_account_balance, use_sub_ledger,
     default_narration_template, voucher_prefix, description, created_by, created_at, updated_at)
 SELECT 1, 'EXP_CLAIM', 'Employee Expense Claim', 'GENERAL_LEDGER', 'EXPENSE_CLAIM', 'EXPENSE_VOUCHER',
+    'GENERAL', 'EMPLOYEE',
     (SELECT id FROM acc_chart_of_accounts WHERE account_code = '5200'), -- DR: Operating Expenses
     (SELECT id FROM acc_chart_of_accounts WHERE account_code = '2210'), -- CR: Salaries Payable (reimbursable)
     TRUE, TRUE, TRUE, FALSE, FALSE,
@@ -607,11 +663,13 @@ WHERE NOT EXISTS (SELECT 1 FROM acc_mapping WHERE organization_id = 1 AND mappin
 
 -- JOURNAL_ENTRY
 INSERT INTO acc_mapping (organization_id, mapping_code, mapping_name, module_type, transaction_type, default_voucher_type,
+    debit_control_type, credit_control_type,
     is_active, is_default, is_system, auto_post, allow_partial_posting,
     consolidate_entries, create_reversing_entry, require_approval,
     update_sub_account_balance, use_sub_ledger,
     default_narration_template, voucher_prefix, description, created_by, created_at, updated_at)
 SELECT 1, 'JRN_ENTRY', 'General Journal Entry', 'GENERAL_LEDGER', 'JOURNAL_ENTRY', 'JOURNAL_VOUCHER',
+    'GENERAL', 'GENERAL',
     TRUE, TRUE, TRUE, FALSE, TRUE,
     FALSE, FALSE, FALSE,
     FALSE, FALSE,
@@ -621,11 +679,13 @@ WHERE NOT EXISTS (SELECT 1 FROM acc_mapping WHERE organization_id = 1 AND mappin
 
 -- OPENING_BALANCE
 INSERT INTO acc_mapping (organization_id, mapping_code, mapping_name, module_type, transaction_type, default_voucher_type,
+    debit_control_type, credit_control_type,
     is_active, is_default, is_system, auto_post, allow_partial_posting,
     consolidate_entries, create_reversing_entry, require_approval,
     update_sub_account_balance, use_sub_ledger,
     default_narration_template, voucher_prefix, description, created_by, created_at, updated_at)
 SELECT 1, 'OPN_BAL', 'Opening Balance Entry', 'GENERAL_LEDGER', 'OPENING_BALANCE', 'JOURNAL_VOUCHER',
+    'GENERAL', 'GENERAL',
     TRUE, TRUE, TRUE, FALSE, FALSE,
     FALSE, FALSE, TRUE,
     TRUE, TRUE,
@@ -635,12 +695,14 @@ WHERE NOT EXISTS (SELECT 1 FROM acc_mapping WHERE organization_id = 1 AND mappin
 
 -- CLOSING_ENTRY
 INSERT INTO acc_mapping (organization_id, mapping_code, mapping_name, module_type, transaction_type, default_voucher_type,
+    debit_control_type, credit_control_type,
     default_debit_account_id, default_credit_account_id,
     is_active, is_default, is_system, auto_post, allow_partial_posting,
     consolidate_entries, create_reversing_entry, require_approval,
     update_sub_account_balance, use_sub_ledger,
     default_narration_template, voucher_prefix, description, created_by, created_at, updated_at)
 SELECT 1, 'CLOSE_ENTRY', 'Year-End Closing Entry', 'GENERAL_LEDGER', 'CLOSING_ENTRY', 'JOURNAL_VOUCHER',
+    'GENERAL', 'GENERAL',
     (SELECT id FROM acc_chart_of_accounts WHERE account_code = '4000'), -- DR: Revenue (close to zero)
     (SELECT id FROM acc_chart_of_accounts WHERE account_code = '3310'), -- CR: Current Year Earnings
     TRUE, TRUE, TRUE, FALSE, FALSE,

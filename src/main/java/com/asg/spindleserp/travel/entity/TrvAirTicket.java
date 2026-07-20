@@ -8,6 +8,7 @@ import lombok.*;
 import java.io.Serializable;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -17,7 +18,7 @@ import java.util.List;
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class TrvAirTicket extends BaseEntity implements Serializable {
 
-    public enum Status { ISSUED, CANCELLED, REFUNDED }
+    public enum Status { ISSUED, VOID, CANCELLED, REFUNDED, EXCHANGED }
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -52,6 +53,55 @@ public class TrvAirTicket extends BaseEntity implements Serializable {
 
     @Column(name = "supplier_reference", length = 100)
     private String supplierReference;
+
+    // ── Ticket-level fields ──────────────────────────────────────────────────
+    /** The actual airline ticket / e-ticket number (concessionary serial). */
+    @Column(name = "ticket_number", length = 30)
+    private String ticketNumber;
+
+    /** IATA code of the validating carrier whose ticket stock is used. */
+    @Column(name = "validating_carrier", length = 3)
+    private String validatingCarrier;
+
+    /** Fare basis / booking code (e.g. Y, Q14NR, H7NR). */
+    @Column(name = "fare_basis", length = 20)
+    private String fareBasis;
+
+    /** Travel agency commission amount. */
+    @Builder.Default
+    @Column(name = "commission_amount", precision = 18, scale = 2)
+    private BigDecimal commissionAmount = BigDecimal.ZERO;
+
+    /** Commission rate percentage (e.g. 5.00 for 5%). */
+    @Column(name = "commission_rate", precision = 5, scale = 2)
+    private BigDecimal commissionRate;
+
+    /** Net fare after commission = fareAmount - commissionAmount. */
+    @Builder.Default
+    @Column(name = "net_fare", precision = 18, scale = 2)
+    private BigDecimal netFare = BigDecimal.ZERO;
+
+    /** Service fee charged by the travel agency. */
+    @Builder.Default
+    @Column(name = "service_fee_amount", precision = 18, scale = 2)
+    private BigDecimal serviceFeeAmount = BigDecimal.ZERO;
+
+    /** Tour code / IATA package identifier. */
+    @Column(name = "tour_code", length = 50)
+    private String tourCode;
+
+    /** Endorsements / restrictions printed on the ticket. */
+    @Column(name = "endorsement_restrictions", length = 500)
+    private String endorsementRestrictions;
+
+    /** Date/time by which the ticket must be issued before the reservation auto-cancels. */
+    @Column(name = "ticket_time_limit")
+    private LocalDateTime ticketTimeLimit;
+
+    /** Additional collection amount (for reissue / exchange). */
+    @Builder.Default
+    @Column(name = "additional_collection", precision = 18, scale = 2)
+    private BigDecimal additionalCollection = BigDecimal.ZERO;
 
     @Column(name = "issue_date")
     private LocalDate issueDate;

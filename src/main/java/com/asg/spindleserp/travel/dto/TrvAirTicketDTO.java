@@ -5,6 +5,7 @@ import lombok.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -24,6 +25,33 @@ public class TrvAirTicketDTO {
     @Builder.Default private BigDecimal taxAmount = BigDecimal.ZERO;
     @Builder.Default private BigDecimal totalAmount = BigDecimal.ZERO;
     private String supplierReference;
+
+    // ── Ticket-level fields ──────────────────────────────────────────────────
+    /** The actual airline ticket / e-ticket number. */
+    private String ticketNumber;
+
+    /** Validating carrier IATA code. */
+    private String validatingCarrier;
+
+    /** Fare basis code (e.g. Y, Q14NR). */
+    private String fareBasis;
+
+    @Builder.Default private BigDecimal commissionAmount = BigDecimal.ZERO;
+    private BigDecimal commissionRate;
+    @Builder.Default private BigDecimal netFare = BigDecimal.ZERO;
+    @Builder.Default private BigDecimal serviceFeeAmount = BigDecimal.ZERO;
+
+    /** Tour code / IATA package identifier. */
+    private String tourCode;
+
+    /** Endorsements / restrictions. */
+    private String endorsementRestrictions;
+
+    /** Ticket time limit (by when the ticket must be issued). */
+    private LocalDateTime ticketTimeLimit;
+
+    /** Additional collection for reissue / exchange. */
+    @Builder.Default private BigDecimal additionalCollection = BigDecimal.ZERO;
 
     // ── Vendor / Agent info ──────────────────────────────────────────────────
     private LocalDate issueDate;
@@ -77,5 +105,12 @@ public class TrvAirTicketDTO {
         private String seatNumber;
         private String baggageAllowance;
         @Builder.Default private String status = "ISSUED";
+        @Builder.Default private String checkInStatus = "NOT_CHECKED_IN";
+        private LocalDateTime checkInTime;
+        private LocalDateTime boardingTime;
+        private String gateNumber;
+        private String departureGate;
+        @Builder.Default private BigDecimal farePortion = BigDecimal.ZERO;
+        @Builder.Default private BigDecimal taxPortion = BigDecimal.ZERO;
     }
 }
