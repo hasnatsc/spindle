@@ -111,7 +111,14 @@ VALUES
     ('setup.hs_code.view',              'View HS codes',                      '/setup/hs-codes/**',            'GET',    'CORE_SECURITY', 'SETUP',     true, NOW(), NOW()),
     ('setup.hs_code.create',            'Create HS code',                     '/setup/hs-codes/save',          'POST',   'CORE_SECURITY', 'SETUP',     true, NOW(), NOW()),
     ('setup.sequence.view',             'View document sequences',            '/setup/sequences/**',           'GET',    'CORE_SECURITY', 'SETUP',     true, NOW(), NOW()),
-    ('setup.sequence.create',           'Create document sequence',           '/setup/sequences/save',         'POST',   'CORE_SECURITY', 'SETUP',     true, NOW(), NOW())
+    ('setup.sequence.create',           'Create document sequence',           '/setup/sequences/save',         'POST',   'CORE_SECURITY', 'SETUP',     true, NOW(), NOW()),
+    ('setup.country.view',              'View countries',                      '/countries/**',                 'GET',    'CORE_SECURITY', 'SETUP',     true, NOW(), NOW()),
+    ('setup.country.create',            'Create country',                      '/countries/save',               'POST',   'CORE_SECURITY', 'SETUP',     true, NOW(), NOW()),
+    ('setup.country.toggle',            'Toggle country status',              '/countries/toggle/**',          'POST',   'CORE_SECURITY', 'SETUP',     true, NOW(), NOW()),
+    ('setup.country.delete',            'Delete country',                     '/countries/delete/**',          'DELETE', 'CORE_SECURITY', 'SETUP',     true, NOW(), NOW()),
+    ('setup.common_document.view',      'View common documents',              '/api/common/documents/**',      'GET',    'CORE_SECURITY', 'SETUP',     true, NOW(), NOW()),
+    ('setup.common_document.upload',    'Upload common document',             '/api/common/documents/upload',  'POST',   'CORE_SECURITY', 'SETUP',     true, NOW(), NOW()),
+    ('setup.common_document.delete',    'Delete common document',             '/api/common/documents/delete/**','DELETE', 'CORE_SECURITY', 'SETUP',     true, NOW(), NOW())
 ON CONFLICT (name) DO NOTHING;
 
 -- ── 1.05  Inventory ───────────────────────────────────────────────────────────
@@ -248,6 +255,7 @@ VALUES
     ('acc.period.edit',                 'Edit accounting period',             '/accounts/periods/save',                   'POST',   'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
     ('acc.period.toggle',               'Open/close accounting period',       '/accounts/periods/toggle/**',              'POST',   'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
     ('acc.period.delete',               'Delete accounting period',           '/accounts/periods/delete/**',              'DELETE', 'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
+    ('acc.period.close',                'Close accounting period',            '/accounts/periods/close/**',               'POST',   'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
     -- Opening Balances
     ('acc.ob.view',                     'View opening balances',              '/accounts/opening-balances',               'GET',    'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
     ('acc.ob.list',                     'List opening balances',              '/accounts/opening-balances/list',          'GET',    'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
@@ -270,7 +278,9 @@ VALUES
     ('acc.ledger.view',                 'View general ledger',                '/accounts/ledger/**',                      'GET',    'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
     ('acc.trial_bal.view',              'View trial balance',                 '/accounts/trial-balance/**',               'GET',    'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
     ('acc.profit_loss.view',            'View profit & loss',                 '/accounts/profit-loss/**',                 'GET',    'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
-    ('acc.balance_sheet.view',          'View balance sheet',                 '/accounts/balance-sheet/**',               'GET',    'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW())
+    ('acc.balance_sheet.view',          'View balance sheet',                 '/accounts/balance-sheet/**',               'GET',    'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW()),
+    -- Financial Reports (FinancialReportController)
+    ('acc.report.view',                 'View financial reports',              '/accounts/reports/**',                    'GET',    'FINANCE_ACCOUNTS', 'ACCOUNTS', true, NOW(), NOW())
 ON CONFLICT (name) DO NOTHING;
 
 -- ── 1.09  HRM ─────────────────────────────────────────────────────────────────
@@ -291,7 +301,15 @@ VALUES
     ('hrm.leave.approve',               'Approve leave',                      '/hrm/leaves/approve/**',          'POST',   'HRM', 'HRM', true, NOW(), NOW()),
     ('hrm.payroll.view',                'View payroll',                       '/hrm/payroll/**',                 'GET',    'HRM', 'HRM', true, NOW(), NOW()),
     ('hrm.payroll.create',              'Process payroll',                    '/hrm/payroll/save',               'POST',   'HRM', 'HRM', true, NOW(), NOW()),
-    ('hrm.payroll.approve',             'Approve payroll',                    '/hrm/payroll/approve/**',         'POST',   'HRM', 'HRM', true, NOW(), NOW())
+    ('hrm.payroll.approve',             'Approve payroll',                    '/hrm/payroll/approve/**',         'POST',   'HRM', 'HRM', true, NOW(), NOW()),
+    ('hrm.leave.reject',                'Reject leave request',               '/hrm/leaves/reject/**',           'POST',   'HRM', 'HRM', true, NOW(), NOW()),
+    ('hrm.leave.cancel',                'Cancel leave request',               '/hrm/leaves/cancel/**',           'POST',   'HRM', 'HRM', true, NOW(), NOW()),
+    ('hrm.leave.delete',                'Delete leave request',               '/hrm/leaves/delete/**',           'DELETE', 'HRM', 'HRM', true, NOW(), NOW()),
+    ('hrm.attendance.delete',           'Delete attendance',                  '/hrm/attendance/delete/**',       'DELETE', 'HRM', 'HRM', true, NOW(), NOW()),
+    ('hrm.payroll.pay',                 'Execute payroll payment',            '/hrm/payroll/pay/**',             'POST',   'HRM', 'HRM', true, NOW(), NOW()),
+    ('hrm.payroll.cancel',              'Cancel payroll',                     '/hrm/payroll/cancel/**',          'POST',   'HRM', 'HRM', true, NOW(), NOW()),
+    ('hrm.payroll_mapping.view',        'View payroll mappings',              '/hrm/payroll-mapping/**',         'GET',    'HRM', 'HRM', true, NOW(), NOW()),
+    ('hrm.payroll_mapping.create',      'Create payroll mapping',             '/hrm/payroll-mapping/save',       'POST',   'HRM', 'HRM', true, NOW(), NOW())
 ON CONFLICT (name) DO NOTHING;
 
 -- ── 1.10  Production ──────────────────────────────────────────────────────────
@@ -366,7 +384,21 @@ VALUES
     ('budget.revision.view',            'View budget revisions',              '/budget/revisions/**',            'GET',    'BUDGET', 'BUDGET', true, NOW(), NOW()),
     ('budget.revision.create',          'Create budget revision',             '/budget/revisions/save',          'POST',   'BUDGET', 'BUDGET', true, NOW(), NOW()),
     ('budget.transfer.view',            'View budget transfers',              '/budget/transfers/**',            'GET',    'BUDGET', 'BUDGET', true, NOW(), NOW()),
-    ('budget.transfer.create',          'Create budget transfer',             '/budget/transfers/save',          'POST',   'BUDGET', 'BUDGET', true, NOW(), NOW())
+    ('budget.transfer.create',          'Create budget transfer',             '/budget/transfers/save',          'POST',   'BUDGET', 'BUDGET', true, NOW(), NOW()),
+    ('budget.fiscalyear.status',        'Update fiscal year status',          '/budget/fiscal-years/status/**',  'POST',   'BUDGET', 'BUDGET', true, NOW(), NOW()),
+    ('budget.head.toggle',              'Toggle budget head status',          '/budget/heads/toggle/**',         'POST',   'BUDGET', 'BUDGET', true, NOW(), NOW()),
+    ('budget.budget.submit',            'Submit budget for approval',         '/budget/list/submit/**',          'POST',   'BUDGET', 'BUDGET', true, NOW(), NOW()),
+    ('budget.budget.approve',           'Approve budget',                     '/budget/list/approve/**',         'POST',   'BUDGET', 'BUDGET', true, NOW(), NOW()),
+    ('budget.budget.activate',          'Activate budget',                    '/budget/list/activate/**',        'POST',   'BUDGET', 'BUDGET', true, NOW(), NOW()),
+    ('budget.budget.lock',              'Lock budget',                        '/budget/list/lock/**',            'POST',   'BUDGET', 'BUDGET', true, NOW(), NOW()),
+    ('budget.budget.close',             'Close budget',                       '/budget/list/close/**',           'POST',   'BUDGET', 'BUDGET', true, NOW(), NOW()),
+    ('budget.budget.return',            'Return budget',                      '/budget/list/return/**',          'POST',   'BUDGET', 'BUDGET', true, NOW(), NOW()),
+    ('budget.budget.variance',          'View budget variance',               '/budget/list/variance/**',        'GET',    'BUDGET', 'BUDGET', true, NOW(), NOW()),
+    ('budget.budget.summary',           'View budget summary',                '/budget/list/summary/**',         'GET',    'BUDGET', 'BUDGET', true, NOW(), NOW()),
+    ('budget.revision.approve',         'Approve budget revision',            '/budget/revisions/approve/**',    'POST',   'BUDGET', 'BUDGET', true, NOW(), NOW()),
+    ('budget.revision.reject',          'Reject budget revision',             '/budget/revisions/reject/**',     'POST',   'BUDGET', 'BUDGET', true, NOW(), NOW()),
+    ('budget.transfer.approve',         'Approve budget transfer',            '/budget/transfers/approve/**',    'POST',   'BUDGET', 'BUDGET', true, NOW(), NOW()),
+    ('budget.transfer.reject',          'Reject budget transfer',             '/budget/transfers/reject/**',     'POST',   'BUDGET', 'BUDGET', true, NOW(), NOW())
 ON CONFLICT (name) DO NOTHING;
 
 -- ── 1.14  Fixed Assets ────────────────────────────────────────────────────────
@@ -385,7 +417,8 @@ VALUES
     ('fa.depreciation.post',            'Post depreciation run',              '/fixed-assets/depreciation/post/**','POST',   'FIXED_ASSETS', 'FIXED_ASSETS', true, NOW(), NOW()),
     ('fa.depreciation.reverse',         'Reverse depreciation run',           '/fixed-assets/depreciation/reverse/**','POST','FIXED_ASSETS', 'FIXED_ASSETS', true, NOW(), NOW()),
     ('fa.disposal.view',                'View asset disposals',               '/fixed-assets/disposals/**',        'GET',    'FIXED_ASSETS', 'FIXED_ASSETS', true, NOW(), NOW()),
-    ('fa.disposal.create',              'Dispose asset',                      '/fixed-assets/disposals/save',      'POST',   'FIXED_ASSETS', 'FIXED_ASSETS', true, NOW(), NOW())
+    ('fa.disposal.create',              'Dispose asset',                      '/fixed-assets/disposals/save',      'POST',   'FIXED_ASSETS', 'FIXED_ASSETS', true, NOW(), NOW()),
+    ('fa.category.toggle',              'Toggle asset category status',       '/fixed-assets/categories/toggle/**', 'POST',  'FIXED_ASSETS', 'FIXED_ASSETS', true, NOW(), NOW())
 ON CONFLICT (name) DO NOTHING;
 
 -- ── 1.15  Approval ────────────────────────────────────────────────────────────
@@ -465,7 +498,12 @@ VALUES
     ('ec.cart.delete',                  'Delete cart record',                 '/ecommerce/carts/delete/**',        'DELETE','ECOMMERCE', 'ECOMMERCE', true, NOW(), NOW()),
     ('ec.setting.view',                 'View eCommerce settings',            '/ecommerce/settings/**',            'GET',  'ECOMMERCE', 'ECOMMERCE', true, NOW(), NOW()),
     ('ec.setting.create',               'Create/update eCommerce setting',    '/ecommerce/settings/save',          'POST', 'ECOMMERCE', 'ECOMMERCE', true, NOW(), NOW()),
-    ('ec.setting.delete',               'Delete eCommerce setting',           '/ecommerce/settings/delete/**',     'DELETE','ECOMMERCE', 'ECOMMERCE', true, NOW(), NOW())
+    ('ec.setting.delete',               'Delete eCommerce setting',           '/ecommerce/settings/delete/**',     'DELETE','ECOMMERCE', 'ECOMMERCE', true, NOW(), NOW()),
+    ('ec.product.toggle_status',         'Toggle product active status',       '/ecommerce/products/toggle/**',     'POST',  'ECOMMERCE', 'ECOMMERCE', true, NOW(), NOW()),
+    ('ec.product.image.upload',         'Upload product image',               '/ecommerce/products/*/images/**',   'POST',  'ECOMMERCE', 'ECOMMERCE', true, NOW(), NOW()),
+    ('ec.product.image.delete',         'Delete product image',               '/ecommerce/products/*/images/*/delete/**', 'DELETE','ECOMMERCE','ECOMMERCE', true, NOW(), NOW()),
+    ('ec.category.image.upload',        'Upload category image',              '/ecommerce/categories/*/image/**',  'POST',  'ECOMMERCE', 'ECOMMERCE', true, NOW(), NOW()),
+    ('ec.category.image.delete',        'Delete category image',              '/ecommerce/categories/*/image/delete/**', 'POST','ECOMMERCE','ECOMMERCE', true, NOW(), NOW())
 ON CONFLICT (name) DO NOTHING;
 
 -- ── 1.17  Travel (Phase 1 + 2) ────────────────────────────────────────────────
@@ -536,7 +574,18 @@ VALUES
     ('trv.visa.create',                 'Create visa application',            '/travel/visa-applications/save',       'POST', 'TRAVEL', 'TRAVEL', true, NOW(), NOW()),
     ('trv.visa.edit',                   'Edit visa application',              '/travel/visa-applications/save',       'POST', 'TRAVEL', 'TRAVEL', true, NOW(), NOW()),
     ('trv.visa.status',                 'Update visa application status',    '/travel/visa-applications/status/**',  'POST', 'TRAVEL', 'TRAVEL', true, NOW(), NOW()),
-    ('trv.visa.delete',                 'Delete visa application',            '/travel/visa-applications/delete/**',  'DELETE','TRAVEL', 'TRAVEL', true, NOW(), NOW())
+    ('trv.visa.delete',                 'Delete visa application',            '/travel/visa-applications/delete/**',  'DELETE','TRAVEL', 'TRAVEL', true, NOW(), NOW()),
+    ('trv.air_ticket.confirm',          'Confirm air ticket',                 '/travel/air-tickets/confirm/**',      'POST', 'TRAVEL', 'TRAVEL', true, NOW(), NOW()),
+    ('trv.air_ticket.void',             'Void air ticket',                    '/travel/air-tickets/void/**',         'POST', 'TRAVEL', 'TRAVEL', true, NOW(), NOW()),
+    ('trv.air_ticket.cancel',           'Cancel air ticket',                  '/travel/air-tickets/cancel/**',       'POST', 'TRAVEL', 'TRAVEL', true, NOW(), NOW()),
+    ('trv.air_ticket.refund',           'Refund air ticket',                  '/travel/air-tickets/refund/**',       'POST', 'TRAVEL', 'TRAVEL', true, NOW(), NOW()),
+    ('trv.hotel_booking.cancel',        'Cancel hotel booking',               '/travel/hotel-bookings/cancel/**',    'POST', 'TRAVEL', 'TRAVEL', true, NOW(), NOW()),
+    ('trv.hotel_booking.complete',      'Complete hotel booking',             '/travel/hotel-bookings/complete/**',  'POST', 'TRAVEL', 'TRAVEL', true, NOW(), NOW()),
+    ('trv.document.view',               'View travel documents',              '/travel/documents/**',                'GET',  'TRAVEL', 'TRAVEL', true, NOW(), NOW()),
+    ('trv.document.upload',             'Upload travel document',             '/travel/documents/upload',            'POST', 'TRAVEL', 'TRAVEL', true, NOW(), NOW()),
+    ('trv.document.delete',             'Delete travel document',             '/travel/documents/delete/**',         'DELETE','TRAVEL', 'TRAVEL', true, NOW(), NOW()),
+    ('trv.service_line.view',           'View travel service lines',          '/travel/service-lines/**',            'GET',  'TRAVEL', 'TRAVEL', true, NOW(), NOW()),
+    ('trv.report.view',                 'View travel reports',                '/travel/reports/**',                  'GET',  'TRAVEL', 'TRAVEL', true, NOW(), NOW())
 ON CONFLICT (name) DO NOTHING;
 
 -- ═════════════════════════════════════════════════════════════════════════════
@@ -795,6 +844,161 @@ FROM app_menus g WHERE g.menu_code = 'MOD_SALES' ON CONFLICT (menu_code) DO NOTH
 INSERT INTO app_menus (menu_code, menu_name, menu_url, icon, parent_id, display_order, menu_type, module_name, required_permission, target, active, visible, deleted, created_at, updated_at)
 SELECT 'ACC_DASHBOARD', 'Dashboard', '/accounts/dashboard', 'fa fa-tachometer-alt', g.id, 5, 'LEAF', 'ACCOUNTS', 'acc.dashboard.view', '_self', true, true, false, NOW(), NOW()
 FROM app_menus g WHERE g.menu_code = 'MOD_ACCOUNTS' ON CONFLICT (menu_code) DO NOTHING;
+-- Chart & Accounts
+INSERT INTO app_menus (menu_code, menu_name, menu_url, icon, parent_id, display_order, menu_type, module_name, required_permission, target, active, visible, deleted, created_at, updated_at)
+SELECT 'ACC_CHART_OF_ACCOUNTS', 'Chart of Accounts', '/accounts/chart-of-accounts', 'fa fa-sitemap', g.id, 10, 'LEAF', 'ACCOUNTS', 'acc.coa.view', '_self', true, true, false, NOW(), NOW()
+FROM app_menus g WHERE g.menu_code = 'GRP_ACC_MASTER' ON CONFLICT (menu_code) DO NOTHING;
+INSERT INTO app_menus (menu_code, menu_name, menu_url, icon, parent_id, display_order, menu_type, module_name, required_permission, target, active, visible, deleted, created_at, updated_at)
+SELECT 'ACC_SUB_ACCOUNTS', 'Sub-Accounts (Parties)', '/accounts/sub-accounts', 'fa fa-users', g.id, 20, 'LEAF', 'ACCOUNTS', 'acc.sub.view', '_self', true, true, false, NOW(), NOW()
+FROM app_menus g WHERE g.menu_code = 'GRP_ACC_MASTER' ON CONFLICT (menu_code) DO NOTHING;
+-- Vouchers
+INSERT INTO app_menus (menu_code, menu_name, menu_url, icon, parent_id, display_order, menu_type, module_name, required_permission, target, active, visible, deleted, created_at, updated_at)
+SELECT 'ACC_JOURNALS', 'Journal Vouchers', '/accounts/journals', 'fa fa-book', g.id, 10, 'LEAF', 'ACCOUNTS', 'acc.jv.view', '_self', true, true, false, NOW(), NOW()
+FROM app_menus g WHERE g.menu_code = 'GRP_ACC_VOUCHERS' ON CONFLICT (menu_code) DO NOTHING;
+INSERT INTO app_menus (menu_code, menu_name, menu_url, icon, parent_id, display_order, menu_type, module_name, required_permission, target, active, visible, deleted, created_at, updated_at)
+SELECT 'ACC_PAYMENTS', 'Payment Vouchers', '/accounts/payment-vouchers', 'fa fa-arrow-right', g.id, 20, 'LEAF', 'ACCOUNTS', 'acc.pv.view', '_self', true, true, false, NOW(), NOW()
+FROM app_menus g WHERE g.menu_code = 'GRP_ACC_VOUCHERS' ON CONFLICT (menu_code) DO NOTHING;
+INSERT INTO app_menus (menu_code, menu_name, menu_url, icon, parent_id, display_order, menu_type, module_name, required_permission, target, active, visible, deleted, created_at, updated_at)
+SELECT 'ACC_RECEIPTS', 'Receipt Vouchers', '/accounts/receipt-vouchers', 'fa fa-arrow-left', g.id, 30, 'LEAF', 'ACCOUNTS', 'acc.rv.view', '_self', true, true, false, NOW(), NOW()
+FROM app_menus g WHERE g.menu_code = 'GRP_ACC_VOUCHERS' ON CONFLICT (menu_code) DO NOTHING;
+INSERT INTO app_menus (menu_code, menu_name, menu_url, icon, parent_id, display_order, menu_type, module_name, required_permission, target, active, visible, deleted, created_at, updated_at)
+SELECT 'ACC_CONTRAS', 'Contra Vouchers', '/accounts/contra-vouchers', 'fa fa-exchange-alt', g.id, 40, 'LEAF', 'ACCOUNTS', 'acc.cv.view', '_self', true, true, false, NOW(), NOW()
+FROM app_menus g WHERE g.menu_code = 'GRP_ACC_VOUCHERS' ON CONFLICT (menu_code) DO NOTHING;
+INSERT INTO app_menus (menu_code, menu_name, menu_url, icon, parent_id, display_order, menu_type, module_name, required_permission, target, active, visible, deleted, created_at, updated_at)
+SELECT 'ACC_AGING', 'Aging Report', '/accounts/aging', 'fa fa-hourglass-half', g.id, 50, 'LEAF', 'ACCOUNTS', 'acc.aging.view', '_self', true, true, false, NOW(), NOW()
+FROM app_menus g WHERE g.menu_code = 'GRP_ACC_VOUCHERS' ON CONFLICT (menu_code) DO NOTHING;
+-- Financial Reports
+INSERT INTO app_menus (menu_code, menu_name, menu_url, icon, parent_id, display_order, menu_type, module_name, required_permission, target, active, visible, deleted, created_at, updated_at)
+SELECT 'ACC_LEDGER', 'General Ledger', '/accounts/ledger', 'fa fa-book-open', g.id, 10, 'LEAF', 'ACCOUNTS', 'acc.ledger.view', '_self', true, true, false, NOW(), NOW()
+FROM app_menus g WHERE g.menu_code = 'GRP_ACC_REPORTS' ON CONFLICT (menu_code) DO NOTHING;
+INSERT INTO app_menus (menu_code, menu_name, menu_url, icon, parent_id, display_order, menu_type, module_name, required_permission, target, active, visible, deleted, created_at, updated_at)
+SELECT 'ACC_TRIAL_BALANCE', 'Trial Balance', '/accounts/trial-balance', 'fa fa-balance-scale', g.id, 20, 'LEAF', 'ACCOUNTS', 'acc.trial_bal.view', '_self', true, true, false, NOW(), NOW()
+FROM app_menus g WHERE g.menu_code = 'GRP_ACC_REPORTS' ON CONFLICT (menu_code) DO NOTHING;
+INSERT INTO app_menus (menu_code, menu_name, menu_url, icon, parent_id, display_order, menu_type, module_name, required_permission, target, active, visible, deleted, created_at, updated_at)
+SELECT 'ACC_PROFIT_LOSS', 'Profit & Loss', '/accounts/profit-loss', 'fa fa-chart-pie', g.id, 30, 'LEAF', 'ACCOUNTS', 'acc.profit_loss.view', '_self', true, true, false, NOW(), NOW()
+FROM app_menus g WHERE g.menu_code = 'GRP_ACC_REPORTS' ON CONFLICT (menu_code) DO NOTHING;
+INSERT INTO app_menus (menu_code, menu_name, menu_url, icon, parent_id, display_order, menu_type, module_name, required_permission, target, active, visible, deleted, created_at, updated_at)
+SELECT 'ACC_BALANCE_SHEET', 'Balance Sheet', '/accounts/balance-sheet', 'fa fa-file-invoice', g.id, 40, 'LEAF', 'ACCOUNTS', 'acc.balance_sheet.view', '_self', true, true, false, NOW(), NOW()
+FROM app_menus g WHERE g.menu_code = 'GRP_ACC_REPORTS' ON CONFLICT (menu_code) DO NOTHING;
+INSERT INTO app_menus (menu_code, menu_name, menu_url, icon, parent_id, display_order, menu_type, module_name, required_permission, target, active, visible, deleted, created_at, updated_at)
+SELECT 'ACC_DAY_BOOK', 'Day Book', '/accounts/reports/day-book', 'fa fa-calendar-day', g.id, 50, 'LEAF', 'ACCOUNTS', 'acc.report.view', '_self', true, true, false, NOW(), NOW()
+FROM app_menus g WHERE g.menu_code = 'GRP_ACC_REPORTS' ON CONFLICT (menu_code) DO NOTHING;
+INSERT INTO app_menus (menu_code, menu_name, menu_url, icon, parent_id, display_order, menu_type, module_name, required_permission, target, active, visible, deleted, created_at, updated_at)
+SELECT 'ACC_VOUCHER_REGISTER', 'Voucher Register', '/accounts/reports/voucher-register', 'fa fa-list', g.id, 60, 'LEAF', 'ACCOUNTS', 'acc.report.view', '_self', true, true, false, NOW(), NOW()
+FROM app_menus g WHERE g.menu_code = 'GRP_ACC_REPORTS' ON CONFLICT (menu_code) DO NOTHING;
+INSERT INTO app_menus (menu_code, menu_name, menu_url, icon, parent_id, display_order, menu_type, module_name, required_permission, target, active, visible, deleted, created_at, updated_at)
+SELECT 'ACC_CASH_FLOW', 'Cash Flow', '/accounts/reports/cash-flow', 'fa fa-money-bill-wave', g.id, 70, 'LEAF', 'ACCOUNTS', 'acc.report.view', '_self', true, true, false, NOW(), NOW()
+FROM app_menus g WHERE g.menu_code = 'GRP_ACC_REPORTS' ON CONFLICT (menu_code) DO NOTHING;
+INSERT INTO app_menus (menu_code, menu_name, menu_url, icon, parent_id, display_order, menu_type, module_name, required_permission, target, active, visible, deleted, created_at, updated_at)
+SELECT 'ACC_BANK_BOOK', 'Bank Book', '/accounts/reports/bank-book', 'fa fa-university', g.id, 80, 'LEAF', 'ACCOUNTS', 'acc.report.view', '_self', true, true, false, NOW(), NOW()
+FROM app_menus g WHERE g.menu_code = 'GRP_ACC_REPORTS' ON CONFLICT (menu_code) DO NOTHING;
+INSERT INTO app_menus (menu_code, menu_name, menu_url, icon, parent_id, display_order, menu_type, module_name, required_permission, target, active, visible, deleted, created_at, updated_at)
+SELECT 'ACC_CASH_BOOK', 'Cash Book', '/accounts/reports/cash-book', 'fa fa-coins', g.id, 90, 'LEAF', 'ACCOUNTS', 'acc.report.view', '_self', true, true, false, NOW(), NOW()
+FROM app_menus g WHERE g.menu_code = 'GRP_ACC_REPORTS' ON CONFLICT (menu_code) DO NOTHING;
+INSERT INTO app_menus (menu_code, menu_name, menu_url, icon, parent_id, display_order, menu_type, module_name, required_permission, target, active, visible, deleted, created_at, updated_at)
+SELECT 'ACC_PARTY_LEDGER', 'Party Ledger', '/accounts/reports/party-ledger', 'fa fa-address-book', g.id, 100, 'LEAF', 'ACCOUNTS', 'acc.report.view', '_self', true, true, false, NOW(), NOW()
+FROM app_menus g WHERE g.menu_code = 'GRP_ACC_REPORTS' ON CONFLICT (menu_code) DO NOTHING;
+INSERT INTO app_menus (menu_code, menu_name, menu_url, icon, parent_id, display_order, menu_type, module_name, required_permission, target, active, visible, deleted, created_at, updated_at)
+SELECT 'ACC_COMPARATIVE_PL', 'Comparative P&L', '/accounts/reports/comparative-pl', 'fa fa-chart-bar', g.id, 110, 'LEAF', 'ACCOUNTS', 'acc.report.view', '_self', true, true, false, NOW(), NOW()
+FROM app_menus g WHERE g.menu_code = 'GRP_ACC_REPORTS' ON CONFLICT (menu_code) DO NOTHING;
+INSERT INTO app_menus (menu_code, menu_name, menu_url, icon, parent_id, display_order, menu_type, module_name, required_permission, target, active, visible, deleted, created_at, updated_at)
+SELECT 'ACC_COMPARATIVE_TB', 'Comparative Trial Balance', '/accounts/reports/comparative-tb', 'fa fa-balance-scale-right', g.id, 120, 'LEAF', 'ACCOUNTS', 'acc.report.view', '_self', true, true, false, NOW(), NOW()
+FROM app_menus g WHERE g.menu_code = 'GRP_ACC_REPORTS' ON CONFLICT (menu_code) DO NOTHING;
+INSERT INTO app_menus (menu_code, menu_name, menu_url, icon, parent_id, display_order, menu_type, module_name, required_permission, target, active, visible, deleted, created_at, updated_at)
+SELECT 'ACC_TAX_SUMMARY', 'Tax Summary', '/accounts/reports/tax-summary', 'fa fa-percent', g.id, 130, 'LEAF', 'ACCOUNTS', 'acc.report.view', '_self', true, true, false, NOW(), NOW()
+FROM app_menus g WHERE g.menu_code = 'GRP_ACC_REPORTS' ON CONFLICT (menu_code) DO NOTHING;
+INSERT INTO app_menus (menu_code, menu_name, menu_url, icon, parent_id, display_order, menu_type, module_name, required_permission, target, active, visible, deleted, created_at, updated_at)
+SELECT 'ACC_FINANCIAL_KPIS', 'Financial KPIs', '/accounts/reports/financial-kpis', 'fa fa-chart-line', g.id, 140, 'LEAF', 'ACCOUNTS', 'acc.report.view', '_self', true, true, false, NOW(), NOW()
+FROM app_menus g WHERE g.menu_code = 'GRP_ACC_REPORTS' ON CONFLICT (menu_code) DO NOTHING;
+INSERT INTO app_menus (menu_code, menu_name, menu_url, icon, parent_id, display_order, menu_type, module_name, required_permission, target, active, visible, deleted, created_at, updated_at)
+SELECT 'ACC_COST_CENTER', 'Cost Center Summary', '/accounts/reports/cost-center-summary', 'fa fa-building', g.id, 150, 'LEAF', 'ACCOUNTS', 'acc.report.view', '_self', true, true, false, NOW(), NOW()
+FROM app_menus g WHERE g.menu_code = 'GRP_ACC_REPORTS' ON CONFLICT (menu_code) DO NOTHING;
+INSERT INTO app_menus (menu_code, menu_name, menu_url, icon, parent_id, display_order, menu_type, module_name, required_permission, target, active, visible, deleted, created_at, updated_at)
+SELECT 'ACC_ACCOUNT_SUMMARY', 'Account Summary', '/accounts/reports/account-summary', 'fa fa-file-alt', g.id, 160, 'LEAF', 'ACCOUNTS', 'acc.report.view', '_self', true, true, false, NOW(), NOW()
+FROM app_menus g WHERE g.menu_code = 'GRP_ACC_REPORTS' ON CONFLICT (menu_code) DO NOTHING;
+INSERT INTO app_menus (menu_code, menu_name, menu_url, icon, parent_id, display_order, menu_type, module_name, required_permission, target, active, visible, deleted, created_at, updated_at)
+SELECT 'ACC_SUB_ACCOUNT_SUMMARY', 'Sub-Account Summary', '/accounts/reports/sub-account-summary', 'fa fa-users', g.id, 170, 'LEAF', 'ACCOUNTS', 'acc.report.view', '_self', true, true, false, NOW(), NOW()
+FROM app_menus g WHERE g.menu_code = 'GRP_ACC_REPORTS' ON CONFLICT (menu_code) DO NOTHING;
+INSERT INTO app_menus (menu_code, menu_name, menu_url, icon, parent_id, display_order, menu_type, module_name, required_permission, target, active, visible, deleted, created_at, updated_at)
+SELECT 'ACC_BUDGET_VS_ACTUAL', 'Budget vs Actual', '/accounts/reports/budget-vs-actual', 'fa fa-arrow-right-arrow-left', g.id, 180, 'LEAF', 'ACCOUNTS', 'acc.report.view', '_self', true, true, false, NOW(), NOW()
+FROM app_menus g WHERE g.menu_code = 'GRP_ACC_REPORTS' ON CONFLICT (menu_code) DO NOTHING;
+-- Accounts Config
+INSERT INTO app_menus (menu_code, menu_name, menu_url, icon, parent_id, display_order, menu_type, module_name, required_permission, target, active, visible, deleted, created_at, updated_at)
+SELECT 'ACC_PERIODS', 'Accounting Periods', '/accounts/periods', 'fa fa-calendar-alt', g.id, 10, 'LEAF', 'ACCOUNTS', 'acc.period.view', '_self', true, true, false, NOW(), NOW()
+FROM app_menus g WHERE g.menu_code = 'GRP_ACC_CONFIG' ON CONFLICT (menu_code) DO NOTHING;
+INSERT INTO app_menus (menu_code, menu_name, menu_url, icon, parent_id, display_order, menu_type, module_name, required_permission, target, active, visible, deleted, created_at, updated_at)
+SELECT 'ACC_MAPPING', 'Accounts Mapping', '/accounts/mapping', 'fa fa-random', g.id, 20, 'LEAF', 'ACCOUNTS', 'acc.mapping.view', '_self', true, true, false, NOW(), NOW()
+FROM app_menus g WHERE g.menu_code = 'GRP_ACC_CONFIG' ON CONFLICT (menu_code) DO NOTHING;
+INSERT INTO app_menus (menu_code, menu_name, menu_url, icon, parent_id, display_order, menu_type, module_name, required_permission, target, active, visible, deleted, created_at, updated_at)
+SELECT 'ACC_OPENING_BALANCES', 'Opening Balances', '/accounts/opening-balances', 'fa fa-dollar-sign', g.id, 30, 'LEAF', 'ACCOUNTS', 'acc.ob.view', '_self', true, true, false, NOW(), NOW()
+FROM app_menus g WHERE g.menu_code = 'GRP_ACC_CONFIG' ON CONFLICT (menu_code) DO NOTHING;
+INSERT INTO app_menus (menu_code, menu_name, menu_url, icon, parent_id, display_order, menu_type, module_name, required_permission, target, active, visible, deleted, created_at, updated_at)
+SELECT 'ACC_POLICY', 'Accounts Policy', '/accounts/policy', 'fa fa-shield-alt', g.id, 40, 'LEAF', 'ACCOUNTS', 'acc.policy.view', '_self', true, true, false, NOW(), NOW()
+FROM app_menus g WHERE g.menu_code = 'GRP_ACC_CONFIG' ON CONFLICT (menu_code) DO NOTHING;
+
+-- =============================================================================
+-- 3C. LEAF level — Security
+-- =============================================================================
+INSERT INTO app_menus (menu_code, menu_name, menu_url, icon, parent_id, display_order, menu_type, module_name, required_permission, target, active, visible, deleted, created_at, updated_at)
+SELECT 'SEC_USERS', 'Users', '/users', 'fa fa-users', g.id, 10, 'LEAF', 'SECURITY', 'security.user.view', '_self', true, true, false, NOW(), NOW()
+FROM app_menus g WHERE g.menu_code = 'GRP_SEC_USER' ON CONFLICT (menu_code) DO NOTHING;
+INSERT INTO app_menus (menu_code, menu_name, menu_url, icon, parent_id, display_order, menu_type, module_name, required_permission, target, active, visible, deleted, created_at, updated_at)
+SELECT 'SEC_ROLES', 'Roles', '/roles', 'fa fa-user-tag', g.id, 20, 'LEAF', 'SECURITY', 'security.role.view', '_self', true, true, false, NOW(), NOW()
+FROM app_menus g WHERE g.menu_code = 'GRP_SEC_USER' ON CONFLICT (menu_code) DO NOTHING;
+INSERT INTO app_menus (menu_code, menu_name, menu_url, icon, parent_id, display_order, menu_type, module_name, required_permission, target, active, visible, deleted, created_at, updated_at)
+SELECT 'SEC_PERMISSIONS', 'Permissions', '/permissions', 'fa fa-shield-alt', g.id, 10, 'LEAF', 'SECURITY', 'permission.view', '_self', true, true, false, NOW(), NOW()
+FROM app_menus g WHERE g.menu_code = 'GRP_SEC_MENU' ON CONFLICT (menu_code) DO NOTHING;
+INSERT INTO app_menus (menu_code, menu_name, menu_url, icon, parent_id, display_order, menu_type, module_name, required_permission, target, active, visible, deleted, created_at, updated_at)
+SELECT 'SEC_MENUS', 'App Menus', '/menus', 'fa fa-sitemap', g.id, 20, 'LEAF', 'SECURITY', 'menu.view', '_self', true, true, false, NOW(), NOW()
+FROM app_menus g WHERE g.menu_code = 'GRP_SEC_MENU' ON CONFLICT (menu_code) DO NOTHING;
+INSERT INTO app_menus (menu_code, menu_name, menu_url, icon, parent_id, display_order, menu_type, module_name, required_permission, target, active, visible, deleted, created_at, updated_at)
+SELECT 'SEC_ROLE_MENUS', 'Role-Menu Access', '/role-menus', 'fa fa-check-double', g.id, 30, 'LEAF', 'SECURITY', 'role.menu.access', '_self', true, true, false, NOW(), NOW()
+FROM app_menus g WHERE g.menu_code = 'GRP_SEC_MENU' ON CONFLICT (menu_code) DO NOTHING;
+INSERT INTO app_menus (menu_code, menu_name, menu_url, icon, parent_id, display_order, menu_type, module_name, required_permission, target, active, visible, deleted, created_at, updated_at)
+SELECT 'SEC_ORG_MODULES', 'Org Modules', '/security/org-modules', 'fa fa-puzzle-piece', g.id, 10, 'LEAF', 'SECURITY', 'org.module.view', '_self', true, true, false, NOW(), NOW()
+FROM app_menus g WHERE g.menu_code = 'GRP_SEC_ORG' ON CONFLICT (menu_code) DO NOTHING;
+
+-- =============================================================================
+-- 3C. LEAF level — Setup
+-- =============================================================================
+INSERT INTO app_menus (menu_code, menu_name, menu_url, icon, parent_id, display_order, menu_type, module_name, required_permission, target, active, visible, deleted, created_at, updated_at)
+SELECT 'STP_ORGANIZATIONS', 'Organizations', '/organizations', 'fa fa-building', g.id, 10, 'LEAF', 'SETUP', 'org.organization.view', '_self', true, true, false, NOW(), NOW()
+FROM app_menus g WHERE g.menu_code = 'GRP_STP_ORG' ON CONFLICT (menu_code) DO NOTHING;
+INSERT INTO app_menus (menu_code, menu_name, menu_url, icon, parent_id, display_order, menu_type, module_name, required_permission, target, active, visible, deleted, created_at, updated_at)
+SELECT 'STP_BUSINESS_UNITS', 'Business Units', '/business-units', 'fa fa-sitemap', g.id, 20, 'LEAF', 'SETUP', 'org.business_unit.view', '_self', true, true, false, NOW(), NOW()
+FROM app_menus g WHERE g.menu_code = 'GRP_STP_ORG' ON CONFLICT (menu_code) DO NOTHING;
+INSERT INTO app_menus (menu_code, menu_name, menu_url, icon, parent_id, display_order, menu_type, module_name, required_permission, target, active, visible, deleted, created_at, updated_at)
+SELECT 'STP_DEPARTMENTS', 'Departments', '/departments', 'fa fa-users', g.id, 30, 'LEAF', 'SETUP', 'org.department.view', '_self', true, true, false, NOW(), NOW()
+FROM app_menus g WHERE g.menu_code = 'GRP_STP_ORG' ON CONFLICT (menu_code) DO NOTHING;
+INSERT INTO app_menus (menu_code, menu_name, menu_url, icon, parent_id, display_order, menu_type, module_name, required_permission, target, active, visible, deleted, created_at, updated_at)
+SELECT 'STP_WAREHOUSES', 'Warehouses', '/warehouses', 'fa fa-warehouse', g.id, 40, 'LEAF', 'SETUP', 'org.warehouse.view', '_self', true, true, false, NOW(), NOW()
+FROM app_menus g WHERE g.menu_code = 'GRP_STP_ORG' ON CONFLICT (menu_code) DO NOTHING;
+INSERT INTO app_menus (menu_code, menu_name, menu_url, icon, parent_id, display_order, menu_type, module_name, required_permission, target, active, visible, deleted, created_at, updated_at)
+SELECT 'STP_COST_CENTERS', 'Cost Centers', '/cost-centers', 'fa fa-chart-pie', g.id, 50, 'LEAF', 'SETUP', 'org.cost_center.view', '_self', true, true, false, NOW(), NOW()
+FROM app_menus g WHERE g.menu_code = 'GRP_STP_ORG' ON CONFLICT (menu_code) DO NOTHING;
+INSERT INTO app_menus (menu_code, menu_name, menu_url, icon, parent_id, display_order, menu_type, module_name, required_permission, target, active, visible, deleted, created_at, updated_at)
+SELECT 'STP_BANKS', 'Banks', '/banks', 'fa fa-university', g.id, 10, 'LEAF', 'SETUP', 'setup.bank.view', '_self', true, true, false, NOW(), NOW()
+FROM app_menus g WHERE g.menu_code = 'GRP_STP_REF' ON CONFLICT (menu_code) DO NOTHING;
+INSERT INTO app_menus (menu_code, menu_name, menu_url, icon, parent_id, display_order, menu_type, module_name, required_permission, target, active, visible, deleted, created_at, updated_at)
+SELECT 'STP_CURRENCIES', 'Currencies', '/currencies', 'fa fa-dollar-sign', g.id, 20, 'LEAF', 'SETUP', 'setup.currency.view', '_self', true, true, false, NOW(), NOW()
+FROM app_menus g WHERE g.menu_code = 'GRP_STP_REF' ON CONFLICT (menu_code) DO NOTHING;
+INSERT INTO app_menus (menu_code, menu_name, menu_url, icon, parent_id, display_order, menu_type, module_name, required_permission, target, active, visible, deleted, created_at, updated_at)
+SELECT 'STP_SEQUENCES', 'Document Sequences', '/document-sequences', 'fa fa-sort-numeric-up', g.id, 30, 'LEAF', 'SETUP', 'setup.sequence.view', '_self', true, true, false, NOW(), NOW()
+FROM app_menus g WHERE g.menu_code = 'GRP_STP_REF' ON CONFLICT (menu_code) DO NOTHING;
+INSERT INTO app_menus (menu_code, menu_name, menu_url, icon, parent_id, display_order, menu_type, module_name, required_permission, target, active, visible, deleted, created_at, updated_at)
+SELECT 'STP_HS_CODES', 'HS Codes', '/hs-codes', 'fa fa-barcode', g.id, 40, 'LEAF', 'SETUP', 'setup.hs_code.view', '_self', true, true, false, NOW(), NOW()
+FROM app_menus g WHERE g.menu_code = 'GRP_STP_REF' ON CONFLICT (menu_code) DO NOTHING;
+INSERT INTO app_menus (menu_code, menu_name, menu_url, icon, parent_id, display_order, menu_type, module_name, required_permission, target, active, visible, deleted, created_at, updated_at)
+SELECT 'STP_TERMS', 'Payment Terms', '/terms', 'fa fa-file-signature', g.id, 50, 'LEAF', 'SETUP', 'setup.terms.view', '_self', true, true, false, NOW(), NOW()
+FROM app_menus g WHERE g.menu_code = 'GRP_STP_REF' ON CONFLICT (menu_code) DO NOTHING;
+INSERT INTO app_menus (menu_code, menu_name, menu_url, icon, parent_id, display_order, menu_type, module_name, required_permission, target, active, visible, deleted, created_at, updated_at)
+SELECT 'STP_COUNTRIES', 'Countries', '/countries', 'fa fa-globe', g.id, 60, 'LEAF', 'SETUP', 'setup.country.view', '_self', true, true, false, NOW(), NOW()
+FROM app_menus g WHERE g.menu_code = 'GRP_STP_REF' ON CONFLICT (menu_code) DO NOTHING;
+
+-- Travel Documents leaf (under GRP_TRV_FINANCE)
+INSERT INTO app_menus (menu_code, menu_name, menu_url, icon, parent_id, display_order, menu_type, module_name, required_permission, target, active, visible, deleted, created_at, updated_at)
+SELECT 'TRV_DOCUMENTS', 'Documents', '/travel/documents', 'fa fa-file-alt', g.id, 30, 'LEAF', 'TRAVEL', 'trv.document.view', '_self', true, true, false, NOW(), NOW()
+FROM app_menus g WHERE g.menu_code = 'GRP_TRV_FINANCE' ON CONFLICT (menu_code) DO NOTHING;
 
 -- =============================================================================
 -- 3C. LEAF level — HRM
@@ -830,6 +1034,23 @@ FROM app_menus g WHERE g.menu_code = 'MOD_CRM' ON CONFLICT (menu_code) DO NOTHIN
 INSERT INTO app_menus (menu_code, menu_name, menu_url, icon, parent_id, display_order, menu_type, module_name, required_permission, target, active, visible, deleted, created_at, updated_at)
 SELECT 'BGT_DASHBOARD', 'Dashboard', '/budget/dashboard', 'fa fa-tachometer-alt', g.id, 5, 'LEAF', 'BUDGET', 'budget.dashboard.view', '_self', true, true, false, NOW(), NOW()
 FROM app_menus g WHERE g.menu_code = 'MOD_BUDGET' ON CONFLICT (menu_code) DO NOTHING;
+-- Budget Master
+INSERT INTO app_menus (menu_code, menu_name, menu_url, icon, parent_id, display_order, menu_type, module_name, required_permission, target, active, visible, deleted, created_at, updated_at)
+SELECT 'BGT_FISCAL_YEARS', 'Fiscal Years', '/budget/fiscal-years', 'fa fa-calendar', g.id, 10, 'LEAF', 'BUDGET', 'budget.fiscalyear.view', '_self', true, true, false, NOW(), NOW()
+FROM app_menus g WHERE g.menu_code = 'GRP_BGT_MASTER' ON CONFLICT (menu_code) DO NOTHING;
+INSERT INTO app_menus (menu_code, menu_name, menu_url, icon, parent_id, display_order, menu_type, module_name, required_permission, target, active, visible, deleted, created_at, updated_at)
+SELECT 'BGT_HEADS', 'Budget Heads', '/budget/heads', 'fa fa-list', g.id, 20, 'LEAF', 'BUDGET', 'budget.head.view', '_self', true, true, false, NOW(), NOW()
+FROM app_menus g WHERE g.menu_code = 'GRP_BGT_MASTER' ON CONFLICT (menu_code) DO NOTHING;
+INSERT INTO app_menus (menu_code, menu_name, menu_url, icon, parent_id, display_order, menu_type, module_name, required_permission, target, active, visible, deleted, created_at, updated_at)
+SELECT 'BGT_LIST', 'Budget List', '/budget/list', 'fa fa-file-invoice-dollar', g.id, 30, 'LEAF', 'BUDGET', 'budget.budget.view', '_self', true, true, false, NOW(), NOW()
+FROM app_menus g WHERE g.menu_code = 'GRP_BGT_MASTER' ON CONFLICT (menu_code) DO NOTHING;
+-- Budget Transactions
+INSERT INTO app_menus (menu_code, menu_name, menu_url, icon, parent_id, display_order, menu_type, module_name, required_permission, target, active, visible, deleted, created_at, updated_at)
+SELECT 'BGT_REVISIONS', 'Revisions', '/budget/revisions', 'fa fa-history', g.id, 10, 'LEAF', 'BUDGET', 'budget.revision.view', '_self', true, true, false, NOW(), NOW()
+FROM app_menus g WHERE g.menu_code = 'GRP_BGT_TRANSACTIONS' ON CONFLICT (menu_code) DO NOTHING;
+INSERT INTO app_menus (menu_code, menu_name, menu_url, icon, parent_id, display_order, menu_type, module_name, required_permission, target, active, visible, deleted, created_at, updated_at)
+SELECT 'BGT_TRANSFERS', 'Transfers', '/budget/transfers', 'fa fa-exchange-alt', g.id, 20, 'LEAF', 'BUDGET', 'budget.transfer.view', '_self', true, true, false, NOW(), NOW()
+FROM app_menus g WHERE g.menu_code = 'GRP_BGT_TRANSACTIONS' ON CONFLICT (menu_code) DO NOTHING;
 
 -- =============================================================================
 -- 3C. LEAF level — Fixed Assets
@@ -837,6 +1058,20 @@ FROM app_menus g WHERE g.menu_code = 'MOD_BUDGET' ON CONFLICT (menu_code) DO NOT
 INSERT INTO app_menus (menu_code, menu_name, menu_url, icon, parent_id, display_order, menu_type, module_name, required_permission, target, active, visible, deleted, created_at, updated_at)
 SELECT 'FA_DASHBOARD', 'Dashboard', '/fixed-assets/dashboard', 'fa fa-tachometer-alt', g.id, 5, 'LEAF', 'FIXED_ASSETS', 'fa.dashboard.view', '_self', true, true, false, NOW(), NOW()
 FROM app_menus g WHERE g.menu_code = 'MOD_FIXED_ASSETS' ON CONFLICT (menu_code) DO NOTHING;
+-- Asset Master
+INSERT INTO app_menus (menu_code, menu_name, menu_url, icon, parent_id, display_order, menu_type, module_name, required_permission, target, active, visible, deleted, created_at, updated_at)
+SELECT 'FA_CATEGORIES', 'Asset Categories', '/fixed-assets/categories', 'fa fa-layer-group', g.id, 10, 'LEAF', 'FIXED_ASSETS', 'fa.category.view', '_self', true, true, false, NOW(), NOW()
+FROM app_menus g WHERE g.menu_code = 'GRP_FA_MASTER' ON CONFLICT (menu_code) DO NOTHING;
+INSERT INTO app_menus (menu_code, menu_name, menu_url, icon, parent_id, display_order, menu_type, module_name, required_permission, target, active, visible, deleted, created_at, updated_at)
+SELECT 'FA_ASSETS', 'Assets Register', '/fixed-assets/assets', 'fa fa-building', g.id, 20, 'LEAF', 'FIXED_ASSETS', 'fa.asset.view', '_self', true, true, false, NOW(), NOW()
+FROM app_menus g WHERE g.menu_code = 'GRP_FA_MASTER' ON CONFLICT (menu_code) DO NOTHING;
+-- Asset Operations
+INSERT INTO app_menus (menu_code, menu_name, menu_url, icon, parent_id, display_order, menu_type, module_name, required_permission, target, active, visible, deleted, created_at, updated_at)
+SELECT 'FA_DEPRECIATION', 'Depreciation', '/fixed-assets/depreciation', 'fa fa-chart-line', g.id, 10, 'LEAF', 'FIXED_ASSETS', 'fa.depreciation.view', '_self', true, true, false, NOW(), NOW()
+FROM app_menus g WHERE g.menu_code = 'GRP_FA_OPERATIONS' ON CONFLICT (menu_code) DO NOTHING;
+INSERT INTO app_menus (menu_code, menu_name, menu_url, icon, parent_id, display_order, menu_type, module_name, required_permission, target, active, visible, deleted, created_at, updated_at)
+SELECT 'FA_DISPOSALS', 'Disposals', '/fixed-assets/disposals', 'fa fa-trash-alt', g.id, 20, 'LEAF', 'FIXED_ASSETS', 'fa.disposal.view', '_self', true, true, false, NOW(), NOW()
+FROM app_menus g WHERE g.menu_code = 'GRP_FA_OPERATIONS' ON CONFLICT (menu_code) DO NOTHING;
 
 -- =============================================================================
 -- 3C. LEAF level — Travel (Phase 1 + Phase 2)
@@ -896,6 +1131,64 @@ FROM app_menus g WHERE g.menu_code = 'GRP_APR_PENDING' ON CONFLICT (menu_code) D
 INSERT INTO app_menus (menu_code, menu_name, menu_url, icon, parent_id, display_order, menu_type, module_name, required_permission, target, active, visible, deleted, created_at, updated_at)
 SELECT 'APR_REQUESTS', 'All Requests', '/approval/requests', 'fa fa-list-check', g.id, 20, 'LEAF', 'APPROVALS', 'apr.request.view', '_self', true, true, false, NOW(), NOW()
 FROM app_menus g WHERE g.menu_code = 'GRP_APR_PENDING' ON CONFLICT (menu_code) DO NOTHING;
+
+-- =============================================================================
+-- 3C. LEAF level — eCommerce
+-- =============================================================================
+INSERT INTO app_menus (menu_code, menu_name, menu_url, icon, parent_id, display_order, menu_type, module_name, required_permission, target, active, visible, deleted, created_at, updated_at)
+SELECT 'EC_DASHBOARD', 'Dashboard', '/ecommerce/dashboard', 'fa fa-tachometer-alt', g.id, 5, 'LEAF', 'ECOMMERCE', 'ec.dashboard.view', '_self', true, true, false, NOW(), NOW()
+FROM app_menus g WHERE g.menu_code = 'MOD_ECOMMERCE' ON CONFLICT (menu_code) DO NOTHING;
+-- Catalog
+INSERT INTO app_menus (menu_code, menu_name, menu_url, icon, parent_id, display_order, menu_type, module_name, required_permission, target, active, visible, deleted, created_at, updated_at)
+SELECT 'EC_PRODUCTS', 'Products', '/ecommerce/products', 'fa fa-box', g.id, 10, 'LEAF', 'ECOMMERCE', 'ec.product.view', '_self', true, true, false, NOW(), NOW()
+FROM app_menus g WHERE g.menu_code = 'GRP_EC_CATALOG' ON CONFLICT (menu_code) DO NOTHING;
+INSERT INTO app_menus (menu_code, menu_name, menu_url, icon, parent_id, display_order, menu_type, module_name, required_permission, target, active, visible, deleted, created_at, updated_at)
+SELECT 'EC_CATEGORIES', 'Categories', '/ecommerce/categories', 'fa fa-tags', g.id, 20, 'LEAF', 'ECOMMERCE', 'ec.category.view', '_self', true, true, false, NOW(), NOW()
+FROM app_menus g WHERE g.menu_code = 'GRP_EC_CATALOG' ON CONFLICT (menu_code) DO NOTHING;
+-- Sales & Orders
+INSERT INTO app_menus (menu_code, menu_name, menu_url, icon, parent_id, display_order, menu_type, module_name, required_permission, target, active, visible, deleted, created_at, updated_at)
+SELECT 'EC_ORDERS', 'Orders', '/ecommerce/orders', 'fa fa-shopping-cart', g.id, 10, 'LEAF', 'ECOMMERCE', 'ec.order.view', '_self', true, true, false, NOW(), NOW()
+FROM app_menus g WHERE g.menu_code = 'GRP_EC_SALES' ON CONFLICT (menu_code) DO NOTHING;
+INSERT INTO app_menus (menu_code, menu_name, menu_url, icon, parent_id, display_order, menu_type, module_name, required_permission, target, active, visible, deleted, created_at, updated_at)
+SELECT 'EC_CARTS', 'Abandoned Carts', '/ecommerce/carts', 'fa fa-shopping-basket', g.id, 20, 'LEAF', 'ECOMMERCE', 'ec.cart.view', '_self', true, true, false, NOW(), NOW()
+FROM app_menus g WHERE g.menu_code = 'GRP_EC_SALES' ON CONFLICT (menu_code) DO NOTHING;
+-- Customers
+INSERT INTO app_menus (menu_code, menu_name, menu_url, icon, parent_id, display_order, menu_type, module_name, required_permission, target, active, visible, deleted, created_at, updated_at)
+SELECT 'EC_CUSTOMERS', 'Customers', '/ecommerce/customers', 'fa fa-user-tie', g.id, 10, 'LEAF', 'ECOMMERCE', 'ec.customer.view', '_self', true, true, false, NOW(), NOW()
+FROM app_menus g WHERE g.menu_code = 'GRP_EC_CUSTOMERS' ON CONFLICT (menu_code) DO NOTHING;
+-- Marketing
+INSERT INTO app_menus (menu_code, menu_name, menu_url, icon, parent_id, display_order, menu_type, module_name, required_permission, target, active, visible, deleted, created_at, updated_at)
+SELECT 'EC_COUPONS', 'Coupons', '/ecommerce/coupons', 'fa fa-ticket-alt', g.id, 10, 'LEAF', 'ECOMMERCE', 'ec.coupon.view', '_self', true, true, false, NOW(), NOW()
+FROM app_menus g WHERE g.menu_code = 'GRP_EC_MARKETING' ON CONFLICT (menu_code) DO NOTHING;
+INSERT INTO app_menus (menu_code, menu_name, menu_url, icon, parent_id, display_order, menu_type, module_name, required_permission, target, active, visible, deleted, created_at, updated_at)
+SELECT 'EC_HOME_SECTIONS', 'Home Sections', '/ecommerce/home-sections', 'fa fa-layer-group', g.id, 20, 'LEAF', 'ECOMMERCE', 'ec.home_section.view', '_self', true, true, false, NOW(), NOW()
+FROM app_menus g WHERE g.menu_code = 'GRP_EC_MARKETING' ON CONFLICT (menu_code) DO NOTHING;
+INSERT INTO app_menus (menu_code, menu_name, menu_url, icon, parent_id, display_order, menu_type, module_name, required_permission, target, active, visible, deleted, created_at, updated_at)
+SELECT 'EC_REVIEWS', 'Reviews', '/ecommerce/reviews', 'fa fa-star', g.id, 30, 'LEAF', 'ECOMMERCE', 'ec.review.view', '_self', true, true, false, NOW(), NOW()
+FROM app_menus g WHERE g.menu_code = 'GRP_EC_MARKETING' ON CONFLICT (menu_code) DO NOTHING;
+-- Returns & Payments
+INSERT INTO app_menus (menu_code, menu_name, menu_url, icon, parent_id, display_order, menu_type, module_name, required_permission, target, active, visible, deleted, created_at, updated_at)
+SELECT 'EC_RETURNS', 'Returns', '/ecommerce/returns', 'fa fa-undo-alt', g.id, 10, 'LEAF', 'ECOMMERCE', 'ec.return.view', '_self', true, true, false, NOW(), NOW()
+FROM app_menus g WHERE g.menu_code = 'GRP_EC_RETURNS' ON CONFLICT (menu_code) DO NOTHING;
+INSERT INTO app_menus (menu_code, menu_name, menu_url, icon, parent_id, display_order, menu_type, module_name, required_permission, target, active, visible, deleted, created_at, updated_at)
+SELECT 'EC_REFUNDS', 'Refunds', '/ecommerce/refunds', 'fa fa-money-bill-wave', g.id, 20, 'LEAF', 'ECOMMERCE', 'ec.refund.view', '_self', true, true, false, NOW(), NOW()
+FROM app_menus g WHERE g.menu_code = 'GRP_EC_RETURNS' ON CONFLICT (menu_code) DO NOTHING;
+INSERT INTO app_menus (menu_code, menu_name, menu_url, icon, parent_id, display_order, menu_type, module_name, required_permission, target, active, visible, deleted, created_at, updated_at)
+SELECT 'EC_PAYMENTS', 'Payments', '/ecommerce/payments', 'fa fa-credit-card', g.id, 30, 'LEAF', 'ECOMMERCE', 'ec.payment.view', '_self', true, true, false, NOW(), NOW()
+FROM app_menus g WHERE g.menu_code = 'GRP_EC_RETURNS' ON CONFLICT (menu_code) DO NOTHING;
+-- Configuration
+INSERT INTO app_menus (menu_code, menu_name, menu_url, icon, parent_id, display_order, menu_type, module_name, required_permission, target, active, visible, deleted, created_at, updated_at)
+SELECT 'EC_SETTINGS', 'Settings', '/ecommerce/settings', 'fa fa-cog', g.id, 10, 'LEAF', 'ECOMMERCE', 'ec.setting.view', '_self', true, true, false, NOW(), NOW()
+FROM app_menus g WHERE g.menu_code = 'GRP_EC_CONFIG' ON CONFLICT (menu_code) DO NOTHING;
+INSERT INTO app_menus (menu_code, menu_name, menu_url, icon, parent_id, display_order, menu_type, module_name, required_permission, target, active, visible, deleted, created_at, updated_at)
+SELECT 'EC_SHIPPING_METHODS', 'Shipping Methods', '/ecommerce/shipping-methods', 'fa fa-truck', g.id, 20, 'LEAF', 'ECOMMERCE', 'ec.shipping_method.view', '_self', true, true, false, NOW(), NOW()
+FROM app_menus g WHERE g.menu_code = 'GRP_EC_CONFIG' ON CONFLICT (menu_code) DO NOTHING;
+INSERT INTO app_menus (menu_code, menu_name, menu_url, icon, parent_id, display_order, menu_type, module_name, required_permission, target, active, visible, deleted, created_at, updated_at)
+SELECT 'EC_TAX_CLASSES', 'Tax Classes', '/ecommerce/tax-classes', 'fa fa-percent', g.id, 30, 'LEAF', 'ECOMMERCE', 'ec.tax_class.view', '_self', true, true, false, NOW(), NOW()
+FROM app_menus g WHERE g.menu_code = 'GRP_EC_CONFIG' ON CONFLICT (menu_code) DO NOTHING;
+INSERT INTO app_menus (menu_code, menu_name, menu_url, icon, parent_id, display_order, menu_type, module_name, required_permission, target, active, visible, deleted, created_at, updated_at)
+SELECT 'EC_GL_DEFAULTS', 'GL Defaults', '/ecommerce/gl-defaults', 'fa fa-book', g.id, 40, 'LEAF', 'ECOMMERCE', 'ec.gl_defaults.view', '_self', true, true, false, NOW(), NOW()
+FROM app_menus g WHERE g.menu_code = 'GRP_EC_CONFIG' ON CONFLICT (menu_code) DO NOTHING;
 
 -- ═════════════════════════════════════════════════════════════════════════════
 -- SECTION 4 — ROLE PERMISSIONS  (sec_role_permissions)

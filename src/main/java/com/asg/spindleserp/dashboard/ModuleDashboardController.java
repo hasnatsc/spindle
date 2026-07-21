@@ -1,6 +1,6 @@
 package com.asg.spindleserp.dashboard;
 
-import com.asg.spindleserp.accounts.controller.AccountsDashboardService;
+import com.asg.spindleserp.accounts.service.AccountsDashboardService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;

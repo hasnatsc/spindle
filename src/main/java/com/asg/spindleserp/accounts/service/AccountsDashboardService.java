@@ -1,4 +1,4 @@
-package com.asg.spindleserp.accounts.controller;
+package com.asg.spindleserp.accounts.service;
 
 import com.asg.spindleserp.security.auth.SecurityHelper;
 import lombok.RequiredArgsConstructor;
