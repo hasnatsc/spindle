@@ -722,7 +722,7 @@ WHERE NOT EXISTS (SELECT 1 FROM acc_mapping WHERE organization_id = 1 AND mappin
 -- ── PURCHASE INVOICE lines ────────────────────────────────────────────────────
 -- Line 1: DR Inventory (Raw Materials) — full subtotal
 INSERT INTO acc_mapping_details (accounts_mapping_id, line_number, sort_order, entry_type, entry_name, entry_description,
-    amount_type, organization_id, account_id, is_active, is_optional, is_tax_entry, negate_amount, round_amount, skip_if_zero,
+    amount_type, account_id, is_active, is_optional, is_tax_entry, negate_amount, round_amount, skip_if_zero,
     inherit_cost_center, control_account_type, created_by, created_at, updated_at)
 SELECT m.id, 1, 1, 'DEBIT', 'Inventory Debit', 'Debit inventory for purchase amount',
     'SUBTOTAL',
@@ -734,7 +734,7 @@ FROM acc_mapping m WHERE m.mapping_code = 'PUR_INVOICE' AND m.organization_id = 
 
 -- Line 2: DR Input VAT — tax amount
 INSERT INTO acc_mapping_details (accounts_mapping_id, line_number, sort_order, entry_type, entry_name, entry_description,
-    amount_type, tax_code, tax_rate, organization_id, account_id, is_active, is_optional, is_tax_entry, negate_amount, round_amount, skip_if_zero,
+    amount_type, tax_type, tax_rate, account_id, is_active, is_optional, is_tax_entry, negate_amount, round_amount, skip_if_zero,
     inherit_cost_center, control_account_type, created_by, created_at, updated_at)
 SELECT m.id, 2, 2, 'DEBIT', 'Input VAT', 'Input VAT on purchase (15%)',
     'TAX_ONLY', 'INPUT_VAT', 15.0000,
@@ -746,7 +746,7 @@ FROM acc_mapping m WHERE m.mapping_code = 'PUR_INVOICE' AND m.organization_id = 
 
 -- Line 3: DR Freight — shipping charges
 INSERT INTO acc_mapping_details (accounts_mapping_id, line_number, sort_order, entry_type, entry_name, entry_description,
-    amount_type, organization_id, account_id, is_active, is_optional, is_tax_entry, negate_amount, round_amount, skip_if_zero,
+    amount_type, account_id, is_active, is_optional, is_tax_entry, negate_amount, round_amount, skip_if_zero,
     inherit_cost_center, control_account_type, created_by, created_at, updated_at)
 SELECT m.id, 3, 3, 'DEBIT', 'Freight In', 'Freight and delivery charges on purchase',
     'FIELD_VALUE',
@@ -758,7 +758,7 @@ FROM acc_mapping m WHERE m.mapping_code = 'PUR_INVOICE' AND m.organization_id = 
 
 -- Line 4: CR Purchase Discount — contra
 INSERT INTO acc_mapping_details (accounts_mapping_id, line_number, sort_order, entry_type, entry_name, entry_description,
-    amount_type, organization_id, account_id, is_active, is_optional, is_tax_entry, negate_amount, round_amount, skip_if_zero,
+    amount_type, account_id, is_active, is_optional, is_tax_entry, negate_amount, round_amount, skip_if_zero,
     inherit_cost_center, control_account_type, created_by, created_at, updated_at)
 SELECT m.id, 4, 4, 'CREDIT', 'Purchase Discount', 'Discount received from supplier',
     'FIELD_VALUE',
@@ -770,7 +770,7 @@ FROM acc_mapping m WHERE m.mapping_code = 'PUR_INVOICE' AND m.organization_id = 
 
 -- Line 5: CR Accounts Payable — net payable (balance)
 INSERT INTO acc_mapping_details (accounts_mapping_id, line_number, sort_order, entry_type, entry_name, entry_description,
-    amount_type, organization_id, account_id, is_active, is_optional, is_tax_entry, negate_amount, round_amount, skip_if_zero,
+    amount_type, account_id, is_active, is_optional, is_tax_entry, negate_amount, round_amount, skip_if_zero,
     inherit_cost_center, control_account_type, created_by, created_at, updated_at)
 SELECT m.id, 5, 5, 'CREDIT', 'Accounts Payable', 'Net payable to supplier',
     'BALANCE',
@@ -783,7 +783,7 @@ FROM acc_mapping m WHERE m.mapping_code = 'PUR_INVOICE' AND m.organization_id = 
 -- ── SALES INVOICE lines ───────────────────────────────────────────────────────
 -- Line 1: DR Accounts Receivable — full balance due
 INSERT INTO acc_mapping_details (accounts_mapping_id, line_number, sort_order, entry_type, entry_name, entry_description,
-    amount_type, organization_id, account_id, is_active, is_optional, is_tax_entry, negate_amount, round_amount, skip_if_zero,
+    amount_type, account_id, is_active, is_optional, is_tax_entry, negate_amount, round_amount, skip_if_zero,
     inherit_cost_center, control_account_type, created_by, created_at, updated_at)
 SELECT m.id, 1, 1, 'DEBIT', 'Accounts Receivable', 'Amount due from customer including VAT',
     'BALANCE',
@@ -795,7 +795,7 @@ FROM acc_mapping m WHERE m.mapping_code = 'SAL_INVOICE' AND m.organization_id = 
 
 -- Line 2: CR Sales Revenue — subtotal
 INSERT INTO acc_mapping_details (accounts_mapping_id, line_number, sort_order, entry_type, entry_name, entry_description,
-    amount_type, organization_id, account_id, is_active, is_optional, is_tax_entry, negate_amount, round_amount, skip_if_zero,
+    amount_type, account_id, is_active, is_optional, is_tax_entry, negate_amount, round_amount, skip_if_zero,
     inherit_cost_center, control_account_type, created_by, created_at, updated_at)
 SELECT m.id, 2, 2, 'CREDIT', 'Sales Revenue', 'Revenue from goods/services sold',
     'SUBTOTAL',
@@ -807,7 +807,7 @@ FROM acc_mapping m WHERE m.mapping_code = 'SAL_INVOICE' AND m.organization_id = 
 
 -- Line 3: CR Output VAT — 15%
 INSERT INTO acc_mapping_details (accounts_mapping_id, line_number, sort_order, entry_type, entry_name, entry_description,
-    amount_type, tax_code, tax_rate, organization_id, account_id, is_active, is_optional, is_tax_entry, negate_amount, round_amount, skip_if_zero,
+    amount_type, tax_type, tax_rate, account_id, is_active, is_optional, is_tax_entry, negate_amount, round_amount, skip_if_zero,
     inherit_cost_center, control_account_type, created_by, created_at, updated_at)
 SELECT m.id, 3, 3, 'CREDIT', 'Output VAT', 'VAT collected from customer (15%)',
     'TAX_ONLY', 'OUTPUT_VAT', 15.0000,
@@ -819,7 +819,7 @@ FROM acc_mapping m WHERE m.mapping_code = 'SAL_INVOICE' AND m.organization_id = 
 
 -- Line 4: DR Sales Discount — contra revenue
 INSERT INTO acc_mapping_details (accounts_mapping_id, line_number, sort_order, entry_type, entry_name, entry_description,
-    amount_type, organization_id, account_id, is_active, is_optional, is_tax_entry, negate_amount, round_amount, skip_if_zero,
+    amount_type, account_id, is_active, is_optional, is_tax_entry, negate_amount, round_amount, skip_if_zero,
     inherit_cost_center, control_account_type, created_by, created_at, updated_at)
 SELECT m.id, 4, 4, 'DEBIT', 'Sales Discount', 'Discount given to customer',
     'FIELD_VALUE',
@@ -831,7 +831,7 @@ FROM acc_mapping m WHERE m.mapping_code = 'SAL_INVOICE' AND m.organization_id = 
 
 -- Line 5: CR Freight/Delivery — shipping revenue
 INSERT INTO acc_mapping_details (accounts_mapping_id, line_number, sort_order, entry_type, entry_name, entry_description,
-    amount_type, organization_id, account_id, is_active, is_optional, is_tax_entry, negate_amount, round_amount, skip_if_zero,
+    amount_type, account_id, is_active, is_optional, is_tax_entry, negate_amount, round_amount, skip_if_zero,
     inherit_cost_center, control_account_type, created_by, created_at, updated_at)
 SELECT m.id, 5, 5, 'CREDIT', 'Freight Revenue', 'Delivery and shipping charges billed',
     'FIELD_VALUE',
@@ -844,7 +844,7 @@ FROM acc_mapping m WHERE m.mapping_code = 'SAL_INVOICE' AND m.organization_id = 
 -- ── SUPPLIER PAYMENT lines ────────────────────────────────────────────────────
 -- Line 1: DR Accounts Payable
 INSERT INTO acc_mapping_details (accounts_mapping_id, line_number, sort_order, entry_type, entry_name, entry_description,
-    amount_type, organization_id, account_id, is_active, is_optional, is_tax_entry, negate_amount, round_amount, skip_if_zero,
+    amount_type, account_id, is_active, is_optional, is_tax_entry, negate_amount, round_amount, skip_if_zero,
     inherit_cost_center, control_account_type, created_by, created_at, updated_at)
 SELECT m.id, 1, 1, 'DEBIT', 'Accounts Payable', 'Reduce supplier outstanding balance',
     'FULL_AMOUNT',
@@ -856,7 +856,7 @@ FROM acc_mapping m WHERE m.mapping_code = 'SUP_PAYMENT' AND m.organization_id = 
 
 -- Line 2: CR Bank Account
 INSERT INTO acc_mapping_details (accounts_mapping_id, line_number, sort_order, entry_type, entry_name, entry_description,
-    amount_type, organization_id, account_id, is_active, is_optional, is_tax_entry, negate_amount, round_amount, skip_if_zero,
+    amount_type, account_id, is_active, is_optional, is_tax_entry, negate_amount, round_amount, skip_if_zero,
     inherit_cost_center, control_account_type, created_by, created_at, updated_at)
 SELECT m.id, 2, 2, 'CREDIT', 'Bank Account', 'Reduce bank balance on payment',
     'FULL_AMOUNT',
@@ -869,7 +869,7 @@ FROM acc_mapping m WHERE m.mapping_code = 'SUP_PAYMENT' AND m.organization_id = 
 -- ── CUSTOMER RECEIPT lines ────────────────────────────────────────────────────
 -- Line 1: DR Bank Account
 INSERT INTO acc_mapping_details (accounts_mapping_id, line_number, sort_order, entry_type, entry_name, entry_description,
-    amount_type, organization_id, account_id, is_active, is_optional, is_tax_entry, negate_amount, round_amount, skip_if_zero,
+    amount_type, account_id, is_active, is_optional, is_tax_entry, negate_amount, round_amount, skip_if_zero,
     inherit_cost_center, control_account_type, created_by, created_at, updated_at)
 SELECT m.id, 1, 1, 'DEBIT', 'Bank Account', 'Increase bank balance on customer receipt',
     'FULL_AMOUNT',
@@ -881,7 +881,7 @@ FROM acc_mapping m WHERE m.mapping_code = 'CUST_RECEIPT' AND m.organization_id =
 
 -- Line 2: CR Accounts Receivable
 INSERT INTO acc_mapping_details (accounts_mapping_id, line_number, sort_order, entry_type, entry_name, entry_description,
-    amount_type, organization_id, account_id, is_active, is_optional, is_tax_entry, negate_amount, round_amount, skip_if_zero,
+    amount_type, account_id, is_active, is_optional, is_tax_entry, negate_amount, round_amount, skip_if_zero,
     inherit_cost_center, control_account_type, created_by, created_at, updated_at)
 SELECT m.id, 2, 2, 'CREDIT', 'Accounts Receivable', 'Reduce customer outstanding balance',
     'FULL_AMOUNT',
@@ -894,7 +894,7 @@ FROM acc_mapping m WHERE m.mapping_code = 'CUST_RECEIPT' AND m.organization_id =
 -- ── DEPRECIATION lines ────────────────────────────────────────────────────────
 -- Line 1: DR Depreciation Expense
 INSERT INTO acc_mapping_details (accounts_mapping_id, line_number, sort_order, entry_type, entry_name, entry_description,
-    amount_type, organization_id, account_id, is_active, is_optional, is_tax_entry, negate_amount, round_amount, skip_if_zero,
+    amount_type, account_id, is_active, is_optional, is_tax_entry, negate_amount, round_amount, skip_if_zero,
     inherit_cost_center, control_account_type, created_by, created_at, updated_at)
 SELECT m.id, 1, 1, 'DEBIT', 'Depreciation Expense', 'Monthly depreciation charge',
     'FORMULA',
@@ -906,7 +906,7 @@ FROM acc_mapping m WHERE m.mapping_code = 'DEPRECIATION' AND m.organization_id =
 
 -- Line 2: CR Accumulated Depreciation
 INSERT INTO acc_mapping_details (accounts_mapping_id, line_number, sort_order, entry_type, entry_name, entry_description,
-    amount_type, organization_id, account_id, is_active, is_optional, is_tax_entry, negate_amount, round_amount, skip_if_zero,
+    amount_type, account_id, is_active, is_optional, is_tax_entry, negate_amount, round_amount, skip_if_zero,
     inherit_cost_center, control_account_type, created_by, created_at, updated_at)
 SELECT m.id, 2, 2, 'CREDIT', 'Accumulated Depreciation', 'Accumulated depreciation on asset',
     'FORMULA',
@@ -919,7 +919,7 @@ FROM acc_mapping m WHERE m.mapping_code = 'DEPRECIATION' AND m.organization_id =
 -- ── SALARY PROCESSING lines ───────────────────────────────────────────────────
 -- Line 1: DR Salaries & Wages
 INSERT INTO acc_mapping_details (accounts_mapping_id, line_number, sort_order, entry_type, entry_name, entry_description,
-    amount_type, organization_id, account_id, is_active, is_optional, is_tax_entry, negate_amount, round_amount, skip_if_zero,
+    amount_type, account_id, is_active, is_optional, is_tax_entry, negate_amount, round_amount, skip_if_zero,
     inherit_cost_center, control_account_type, created_by, created_at, updated_at)
 SELECT m.id, 1, 1, 'DEBIT', 'Salaries & Wages', 'Gross salary expense',
     'FULL_AMOUNT',
@@ -931,7 +931,7 @@ FROM acc_mapping m WHERE m.mapping_code = 'SAL_PROCESS' AND m.organization_id = 
 
 -- Line 2: CR Employee Tax Withheld
 INSERT INTO acc_mapping_details (accounts_mapping_id, line_number, sort_order, entry_type, entry_name, entry_description,
-    amount_type, tax_code, organization_id, account_id, is_active, is_optional, is_tax_entry, negate_amount, round_amount, skip_if_zero,
+    amount_type, tax_type, account_id, is_active, is_optional, is_tax_entry, negate_amount, round_amount, skip_if_zero,
     inherit_cost_center, control_account_type, created_by, created_at, updated_at)
 SELECT m.id, 2, 2, 'CREDIT', 'Employee Tax Withheld', 'Income tax deducted from salary',
     'FIELD_VALUE', 'INCOME_TAX',
@@ -943,7 +943,7 @@ FROM acc_mapping m WHERE m.mapping_code = 'SAL_PROCESS' AND m.organization_id = 
 
 -- Line 3: CR Salaries Payable (net)
 INSERT INTO acc_mapping_details (accounts_mapping_id, line_number, sort_order, entry_type, entry_name, entry_description,
-    amount_type, organization_id, account_id, is_active, is_optional, is_tax_entry, negate_amount, round_amount, skip_if_zero,
+    amount_type, account_id, is_active, is_optional, is_tax_entry, negate_amount, round_amount, skip_if_zero,
     inherit_cost_center, control_account_type, created_by, created_at, updated_at)
 SELECT m.id, 3, 3, 'CREDIT', 'Net Salaries Payable', 'Net salary payable after deductions',
     'BALANCE',
@@ -961,10 +961,14 @@ FROM acc_mapping m WHERE m.mapping_code = 'SAL_PROCESS' AND m.organization_id = 
 -- JOURNAL_VOUCHER policy
 INSERT INTO acc_policy (organization_id, policy_code, policy_name, policy_type, module_type,
     is_active, is_default, is_system,
-    allow_backdating, backdating_days, allow_future_dating, allow_negative_amount,
-    allow_reversal, allow_zero_amount, approval_threshold,
-    auto_numbering, voucher_prefix, number_padding, next_voucher_number,
-    require_approval, auto_post, allow_edit_after_post,
+    allow_backdating, backdating_days, allow_future_dating, future_dating_days,
+    allow_edit, allow_edit_after_post, allow_delete, allow_reversal, allow_reversal_approval,
+    allow_negative_amount, allow_zero_amount, allow_direct_post,
+    require_narration, min_narration_length, require_balanced_entry, require_reference,
+    require_cost_center, restrict_to_open_period,
+    auto_numbering, voucher_prefix, number_padding, numbering_reset, next_voucher_number,
+    require_approval, auto_post, auto_post_on_approval, post_on_approval,
+    apr_levels, approval_threshold,
     default_narration_template, description, created_by, created_at, updated_at)
 SELECT 1, 'POL_JV', 'Journal Voucher Policy', 'JOURNAL_VOUCHER', 'GENERAL_LEDGER',
     TRUE, TRUE, TRUE,
@@ -983,10 +987,14 @@ WHERE NOT EXISTS (SELECT 1 FROM acc_policy WHERE organization_id = 1 AND policy_
 -- PAYMENT_VOUCHER policy
 INSERT INTO acc_policy (organization_id, policy_code, policy_name, policy_type, module_type,
     is_active, is_default, is_system,
-    allow_backdating, backdating_days, allow_future_dating, allow_negative_amount,
-    allow_reversal, allow_zero_amount, approval_threshold,
-    auto_numbering, voucher_prefix, number_padding, next_voucher_number,
-    require_approval, auto_post, allow_edit_after_post,
+    allow_backdating, backdating_days, allow_future_dating, future_dating_days,
+    allow_edit, allow_edit_after_post, allow_delete, allow_reversal, allow_reversal_approval,
+    allow_negative_amount, allow_zero_amount, allow_direct_post,
+    require_narration, min_narration_length, require_balanced_entry, require_reference,
+    require_cost_center, restrict_to_open_period,
+    auto_numbering, voucher_prefix, number_padding, numbering_reset, next_voucher_number,
+    require_approval, auto_post, auto_post_on_approval, post_on_approval,
+    apr_levels, approval_threshold,
     default_narration_template, description, created_by, created_at, updated_at)
 SELECT 1, 'POL_PV', 'Payment Voucher Policy', 'PAYMENT_VOUCHER', 'ACCOUNTS_PAYABLE',
     TRUE, TRUE, TRUE,
@@ -1005,10 +1013,14 @@ WHERE NOT EXISTS (SELECT 1 FROM acc_policy WHERE organization_id = 1 AND policy_
 -- RECEIPT_VOUCHER policy
 INSERT INTO acc_policy (organization_id, policy_code, policy_name, policy_type, module_type,
     is_active, is_default, is_system,
-    allow_backdating, backdating_days, allow_future_dating, allow_negative_amount,
-    allow_reversal, allow_zero_amount, approval_threshold,
-    auto_numbering, voucher_prefix, number_padding, next_voucher_number,
-    require_approval, auto_post, allow_edit_after_post,
+    allow_backdating, backdating_days, allow_future_dating, future_dating_days,
+    allow_edit, allow_edit_after_post, allow_delete, allow_reversal, allow_reversal_approval,
+    allow_negative_amount, allow_zero_amount, allow_direct_post,
+    require_narration, min_narration_length, require_balanced_entry, require_reference,
+    require_cost_center, restrict_to_open_period,
+    auto_numbering, voucher_prefix, number_padding, numbering_reset, next_voucher_number,
+    require_approval, auto_post, auto_post_on_approval, post_on_approval,
+    apr_levels, approval_threshold,
     default_narration_template, description, created_by, created_at, updated_at)
 SELECT 1, 'POL_RV', 'Receipt Voucher Policy', 'RECEIPT_VOUCHER', 'ACCOUNTS_RECEIVABLE',
     TRUE, TRUE, TRUE,
@@ -1027,10 +1039,14 @@ WHERE NOT EXISTS (SELECT 1 FROM acc_policy WHERE organization_id = 1 AND policy_
 -- CONTRA_VOUCHER policy
 INSERT INTO acc_policy (organization_id, policy_code, policy_name, policy_type, module_type,
     is_active, is_default, is_system,
-    allow_backdating, backdating_days, allow_future_dating, allow_negative_amount,
-    allow_reversal, allow_zero_amount, approval_threshold,
-    auto_numbering, voucher_prefix, number_padding, next_voucher_number,
-    require_approval, auto_post, allow_edit_after_post,
+    allow_backdating, backdating_days, allow_future_dating, future_dating_days,
+    allow_edit, allow_edit_after_post, allow_delete, allow_reversal, allow_reversal_approval,
+    allow_negative_amount, allow_zero_amount, allow_direct_post,
+    require_narration, min_narration_length, require_balanced_entry, require_reference,
+    require_cost_center, restrict_to_open_period,
+    auto_numbering, voucher_prefix, number_padding, numbering_reset, next_voucher_number,
+    require_approval, auto_post, auto_post_on_approval, post_on_approval,
+    apr_levels, approval_threshold,
     default_narration_template, description, created_by, created_at, updated_at)
 SELECT 1, 'POL_CV', 'Contra Voucher Policy', 'CONTRA_VOUCHER', 'CASH_MANAGEMENT',
     TRUE, TRUE, TRUE,
@@ -1049,10 +1065,14 @@ WHERE NOT EXISTS (SELECT 1 FROM acc_policy WHERE organization_id = 1 AND policy_
 -- PURCHASE_VOUCHER policy
 INSERT INTO acc_policy (organization_id, policy_code, policy_name, policy_type, module_type,
     is_active, is_default, is_system,
-    allow_backdating, backdating_days, allow_future_dating, allow_negative_amount,
-    allow_reversal, allow_zero_amount, approval_threshold,
-    auto_numbering, voucher_prefix, number_padding, next_voucher_number,
-    require_approval, auto_post, allow_edit_after_post,
+    allow_backdating, backdating_days, allow_future_dating, future_dating_days,
+    allow_edit, allow_edit_after_post, allow_delete, allow_reversal, allow_reversal_approval,
+    allow_negative_amount, allow_zero_amount, allow_direct_post,
+    require_narration, min_narration_length, require_balanced_entry, require_reference,
+    require_cost_center, restrict_to_open_period,
+    auto_numbering, voucher_prefix, number_padding, numbering_reset, next_voucher_number,
+    require_approval, auto_post, auto_post_on_approval, post_on_approval,
+    apr_levels, approval_threshold,
     default_narration_template, description, created_by, created_at, updated_at)
 SELECT 1, 'POL_PURV', 'Purchase Voucher Policy', 'PURCHASE_VOUCHER', 'PURCHASE',
     TRUE, TRUE, TRUE,
@@ -1071,10 +1091,14 @@ WHERE NOT EXISTS (SELECT 1 FROM acc_policy WHERE organization_id = 1 AND policy_
 -- SALES_VOUCHER policy
 INSERT INTO acc_policy (organization_id, policy_code, policy_name, policy_type, module_type,
     is_active, is_default, is_system,
-    allow_backdating, backdating_days, allow_future_dating, allow_negative_amount,
-    allow_reversal, allow_zero_amount, approval_threshold,
-    auto_numbering, voucher_prefix, number_padding, next_voucher_number,
-    require_approval, auto_post, allow_edit_after_post,
+    allow_backdating, backdating_days, allow_future_dating, future_dating_days,
+    allow_edit, allow_edit_after_post, allow_delete, allow_reversal, allow_reversal_approval,
+    allow_negative_amount, allow_zero_amount, allow_direct_post,
+    require_narration, min_narration_length, require_balanced_entry, require_reference,
+    require_cost_center, restrict_to_open_period,
+    auto_numbering, voucher_prefix, number_padding, numbering_reset, next_voucher_number,
+    require_approval, auto_post, auto_post_on_approval, post_on_approval,
+    apr_levels, approval_threshold,
     default_narration_template, description, created_by, created_at, updated_at)
 SELECT 1, 'POL_SALV', 'Sales Voucher Policy', 'SALES_VOUCHER', 'SALES',
     TRUE, TRUE, TRUE,
@@ -1093,10 +1117,14 @@ WHERE NOT EXISTS (SELECT 1 FROM acc_policy WHERE organization_id = 1 AND policy_
 -- DEBIT_NOTE policy
 INSERT INTO acc_policy (organization_id, policy_code, policy_name, policy_type, module_type,
     is_active, is_default, is_system,
-    allow_backdating, backdating_days, allow_future_dating, allow_negative_amount,
-    allow_reversal, allow_zero_amount, approval_threshold,
-    auto_numbering, voucher_prefix, number_padding, next_voucher_number,
-    require_approval, auto_post, allow_edit_after_post,
+    allow_backdating, backdating_days, allow_future_dating, future_dating_days,
+    allow_edit, allow_edit_after_post, allow_delete, allow_reversal, allow_reversal_approval,
+    allow_negative_amount, allow_zero_amount, allow_direct_post,
+    require_narration, min_narration_length, require_balanced_entry, require_reference,
+    require_cost_center, restrict_to_open_period,
+    auto_numbering, voucher_prefix, number_padding, numbering_reset, next_voucher_number,
+    require_approval, auto_post, auto_post_on_approval, post_on_approval,
+    apr_levels, approval_threshold,
     default_narration_template, description, created_by, created_at, updated_at)
 SELECT 1, 'POL_DN', 'Debit Note Policy', 'DEBIT_NOTE', 'PURCHASE',
     TRUE, TRUE, TRUE,
@@ -1115,10 +1143,14 @@ WHERE NOT EXISTS (SELECT 1 FROM acc_policy WHERE organization_id = 1 AND policy_
 -- CREDIT_NOTE policy
 INSERT INTO acc_policy (organization_id, policy_code, policy_name, policy_type, module_type,
     is_active, is_default, is_system,
-    allow_backdating, backdating_days, allow_future_dating, allow_negative_amount,
-    allow_reversal, allow_zero_amount, approval_threshold,
-    auto_numbering, voucher_prefix, number_padding, next_voucher_number,
-    require_approval, auto_post, allow_edit_after_post,
+    allow_backdating, backdating_days, allow_future_dating, future_dating_days,
+    allow_edit, allow_edit_after_post, allow_delete, allow_reversal, allow_reversal_approval,
+    allow_negative_amount, allow_zero_amount, allow_direct_post,
+    require_narration, min_narration_length, require_balanced_entry, require_reference,
+    require_cost_center, restrict_to_open_period,
+    auto_numbering, voucher_prefix, number_padding, numbering_reset, next_voucher_number,
+    require_approval, auto_post, auto_post_on_approval, post_on_approval,
+    apr_levels, approval_threshold,
     default_narration_template, description, created_by, created_at, updated_at)
 SELECT 1, 'POL_CN', 'Credit Note Policy', 'CREDIT_NOTE', 'SALES',
     TRUE, TRUE, TRUE,
@@ -1137,10 +1169,14 @@ WHERE NOT EXISTS (SELECT 1 FROM acc_policy WHERE organization_id = 1 AND policy_
 -- EXPENSE_VOUCHER policy
 INSERT INTO acc_policy (organization_id, policy_code, policy_name, policy_type, module_type,
     is_active, is_default, is_system,
-    allow_backdating, backdating_days, allow_future_dating, allow_negative_amount,
-    allow_reversal, allow_zero_amount, approval_threshold,
-    auto_numbering, voucher_prefix, number_padding, next_voucher_number,
-    require_approval, auto_post, allow_edit_after_post,
+    allow_backdating, backdating_days, allow_future_dating, future_dating_days,
+    allow_edit, allow_edit_after_post, allow_delete, allow_reversal, allow_reversal_approval,
+    allow_negative_amount, allow_zero_amount, allow_direct_post,
+    require_narration, min_narration_length, require_balanced_entry, require_reference,
+    require_cost_center, restrict_to_open_period,
+    auto_numbering, voucher_prefix, number_padding, numbering_reset, next_voucher_number,
+    require_approval, auto_post, auto_post_on_approval, post_on_approval,
+    apr_levels, approval_threshold,
     default_narration_template, description, created_by, created_at, updated_at)
 SELECT 1, 'POL_EXP', 'Expense Voucher Policy', 'EXPENSE_VOUCHER', 'GENERAL_LEDGER',
     TRUE, TRUE, TRUE,
@@ -1165,7 +1201,7 @@ WHERE NOT EXISTS (SELECT 1 FROM acc_policy WHERE organization_id = 1 AND policy_
 -- =============================================================================
 
 -- Root: ASSETS (1000)
-INSERT INTO acc_opening_balances (organization_id, account_id, accounting_period_id,
+INSERT INTO acc_opening_balances (organization_id, account_id, accounting_period_id, sub_account_id,
     opening_debit_balance, opening_credit_balance, is_posted, is_active,
     balance_type, remarks, created_by, created_at, updated_at)
 SELECT 1,
@@ -1179,11 +1215,11 @@ WHERE NOT EXISTS (
     WHERE ob.organization_id = 1
       AND ob.account_id = (SELECT id FROM acc_chart_of_accounts WHERE account_code = '1000')
       AND ob.accounting_period_id = (SELECT id FROM acc_periods WHERE period_name = 'FY-2024-25' AND organization_id = 1)
-      AND 1=1
+      AND ob.sub_account_id IS NULL
 );
 
 -- Cash on Hand (1111)
-INSERT INTO acc_opening_balances (organization_id, account_id, accounting_period_id,
+INSERT INTO acc_opening_balances (organization_id, account_id, accounting_period_id, sub_account_id,
     opening_debit_balance, opening_credit_balance, is_posted, is_active,
     balance_type, remarks, created_by, created_at, updated_at)
 SELECT 1,
@@ -1197,11 +1233,11 @@ WHERE NOT EXISTS (
     WHERE ob.organization_id = 1
       AND ob.account_id = (SELECT id FROM acc_chart_of_accounts WHERE account_code = '1111')
       AND ob.accounting_period_id = (SELECT id FROM acc_periods WHERE period_name = 'FY-2024-25' AND organization_id = 1)
-      AND 1=1
+      AND ob.sub_account_id IS NULL
 );
 
 -- Petty Cash (1112)
-INSERT INTO acc_opening_balances (organization_id, account_id, accounting_period_id,
+INSERT INTO acc_opening_balances (organization_id, account_id, accounting_period_id, sub_account_id,
     opening_debit_balance, opening_credit_balance, is_posted, is_active,
     balance_type, remarks, created_by, created_at, updated_at)
 SELECT 1,
@@ -1215,11 +1251,11 @@ WHERE NOT EXISTS (
     WHERE ob.organization_id = 1
       AND ob.account_id = (SELECT id FROM acc_chart_of_accounts WHERE account_code = '1112')
       AND ob.accounting_period_id = (SELECT id FROM acc_periods WHERE period_name = 'FY-2024-25' AND organization_id = 1)
-      AND 1=1
+      AND ob.sub_account_id IS NULL
 );
 
 -- Bank Main (1115)
-INSERT INTO acc_opening_balances (organization_id, account_id, accounting_period_id,
+INSERT INTO acc_opening_balances (organization_id, account_id, accounting_period_id, sub_account_id,
     opening_debit_balance, opening_credit_balance, is_posted, is_active,
     balance_type, remarks, created_by, created_at, updated_at)
 SELECT 1,
@@ -1233,11 +1269,11 @@ WHERE NOT EXISTS (
     WHERE ob.organization_id = 1
       AND ob.account_id = (SELECT id FROM acc_chart_of_accounts WHERE account_code = '1115')
       AND ob.accounting_period_id = (SELECT id FROM acc_periods WHERE period_name = 'FY-2024-25' AND organization_id = 1)
-      AND 1=1
+      AND ob.sub_account_id IS NULL
 );
 
 -- Accounts Receivable (1200)
-INSERT INTO acc_opening_balances (organization_id, account_id, accounting_period_id,
+INSERT INTO acc_opening_balances (organization_id, account_id, accounting_period_id, sub_account_id,
     opening_debit_balance, opening_credit_balance, is_posted, is_active,
     balance_type, remarks, created_by, created_at, updated_at)
 SELECT 1,
@@ -1251,11 +1287,11 @@ WHERE NOT EXISTS (
     WHERE ob.organization_id = 1
       AND ob.account_id = (SELECT id FROM acc_chart_of_accounts WHERE account_code = '1200')
       AND ob.accounting_period_id = (SELECT id FROM acc_periods WHERE period_name = 'FY-2024-25' AND organization_id = 1)
-      AND 1=1
+      AND ob.sub_account_id IS NULL
 );
 
 -- Raw Materials (1310)
-INSERT INTO acc_opening_balances (organization_id, account_id, accounting_period_id,
+INSERT INTO acc_opening_balances (organization_id, account_id, accounting_period_id, sub_account_id,
     opening_debit_balance, opening_credit_balance, is_posted, is_active,
     balance_type, remarks, created_by, created_at, updated_at)
 SELECT 1,
@@ -1269,11 +1305,11 @@ WHERE NOT EXISTS (
     WHERE ob.organization_id = 1
       AND ob.account_id = (SELECT id FROM acc_chart_of_accounts WHERE account_code = '1310')
       AND ob.accounting_period_id = (SELECT id FROM acc_periods WHERE period_name = 'FY-2024-25' AND organization_id = 1)
-      AND 1=1
+      AND ob.sub_account_id IS NULL
 );
 
 -- Finished Goods (1330)
-INSERT INTO acc_opening_balances (organization_id, account_id, accounting_period_id,
+INSERT INTO acc_opening_balances (organization_id, account_id, accounting_period_id, sub_account_id,
     opening_debit_balance, opening_credit_balance, is_posted, is_active,
     balance_type, remarks, created_by, created_at, updated_at)
 SELECT 1,
@@ -1287,11 +1323,11 @@ WHERE NOT EXISTS (
     WHERE ob.organization_id = 1
       AND ob.account_id = (SELECT id FROM acc_chart_of_accounts WHERE account_code = '1330')
       AND ob.accounting_period_id = (SELECT id FROM acc_periods WHERE period_name = 'FY-2024-25' AND organization_id = 1)
-      AND 1=1
+      AND ob.sub_account_id IS NULL
 );
 
 -- Root: LIABILITIES (2000)
-INSERT INTO acc_opening_balances (organization_id, account_id, accounting_period_id,
+INSERT INTO acc_opening_balances (organization_id, account_id, accounting_period_id, sub_account_id,
     opening_debit_balance, opening_credit_balance, is_posted, is_active,
     balance_type, remarks, created_by, created_at, updated_at)
 SELECT 1,
@@ -1305,11 +1341,11 @@ WHERE NOT EXISTS (
     WHERE ob.organization_id = 1
       AND ob.account_id = (SELECT id FROM acc_chart_of_accounts WHERE account_code = '2000')
       AND ob.accounting_period_id = (SELECT id FROM acc_periods WHERE period_name = 'FY-2024-25' AND organization_id = 1)
-      AND 1=1
+      AND ob.sub_account_id IS NULL
 );
 
 -- Accounts Payable (2110)
-INSERT INTO acc_opening_balances (organization_id, account_id, accounting_period_id,
+INSERT INTO acc_opening_balances (organization_id, account_id, accounting_period_id, sub_account_id,
     opening_debit_balance, opening_credit_balance, is_posted, is_active,
     balance_type, remarks, created_by, created_at, updated_at)
 SELECT 1,
@@ -1323,11 +1359,11 @@ WHERE NOT EXISTS (
     WHERE ob.organization_id = 1
       AND ob.account_id = (SELECT id FROM acc_chart_of_accounts WHERE account_code = '2110')
       AND ob.accounting_period_id = (SELECT id FROM acc_periods WHERE period_name = 'FY-2024-25' AND organization_id = 1)
-      AND 1=1
+      AND ob.sub_account_id IS NULL
 );
 
 -- Salaries Payable (2210)
-INSERT INTO acc_opening_balances (organization_id, account_id, accounting_period_id,
+INSERT INTO acc_opening_balances (organization_id, account_id, accounting_period_id, sub_account_id,
     opening_debit_balance, opening_credit_balance, is_posted, is_active,
     balance_type, remarks, created_by, created_at, updated_at)
 SELECT 1,
@@ -1341,11 +1377,11 @@ WHERE NOT EXISTS (
     WHERE ob.organization_id = 1
       AND ob.account_id = (SELECT id FROM acc_chart_of_accounts WHERE account_code = '2210')
       AND ob.accounting_period_id = (SELECT id FROM acc_periods WHERE period_name = 'FY-2024-25' AND organization_id = 1)
-      AND 1=1
+      AND ob.sub_account_id IS NULL
 );
 
 -- Root: EQUITY (3000)
-INSERT INTO acc_opening_balances (organization_id, account_id, accounting_period_id,
+INSERT INTO acc_opening_balances (organization_id, account_id, accounting_period_id, sub_account_id,
     opening_debit_balance, opening_credit_balance, is_posted, is_active,
     balance_type, remarks, created_by, created_at, updated_at)
 SELECT 1,
@@ -1359,11 +1395,11 @@ WHERE NOT EXISTS (
     WHERE ob.organization_id = 1
       AND ob.account_id = (SELECT id FROM acc_chart_of_accounts WHERE account_code = '3000')
       AND ob.accounting_period_id = (SELECT id FROM acc_periods WHERE period_name = 'FY-2024-25' AND organization_id = 1)
-      AND 1=1
+      AND ob.sub_account_id IS NULL
 );
 
 -- Retained Earnings (3300)
-INSERT INTO acc_opening_balances (organization_id, account_id, accounting_period_id,
+INSERT INTO acc_opening_balances (organization_id, account_id, accounting_period_id, sub_account_id,
     opening_debit_balance, opening_credit_balance, is_posted, is_active,
     balance_type, remarks, created_by, created_at, updated_at)
 SELECT 1,
@@ -1377,11 +1413,11 @@ WHERE NOT EXISTS (
     WHERE ob.organization_id = 1
       AND ob.account_id = (SELECT id FROM acc_chart_of_accounts WHERE account_code = '3300')
       AND ob.accounting_period_id = (SELECT id FROM acc_periods WHERE period_name = 'FY-2024-25' AND organization_id = 1)
-      AND 1=1
+      AND ob.sub_account_id IS NULL
 );
 
 -- Root: REVENUE (4000)
-INSERT INTO acc_opening_balances (organization_id, account_id, accounting_period_id,
+INSERT INTO acc_opening_balances (organization_id, account_id, accounting_period_id, sub_account_id,
     opening_debit_balance, opening_credit_balance, is_posted, is_active,
     balance_type, remarks, created_by, created_at, updated_at)
 SELECT 1,
@@ -1395,11 +1431,11 @@ WHERE NOT EXISTS (
     WHERE ob.organization_id = 1
       AND ob.account_id = (SELECT id FROM acc_chart_of_accounts WHERE account_code = '4000')
       AND ob.accounting_period_id = (SELECT id FROM acc_periods WHERE period_name = 'FY-2024-25' AND organization_id = 1)
-      AND 1=1
+      AND ob.sub_account_id IS NULL
 );
 
 -- Root: EXPENSES (5000)
-INSERT INTO acc_opening_balances (organization_id, account_id, accounting_period_id,
+INSERT INTO acc_opening_balances (organization_id, account_id, accounting_period_id, sub_account_id,
     opening_debit_balance, opening_credit_balance, is_posted, is_active,
     balance_type, remarks, created_by, created_at, updated_at)
 SELECT 1,
@@ -1413,7 +1449,7 @@ WHERE NOT EXISTS (
     WHERE ob.organization_id = 1
       AND ob.account_id = (SELECT id FROM acc_chart_of_accounts WHERE account_code = '5000')
       AND ob.accounting_period_id = (SELECT id FROM acc_periods WHERE period_name = 'FY-2024-25' AND organization_id = 1)
-      AND 1=1
+      AND ob.sub_account_id IS NULL
 );
 
 
