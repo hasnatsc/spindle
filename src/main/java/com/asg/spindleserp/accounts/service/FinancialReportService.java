@@ -742,8 +742,8 @@ public class FinancialReportService {
         for (Map<String, Object> r : lines) {
             String code = String.valueOf(r.getOrDefault("tax_code", "NO-TAX"));
             byCode.putIfAbsent(code, new LinkedHashMap<>());
-            byCode.get(code).merge("debit",  toBD(r, "debit_total"),  BigDecimal::add);
-            byCode.get(code).merge("credit", toBD(r, "credit_total"), BigDecimal::add);
+            byCode.get(code).merge("debit",  toBD(r, "debit_total"),  (a, b) -> ((BigDecimal) a).add((BigDecimal) b));
+            byCode.get(code).merge("credit", toBD(r, "credit_total"), (a, b) -> ((BigDecimal) a).add((BigDecimal) b));
             byCode.get(code).merge("count",  1, (a, b) -> ((Integer) a) + 1);
             grandTotal = grandTotal.add(toBD(r, "debit_total")).add(toBD(r, "credit_total"));
         }
@@ -890,7 +890,7 @@ public class FinancialReportService {
 
         String sql = """
             SELECT
-                COALESCE(cc.code, 'NO-CC') AS cost_center_code,
+                COALESCE(cc.cost_center_code, 'NO-CC') AS cost_center_code,
                 COALESCE(cc.name, 'No Cost Center') AS cost_center_name,
                 COALESCE(SUM(CASE WHEN jel.entry_type='DEBIT'  THEN jel.amount ELSE 0 END), 0) AS total_debit,
                 COALESCE(SUM(CASE WHEN jel.entry_type='CREDIT' THEN jel.amount ELSE 0 END), 0) AS total_credit,
@@ -903,7 +903,7 @@ public class FinancialReportService {
             WHERE jel.organization_id = ?
               AND jem.is_posted = true
               AND jem.voucher_date BETWEEN ?::date AND ?::date
-            GROUP BY cc.id, cc.code, cc.name
+            GROUP BY cc.id, cc.cost_center_code, cc.cost_center_name
             ORDER BY net_amount DESC
             """;
 
@@ -1061,7 +1061,7 @@ public class FinancialReportService {
                    bh.head_code,
                    bh.head_name,
                    bh.head_type,
-                   COALESCE(bl.budget_amount, 0) AS budget_amount,
+                   COALESCE(bl.apr_amount, 0) AS budget_amount,
                    COALESCE((
                        SELECT SUM(CASE WHEN jel.entry_type='DEBIT'  THEN jel.amount
                                        WHEN jel.entry_type='CREDIT' THEN -jel.amount ELSE 0 END)

@@ -28,6 +28,18 @@ public interface VoucherService {
     /** Post voucher: validates balance, writes GL, updates sub-account balance, allocates */
     VoucherDTO post(Long id);
 
+    /**
+     * Called by ApprovalCompletedEvent listener after the final approval level.
+     * Performs the actual posting logic (numbering, GL, balance update).
+     */
+    VoucherDTO completeApproval(Long id);
+
+    /** Called when approval is rejected — marks voucher as REJECTED */
+    void rejectApproval(Long id, String reason);
+
+    /** Called when approval is returned — reverts voucher to DRAFT */
+    void returnApproval(Long id, String reason);
+
     /** Reverse a posted voucher: creates mirror entry, marks original as REVERSED */
     VoucherDTO reverse(Long id, String narration);
 

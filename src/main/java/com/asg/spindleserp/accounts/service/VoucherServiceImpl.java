@@ -3,6 +3,8 @@ package com.asg.spindleserp.accounts.service;
 import com.asg.spindleserp.accounts.dto.VoucherDTO;
 import com.asg.spindleserp.accounts.entity.*;
 import com.asg.spindleserp.accounts.repository.*;
+import com.asg.spindleserp.approval.dto.ApprovalRequestDTO;
+import com.asg.spindleserp.approval.service.ApprovalService;
 import com.asg.spindleserp.common.dto.DataTableResponse;
 import com.asg.spindleserp.common.enums.VoucherType;
 import com.asg.spindleserp.common.util.CommonUtils;
@@ -11,6 +13,8 @@ import com.asg.spindleserp.security.auth.SecurityHelper;
 import com.asg.spindleserp.setup.service.DocumentSequenceService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -49,6 +53,9 @@ public class VoucherServiceImpl implements VoucherService {
     private final VoucherAllocationRepository  allocRepo;
     private final DocumentSequenceService      seqService;
     private final JdbcTemplate                 jdbcTemplate;
+
+    @Autowired @Lazy
+    private ApprovalService approvalService;
 
     // =========================================================================
     // SAVE (CREATE / UPDATE DRAFT)
@@ -94,26 +101,80 @@ public class VoucherServiceImpl implements VoucherService {
 
         // Validate GL balance for Journal Voucher
         if ("JOURNAL_VOUCHER".equals(vType)) {
-            BigDecimal totalDr = entity.getLines().stream()
-                .filter(l -> JournalEntryLine.EntryType.DEBIT == l.getEntryType())
-                .map(JournalEntryLine::getAmount)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-            BigDecimal totalCr = entity.getLines().stream()
-                .filter(l -> JournalEntryLine.EntryType.CREDIT == l.getEntryType())
-                .map(JournalEntryLine::getAmount)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-            if (totalDr.compareTo(totalCr) != 0) {
-                throw new IllegalStateException(
-                    "Journal voucher not balanced. DR=" + totalDr + " CR=" + totalCr);
-            }
-            entity.setTotalDebit(totalDr);
-            entity.setTotalCredit(totalCr);
-            if (entity.getTotalAmount() == null) {
-                entity.setTotalAmount(totalDr);
-            }
+            validateJournalBalance(entity);
         }
 
-        // Auto-generate voucher number via DocumentSequenceService
+        // Check for active approval config — if found, route through approval workflow
+        if (hasApprovalConfig(entity)) {
+            return submitForApproval(entity, vType);
+        }
+
+        // Normal posting (no approval required)
+        return executePost(entity);
+    }
+
+    @Override
+    public VoucherDTO completeApproval(Long id) {
+        JournalEntryMaster entity = findEntityByIdPublic(id);
+        if (!"PENDING_APPROVAL".equals(entity.getVoucherStatus())) {
+            throw new IllegalStateException(
+                "Only PENDING_APPROVAL vouchers can be completed via approval. Current status: "
+                    + entity.getVoucherStatus());
+        }
+        return executePost(entity);
+    }
+
+    @Override
+    public void rejectApproval(Long id, String reason) {
+        JournalEntryMaster entity = findEntityByIdPublic(id);
+        if (!"PENDING_APPROVAL".equals(entity.getVoucherStatus())) return;
+        entity.setVoucherStatus("REJECTED");
+        entity.setNarration(entity.getNarration() != null
+            ? entity.getNarration() + " [REJECTED: " + reason + "]"
+            : "[REJECTED: " + reason + "]");
+        masterRepo.save(entity);
+    }
+
+    @Override
+    public void returnApproval(Long id, String reason) {
+        JournalEntryMaster entity = findEntityByIdPublic(id);
+        if (!"PENDING_APPROVAL".equals(entity.getVoucherStatus())) return;
+        entity.setVoucherStatus("DRAFT");
+        entity.setPosted(false);
+        entity.setNarration(entity.getNarration() != null
+            ? entity.getNarration() + " [RETURNED: " + reason + "]"
+            : "[RETURNED: " + reason + "]");
+        masterRepo.save(entity);
+    }
+
+    /**
+     * Route through approval workflow: create an ApprovalRequest and set voucher to PENDING_APPROVAL.
+     */
+    private VoucherDTO submitForApproval(JournalEntryMaster entity, String vType) {
+        ApprovalRequestDTO reqDto = ApprovalRequestDTO.builder()
+            .documentType(vType)
+            .referenceId(entity.getId())
+            .referenceNumber(entity.getVoucherNo() != null ? entity.getVoucherNo() : "DRAFT-" + entity.getId())
+            .documentDate(entity.getVoucherDate())
+            .documentAmount(entity.getTotalAmount())
+            .documentSummary(entity.getNarration() != null
+                ? truncate(entity.getNarration(), 500) : vType + " #" + entity.getId())
+            .build();
+
+        approvalService.submitRequest(reqDto);
+
+        entity.setVoucherStatus("PENDING_APPROVAL");
+        entity.setPosted(false);
+        return toDTO(masterRepo.save(entity));
+    }
+
+    /**
+     * Actual posting logic, shared by direct post() and approval-complete flow.
+     */
+    private VoucherDTO executePost(JournalEntryMaster entity) {
+        String vType = entity.getVoucherType() != null ? entity.getVoucherType().name() : "";
+
+        // Auto-generate voucher number
         if (entity.getVoucherNo() == null || entity.getVoucherNo().isBlank()) {
             Long orgId = entity.getOrganization().getId();
             String prefix = voucherPrefix(vType);
@@ -133,6 +194,16 @@ public class VoucherServiceImpl implements VoucherService {
         }
 
         return toDTO(masterRepo.save(entity));
+    }
+
+    private boolean hasApprovalConfig(JournalEntryMaster entity) {
+        try {
+            return approvalService.hasActiveConfig(
+                entity.getVoucherType() != null ? entity.getVoucherType().name() : "");
+        } catch (Exception e) {
+            log.debug("Approval config check failed, falling back to direct post: {}", e.getMessage());
+            return false;
+        }
     }
 
     // =========================================================================
@@ -346,6 +417,8 @@ public class VoucherServiceImpl implements VoucherService {
             CASE j.voucher_status
                 WHEN 'DRAFT' THEN '<span class="badge bg-secondary">Draft</span>'
                 WHEN 'POSTED' THEN '<span class="badge bg-success">Posted</span>'
+                WHEN 'PENDING_APPROVAL' THEN '<span class="badge bg-primary">Pending Approval</span>'
+                WHEN 'REJECTED' THEN '<span class="badge bg-danger">Rejected</span>'
                 WHEN 'REVERSED' THEN '<span class="badge bg-warning text-dark">Reversed</span>'
                 WHEN 'CANCELLED' THEN '<span class="badge bg-danger">Cancelled</span>'
                 ELSE '<span class="badge bg-light text-dark">' || j.voucher_status || '</span>'
@@ -365,6 +438,9 @@ public class VoucherServiceImpl implements VoucherService {
 
                         || '<a href="javascript:;" onclick="%1$sDelete(' || j.id || ')" class="btn btn-white btn-sm" title="Delete">'
                         || '<i class="fa-regular fa-trash-can text-danger"></i></a>'
+                    WHEN j.voucher_status = 'PENDING_APPROVAL' THEN
+                        '<a href="javascript:;" onclick="location.href=''/approval/requests?search=' || j.voucher_no || '''" class="btn btn-white btn-sm" title="View Approval">'
+                        || '<i class="fas fa-stamp text-primary"></i></a>'
                     ELSE ''
                 END
 
@@ -659,6 +735,30 @@ public class VoucherServiceImpl implements VoucherService {
     // =========================================================================
     // PRIVATE HELPERS
     // =========================================================================
+
+    private void validateJournalBalance(JournalEntryMaster entity) {
+        BigDecimal totalDr = entity.getLines().stream()
+            .filter(l -> JournalEntryLine.EntryType.DEBIT == l.getEntryType())
+            .map(JournalEntryLine::getAmount)
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal totalCr = entity.getLines().stream()
+            .filter(l -> JournalEntryLine.EntryType.CREDIT == l.getEntryType())
+            .map(JournalEntryLine::getAmount)
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
+        if (totalDr.compareTo(totalCr) != 0) {
+            throw new IllegalStateException(
+                "Journal voucher not balanced. DR=" + totalDr + " CR=" + totalCr);
+        }
+        entity.setTotalDebit(totalDr);
+        entity.setTotalCredit(totalCr);
+        if (entity.getTotalAmount() == null) {
+            entity.setTotalAmount(totalDr);
+        }
+    }
+
+    private static String truncate(String s, int max) {
+        return s != null && s.length() > max ? s.substring(0, max) : s;
+    }
 
     private void buildHeader(VoucherDTO dto, JournalEntryMaster e) {
         e.setVoucherType(VoucherType.valueOf(dto.getVoucherType()));

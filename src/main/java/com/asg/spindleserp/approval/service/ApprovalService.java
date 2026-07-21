@@ -39,6 +39,9 @@ public interface ApprovalService {
     Map<String, Object> searchConfigs(String q, int page);
     ApprovalConfigDTO toDTO(ApprovalConfig entity);
 
+    /** Check if an active approval config exists for the given document type in the current org */
+    boolean hasActiveConfig(String documentType);
+
     // ── Request — lifecycle ───────────────────────────────────────────────────
 
     /**

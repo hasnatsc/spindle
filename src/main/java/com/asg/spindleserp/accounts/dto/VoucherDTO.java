@@ -40,7 +40,7 @@ public class VoucherDTO {
     private LocalDate dueDate;
 
     @Builder.Default
-    private String voucherStatus = "DRAFT";   // DRAFT | POSTED | REVERSED | CANCELLED
+    private String voucherStatus = "DRAFT";   // DRAFT | POSTED | PENDING_APPROVAL | REJECTED | REVERSED | CANCELLED
 
     @Size(max = 100) private String referenceNo;
     @Size(max = 1000) private String narration;

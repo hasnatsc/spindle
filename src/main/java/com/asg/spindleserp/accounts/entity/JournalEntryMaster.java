@@ -64,12 +64,13 @@ public class JournalEntryMaster extends BaseEntity {
 
     // ── Status lifecycle ──────────────────────────────────────────────────────
 
-    /** DRAFT | POSTED | REVERSED | CANCELLED */
+    /** DRAFT | PENDING_APPROVAL | POSTED | REJECTED | REVERSED | CANCELLED */
     @Builder.Default
     @Column(nullable = false, length = 20)
     private String voucherStatus = "DRAFT";
 
-    /** Legacy boolean — kept in sync with voucherStatus for backward compatibility */
+    /** Legacy boolean — kept in sync with voucherStatus for backward compatibility.
+     *  False for DRAFT, PENDING_APPROVAL, REJECTED; true only after POSTED. */
     @Builder.Default
     @Column(nullable = false)
     private boolean isPosted = false;

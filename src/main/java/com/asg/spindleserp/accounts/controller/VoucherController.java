@@ -137,9 +137,13 @@ public class VoucherController {
 
     /**
      * Post a DRAFT voucher.
+     * If an approval config exists for the voucher type, the voucher enters
+     * PENDING_APPROVAL instead of being posted immediately.
+     *
      * For Payment / Receipt vouchers, an optional JSON body with allocations is accepted:
      *   { "allocations": [{sourceVoucherId, allocatedAmount, discountAmount, ...}] }
      * For Journal / Contra vouchers the body can be empty or {}.
+     * Allocations are only processed when the voucher actually reaches POSTED status.
      */
     @PostMapping("/accounts/vouchers/post/{id}")
     @ResponseBody
@@ -149,17 +153,24 @@ public class VoucherController {
         try {
             VoucherDTO posted = voucherService.post(id);
 
-            // Process allocations if provided (PV / RV only)
-            if (allocationPayload != null
-                    && allocationPayload.getAllocations() != null
-                    && !allocationPayload.getAllocations().isEmpty()) {
-                JournalEntryMaster entity = voucherService.findEntityByIdPublic(id);
-                voucherService.processAllocations(entity, allocationPayload.getAllocations());
-            }
+            if ("PENDING_APPROVAL".equals(posted.getVoucherStatus())) {
+                // Voucher sent for approval — allocations processed after approval
+                res.put("success",   true);
+                res.put("voucherStatus", "PENDING_APPROVAL");
+                res.put("message",   "Voucher submitted for approval.");
+            } else {
+                // Process allocations if provided (PV / RV only) — only after full posting
+                if (allocationPayload != null
+                        && allocationPayload.getAllocations() != null
+                        && !allocationPayload.getAllocations().isEmpty()) {
+                    JournalEntryMaster entity = voucherService.findEntityByIdPublic(id);
+                    voucherService.processAllocations(entity, allocationPayload.getAllocations());
+                }
 
-            res.put("success",   true);
-            res.put("voucherNo", posted.getVoucherNo());
-            res.put("message",   "Voucher " + posted.getVoucherNo() + " posted successfully.");
+                res.put("success",   true);
+                res.put("voucherNo", posted.getVoucherNo());
+                res.put("message",   "Voucher " + posted.getVoucherNo() + " posted successfully.");
+            }
         } catch (Exception e) {
             res.put("success", false);
             res.put("message", e.getMessage());

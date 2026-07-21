@@ -2,6 +2,7 @@ package com.asg.spindleserp.approval.service;
 
 import com.asg.spindleserp.approval.dto.*;
 import com.asg.spindleserp.approval.entity.*;
+import com.asg.spindleserp.approval.event.ApprovalCompletedEvent;
 import com.asg.spindleserp.approval.repository.*;
 import com.asg.spindleserp.common.dto.DataTableResponse;
 import com.asg.spindleserp.common.util.CommonUtils;
@@ -11,10 +12,12 @@ import com.asg.spindleserp.security.auth.SecurityHelper;
 import com.asg.spindleserp.security.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -29,10 +32,12 @@ public class ApprovalServiceImpl implements ApprovalService {
     private final ApprovalLevelRepository      levelRepo;
     private final ApprovalRequestRepository    requestRepo;
     private final ApprovalHistoryRepository    historyRepo;
-    private final ApprovalDelegationRepository delegationRepo;
-    private final UserRepository               userRepo;
-    private final OrganizationRepository       orgRepo;
-    private final JdbcTemplate                 jdbcTemplate;
+    private final ApprovalDelegationRepository     delegationRepo;
+    private final ApprovalNotificationRepository   notificationRepo;
+    private final ApplicationEventPublisher        eventPublisher;
+    private final UserRepository                   userRepo;
+    private final OrganizationRepository           orgRepo;
+    private final JdbcTemplate                     jdbcTemplate;
 
     // =========================================================================
     // CONFIG
@@ -114,15 +119,29 @@ public class ApprovalServiceImpl implements ApprovalService {
     public Map<String, Object> searchConfigs(String q, int page) {
         Long orgId = SecurityHelper.currentOrgId().orElse(null);
         int sz = 30, off = (page-1)*sz;
-        String sql = "SELECT id, code, name FROM apr_configs WHERE is_active=true"
-            + (orgId != null ? " AND organization_id=" + orgId : "")
-            + (q != null && !q.isBlank() ? " AND (code ILIKE '%" + q.replace("'","''") + "%' OR name ILIKE '%" + q.replace("'","''") + "%')" : "")
-            + " ORDER BY priority ASC NULLS LAST, code LIMIT " + (sz+1) + " OFFSET " + off;
-        List<Map<String,Object>> rows = jdbcTemplate.queryForList(sql);
+        StringBuilder sql = new StringBuilder("SELECT id, code, name FROM apr_configs WHERE is_active=true");
+        List<Object> params = new ArrayList<>();
+        if (orgId != null) { sql.append(" AND organization_id = ?"); params.add(orgId); }
+        if (q != null && !q.isBlank()) {
+            sql.append(" AND (code ILIKE ? OR name ILIKE ?)");
+            params.add("%" + q + "%");
+            params.add("%" + q + "%");
+        }
+        sql.append(" ORDER BY priority ASC NULLS LAST, code LIMIT ? OFFSET ?");
+        params.add(sz + 1);
+        params.add(off);
+        List<Map<String,Object>> rows = jdbcTemplate.queryForList(sql.toString(), params.toArray());
         boolean more = rows.size() > sz;
         List<Map<String,Object>> items = rows.stream().limit(sz).map(r ->
             Map.of("id", r.get("id"), "text", r.get("code") + " — " + r.get("name"))).toList();
         return Map.of("items", items, "hasMore", more);
+    }
+
+    @Override @Transactional(readOnly = true)
+    public boolean hasActiveConfig(String documentType) {
+        Long orgId = ContextProvider.getOrganizationId();
+        return configRepo.findByOrganizationIdAndDocumentTypeAndIsActiveTrue(orgId, documentType)
+            .stream().findFirst().isPresent();
     }
 
     @Override
@@ -203,6 +222,14 @@ public class ApprovalServiceImpl implements ApprovalService {
 
         // Record history entry for submission
         recordHistory(saved, firstLevel, userId, "SUBMITTED", "Submitted for approval", null, null);
+
+        // Notify the first-level approver
+        if (firstLevel.getApproverUser() != null) {
+            createNotification(saved, firstLevel.getApproverUser().getId(),
+                "Approval Request: " + saved.getDocumentType() + " #" + saved.getReferenceNumber(),
+                saved.getDocumentSummary() != null ? saved.getDocumentSummary() : "Please review and take action.",
+                "NEW_REQUEST");
+        }
 
         return toDTO(saved);
     }
@@ -343,12 +370,30 @@ public class ApprovalServiceImpl implements ApprovalService {
             req.setCurrentApproverRole(nextLevel.get().getLevelName());
             req.setCurrentLevelNumber(nextLevelNum);
             req.setStatus("IN_APPROVAL");
+            // Notify next-level approver
+            if (nextLevel.get().getApproverUser() != null) {
+                createNotification(req, nextLevel.get().getApproverUser().getId(),
+                    "Approval Needed: " + req.getDocumentType() + " #" + req.getReferenceNumber(),
+                    "Level " + nextLevelNum + " approval needed — " + req.getDocumentSummary(),
+                    "NEXT_LEVEL");
+            }
         } else {
             // All levels done → APPROVED
             req.setStatus("APPROVED");
             req.setFinalActionBy(ContextProvider.getCurrentUsername());
             req.setFinalRemarks(comments);
             req.setCompletedAt(LocalDateTime.now());
+            // Notify requester of full approval
+            if (req.getRequester() != null) {
+                createNotification(req, req.getRequester().getId(),
+                    "Request Approved: " + req.getDocumentType() + " #" + req.getReferenceNumber(),
+                    "Your request has been fully approved.",
+                    "REQUEST_APPROVED");
+            }
+            // Publish event for downstream document action (e.g. post voucher)
+            eventPublisher.publishEvent(new ApprovalCompletedEvent(
+                req.getId(), req.getReferenceId(), req.getDocumentType(),
+                "APPROVED", comments));
         }
         setAudit(req, false);
         return toDTO(requestRepo.save(req));
@@ -365,6 +410,15 @@ public class ApprovalServiceImpl implements ApprovalService {
         req.setFinalRemarks(reason);
         req.setCompletedAt(LocalDateTime.now());
         setAudit(req, false);
+        if (req.getRequester() != null) {
+            createNotification(req, req.getRequester().getId(),
+                "Request Rejected: " + req.getDocumentType() + " #" + req.getReferenceNumber(),
+                reason != null ? reason : "Your request was rejected.",
+                "REQUEST_REJECTED");
+        }
+        eventPublisher.publishEvent(new ApprovalCompletedEvent(
+            req.getId(), req.getReferenceId(), req.getDocumentType(),
+            "REJECTED", reason));
         return toDTO(requestRepo.save(req));
     }
 
@@ -377,6 +431,12 @@ public class ApprovalServiceImpl implements ApprovalService {
         req.setStatus("RETURNED");
         req.setFinalRemarks(reason);
         setAudit(req, false);
+        if (req.getRequester() != null) {
+            createNotification(req, req.getRequester().getId(),
+                "Request Returned: " + req.getDocumentType() + " #" + req.getReferenceNumber(),
+                reason != null ? reason : "Your request was returned for correction.",
+                "REQUEST_RETURNED");
+        }
         return toDTO(requestRepo.save(req));
     }
 
@@ -426,6 +486,8 @@ public class ApprovalServiceImpl implements ApprovalService {
         Long orgId = ContextProvider.getOrganizationId();
         Long userId = ContextProvider.getCurrentUserId();
         String code = "DEL-" + System.currentTimeMillis();
+        LocalDate today = LocalDate.now();
+        boolean autoActive = !today.isBefore(dto.getStartDate());
         ApprovalDelegation del = ApprovalDelegation.builder()
             .delegator(userRepo.getReferenceById(userId))
             .delegate(userRepo.getReferenceById(dto.getDelegateId()))
@@ -436,7 +498,7 @@ public class ApprovalServiceImpl implements ApprovalService {
             .endDate(dto.getEndDate())
             .maxAmount(dto.getMaxAmount())
             .reason(dto.getReason())
-            .status("SCHEDULED")
+            .status(autoActive ? "ACTIVE" : "SCHEDULED")
             .isActive(true)
             .notifyDelegator(Boolean.TRUE.equals(dto.getNotifyDelegator()))
             .build();
@@ -849,10 +911,34 @@ public class ApprovalServiceImpl implements ApprovalService {
 
     private void guardActionAllowed(ApprovalRequest req) {
         Long userId = ContextProvider.getCurrentUserId();
-        if (req.getCurrentApproverUser() == null || !req.getCurrentApproverUser().getId().equals(userId))
-            throw new IllegalStateException("You are not the current approver for this request.");
+        if (req.getCurrentApproverUser() == null)
+            throw new IllegalStateException("No current approver assigned to this request.");
         if (!Set.of("IN_APPROVAL","SUBMITTED").contains(req.getStatus()))
             throw new IllegalStateException("Request status '" + req.getStatus() + "' does not allow actions.");
+        // Direct approver or active delegate?
+        if (!req.getCurrentApproverUser().getId().equals(userId)
+            && !isActiveDelegate(req.getCurrentApproverUser().getId(), userId, req))
+            throw new IllegalStateException("You are not the current approver or a delegate for this request.");
+    }
+
+    /** Check if {@code delegateId} is an active delegate for {@code delegatorId} on this request. */
+    private boolean isActiveDelegate(Long delegatorId, Long delegateId, ApprovalRequest req) {
+        LocalDate today = LocalDate.now();
+        return delegationRepo.findByDelegatorIdAndStatus(delegatorId, "ACTIVE").stream()
+            .filter(d -> d.isActive())
+            .filter(d -> !today.isBefore(d.getStartDate()) && !today.isAfter(d.getEndDate()))
+            .filter(d -> d.getDelegate().getId().equals(delegateId))
+            .anyMatch(d -> {
+                // Match module / documentType if scoped; otherwise match-all delegation
+                boolean moduleMatch   = d.getModule() == null || d.getModule().isBlank()
+                                        || d.getModule().equalsIgnoreCase(req.getApprovalConfig().getModule());
+                boolean docTypeMatch  = d.getDocumentType() == null || d.getDocumentType().isBlank()
+                                        || d.getDocumentType().equalsIgnoreCase(req.getDocumentType());
+                boolean amountMatch   = d.getMaxAmount() == null
+                                        || req.getDocumentAmount() == null
+                                        || req.getDocumentAmount().compareTo(d.getMaxAmount()) <= 0;
+                return moduleMatch && docTypeMatch && amountMatch;
+            });
     }
 
     private void guardMutable(ApprovalRequest req) {
@@ -866,6 +952,25 @@ public class ApprovalServiceImpl implements ApprovalService {
 
     private String displayName(String fullName, String username) {
         return (fullName != null && !fullName.isBlank()) ? fullName : username;
+    }
+
+    private void createNotification(ApprovalRequest req, Long recipientId, String subject, String body, String reason) {
+        userRepo.findById(recipientId).ifPresent(recipient -> {
+            ApprovalNotification n = ApprovalNotification.builder()
+                .organizationId(req.getOrganization() != null ? req.getOrganization().getId() : null)
+                .approvalRequest(req)
+                .recipient(recipient)
+                .subject(subject != null && subject.length() > 200 ? subject.substring(0, 200) : subject)
+                .body(body)
+                .link("/approval/inbox")
+                .notificationType("APPROVAL")
+                .reason(reason)
+                .deliveryStatus("PENDING")
+                .isRead(false)
+                .sentAt(LocalDateTime.now())
+                .build();
+            notificationRepo.save(n);
+        });
     }
 
     private void setAudit(Object e, boolean isCreate) {
