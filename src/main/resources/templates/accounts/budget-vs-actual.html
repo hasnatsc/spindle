@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<!--
+  accounts/budget-vs-actual.html    GET /accounts/reports/budget-vs-actual
+  Data: GET /accounts/reports/data/budget-vs-actual?budgetId=&startDate=&endDate=
+  Returns: { totalBudget, totalActual, variance, headCount,
+             lines:[{headCode,headName,headType,budgetAmount,actualAmount,variance,utilizationPct}] }
+-->
+<html th:replace="~{layout/base :: layout('Budget vs Actual', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
+<section>
+  <ol class="breadcrumb float-xl-end">
+    <li class="breadcrumb-item"><a th:href="@{/dashboard}">Home</a></li>
+    <li class="breadcrumb-item"><a th:href="@{/accounts/dashboard}">Accounts</a></li>
+    <li class="breadcrumb-item"><a th:href="@{/accounts/ledger}">Reports</a></li>
+    <li class="breadcrumb-item active">Budget vs Actual</li>
+  </ol>
+  <h1 class="page-header">Budget vs Actual <small>budget performance comparison</small></h1>
+
+  <div class="d-flex gap-2 mb-3 flex-wrap">
+    <a th:href="@{/accounts/reports/cost-center-summary}" class="btn btn-sm btn-outline-secondary"><i class="fas fa-building me-1"></i> Cost Centers</a>
+    <a th:href="@{/accounts/reports/budget-vs-actual}"    class="btn btn-sm btn-primary"><i class="fas fa-chart-simple me-1"></i> Budget vs Actual</a>
+    <a th:href="@{/accounts/reports/financial-kpis}"      class="btn btn-sm btn-outline-secondary"><i class="fas fa-chart-bar me-1"></i> KPIs</a>
+  </div>
+
+  <!-- FILTER -->
+  <div class="panel panel-inverse">
+    <div class="panel-heading"><div class="panel-title"><i class="fas fa-filter me-1"></i> Filter</div>
+      <div class="panel-heading-btn"><a href="javascript:;" class="btn btn-sm btn-icon btn-default" data-toggle="panel-collapse"><i class="fa fa-minus"></i></a></div>
+    </div>
+    <div class="panel-body">
+      <div class="row g-2 align-items-end">
+        <div class="col-12 col-md-4 view-group">
+          <select id="bvBudgetId" class="form-select hs_span_view" style="width:100%"><option value="">— Select Budget —</option></select>
+          <label class="input-label">Budget <span class="text-danger">*</span></label>
+        </div>
+        <div class="col-6 col-md-2 view-group">
+          <input type="date" id="bvStart" class="form-control hs_span_view">
+          <label class="input-label">From Date <span class="text-danger">*</span></label>
+        </div>
+        <div class="col-6 col-md-2 view-group">
+          <input type="date" id="bvEnd" class="form-control hs_span_view">
+          <label class="input-label">To Date <span class="text-danger">*</span></label>
+        </div>
+        <div class="col-12 col-md-4 d-flex gap-2">
+          <button class="btn btn-success" onclick="bvLoad()"><i class="fas fa-search me-1"></i> Compare</button>
+          <button class="btn btn-outline-secondary" onclick="window.print()"><i class="fas fa-print me-1"></i> Print</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- KPI BANNER -->
+  <div class="row g-2 mb-3" id="bvBanner" style="display:none!important">
+    <div class="col-6 col-md-3"><div class="widget widget-stats bg-blue"   style="padding:12px"><div class="stats-info"><h4>TOTAL BUDGET</h4><p id="bvTotalBudget">0.00</p></div></div></div>
+    <div class="col-6 col-md-3"><div class="widget widget-stats bg-green"  style="padding:12px"><div class="stats-info"><h4>TOTAL ACTUAL</h4><p id="bvTotalActual">0.00</p></div></div></div>
+    <div class="col-6 col-md-3"><div class="widget widget-stats bg-red"    style="padding:12px"><div class="stats-info"><h4>VARIANCE</h4><p id="bvVariance">0.00</p></div></div></div>
+    <div class="col-6 col-md-3"><div class="widget widget-stats bg-purple" style="padding:12px"><div class="stats-info"><h4>HEADS</h4><p id="bvHeadCount">0</p></div></div></div>
+  </div>
+
+  <!-- TABLE -->
+  <div class="panel panel-inverse" id="bvPanel" style="display:none">
+    <div class="panel-heading"><div class="panel-title"><i class="fas fa-chart-simple me-1"></i> <span id="bvTitle">Budget vs Actual</span></div>
+      <div class="panel-heading-btn"><a href="javascript:;" class="btn btn-sm btn-icon btn-default" data-toggle="panel-expand"><i class="fa fa-expand"></i></a></div>
+    </div>
+    <div class="panel-body p-0">
+      <div class="table-responsive">
+        <table class="table table-sm table-bordered table-striped mb-0" style="font-size:12px">
+          <thead class="table-dark">
+            <tr>
+              <th width="8%">Head Code</th>
+              <th>Head Name</th>
+              <th width="8%">Type</th>
+              <th class="text-end" width="12%">Budget (৳)</th>
+              <th class="text-end" width="12%">Actual (৳)</th>
+              <th class="text-end" width="12%">Variance (৳)</th>
+              <th class="text-end" width="10%">Utilization %</th>
+            </tr>
+          </thead>
+          <tbody id="bvBody"><tr><td colspan="7" class="text-center text-muted py-4">Select a budget and date range.</td></tr></tbody>
+          <tfoot>
+            <tr class="fw-bold table-warning">
+              <td colspan="3" class="text-end">Totals:</td>
+              <td id="bvFtBud" class="text-end">—</td>
+              <td id="bvFtAct" class="text-end">—</td>
+              <td id="bvFtVar" class="text-end">—</td>
+              <td></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script th:inline="javascript">
+    /*<![CDATA[*/
+    document.addEventListener('DOMContentLoaded', function() {
+      var now = new Date(), y = now.getFullYear(), m = now.getMonth()+1;
+      document.getElementById('bvStart').value = y+'-'+String(m).padStart(2,'0')+'-01';
+      document.getElementById('bvEnd').value   = new Date(y,m,0).toISOString().split('T')[0];
+      $('#bvBudgetId').select2({
+        placeholder:'— Search Budget —', allowClear:true, width:'100%',
+        ajax:{
+          url:'/accounts/budgets/search', dataType:'json', delay:250,
+          data:function(p){ return {search:p.term||'', page:p.page||1}; },
+          processResults:function(d){ return {results:(d.items||[]).map(function(i){ return {id:i.id,text:i.name||i.code}; }),pagination:{more:d.hasMore}}; }
+        }
+      });
+    });
+
+    function bvLoad() {
+      var id = document.getElementById('bvBudgetId').value;
+      var s  = document.getElementById('bvStart').value;
+      var e  = document.getElementById('bvEnd').value;
+      if (!id) { alert('Please select a budget.'); return; }
+      if (!s || !e) { alert('Please select date range.'); return; }
+      document.getElementById('bvBody').innerHTML =
+        '<tr><td colspan="7" class="text-center py-3"><span class="spinner-border spinner-border-sm me-2"></span>Loading…</td></tr>';
+      document.getElementById('bvPanel').style.display = '';
+      document.getElementById('bvBanner').style.display = '';
+      var qs = '?budgetId='+id+'&startDate='+s+'&endDate='+e;
+      fetch('/accounts/reports/data/budget-vs-actual'+qs).then(function(r){ return r.json(); }).then(function(d){
+        if (d.error) { alert(d.error); return; }
+        var s = d.summary || {};
+        var lines = d.rows || [];
+        document.getElementById('bvTitle').textContent = 'Budget vs Actual';
+        document.getElementById('bvTotalBudget').textContent = formatNum(s.totalBudget);
+        document.getElementById('bvTotalActual').textContent = formatNum(s.totalActual);
+        document.getElementById('bvVariance').textContent    = formatNum(s.variance);
+        document.getElementById('bvHeadCount').textContent   = s.headCount||0;
+        document.getElementById('bvFtBud').textContent = formatNum(s.totalBudget);
+        document.getElementById('bvFtAct').textContent = formatNum(s.totalActual);
+        document.getElementById('bvFtVar').textContent = formatNum(s.variance);
+        if (!lines.length) {
+          document.getElementById('bvBody').innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">No budget heads found.</td></tr>'; return;
+        }
+        var html = '';
+        lines.forEach(function(r) {
+          var bud = parseFloat(r.budgetAmount||0);
+          var act = parseFloat(r.actualAmount||0);
+          var varAmt = parseFloat(r.variance||0);
+          var uti = parseFloat(r.utilizationPct||0);
+          html += '<tr>'
+            + '<td><code>'+(r.headCode||'—')+'</code></td>'
+            + '<td>'+(r.headName||'—')+'</td>'
+            + '<td><span class="badge bg-secondary bg-opacity-25 text-dark">'+(r.headType||'')+'</span></td>'
+            + '<td class="text-end">'+formatNum(bud)+'</td>'
+            + '<td class="text-end">'+formatNum(act)+'</td>'
+            + '<td class="text-end '+(varAmt>=0?'text-success':'text-danger')+' fw-semibold">'+formatNum(varAmt)+'</td>'
+            + '<td class="text-end">'
+            + '<div class="d-flex align-items-center justify-content-end gap-1">'
+            + '<div class="progress" style="height:6px;width:60px"><div class="progress-bar '+(uti>100?'bg-danger':uti>80?'bg-warning':'bg-success')+'" style="width:'+Math.min(uti,100)+'%"></div></div>'
+            + '<span class="small">'+uti.toFixed(1)+'%</span>'
+            + '</div></td>'
+            + '</tr>';
+        });
+        document.getElementById('bvBody').innerHTML = html;
+      }).catch(function(e){ alert('Error: '+e.message); });
+    }
+
+    function formatNum(v) {
+      if (!v && v !== 0) return '0.00';
+      var n = typeof v === 'number' ? v : parseFloat(v);
+      return n.toLocaleString('en', {minimumFractionDigits:2, maximumFractionDigits:2});
+    }
+    /*]]>*/
+  </script>
+</section>
+</html>

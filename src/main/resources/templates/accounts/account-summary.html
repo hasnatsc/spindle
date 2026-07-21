@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<!--
+  accounts/account-summary.html    GET /accounts/reports/account-summary
+  Data: GET /accounts/reports/data/account-summary?accountId=&startDate=&endDate=
+  Returns: { accountCode, accountName, accountType, txCount, totalDebit, totalCredit, openingBalance, closingBalance,
+             lines:[{voucher_date,voucher_no,voucher_type,debit,credit,narration}] }
+-->
+<html th:replace="~{layout/base :: layout('Account Transaction Summary', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
+<section>
+  <ol class="breadcrumb float-xl-end">
+    <li class="breadcrumb-item"><a th:href="@{/dashboard}">Home</a></li>
+    <li class="breadcrumb-item"><a th:href="@{/accounts/dashboard}">Accounts</a></li>
+    <li class="breadcrumb-item"><a th:href="@{/accounts/ledger}">Reports</a></li>
+    <li class="breadcrumb-item active">Account Summary</li>
+  </ol>
+  <h1 class="page-header">Account Transaction Summary <small>aggregate view per account</small></h1>
+
+  <div class="d-flex gap-2 mb-3 flex-wrap">
+    <a th:href="@{/accounts/ledger}"                     class="btn btn-sm btn-outline-secondary"><i class="fas fa-list-ul me-1"></i> Ledger</a>
+    <a th:href="@{/accounts/reports/account-summary}"    class="btn btn-sm btn-primary"><i class="fas fa-file-invoice me-1"></i> Account Summary</a>
+    <a th:href="@{/accounts/reports/sub-account-summary}" class="btn btn-sm btn-outline-secondary"><i class="fas fa-address-book me-1"></i> Sub-Account Summary</a>
+    <a th:href="@{/accounts/reports/financial-kpis}"     class="btn btn-sm btn-outline-secondary"><i class="fas fa-chart-bar me-1"></i> KPIs</a>
+  </div>
+
+  <!-- FILTER -->
+  <div class="panel panel-inverse">
+    <div class="panel-heading"><div class="panel-title"><i class="fas fa-filter me-1"></i> Filter</div>
+      <div class="panel-heading-btn"><a href="javascript:;" class="btn btn-sm btn-icon btn-default" data-toggle="panel-collapse"><i class="fa fa-minus"></i></a></div>
+    </div>
+    <div class="panel-body">
+      <div class="row g-2 align-items-end">
+        <div class="col-12 col-md-4 view-group">
+          <select id="asAccountId" class="form-select hs_span_view" style="width:100%"><option value="">— Select Account —</option></select>
+          <label class="input-label">Account <span class="text-danger">*</span></label>
+        </div>
+        <div class="col-6 col-md-2 view-group">
+          <input type="date" id="asStart" class="form-control hs_span_view">
+          <label class="input-label">From Date <span class="text-danger">*</span></label>
+        </div>
+        <div class="col-6 col-md-2 view-group">
+          <input type="date" id="asEnd" class="form-control hs_span_view">
+          <label class="input-label">To Date <span class="text-danger">*</span></label>
+        </div>
+        <div class="col-12 col-md-4 d-flex gap-2">
+          <button class="btn btn-success" onclick="asLoad()"><i class="fas fa-search me-1"></i> Load Summary</button>
+          <button class="btn btn-outline-secondary" onclick="window.print()"><i class="fas fa-print me-1"></i> Print</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ACCOUNT INFO HEADER -->
+  <div class="alert alert-info d-none" id="asAcctInfo" role="alert">
+    <strong><i class="fas fa-book me-1"></i> <span id="asAcctCode">—</span></strong>
+    <span class="ms-3" id="asAcctName"></span>
+    <span class="ms-3 badge bg-secondary" id="asAcctType">—</span>
+  </div>
+
+  <!-- KPI BANNER -->
+  <div class="row g-2 mb-3" id="asBanner" style="display:none!important">
+    <div class="col-6 col-md-2"><div class="widget widget-stats bg-blue"   style="padding:10px"><div class="stats-info"><h6 style="font-size:10px">TX COUNT</h6><p id="asTxCount" style="font-size:13px">0</p></div></div></div>
+    <div class="col-6 col-md-2"><div class="widget widget-stats bg-green"  style="padding:10px"><div class="stats-info"><h6 style="font-size:10px">TOTAL DEBIT</h6><p id="asTotDr" style="font-size:13px">0.00</p></div></div></div>
+    <div class="col-6 col-md-3"><div class="widget widget-stats bg-red"    style="padding:10px"><div class="stats-info"><h6 style="font-size:10px">TOTAL CREDIT</h6><p id="asTotCr" style="font-size:13px">0.00</p></div></div></div>
+    <div class="col-6 col-md-2"><div class="widget widget-stats bg-orange" style="padding:10px;background:#ff9800!important"><div class="stats-info"><h6 style="font-size:10px">OPENING</h6><p id="asOpBal" style="font-size:13px">0.00</p></div></div></div>
+    <div class="col-6 col-md-3"><div class="widget widget-stats bg-purple" style="padding:10px"><div class="stats-info"><h6 style="font-size:10px">CLOSING BALANCE</h6><p id="asClBal" style="font-size:13px">0.00</p></div></div></div>
+  </div>
+
+  <!-- TABLE -->
+  <div class="panel panel-inverse" id="asPanel" style="display:none">
+    <div class="panel-heading"><div class="panel-title"><i class="fas fa-file-invoice me-1"></i> <span id="asTitle">Account Summary</span></div>
+      <div class="panel-heading-btn"><a href="javascript:;" class="btn btn-sm btn-icon btn-default" data-toggle="panel-expand"><i class="fa fa-expand"></i></a></div>
+    </div>
+    <div class="panel-body p-0">
+      <div class="table-responsive">
+        <table class="table table-sm table-bordered table-striped mb-0" style="font-size:12px">
+          <thead class="table-dark">
+            <tr>
+              <th width="1%">#</th>
+              <th width="10%">Date</th>
+              <th width="14%">Voucher No</th>
+              <th width="8%">Type</th>
+              <th class="text-end" width="10%">Debit (৳)</th>
+              <th class="text-end" width="10%">Credit (৳)</th>
+              <th>Narration</th>
+            </tr>
+          </thead>
+          <tbody id="asBody"><tr><td colspan="7" class="text-center text-muted py-4">Select an account and date range.</td></tr></tbody>
+          <tfoot>
+            <tr class="fw-bold table-warning">
+              <td colspan="4" class="text-end">Totals:</td>
+              <td id="asFtDr" class="text-end">—</td>
+              <td id="asFtCr" class="text-end">—</td>
+              <td></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script th:inline="javascript">
+    /*<![CDATA[*/
+    document.addEventListener('DOMContentLoaded', function() {
+      var now = new Date(), y = now.getFullYear(), m = now.getMonth()+1;
+      document.getElementById('asStart').value = y+'-'+String(m).padStart(2,'0')+'-01';
+      document.getElementById('asEnd').value   = new Date(y,m,0).toISOString().split('T')[0];
+      $('#asAccountId').select2({
+        placeholder:'— Search Account (code or name) —', allowClear:true, width:'100%',
+        ajax:{
+          url:'/accounts/chart-of-accounts/search', dataType:'json', delay:250,
+          data:function(p){ return {search:p.term||'', page:p.page||1}; },
+          processResults:function(d){ return {results:(d.items||[]).map(function(i){ return {id:i.id,text:i.code+' — '+i.name}; }),pagination:{more:d.hasMore}}; }
+        }
+      });
+    });
+
+    function asLoad() {
+      var id = document.getElementById('asAccountId').value;
+      var s  = document.getElementById('asStart').value;
+      var e  = document.getElementById('asEnd').value;
+      if (!id) { alert('Please select an account.'); return; }
+      if (!s || !e) { alert('Please select date range.'); return; }
+      document.getElementById('asBody').innerHTML =
+        '<tr><td colspan="7" class="text-center py-3"><span class="spinner-border spinner-border-sm me-2"></span>Loading…</td></tr>';
+      document.getElementById('asPanel').style.display = '';
+      document.getElementById('asBanner').style.display = '';
+      var qs = '?accountId='+id+'&startDate='+s+'&endDate='+e;
+      fetch('/accounts/reports/data/account-summary'+qs).then(function(r){ return r.json(); }).then(function(d){
+        if (d.error) { alert(d.error); return; }
+        var info = d.accountInfo || {};
+        var s = d.summary || {};
+
+        // Account info
+        document.getElementById('asAcctInfo').classList.remove('d-none');
+        document.getElementById('asAcctCode').textContent = info.accountCode||'—';
+        document.getElementById('asAcctName').textContent = info.accountName||'';
+        document.getElementById('asAcctType').textContent = info.accountType||'—';
+
+        document.getElementById('asTitle').textContent = 'Account Summary — '+(info.accountName||'Account');
+        document.getElementById('asTxCount').textContent = s.txCount||0;
+        document.getElementById('asTotDr').textContent  = formatNum(s.totalDebit);
+        document.getElementById('asTotCr').textContent  = formatNum(s.totalCredit);
+        document.getElementById('asOpBal').textContent  = formatNum(s.openingBalance);
+        document.getElementById('asClBal').textContent  = formatNum(s.closingBalance);
+        document.getElementById('asFtDr').textContent   = formatNum(s.totalDebit);
+        document.getElementById('asFtCr').textContent   = formatNum(s.totalCredit);
+        document.getElementById('asBody').innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">Account summary data loaded. For detailed transactions, use the General Ledger report.</td></tr>';
+      }).catch(function(e){ alert('Error: '+e.message); });
+    }
+
+    function formatNum(v) {
+      if (!v && v !== 0) return '0.00';
+      var n = typeof v === 'number' ? v : parseFloat(v);
+      return n.toLocaleString('en', {minimumFractionDigits:2, maximumFractionDigits:2});
+    }
+    /*]]>*/
+  </script>
+</section>
+</html>

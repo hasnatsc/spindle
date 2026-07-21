@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<!--
+  accounts/financial-kpis.html    GET /accounts/reports/financial-kpis
+  Data: GET /accounts/reports/data/financial-kpis?asOfDate=
+  Returns: { currentRatio, quickRatio, debtRatio, profitMargin, returnOnEquity, workingCapital,
+             totalRevenue12m, totalExpense12m, netProfit12m, totalAssets, totalLiabilities, totalEquity }
+-->
+<html th:replace="~{layout/base :: layout('Financial KPIs', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
+<section>
+  <ol class="breadcrumb float-xl-end">
+    <li class="breadcrumb-item"><a th:href="@{/dashboard}">Home</a></li>
+    <li class="breadcrumb-item"><a th:href="@{/accounts/dashboard}">Accounts</a></li>
+    <li class="breadcrumb-item"><a th:href="@{/accounts/ledger}">Reports</a></li>
+    <li class="breadcrumb-item active">Financial KPIs</li>
+  </ol>
+  <h1 class="page-header">Financial KPIs <small>key financial ratios and metrics</small></h1>
+
+  <div class="d-flex gap-2 mb-3 flex-wrap">
+    <a th:href="@{/accounts/reports/tax-summary}"        class="btn btn-sm btn-outline-secondary"><i class="fas fa-file-invoice me-1"></i> Tax Summary</a>
+    <a th:href="@{/accounts/reports/financial-kpis}"     class="btn btn-sm btn-primary"><i class="fas fa-chart-pie me-1"></i> Financial KPIs</a>
+    <a th:href="@{/accounts/reports/cost-center-summary}" class="btn btn-sm btn-outline-secondary"><i class="fas fa-layer-group me-1"></i> Cost Centers</a>
+  </div>
+
+  <!-- FILTER -->
+  <div class="panel panel-inverse">
+    <div class="panel-heading"><div class="panel-title"><i class="fas fa-filter me-1"></i> Parameters</div>
+      <div class="panel-heading-btn"><a href="javascript:;" class="btn btn-sm btn-icon btn-default" data-toggle="panel-collapse"><i class="fa fa-minus"></i></a></div>
+    </div>
+    <div class="panel-body">
+      <div class="row g-2 align-items-end">
+        <div class="col-6 col-md-3 view-group">
+          <input type="date" id="kpiAsOf" class="form-control hs_span_view">
+          <label class="input-label">As of Date <span class="text-danger">*</span></label>
+        </div>
+        <div class="col-12 col-md-9 d-flex gap-2">
+          <button class="btn btn-success" onclick="kpiLoad()"><i class="fas fa-sync-alt me-1"></i> Calculate</button>
+          <button class="btn btn-outline-secondary" onclick="window.print()"><i class="fas fa-print me-1"></i> Print</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- KPI CARDS -->
+  <div id="kpiContent" style="display:none">
+    <!-- Liquidity & Solvency -->
+    <div class="row g-2 mb-3">
+      <div class="col-12"><h5 class="border-bottom pb-1"><i class="fas fa-tint me-1"></i> Liquidity &amp; Solvency</h5></div>
+      <div class="col-6 col-md-3">
+        <div class="widget widget-stats bg-blue" style="padding:14px">
+          <div class="stats-info"><h4>CURRENT RATIO</h4><p id="kpiCr" style="font-size:22px">—</p></div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="widget widget-stats bg-teal" style="padding:14px;background:#009688!important">
+          <div class="stats-info"><h4>QUICK RATIO</h4><p id="kpiQr" style="font-size:22px">—</p></div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="widget widget-stats bg-orange" style="padding:14px;background:#ff9800!important">
+          <div class="stats-info"><h4>DEBT RATIO</h4><p id="kpiDr" style="font-size:22px">—</p></div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="widget widget-stats bg-purple" style="padding:14px">
+          <div class="stats-info"><h4>WORKING CAPITAL</h4><p id="kpiWc" style="font-size:18px">0.00</p></div>
+        </div>
+      </div>
+    </div>
+    <!-- Profitability -->
+    <div class="row g-2 mb-3">
+      <div class="col-12"><h5 class="border-bottom pb-1"><i class="fas fa-chart-line me-1"></i> Profitability</h5></div>
+      <div class="col-6 col-md-3">
+        <div class="widget widget-stats bg-green" style="padding:14px">
+          <div class="stats-info"><h4>PROFIT MARGIN</h4><p id="kpiPm" style="font-size:22px">—</p></div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="widget widget-stats bg-indigo" style="padding:14px;background:#3f51b5!important">
+          <div class="stats-info"><h4>RETURN ON EQUITY</h4><p id="kpiRoe" style="font-size:22px">—</p></div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="widget widget-stats bg-pink" style="padding:14px;background:#e91e63!important">
+          <div class="stats-info"><h4>12M REVENUE</h4><p id="kpiRev" style="font-size:18px">0.00</p></div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="widget widget-stats bg-red" style="padding:14px">
+          <div class="stats-info"><h4>12M EXPENSE</h4><p id="kpiExp" style="font-size:18px">0.00</p></div>
+        </div>
+      </div>
+    </div>
+    <!-- Financial Position -->
+    <div class="row g-2 mb-3">
+      <div class="col-12"><h5 class="border-bottom pb-1"><i class="fas fa-balance-scale me-1"></i> Financial Position</h5></div>
+      <div class="col-6 col-md-3">
+        <div class="widget widget-stats bg-blue" style="padding:14px">
+          <div class="stats-info"><h4>TOTAL ASSETS</h4><p id="kpiAssets" style="font-size:18px">0.00</p></div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="widget widget-stats bg-red" style="padding:14px">
+          <div class="stats-info"><h4>TOTAL LIABILITIES</h4><p id="kpiLiab" style="font-size:18px">0.00</p></div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="widget widget-stats bg-purple" style="padding:14px">
+          <div class="stats-info"><h4>TOTAL EQUITY</h4><p id="kpiEquity" style="font-size:18px">0.00</p></div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="widget widget-stats bg-green" style="padding:14px">
+          <div class="stats-info"><h4>12M NET PROFIT</h4><p id="kpiNet" style="font-size:18px">0.00</p></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script th:inline="javascript">
+    /*<![CDATA[*/
+    document.addEventListener('DOMContentLoaded', function() {
+      var now = new Date(), y = now.getFullYear(), m = now.getMonth()+1;
+      document.getElementById('kpiAsOf').value = new Date(y,m,0).toISOString().split('T')[0];
+    });
+
+    function kpiLoad() {
+      var d = document.getElementById('kpiAsOf').value;
+      if (!d) { alert('Please select an as-of date.'); return; }
+      document.getElementById('kpiContent').style.display = '';
+      fetch('/accounts/reports/data/financial-kpis?asOfDate='+d)
+        .then(function(r){ return r.json(); }).then(function(data){
+          if (data.error) { alert(data.error); return; }
+          var k = data.kpis || data;
+          renderKpi('kpiCr',   k.currentRatio,    'ratio');
+          renderKpi('kpiQr',   k.quickRatio,      'ratio');
+          renderKpi('kpiDr',   k.debtRatio,       'ratio');
+          renderKpi('kpiPm',   k.profitMargin,    'pct');
+          renderKpi('kpiRoe',  k.returnOnEquity,  'pct');
+          document.getElementById('kpiWc').textContent     = formatNum(k.workingCapital);
+          document.getElementById('kpiRev').textContent    = formatNum(k.totalRevenue12m);
+          document.getElementById('kpiExp').textContent    = formatNum(k.totalExpense12m);
+          document.getElementById('kpiNet').textContent    = formatNum(k.netProfit12m);
+          document.getElementById('kpiAssets').textContent = formatNum(k.totalAssets);
+          document.getElementById('kpiLiab').textContent   = formatNum(k.totalLiabilities);
+          document.getElementById('kpiEquity').textContent = formatNum(k.totalEquity);
+        }).catch(function(e){ alert('Error: '+e.message); });
+    }
+
+    function renderKpi(id, val, type) {
+      var el = document.getElementById(id);
+      if (val === null || val === undefined || val === 0) { el.textContent = 'N/A'; return; }
+      var n = parseFloat(val);
+      if (type === 'pct') {
+        el.textContent = n.toFixed(2)+'%';
+      } else {
+        el.textContent = n.toFixed(2);
+      }
+    }
+
+    function formatNum(v) {
+      if (!v && v !== 0) return '0.00';
+      var n = typeof v === 'number' ? v : parseFloat(v);
+      return n.toLocaleString('en', {minimumFractionDigits:2, maximumFractionDigits:2});
+    }
+    /*]]>*/
+  </script>
+</section>
+</html>

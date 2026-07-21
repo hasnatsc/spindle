@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<!--
+  accounts/tax-summary.html    GET /accounts/reports/tax-summary
+  Data: GET /accounts/reports/data/tax-summary?startDate=&endDate=
+  Returns: { totalTaxLines, grandTotal, taxCodeCount,
+             lines:[{taxCode,accountCode,accountName,debitTotal,creditTotal,lineCount}] }
+-->
+<html th:replace="~{layout/base :: layout('Tax Summary', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
+<section>
+  <ol class="breadcrumb float-xl-end">
+    <li class="breadcrumb-item"><a th:href="@{/dashboard}">Home</a></li>
+    <li class="breadcrumb-item"><a th:href="@{/accounts/dashboard}">Accounts</a></li>
+    <li class="breadcrumb-item"><a th:href="@{/accounts/ledger}">Reports</a></li>
+    <li class="breadcrumb-item active">Tax Summary</li>
+  </ol>
+  <h1 class="page-header">Tax Summary <small>input/output tax breakdown by tax code</small></h1>
+
+  <div class="d-flex gap-2 mb-3 flex-wrap">
+    <a th:href="@{/accounts/reports/tax-summary}"        class="btn btn-sm btn-primary"><i class="fas fa-file-invoice me-1"></i> Tax Summary</a>
+    <a th:href="@{/accounts/reports/financial-kpis}"     class="btn btn-sm btn-outline-secondary"><i class="fas fa-chart-pie me-1"></i> Financial KPIs</a>
+    <a th:href="@{/accounts/reports/cost-center-summary}" class="btn btn-sm btn-outline-secondary"><i class="fas fa-layer-group me-1"></i> Cost Centers</a>
+  </div>
+
+  <!-- FILTER -->
+  <div class="panel panel-inverse">
+    <div class="panel-heading"><div class="panel-title"><i class="fas fa-filter me-1"></i> Filter</div>
+      <div class="panel-heading-btn"><a href="javascript:;" class="btn btn-sm btn-icon btn-default" data-toggle="panel-collapse"><i class="fa fa-minus"></i></a></div>
+    </div>
+    <div class="panel-body">
+      <div class="row g-2 align-items-end">
+        <div class="col-6 col-md-3 view-group">
+          <input type="date" id="txStart" class="form-control hs_span_view">
+          <label class="input-label">From Date <span class="text-danger">*</span></label>
+        </div>
+        <div class="col-6 col-md-3 view-group">
+          <input type="date" id="txEnd" class="form-control hs_span_view">
+          <label class="input-label">To Date <span class="text-danger">*</span></label>
+        </div>
+        <div class="col-12 col-md-6 d-flex gap-2">
+          <button class="btn btn-success" onclick="txLoad()"><i class="fas fa-sync-alt me-1"></i> Generate</button>
+          <button class="btn btn-outline-secondary" onclick="window.print()"><i class="fas fa-print me-1"></i> Print</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- KPI BANNER -->
+  <div class="row g-2 mb-3" id="txBanner" style="display:none!important">
+    <div class="col-6 col-md-3"><div class="widget widget-stats bg-blue"   style="padding:12px"><div class="stats-info"><h4>TOTAL TAX LINES</h4><p id="txCount">0</p></div></div></div>
+    <div class="col-6 col-md-3"><div class="widget widget-stats bg-green"  style="padding:12px"><div class="stats-info"><h4>GRAND TOTAL</h4><p id="txGrand">0.00</p></div></div></div>
+    <div class="col-6 col-md-3"><div class="widget widget-stats bg-purple" style="padding:12px"><div class="stats-info"><h4>TAX CODES</h4><p id="txCodes">0</p></div></div></div>
+  </div>
+
+  <!-- TABLE -->
+  <div class="panel panel-inverse" id="txPanel" style="display:none">
+    <div class="panel-heading"><div class="panel-title"><i class="fas fa-file-invoice me-1"></i> <span id="txTitle">Tax Lines</span></div>
+      <div class="panel-heading-btn"><a href="javascript:;" class="btn btn-sm btn-icon btn-default" data-toggle="panel-expand"><i class="fa fa-expand"></i></a></div>
+    </div>
+    <div class="panel-body p-0">
+      <div class="table-responsive">
+        <table class="table table-sm table-bordered mb-0" style="font-size:12px">
+          <thead class="table-dark">
+            <tr>
+              <th width="10%">Tax Code</th>
+              <th width="12%">Account Code</th>
+              <th>Account Name</th>
+              <th class="text-end" width="13%">Debit Total (৳)</th>
+              <th class="text-end" width="13%">Credit Total (৳)</th>
+              <th class="text-center" width="8%">Line Count</th>
+            </tr>
+          </thead>
+          <tbody id="txBody"><tr><td colspan="6" class="text-center text-muted py-4">Set date range and click Generate.</td></tr></tbody>
+          <tfoot>
+            <tr class="fw-bold table-warning">
+              <td colspan="3" class="text-end">Grand Total:</td>
+              <td id="txFtDr" class="text-end">--</td>
+              <td id="txFtCr" class="text-end">--</td>
+              <td id="txFtCnt" class="text-center">--</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script th:inline="javascript">
+    /*<![CDATA[*/
+    document.addEventListener('DOMContentLoaded', function() {
+      var now = new Date(), y = now.getFullYear(), m = now.getMonth()+1;
+      document.getElementById('txStart').value = y+'-'+String(m).padStart(2,'0')+'-01';
+      document.getElementById('txEnd').value   = new Date(y,m,0).toISOString().split('T')[0];
+    });
+
+    function txLoad() {
+      var s = document.getElementById('txStart').value;
+      var e = document.getElementById('txEnd').value;
+      if (!s || !e) { alert('Please select date range.'); return; }
+      document.getElementById('txBody').innerHTML =
+        '<tr><td colspan="6" class="text-center py-3"><span class="spinner-border spinner-border-sm me-2"></span>Loading...</td></tr>';
+      document.getElementById('txPanel').style.display = '';
+      document.getElementById('txBanner').style.display = '';
+      fetch('/accounts/reports/data/tax-summary?startDate='+s+'&endDate='+e)
+        .then(function(r){ return r.json(); }).then(function(d){
+          if (d.error) { alert(d.error); return; }
+          var lines = d.lines || [];
+          var s = d.summary || {};
+          document.getElementById('txCount').textContent = s.totalTaxLines || 0;
+          document.getElementById('txGrand').textContent = formatNum(s.grandTotal);
+          document.getElementById('txCodes').textContent = s.taxCodeCount || 0;
+          document.getElementById('txTitle').textContent = 'Tax Summary — '+s+' to '+e;
+          if (!lines.length) {
+            document.getElementById('txBody').innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">No tax lines found.</td></tr>';
+          } else {
+            var html = '', tDr = 0, tCr = 0, tCt = 0;
+            lines.forEach(function(r) {
+              var dr = parseFloat(r.debitTotal||r.debit_total||0);
+              var cr = parseFloat(r.creditTotal||r.credit_total||0);
+              tDr += dr; tCr += cr; tCt += parseInt(r.lineCount||r.line_count||0);
+              html += '<tr>'
+                + '<td><span class="badge bg-warning bg-opacity-25 text-dark">'+(r.taxCode||r.tax_code||'—')+'</span></td>'
+                + '<td><code>'+(r.accountCode||r.account_code||'—')+'</code></td>'
+                + '<td>'+(r.accountName||r.account_name||'—')+'</td>'
+                + '<td class="text-end">'+formatNum(dr)+'</td>'
+                + '<td class="text-end">'+formatNum(cr)+'</td>'
+                + '<td class="text-center">'+(r.lineCount||r.line_count||0)+'</td>'
+                + '</tr>';
+            });
+            document.getElementById('txBody').innerHTML = html;
+            document.getElementById('txFtDr').textContent = formatNum(tDr);
+            document.getElementById('txFtCr').textContent = formatNum(tCr);
+            document.getElementById('txFtCnt').textContent = tCt;
+          }
+        }).catch(function(e){ alert('Error: '+e.message); });
+    }
+
+    function formatNum(v) {
+      if (!v && v !== 0) return '0.00';
+      var n = typeof v === 'number' ? v : parseFloat(v);
+      return n.toLocaleString('en', {minimumFractionDigits:2, maximumFractionDigits:2});
+    }
+    /*]]>*/
+  </script>
+</section>
+</html>

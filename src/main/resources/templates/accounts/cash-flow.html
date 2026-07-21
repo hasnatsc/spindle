@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<!--
+  accounts/cash-flow.html    GET /accounts/reports/cash-flow
+  Data: GET /accounts/reports/data/cash-flow?startDate=&endDate=
+  Returns: { openingCash, closingCash, netCashChange, operating:[{accountCode,accountName,amount}], investing:[], financing:[] }
+-->
+<html th:replace="~{layout/base :: layout('Cash Flow Statement', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
+<section>
+  <ol class="breadcrumb float-xl-end">
+    <li class="breadcrumb-item"><a th:href="@{/dashboard}">Home</a></li>
+    <li class="breadcrumb-item"><a th:href="@{/accounts/dashboard}">Accounts</a></li>
+    <li class="breadcrumb-item"><a th:href="@{/accounts/ledger}">Reports</a></li>
+    <li class="breadcrumb-item active">Cash Flow Statement</li>
+  </ol>
+  <h1 class="page-header">Cash Flow Statement <small>operating, investing &amp; financing activities</small></h1>
+
+  <div class="d-flex gap-2 mb-3 flex-wrap">
+    <a th:href="@{/accounts/reports/day-book}"           class="btn btn-sm btn-outline-secondary"><i class="fas fa-calendar-day me-1"></i> Day Book</a>
+    <a th:href="@{/accounts/reports/cash-flow}"          class="btn btn-sm btn-primary"><i class="fas fa-money-bill-wave me-1"></i> Cash Flow</a>
+    <a th:href="@{/accounts/reports/bank-book}"          class="btn btn-sm btn-outline-secondary"><i class="fas fa-university me-1"></i> Bank Book</a>
+    <a th:href="@{/accounts/reports/cash-book}"          class="btn btn-sm btn-outline-secondary"><i class="fas fa-coins me-1"></i> Cash Book</a>
+    <a th:href="@{/accounts/reports/financial-kpis}"     class="btn btn-sm btn-outline-secondary"><i class="fas fa-chart-bar me-1"></i> KPIs</a>
+  </div>
+
+  <!-- FILTER -->
+  <div class="panel panel-inverse">
+    <div class="panel-heading"><div class="panel-title"><i class="fas fa-filter me-1"></i> Cash Flow Filter</div>
+      <div class="panel-heading-btn"><a href="javascript:;" class="btn btn-sm btn-icon btn-default" data-toggle="panel-collapse"><i class="fa fa-minus"></i></a></div>
+    </div>
+    <div class="panel-body">
+      <div class="row g-2 align-items-end">
+        <div class="col-6 col-md-3 view-group">
+          <input type="date" id="cfStart" class="form-control hs_span_view">
+          <label class="input-label">From Date <span class="text-danger">*</span></label>
+        </div>
+        <div class="col-6 col-md-3 view-group">
+          <input type="date" id="cfEnd" class="form-control hs_span_view">
+          <label class="input-label">To Date <span class="text-danger">*</span></label>
+        </div>
+        <div class="col-12 col-md-6 d-flex gap-2">
+          <button class="btn btn-success" onclick="cfLoad()"><i class="fas fa-search me-1"></i> Generate Statement</button>
+          <button class="btn btn-outline-secondary" onclick="window.print()"><i class="fas fa-print me-1"></i> Print</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- KPI BANNER -->
+  <div class="row g-2 mb-3" id="cfBanner" style="display:none!important">
+    <div class="col-6 col-md-3"><div class="widget widget-stats bg-blue"   style="padding:12px"><div class="stats-info"><h4>OPENING CASH</h4><p id="cfOpCash">0.00</p></div></div></div>
+    <div class="col-6 col-md-3"><div class="widget widget-stats bg-green"  style="padding:12px"><div class="stats-info"><h4>CLOSING CASH</h4><p id="cfClCash">0.00</p></div></div></div>
+    <div class="col-6 col-md-3"><div class="widget widget-stats bg-purple" style="padding:12px"><div class="stats-info"><h4>NET CHANGE</h4><p id="cfNetChange">0.00</p></div></div></div>
+  </div>
+
+  <!-- TABLE / REPORT -->
+  <div class="panel panel-inverse" id="cfPanel" style="display:none">
+    <div class="panel-heading"><div class="panel-title"><i class="fas fa-money-bill-wave me-1"></i> <span id="cfTitle">Cash Flow Statement</span></div>
+      <div class="panel-heading-btn"><a href="javascript:;" class="btn btn-sm btn-icon btn-default" data-toggle="panel-expand"><i class="fa fa-expand"></i></a></div>
+    </div>
+    <div class="panel-body p-0">
+      <div class="table-responsive">
+        <table class="table table-sm table-bordered mb-0" style="font-size:13px">
+          <thead class="table-dark">
+            <tr>
+              <th width="5%">#</th>
+              <th>Account</th>
+              <th class="text-end" width="15%">Amount (৳)</th>
+            </tr>
+          </thead>
+          <tbody id="cfBody">
+            <tr><td colspan="3" class="text-center text-muted py-4">Select date range and click Generate Statement.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script th:inline="javascript">
+    /*<![CDATA[*/
+    document.addEventListener('DOMContentLoaded', function() {
+      var now = new Date(), y = now.getFullYear(), m = now.getMonth()+1;
+      document.getElementById('cfStart').value = y+'-'+String(m).padStart(2,'0')+'-01';
+      document.getElementById('cfEnd').value   = new Date(y,m,0).toISOString().split('T')[0];
+    });
+
+    function cfLoad() {
+      var s = document.getElementById('cfStart').value;
+      var e = document.getElementById('cfEnd').value;
+      if (!s || !e) { alert('Please select both From and To dates.'); return; }
+      document.getElementById('cfBody').innerHTML =
+        '<tr><td colspan="3" class="text-center py-3"><span class="spinner-border spinner-border-sm me-2"></span>Loading…</td></tr>';
+      document.getElementById('cfPanel').style.display = '';
+      document.getElementById('cfBanner').style.display = '';
+      fetch('/accounts/reports/data/cash-flow?startDate='+s+'&endDate='+e)
+        .then(function(r){ return r.json(); }).then(function(d){
+          if (d.error) { alert(d.error); return; }
+          var s = d.summary || {};
+          var sec = d.sections || {};
+          document.getElementById('cfOpCash').textContent   = formatNum(s.openingCash);
+          document.getElementById('cfClCash').textContent   = formatNum(s.closingCash);
+          document.getElementById('cfNetChange').textContent = formatNum(s.netCashChange);
+          var html = '', sl = 1;
+
+          // Operating Activities
+          var ops = (sec.operating && sec.operating.items) || d.operating || [];
+          html += '<tr class="table-info fw-bold"><td colspan="3"><i class="fas fa-industry me-1"></i> Operating Activities</td></tr>';
+          if (ops.length === 0) {
+            html += '<tr><td></td><td class="text-muted">No operating items.</td><td class="text-end">—</td></tr>';
+          } else {
+            ops.forEach(function(r){
+              html += '<tr><td>'+(sl++)+'</td><td><strong>'+r.accountCode+'</strong> — '+r.accountName+'</td><td class="text-end">'+formatNum(r.amount)+'</td></tr>';
+            });
+          }
+          // Investing Activities
+          var inv = (sec.investing && sec.investing.items) || d.investing || [];
+          html += '<tr class="table-warning fw-bold"><td colspan="3"><i class="fas fa-chart-pie me-1"></i> Investing Activities</td></tr>';
+          if (inv.length === 0) {
+            html += '<tr><td></td><td class="text-muted">No investing items.</td><td class="text-end">—</td></tr>';
+          } else {
+            inv.forEach(function(r){
+              html += '<tr><td>'+(sl++)+'</td><td><strong>'+r.accountCode+'</strong> — '+r.accountName+'</td><td class="text-end">'+formatNum(r.amount)+'</td></tr>';
+            });
+          }
+          // Financing Activities
+          var fin = (sec.financing && sec.financing.items) || d.financing || [];
+          html += '<tr class="table-success fw-bold"><td colspan="3"><i class="fas fa-hand-holding-usd me-1"></i> Financing Activities</td></tr>';
+          if (fin.length === 0) {
+            html += '<tr><td></td><td class="text-muted">No financing items.</td><td class="text-end">—</td></tr>';
+          } else {
+            fin.forEach(function(r){
+              html += '<tr><td>'+(sl++)+'</td><td><strong>'+r.accountCode+'</strong> — '+r.accountName+'</td><td class="text-end">'+formatNum(r.amount)+'</td></tr>';
+            });
+          }
+          // Net row
+          html += '<tr class="fw-bold table-secondary"><td colspan="2" class="text-end">Net Cash Change</td><td class="text-end">'+formatNum(d.netCashChange)+'</td></tr>';
+
+          document.getElementById('cfBody').innerHTML = html;
+          document.getElementById('cfTitle').textContent = 'Cash Flow Statement — '+s+' to '+e;
+        }).catch(function(e){ alert('Error: '+e.message); });
+    }
+
+    function formatNum(v) {
+      if (!v && v !== 0) return '0.00';
+      var n = typeof v === 'number' ? v : parseFloat(v);
+      return n.toLocaleString('en', {minimumFractionDigits:2, maximumFractionDigits:2});
+    }
+    /*]]>*/
+  </script>
+</section>
+</html>

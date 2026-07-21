@@ -15,6 +15,29 @@
   </ol>
   <h1 class="page-header">Aging Report <small>AP &amp; AR outstanding analysis by age bucket</small></h1>
 
+  <div class="d-flex gap-2 mb-3 flex-wrap">
+    <a th:href="@{/accounts/aging}" class="btn btn-sm btn-primary"><i class="fas fa-clock me-1"></i> Aging</a>
+    <div class="btn-group">
+      <button type="button" class="btn btn-sm btn-outline-info dropdown-toggle" data-bs-toggle="dropdown"><i class="fas fa-chart-bar me-1"></i> More Reports</button>
+      <ul class="dropdown-menu">
+        <li><a class="dropdown-item" th:href="@{/accounts/reports/day-book}"><i class="fas fa-calendar-day me-1"></i> Day Book</a></li>
+        <li><a class="dropdown-item" th:href="@{/accounts/reports/voucher-register}"><i class="fas fa-list me-1"></i> Voucher Register</a></li>
+        <li><a class="dropdown-item" th:href="@{/accounts/reports/cash-flow}"><i class="fas fa-money-bill-wave me-1"></i> Cash Flow</a></li>
+        <li><a class="dropdown-item" th:href="@{/accounts/reports/bank-book}"><i class="fas fa-university me-1"></i> Bank Book</a></li>
+        <li><a class="dropdown-item" th:href="@{/accounts/reports/cash-book}"><i class="fas fa-coins me-1"></i> Cash Book</a></li>
+        <li><a class="dropdown-item" th:href="@{/accounts/reports/party-ledger}"><i class="fas fa-address-book me-1"></i> Party Ledger</a></li>
+        <li><a class="dropdown-item" th:href="@{/accounts/reports/comparative-pl}"><i class="fas fa-chart-simple me-1"></i> Comparative P&amp;L</a></li>
+        <li><a class="dropdown-item" th:href="@{/accounts/reports/comparative-tb}"><i class="fas fa-scale-balanced me-1"></i> Comparative TB</a></li>
+        <li><a class="dropdown-item" th:href="@{/accounts/reports/tax-summary}"><i class="fas fa-file-invoice me-1"></i> Tax Summary</a></li>
+        <li><a class="dropdown-item" th:href="@{/accounts/reports/financial-kpis}"><i class="fas fa-chart-pie me-1"></i> Financial KPIs</a></li>
+        <li><a class="dropdown-item" th:href="@{/accounts/reports/cost-center-summary}"><i class="fas fa-layer-group me-1"></i> Cost Center Summary</a></li>
+        <li><a class="dropdown-item" th:href="@{/accounts/reports/account-summary}"><i class="fas fa-calculator me-1"></i> Account Summary</a></li>
+        <li><a class="dropdown-item" th:href="@{/accounts/reports/sub-account-summary}"><i class="fas fa-users me-1"></i> Sub-Account Summary</a></li>
+        <li><a class="dropdown-item" th:href="@{/accounts/reports/budget-vs-actual}"><i class="fas fa-chart-column me-1"></i> Budget vs Actual</a></li>
+      </ul>
+    </div>
+  </div>
+
   <!-- TYPE SELECTOR -->
   <div class="row mb-3">
     <div class="col-auto">

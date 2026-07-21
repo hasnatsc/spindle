@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<!--
+  accounts/day-book.html    GET /accounts/reports/day-book
+  Data: GET /accounts/reports/data/day-book?startDate=&endDate=
+  Returns: { lines:[], summary:{totalDebit,totalCredit,count} }
+-->
+<html th:replace="~{layout/base :: layout('Day Book', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
+<section>
+  <ol class="breadcrumb float-xl-end">
+    <li class="breadcrumb-item"><a th:href="@{/dashboard}">Home</a></li>
+    <li class="breadcrumb-item"><a th:href="@{/accounts/dashboard}">Accounts</a></li>
+    <li class="breadcrumb-item"><a th:href="@{/accounts/ledger}">Reports</a></li>
+    <li class="breadcrumb-item active">Day Book</li>
+  </ol>
+  <h1 class="page-header">Day Book <small>chronological transaction listing</small></h1>
+
+  <div class="d-flex gap-2 mb-3 flex-wrap">
+    <a th:href="@{/accounts/reports/day-book}"            class="btn btn-sm btn-primary"><i class="fas fa-calendar-day me-1"></i> Day Book</a>
+    <a th:href="@{/accounts/reports/voucher-register}"    class="btn btn-sm btn-outline-secondary"><i class="fas fa-list me-1"></i> Voucher Register</a>
+    <a th:href="@{/accounts/reports/cash-flow}"           class="btn btn-sm btn-outline-secondary"><i class="fas fa-money-bill-wave me-1"></i> Cash Flow</a>
+    <a th:href="@{/accounts/reports/bank-book}"           class="btn btn-sm btn-outline-secondary"><i class="fas fa-university me-1"></i> Bank Book</a>
+    <a th:href="@{/accounts/reports/cash-book}"           class="btn btn-sm btn-outline-secondary"><i class="fas fa-coins me-1"></i> Cash Book</a>
+    <a th:href="@{/accounts/reports/financial-kpis}"      class="btn btn-sm btn-outline-secondary"><i class="fas fa-chart-bar me-1"></i> KPIs</a>
+  </div>
+
+  <!-- FILTER -->
+  <div class="panel panel-inverse">
+    <div class="panel-heading"><div class="panel-title"><i class="fas fa-filter me-1"></i> Day Book Filter</div>
+      <div class="panel-heading-btn"><a href="javascript:;" class="btn btn-sm btn-icon btn-default" data-toggle="panel-collapse"><i class="fa fa-minus"></i></a></div>
+    </div>
+    <div class="panel-body">
+      <div class="row g-2 align-items-end">
+        <div class="col-6 col-md-3 view-group">
+          <input type="date" id="dbStart" class="form-control hs_span_view" th:value="${#temporals.format(#temporals.createToday().withDayOfMonth(1), 'yyyy-MM-dd')}">
+          <label class="input-label">From Date <span class="text-danger">*</span></label>
+        </div>
+        <div class="col-6 col-md-3 view-group">
+          <input type="date" id="dbEnd" class="form-control hs_span_view" th:value="${#temporals.format(#temporals.createToday(), 'yyyy-MM-dd')}">
+          <label class="input-label">To Date <span class="text-danger">*</span></label>
+        </div>
+        <div class="col-12 col-md-6 d-flex gap-2">
+          <button class="btn btn-success" onclick="dbLoad()"><i class="fas fa-search me-1"></i> Load Day Book</button>
+          <button class="btn btn-outline-secondary" onclick="window.print()"><i class="fas fa-print me-1"></i> Print</button>
+          <button class="btn btn-white" onclick="dbReset()"><i class="fas fa-xmark me-1"></i> Reset</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- KPI BANNER -->
+  <div class="row g-2 mb-3" id="dbBanner" style="display:none!important">
+    <div class="col-6 col-md-3"><div class="widget widget-stats bg-green" style="padding:12px"><div class="stats-info"><h4>TOTAL DEBIT</h4><p id="dbTotDr">0.00</p></div></div></div>
+    <div class="col-6 col-md-3"><div class="widget widget-stats bg-red"   style="padding:12px"><div class="stats-info"><h4>TOTAL CREDIT</h4><p id="dbTotCr">0.00</p></div></div></div>
+    <div class="col-6 col-md-3"><div class="widget widget-stats bg-blue"  style="padding:12px"><div class="stats-info"><h4>ENTRIES</h4><p id="dbCount">0</p></div></div></div>
+    <div class="col-6 col-md-3"><div class="widget widget-stats bg-purple"style="padding:12px"><div class="stats-info"><h4>STATUS</h4><p id="dbStatus">Balanced</p></div></div></div>
+  </div>
+
+  <!-- TABLE -->
+  <div class="panel panel-inverse" id="dbPanel" style="display:none">
+    <div class="panel-heading"><div class="panel-title"><i class="fas fa-calendar-day me-1"></i> <span id="dbTitle">Day Book</span></div>
+      <div class="panel-heading-btn"><a href="javascript:;" class="btn btn-sm btn-icon btn-default" data-toggle="panel-expand"><i class="fa fa-expand"></i></a></div>
+    </div>
+    <div class="panel-body p-0">
+      <div class="table-responsive">
+        <table class="table table-sm table-bordered mb-0" style="font-size:12px">
+          <thead class="table-dark">
+            <tr>
+              <th width="10%">Date</th>
+              <th width="12%">Voucher No</th>
+              <th width="10%">Type</th>
+              <th width="10%">Account</th>
+              <th>Account Name</th>
+              <th class="text-end" width="10%">Debit (৳)</th>
+              <th class="text-end" width="10%">Credit (৳)</th>
+              <th>Narration</th>
+              <th width="10%">Reference</th>
+            </tr>
+          </thead>
+          <tbody id="dbBody"><tr><td colspan="9" class="text-center text-muted py-4">Select dates and click Load.</td></tr></tbody>
+          <tfoot>
+            <tr class="fw-bold table-warning">
+              <td colspan="5" class="text-end">Grand Total:</td>
+              <td id="dbFtDr" class="text-end">—</td>
+              <td id="dbFtCr" class="text-end">—</td>
+              <td colspan="2"></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script th:inline="javascript">
+    /*<![CDATA[*/
+    function dbLoad() {
+      const s = document.getElementById('dbStart').value;
+      const e = document.getElementById('dbEnd').value;
+      if (!s || !e) { alert('Please select both From and To dates.'); return; }
+      fetch(`/accounts/reports/data/day-book?startDate=${s}&endDate=${e}`)
+        .then(r => r.json()).then(d => {
+          if (d.error) { alert(d.error); return; }
+          const lines = d.lines || [];
+          const sum = d.summary || {};
+          document.getElementById('dbTotDr').textContent = formatNum(sum.totalDebit);
+          document.getElementById('dbTotCr').textContent = formatNum(sum.totalCredit);
+          document.getElementById('dbCount').textContent = sum.count || 0;
+          const bal = Math.abs(sum.totalDebit - sum.totalCredit) < 0.01;
+          document.getElementById('dbStatus').textContent = bal ? 'Balanced' : 'Unbalanced!';
+          document.getElementById('dbStatus').className = bal ? 'text-success fw-bold' : 'text-danger fw-bold';
+          const tbody = document.getElementById('dbBody');
+          tbody.innerHTML = '';
+          if (lines.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted py-4">No transactions found.</td></tr>';
+          } else {
+            lines.forEach(r => {
+              tbody.innerHTML += `<tr>
+                <td class="text-nowrap">${r.voucher_date}</td>
+                <td>${r.voucher_no}</td>
+                <td><span class="badge bg-info">${r.voucher_type}</span></td>
+                <td><code>${r.account_code}</code></td>
+                <td>${r.account_name}</td>
+                <td class="text-end">${r.debit > 0 ? formatNum(r.debit) : '—'}</td>
+                <td class="text-end">${r.credit > 0 ? formatNum(r.credit) : '—'}</td>
+                <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.narration}</td>
+                <td>${r.reference_no}</td>
+              </tr>`;
+            });
+          }
+          document.getElementById('dbFtDr').textContent = formatNum(sum.totalDebit);
+          document.getElementById('dbFtCr').textContent = formatNum(sum.totalCredit);
+          document.getElementById('dbBanner').style.display = 'flex';
+          document.getElementById('dbPanel').style.display = 'block';
+          document.getElementById('dbTitle').textContent = `Day Book — ${s} to ${e}`;
+        }).catch(e => alert('Error: ' + e.message));
+    }
+    function dbReset() {
+      document.getElementById('dbStart').value = '';
+      document.getElementById('dbEnd').value = '';
+      document.getElementById('dbBanner').style.display = 'none';
+      document.getElementById('dbPanel').style.display = 'none';
+    }
+    function formatNum(v) {
+      if (!v || v === '0') return '0.00';
+      const n = typeof v === 'number' ? v : parseFloat(v);
+      return n.toLocaleString('en', {minimumFractionDigits:2,maximumFractionDigits:2});
+    }
+    /*]]>*/
+  </script>
+</section>
+</html>

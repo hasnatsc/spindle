@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<!--
+  accounts/comparative-pl.html    GET /accounts/reports/comparative-pl
+  Data: GET /accounts/reports/data/comparative-pl?startDate=&endDate=&prevStartDate=&prevEndDate=
+  Returns: { currentRevenue, previousRevenue, currentExpense, previousExpense, currentNetProfit, previousNetProfit,
+             revenue:[{accountCode,accountName,currentAmount,previousAmount,changePct}],
+             expense:[{accountCode,accountName,currentAmount,previousAmount,changePct}] }
+-->
+<html th:replace="~{layout/base :: layout('Comparative P&amp;L', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
+<section>
+  <ol class="breadcrumb float-xl-end">
+    <li class="breadcrumb-item"><a th:href="@{/dashboard}">Home</a></li>
+    <li class="breadcrumb-item"><a th:href="@{/accounts/dashboard}">Accounts</a></li>
+    <li class="breadcrumb-item"><a th:href="@{/accounts/ledger}">Reports</a></li>
+    <li class="breadcrumb-item active">Comparative P&amp;L</li>
+  </ol>
+  <h1 class="page-header">Comparative P&amp;L <small>revenue &amp; expense across two periods</small></h1>
+
+  <div class="d-flex gap-2 mb-3 flex-wrap">
+    <a th:href="@{/accounts/reports/profit-loss}"          class="btn btn-sm btn-outline-secondary"><i class="fas fa-chart-line me-1"></i> P&amp;L</a>
+    <a th:href="@{/accounts/reports/comparative-pl}"       class="btn btn-sm btn-primary"><i class="fas fa-chart-bar me-1"></i> Comparative P&amp;L</a>
+    <a th:href="@{/accounts/reports/comparative-tb}"       class="btn btn-sm btn-outline-secondary"><i class="fas fa-scale-balanced me-1"></i> Comparative TB</a>
+    <a th:href="@{/accounts/reports/financial-kpis}"       class="btn btn-sm btn-outline-secondary"><i class="fas fa-chart-bar me-1"></i> KPIs</a>
+  </div>
+
+  <!-- FILTER -->
+  <div class="panel panel-inverse">
+    <div class="panel-heading"><div class="panel-title"><i class="fas fa-filter me-1"></i> Period Filter</div>
+      <div class="panel-heading-btn"><a href="javascript:;" class="btn btn-sm btn-icon btn-default" data-toggle="panel-collapse"><i class="fa fa-minus"></i></a></div>
+    </div>
+    <div class="panel-body">
+      <div class="row g-2 align-items-end">
+        <div class="col-6 col-md-2 view-group">
+          <input type="date" id="cplStart" class="form-control hs_span_view">
+          <label class="input-label">Current From <span class="text-danger">*</span></label>
+        </div>
+        <div class="col-6 col-md-2 view-group">
+          <input type="date" id="cplEnd" class="form-control hs_span_view">
+          <label class="input-label">Current To <span class="text-danger">*</span></label>
+        </div>
+        <div class="col-6 col-md-2 view-group">
+          <input type="date" id="cplPrevStart" class="form-control hs_span_view">
+          <label class="input-label">Previous From <span class="text-danger">*</span></label>
+        </div>
+        <div class="col-6 col-md-2 view-group">
+          <input type="date" id="cplPrevEnd" class="form-control hs_span_view">
+          <label class="input-label">Previous To <span class="text-danger">*</span></label>
+        </div>
+        <div class="col-12 col-md-4 d-flex gap-2">
+          <button class="btn btn-success" onclick="cplLoad()"><i class="fas fa-search me-1"></i> Compare</button>
+          <button class="btn btn-outline-secondary" onclick="window.print()"><i class="fas fa-print me-1"></i> Print</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- KPI BANNER -->
+  <div class="row g-2 mb-3" id="cplBanner" style="display:none!important">
+    <div class="col-4 col-md-2"><div class="widget widget-stats bg-green"  style="padding:10px"><div class="stats-info"><h6 style="font-size:10px">CURRENT REVENUE</h6><p id="cplCurRev" style="font-size:13px">0.00</p></div></div></div>
+    <div class="col-4 col-md-2"><div class="widget widget-stats bg-blue"   style="padding:10px"><div class="stats-info"><h6 style="font-size:10px">PREV REVENUE</h6><p id="cplPrevRev" style="font-size:13px">0.00</p></div></div></div>
+    <div class="col-4 col-md-2"><div class="widget widget-stats bg-red"    style="padding:10px"><div class="stats-info"><h6 style="font-size:10px">CURRENT EXPENSE</h6><p id="cplCurExp" style="font-size:13px">0.00</p></div></div></div>
+    <div class="col-4 col-md-2"><div class="widget widget-stats bg-orange" style="padding:10px"><div class="stats-info"><h6 style="font-size:10px">PREV EXPENSE</h6><p id="cplPrevExp" style="font-size:13px">0.00</p></div></div></div>
+    <div class="col-4 col-md-2"><div class="widget widget-stats bg-purple" style="padding:10px"><div class="stats-info"><h6 style="font-size:10px">CUR NET PROFIT</h6><p id="cplCurNp" style="font-size:13px">0.00</p></div></div></div>
+    <div class="col-4 col-md-2"><div class="widget widget-stats bg-grey"   style="padding:10px;background:#6c757d!important"><div class="stats-info"><h6 style="font-size:10px">PREV NET PROFIT</h6><p id="cplPrevNp" style="font-size:13px">0.00</p></div></div></div>
+  </div>
+
+  <!-- TABLE -->
+  <div class="panel panel-inverse" id="cplPanel" style="display:none">
+    <div class="panel-heading"><div class="panel-title"><i class="fas fa-chart-bar me-1"></i> <span id="cplTitle">Comparative P&amp;L</span></div>
+      <div class="panel-heading-btn"><a href="javascript:;" class="btn btn-sm btn-icon btn-default" data-toggle="panel-expand"><i class="fa fa-expand"></i></a></div>
+    </div>
+    <div class="panel-body p-0">
+      <div class="table-responsive">
+        <table class="table table-sm table-bordered mb-0" style="font-size:12px">
+          <thead class="table-dark">
+            <tr>
+              <th width="8%">Account Code</th>
+              <th>Account Name</th>
+              <th class="text-end" width="13%">Current (৳)</th>
+              <th class="text-end" width="13%">Previous (৳)</th>
+              <th class="text-end" width="10%">Change %</th>
+            </tr>
+          </thead>
+          <tbody id="cplBody"><tr><td colspan="5" class="text-center text-muted py-4">Select periods and click Compare.</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script th:inline="javascript">
+    /*<![CDATA[*/
+    document.addEventListener('DOMContentLoaded', function() {
+      var now = new Date(), y = now.getFullYear(), m = now.getMonth()+1;
+      document.getElementById('cplStart').value     = y+'-'+String(m).padStart(2,'0')+'-01';
+      document.getElementById('cplEnd').value       = new Date(y,m,0).toISOString().split('T')[0];
+      var prevY = y, prevM = m-3;
+      if (prevM < 1) { prevM += 12; prevY--; }
+      document.getElementById('cplPrevStart').value = prevY+'-'+String(prevM).padStart(2,'0')+'-01';
+      document.getElementById('cplPrevEnd').value   = new Date(prevY,prevM,0).toISOString().split('T')[0];
+    });
+
+    function cplLoad() {
+      var cs  = document.getElementById('cplStart').value;
+      var ce  = document.getElementById('cplEnd').value;
+      var ps  = document.getElementById('cplPrevStart').value;
+      var pe  = document.getElementById('cplPrevEnd').value;
+      if (!cs || !ce || !ps || !pe) { alert('Please select all four dates.'); return; }
+      document.getElementById('cplBody').innerHTML =
+        '<tr><td colspan="5" class="text-center py-3"><span class="spinner-border spinner-border-sm me-2"></span>Loading…</td></tr>';
+      document.getElementById('cplPanel').style.display = '';
+      document.getElementById('cplBanner').style.display = '';
+      var qs = '?startDate='+cs+'&endDate='+ce+'&prevStartDate='+ps+'&prevEndDate='+pe;
+      fetch('/accounts/reports/data/comparative-pl'+qs).then(function(r){ return r.json(); }).then(function(d){
+        if (d.error) { alert(d.error); return; }
+        var s = d.summary || {};
+        document.getElementById('cplCurRev').textContent  = formatNum(s.currentRevenue);
+        document.getElementById('cplPrevRev').textContent = formatNum(s.previousRevenue);
+        document.getElementById('cplCurExp').textContent  = formatNum(s.currentExpense);
+        document.getElementById('cplPrevExp').textContent = formatNum(s.previousExpense);
+        document.getElementById('cplCurNp').textContent   = formatNum(s.currentNetProfit);
+        document.getElementById('cplPrevNp').textContent  = formatNum(s.previousNetProfit);
+        document.getElementById('cplTitle').textContent   = 'Comparative P&amp;L — '+cs+' to '+ce+' vs '+ps+' to '+pe;
+        var html = '', sl = 1;
+
+        // Revenue section
+        var rev = d.revenueLines || [];
+        html += '<tr class="table-success fw-bold"><td colspan="5"><i class="fas fa-arrow-up me-1"></i> Revenue</td></tr>';
+        if (rev.length === 0) {
+          html += '<tr><td colspan="5" class="text-muted text-center">No revenue items.</td></tr>';
+        } else {
+          rev.forEach(function(r) {
+            var cur = parseFloat(r.current_amount||r.currentAmount||0);
+            var prv = parseFloat(r.previous_amount||r.previousAmount||0);
+            var chg = parseFloat(r.change_percent||r.changePercent||0);
+            html += '<tr><td><code>'+(r.account_code||r.accountCode)+'</code></td><td>'+(r.account_name||r.accountName)+'</td>'
+              + '<td class="text-end">'+formatNum(cur)+'</td>'
+              + '<td class="text-end">'+formatNum(prv)+'</td>'
+              + '<td class="text-end '+(chg>=0?'text-success':'text-danger')+'">'+formatPct(chg)+'</td></tr>';
+          });
+        }
+
+        // Expense section
+        var exp = d.expenseLines || [];
+        html += '<tr class="table-danger fw-bold"><td colspan="5"><i class="fas fa-arrow-down me-1"></i> Expense</td></tr>';
+        if (exp.length === 0) {
+          html += '<tr><td colspan="5" class="text-muted text-center">No expense items.</td></tr>';
+        } else {
+          exp.forEach(function(r) {
+            var cur = parseFloat(r.current_amount||r.currentAmount||0);
+            var prv = parseFloat(r.previous_amount||r.previousAmount||0);
+            var chg = parseFloat(r.change_percent||r.changePercent||0);
+            html += '<tr><td><code>'+(r.account_code||r.accountCode)+'</code></td><td>'+(r.account_name||r.accountName)+'</td>'
+              + '<td class="text-end">'+formatNum(cur)+'</td>'
+              + '<td class="text-end">'+formatNum(prv)+'</td>'
+              + '<td class="text-end '+(chg>=0?'text-success':'text-danger')+'">'+formatPct(chg)+'</td></tr>';
+          });
+        }
+
+        // Net profit row
+        html += '<tr class="fw-bold table-secondary"><td colspan="2" class="text-end">Net Profit</td>'
+          + '<td class="text-end">'+formatNum(d.currentNetProfit)+'</td>'
+          + '<td class="text-end">'+formatNum(d.previousNetProfit)+'</td>'
+          + '<td class="text-end">—</td></tr>';
+
+        document.getElementById('cplBody').innerHTML = html;
+      }).catch(function(e){ alert('Error: '+e.message); });
+    }
+
+    function formatPct(v) {
+      var n = parseFloat(v||0);
+      return n.toFixed(2)+'%';
+    }
+
+    function formatNum(v) {
+      if (!v && v !== 0) return '0.00';
+      var n = typeof v === 'number' ? v : parseFloat(v);
+      return n.toLocaleString('en', {minimumFractionDigits:2, maximumFractionDigits:2});
+    }
+    /*]]>*/
+  </script>
+</section>
+</html>

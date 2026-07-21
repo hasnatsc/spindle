@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<!--
+  accounts/cash-book.html    GET /accounts/reports/cash-book
+  Data: GET /accounts/reports/data/cash-book?cashAccountId=&startDate=&endDate=
+  Returns: { cashName, openingBalance, totalDebit, totalCredit, closingBalance,
+             lines:[{voucher_date,voucher_no,voucher_type,debit,credit,running_balance,narration}] }
+-->
+<html th:replace="~{layout/base :: layout('Cash Book', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
+<section>
+  <ol class="breadcrumb float-xl-end">
+    <li class="breadcrumb-item"><a th:href="@{/dashboard}">Home</a></li>
+    <li class="breadcrumb-item"><a th:href="@{/accounts/dashboard}">Accounts</a></li>
+    <li class="breadcrumb-item"><a th:href="@{/accounts/ledger}">Reports</a></li>
+    <li class="breadcrumb-item active">Cash Book</li>
+  </ol>
+  <h1 class="page-header">Cash Book <small>cash-account transaction register</small></h1>
+
+  <div class="d-flex gap-2 mb-3 flex-wrap">
+    <a th:href="@{/accounts/reports/day-book}"           class="btn btn-sm btn-outline-secondary"><i class="fas fa-calendar-day me-1"></i> Day Book</a>
+    <a th:href="@{/accounts/reports/cash-flow}"          class="btn btn-sm btn-outline-secondary"><i class="fas fa-money-bill-wave me-1"></i> Cash Flow</a>
+    <a th:href="@{/accounts/reports/bank-book}"          class="btn btn-sm btn-outline-secondary"><i class="fas fa-university me-1"></i> Bank Book</a>
+    <a th:href="@{/accounts/reports/cash-book}"          class="btn btn-sm btn-primary"><i class="fas fa-coins me-1"></i> Cash Book</a>
+    <a th:href="@{/accounts/reports/financial-kpis}"     class="btn btn-sm btn-outline-secondary"><i class="fas fa-chart-bar me-1"></i> KPIs</a>
+  </div>
+
+  <!-- FILTER -->
+  <div class="panel panel-inverse">
+    <div class="panel-heading"><div class="panel-title"><i class="fas fa-filter me-1"></i> Cash Book Filter</div>
+      <div class="panel-heading-btn"><a href="javascript:;" class="btn btn-sm btn-icon btn-default" data-toggle="panel-collapse"><i class="fa fa-minus"></i></a></div>
+    </div>
+    <div class="panel-body">
+      <div class="row g-2 align-items-end">
+        <div class="col-12 col-md-4 view-group">
+          <select id="cbAccountId" class="form-select hs_span_view" style="width:100%"><option value="">— Select Cash Account —</option></select>
+          <label class="input-label">Cash Account <span class="text-danger">*</span></label>
+        </div>
+        <div class="col-6 col-md-2 view-group">
+          <input type="date" id="cbStart" class="form-control hs_span_view">
+          <label class="input-label">From Date <span class="text-danger">*</span></label>
+        </div>
+        <div class="col-6 col-md-2 view-group">
+          <input type="date" id="cbEnd" class="form-control hs_span_view">
+          <label class="input-label">To Date <span class="text-danger">*</span></label>
+        </div>
+        <div class="col-12 col-md-4 d-flex gap-2">
+          <button class="btn btn-success" onclick="cbLoad()"><i class="fas fa-search me-1"></i> Load Cash Book</button>
+          <button class="btn btn-outline-secondary" onclick="window.print()"><i class="fas fa-print me-1"></i> Print</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- KPI BANNER -->
+  <div class="row g-2 mb-3" id="cbBanner" style="display:none!important">
+    <div class="col-6 col-md-3"><div class="widget widget-stats bg-blue"   style="padding:12px"><div class="stats-info"><h4>OPENING BALANCE</h4><p id="cbOpBal">0.00</p></div></div></div>
+    <div class="col-6 col-md-3"><div class="widget widget-stats bg-green"  style="padding:12px"><div class="stats-info"><h4>TOTAL DEBIT</h4><p id="cbTotDr">0.00</p></div></div></div>
+    <div class="col-6 col-md-3"><div class="widget widget-stats bg-red"    style="padding:12px"><div class="stats-info"><h4>TOTAL CREDIT</h4><p id="cbTotCr">0.00</p></div></div></div>
+    <div class="col-6 col-md-3"><div class="widget widget-stats bg-purple" style="padding:12px"><div class="stats-info"><h4>CLOSING BALANCE</h4><p id="cbClBal">0.00</p></div></div></div>
+  </div>
+
+  <!-- TABLE -->
+  <div class="panel panel-inverse" id="cbPanel" style="display:none">
+    <div class="panel-heading"><div class="panel-title"><i class="fas fa-coins me-1"></i> <span id="cbTitle">Cash Book</span></div>
+      <div class="panel-heading-btn"><a href="javascript:;" class="btn btn-sm btn-icon btn-default" data-toggle="panel-expand"><i class="fa fa-expand"></i></a></div>
+    </div>
+    <div class="panel-body p-0">
+      <div class="table-responsive">
+        <table class="table table-sm table-bordered table-striped mb-0" style="font-size:12px">
+          <thead class="table-dark">
+            <tr>
+              <th width="1%">#</th>
+              <th width="10%">Date</th>
+              <th width="14%">Voucher No</th>
+              <th width="8%">Type</th>
+              <th class="text-end" width="10%">Debit (৳)</th>
+              <th class="text-end" width="10%">Credit (৳)</th>
+              <th class="text-end" width="12%">Balance (৳)</th>
+              <th>Narration</th>
+            </tr>
+          </thead>
+          <tbody id="cbBody"><tr><td colspan="8" class="text-center text-muted py-4">Select a cash account and date range.</td></tr></tbody>
+          <tfoot>
+            <tr class="fw-bold table-warning">
+              <td colspan="4" class="text-end">Totals:</td>
+              <td id="cbFtDr" class="text-end">—</td>
+              <td id="cbFtCr" class="text-end">—</td>
+              <td id="cbFtBal" class="text-end">—</td>
+              <td></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script th:inline="javascript">
+    /*<![CDATA[*/
+    document.addEventListener('DOMContentLoaded', function() {
+      var now = new Date(), y = now.getFullYear(), m = now.getMonth()+1;
+      document.getElementById('cbStart').value = y+'-'+String(m).padStart(2,'0')+'-01';
+      document.getElementById('cbEnd').value   = new Date(y,m,0).toISOString().split('T')[0];
+      $('#cbAccountId').select2({
+        placeholder:'— Search Cash Account (name) —', allowClear:true, width:'100%',
+        ajax:{
+          url:'/accounts/sub-accounts/search', dataType:'json', delay:250,
+          data:function(p){ return {search:p.term||'', page:p.page||1, subAccountType:'CASH'}; },
+          processResults:function(d){ return {results:(d.items||[]).map(function(i){ return {id:i.id,text:i.code+' — '+i.name}; }),pagination:{more:d.hasMore}}; }
+        }
+      });
+    });
+
+    function cbLoad() {
+      var id = document.getElementById('cbAccountId').value;
+      var s  = document.getElementById('cbStart').value;
+      var e  = document.getElementById('cbEnd').value;
+      if (!id) { alert('Please select a cash account.'); return; }
+      if (!s || !e) { alert('Please select date range.'); return; }
+      document.getElementById('cbBody').innerHTML =
+        '<tr><td colspan="8" class="text-center py-3"><span class="spinner-border spinner-border-sm me-2"></span>Loading…</td></tr>';
+      document.getElementById('cbPanel').style.display = '';
+      document.getElementById('cbBanner').style.display = '';
+      var qs = '?cashAccountId='+id+'&startDate='+s+'&endDate='+e;
+      fetch('/accounts/reports/data/cash-book'+qs).then(function(r){ return r.json(); }).then(function(d){
+        if (d.error) { alert(d.error); return; }
+        var lines = d.lines || [], meta = d.summary || {};
+        document.getElementById('cbTitle').textContent = 'Cash Book — '+(d.cashName||'Cash Account');
+        document.getElementById('cbOpBal').textContent = formatNum(meta.openingBalance||0);
+        document.getElementById('cbTotDr').textContent = formatNum(meta.totalDebit||0);
+        document.getElementById('cbTotCr').textContent = formatNum(meta.totalCredit||0);
+        document.getElementById('cbClBal').textContent = formatNum(meta.closingBalance||0);
+        document.getElementById('cbFtDr').textContent  = formatNum(meta.totalDebit||0);
+        document.getElementById('cbFtCr').textContent  = formatNum(meta.totalCredit||0);
+        document.getElementById('cbFtBal').textContent = formatNum(meta.closingBalance||0);
+        if (!lines.length) {
+          document.getElementById('cbBody').innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">No transactions found.</td></tr>'; return;
+        }
+        var html = '', ob = parseFloat(meta.openingBalance||0), sl = 1;
+        html += '<tr class="table-info fw-bold">'
+          + '<td>'+(sl++)+'</td><td>'+(s||'')+'</td>'
+          + '<td colspan="2" class="fst-italic text-muted">Opening Balance</td>'
+          + '<td class="text-end">—</td><td class="text-end">—</td>'
+          + '<td class="text-end">'+formatNum(ob)+'</td><td></td></tr>';
+        lines.forEach(function(r) {
+          var dr  = parseFloat(r.debit  || 0);
+          var cr  = parseFloat(r.credit || 0);
+          var run = parseFloat(r.running_balance || 0);
+          var narr = (r.narration||''); if(narr.length>50) narr=narr.substring(0,50)+'…';
+          html += '<tr>'
+            + '<td>'+(sl++)+'</td>'
+            + '<td class="text-nowrap">'+(r.voucher_date||'—')+'</td>'
+            + '<td><strong class="text-primary">'+(r.voucher_no||'—')+'</strong></td>'
+            + '<td><span class="badge bg-info">'+(r.voucher_type||'').replace(/_/g,' ')+'</span></td>'
+            + '<td class="text-end '+(dr>0?'text-success fw-semibold':'text-muted')+'">'+(dr>0?formatNum(dr):'—')+'</td>'
+            + '<td class="text-end '+(cr>0?'text-danger fw-semibold':'text-muted')+'">'+(cr>0?formatNum(cr):'—')+'</td>'
+            + '<td class="text-end fw-bold '+(run>=0?'text-success':'text-danger')+'">'+formatNum(run)+'</td>'
+            + '<td class="text-muted small">'+narr+'</td>'
+            + '</tr>';
+        });
+        document.getElementById('cbBody').innerHTML = html;
+      }).catch(function(e){ alert('Error: '+e.message); });
+    }
+
+    function formatNum(v) {
+      if (!v && v !== 0) return '0.00';
+      var n = typeof v === 'number' ? v : parseFloat(v);
+      return n.toLocaleString('en', {minimumFractionDigits:2, maximumFractionDigits:2});
+    }
+    /*]]>*/
+  </script>
+</section>
+</html>

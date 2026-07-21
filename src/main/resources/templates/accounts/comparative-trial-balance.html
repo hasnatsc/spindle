@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<!--
+  accounts/comparative-trial-balance.html    GET /accounts/reports/comparative-tb
+  Data: GET /accounts/reports/data/comparative-tb?asOfDate=&prevAsOfDate=
+  Returns: { totalCurrentDr, totalCurrentCr, balanced,
+             lines:[{accountCode,accountName,accountType,currentBalance,previousBalance,changePct}] }
+-->
+<html th:replace="~{layout/base :: layout('Comparative Trial Balance', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
+<section>
+  <ol class="breadcrumb float-xl-end">
+    <li class="breadcrumb-item"><a th:href="@{/dashboard}">Home</a></li>
+    <li class="breadcrumb-item"><a th:href="@{/accounts/dashboard}">Accounts</a></li>
+    <li class="breadcrumb-item"><a th:href="@{/accounts/ledger}">Reports</a></li>
+    <li class="breadcrumb-item active">Comparative Trial Balance</li>
+  </ol>
+  <h1 class="page-header">Comparative Trial Balance <small>account balances side-by-side</small></h1>
+
+  <div class="d-flex gap-2 mb-3 flex-wrap">
+    <a th:href="@{/accounts/trial-balance}"              class="btn btn-sm btn-outline-secondary"><i class="fas fa-scale-balanced me-1"></i> Trial Balance</a>
+    <a th:href="@{/accounts/reports/comparative-pl}"      class="btn btn-sm btn-outline-secondary"><i class="fas fa-chart-bar me-1"></i> Comparative P&amp;L</a>
+    <a th:href="@{/accounts/reports/comparative-tb}"       class="btn btn-sm btn-primary"><i class="fas fa-scale-balanced me-1"></i> Comparative TB</a>
+    <a th:href="@{/accounts/reports/financial-kpis}"      class="btn btn-sm btn-outline-secondary"><i class="fas fa-chart-bar me-1"></i> KPIs</a>
+  </div>
+
+  <!-- FILTER -->
+  <div class="panel panel-inverse">
+    <div class="panel-heading"><div class="panel-title"><i class="fas fa-filter me-1"></i> Filter</div>
+      <div class="panel-heading-btn"><a href="javascript:;" class="btn btn-sm btn-icon btn-default" data-toggle="panel-collapse"><i class="fa fa-minus"></i></a></div>
+    </div>
+    <div class="panel-body">
+      <div class="row g-2 align-items-end">
+        <div class="col-6 col-md-3 view-group">
+          <input type="date" id="ctbCurDate" class="form-control hs_span_view">
+          <label class="input-label">Current As-Of Date <span class="text-danger">*</span></label>
+        </div>
+        <div class="col-6 col-md-3 view-group">
+          <input type="date" id="ctbPrevDate" class="form-control hs_span_view">
+          <label class="input-label">Previous As-Of Date <span class="text-danger">*</span></label>
+        </div>
+        <div class="col-12 col-md-6 d-flex gap-2">
+          <button class="btn btn-success" onclick="ctbLoad()"><i class="fas fa-search me-1"></i> Compare</button>
+          <button class="btn btn-outline-secondary" onclick="window.print()"><i class="fas fa-print me-1"></i> Print</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- KPI BANNER -->
+  <div class="row g-2 mb-3" id="ctbBanner" style="display:none!important">
+    <div class="col-6 col-md-3"><div class="widget widget-stats bg-green"  style="padding:12px"><div class="stats-info"><h4>CURRENT DR</h4><p id="ctbCurDr">0.00</p></div></div></div>
+    <div class="col-6 col-md-3"><div class="widget widget-stats bg-red"    style="padding:12px"><div class="stats-info"><h4>CURRENT CR</h4><p id="ctbCurCr">0.00</p></div></div></div>
+    <div class="col-6 col-md-3"><div class="widget widget-stats bg-blue"   style="padding:12px"><div class="stats-info"><h4>PREV DR</h4><p id="ctbPrevDr">0.00</p></div></div></div>
+    <div class="col-6 col-md-3"><div class="widget widget-stats bg-purple" style="padding:12px"><div class="stats-info"><h4>STATUS</h4><p id="ctbStatus">—</p></div></div></div>
+  </div>
+
+  <!-- TABLE -->
+  <div class="panel panel-inverse" id="ctbPanel" style="display:none">
+    <div class="panel-heading"><div class="panel-title"><i class="fas fa-scale-balanced me-1"></i> <span id="ctbTitle">Comparative Trial Balance</span></div>
+      <div class="panel-heading-btn"><a href="javascript:;" class="btn btn-sm btn-icon btn-default" data-toggle="panel-expand"><i class="fa fa-expand"></i></a></div>
+    </div>
+    <div class="panel-body p-0">
+      <div class="table-responsive">
+        <table class="table table-sm table-bordered mb-0" style="font-size:12px">
+          <thead class="table-dark">
+            <tr>
+              <th width="10%">Account Code</th>
+              <th>Account Name</th>
+              <th width="8%">Type</th>
+              <th class="text-end" width="13%">Current (৳)</th>
+              <th class="text-end" width="13%">Previous (৳)</th>
+              <th class="text-end" width="10%">Change %</th>
+            </tr>
+          </thead>
+          <tbody id="ctbBody"><tr><td colspan="6" class="text-center text-muted py-4">Select dates and click Compare.</td></tr></tbody>
+          <tfoot>
+            <tr class="fw-bold table-warning">
+              <td colspan="2" class="text-end">Totals:</td>
+              <td></td>
+              <td id="ctbFtCur" class="text-end">—</td>
+              <td id="ctbFtPrev" class="text-end">—</td>
+              <td></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script th:inline="javascript">
+    /*<![CDATA[*/
+    document.addEventListener('DOMContentLoaded', function() {
+      var now = new Date(), y = now.getFullYear(), m = now.getMonth()+1;
+      document.getElementById('ctbCurDate').value  = new Date(y,m,0).toISOString().split('T')[0];
+      var prevY = y-1;
+      document.getElementById('ctbPrevDate').value = prevY+'-'+String(m).padStart(2,'0')+'-'+String(new Date(prevY,m,0).getDate()).padStart(2,'0');
+    });
+
+    function ctbLoad() {
+      var cur = document.getElementById('ctbCurDate').value;
+      var prv = document.getElementById('ctbPrevDate').value;
+      if (!cur || !prv) { alert('Please select both dates.'); return; }
+      document.getElementById('ctbBody').innerHTML =
+        '<tr><td colspan="6" class="text-center py-3"><span class="spinner-border spinner-border-sm me-2"></span>Loading…</td></tr>';
+      document.getElementById('ctbPanel').style.display = '';
+      document.getElementById('ctbBanner').style.display = '';
+      var qs = '?asOfDate='+cur+'&prevAsOfDate='+prv;
+      fetch('/accounts/reports/data/comparative-tb'+qs).then(function(r){ return r.json(); }).then(function(d){
+        if (d.error) { alert(d.error); return; }
+        var s = d.summary || {};
+        var lines = d.accounts || [];
+        document.getElementById('ctbCurDr').textContent  = formatNum(s.currentTotalDr);
+        document.getElementById('ctbCurCr').textContent  = formatNum(s.currentTotalCr);
+        document.getElementById('ctbTitle').textContent  = 'Comparative TB — '+cur+' vs '+prv;
+        var balanced = s.balanced === true || Math.abs(parseFloat(s.currentTotalDr||0) - parseFloat(s.currentTotalCr||0)) < 0.01;
+        document.getElementById('ctbStatus').textContent = balanced ? 'Balanced' : 'Unbalanced!';
+        document.getElementById('ctbStatus').className   = balanced ? 'text-success fw-bold' : 'text-danger fw-bold';
+        var html = '';
+        if (!lines.length) {
+          html = '<tr><td colspan="6" class="text-center text-muted py-4">No accounts found.</td></tr>';
+        } else {
+          lines.forEach(function(r) {
+            var cp = formatNum(r.currentBalance);
+            var pp = formatNum(r.previousBalance);
+            html += '<tr>'
+              + '<td><code>'+r.accountCode+'</code></td>'
+              + '<td>'+r.accountName+'</td>'
+              + '<td><span class="badge bg-secondary bg-opacity-25 text-dark">'+(r.accountType||'')+'</span></td>'
+              + '<td class="text-end">'+cp+'</td>'
+              + '<td class="text-end">'+pp+'</td>'
+              + '<td class="text-end '+(parseFloat(r.changePct||0)>=0?'text-success':'text-danger')+'">'+formatPct(r.changePct)+'</td>'
+              + '</tr>';
+          });
+        }
+        document.getElementById('ctbBody').innerHTML = html;
+        document.getElementById('ctbFtCur').textContent  = formatNum(s.currentTotalDr);
+        document.getElementById('ctbFtPrev').textContent = formatNum(s.currentTotalCr);
+      }).catch(function(e){ alert('Error: '+e.message); });
+    }
+
+    function formatPct(v) {
+      var n = parseFloat(v||0);
+      return n.toFixed(2)+'%';
+    }
+
+    function formatNum(v) {
+      if (!v && v !== 0) return '0.00';
+      var n = typeof v === 'number' ? v : parseFloat(v);
+      return n.toLocaleString('en', {minimumFractionDigits:2, maximumFractionDigits:2});
+    }
+    /*]]>*/
+  </script>
+</section>
+</html>
