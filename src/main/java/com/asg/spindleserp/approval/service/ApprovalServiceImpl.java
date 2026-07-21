@@ -292,12 +292,12 @@ public class ApprovalServiceImpl implements ApprovalService {
                    CASE WHEN r.is_urgent THEN '<span class="badge bg-danger">URGENT</span>' ELSE '' END AS urgent_badge,
                    '<div class="btn-group">'
                    || '<a href="javascript:;" onclick="reqShow('    || r.id || ')" class="btn btn-white btn-sm" title="View History"><i class="fas fa-eye text-success"></i></a>'
-                   || CASE WHEN r.status IN (''IN_APPROVAL'',''SUBMITTED'') THEN
+                   || CASE WHEN r.status IN ('IN_APPROVAL','SUBMITTED') THEN
                        '<a href="javascript:;" onclick="reqCancel(' || r.id || ')" class="btn btn-white btn-sm" title="Cancel"><i class="fas fa-ban text-secondary"></i></a>'
                       ELSE '' END
                    || '</div>' AS actions
             FROM apr_requests r
-            LEFT JOIN users u ON u.id = r.current_approver_user_id
+            LEFT JOIN sec_users u ON u.id = r.current_approver_user_id
             %s ORDER BY r.is_urgent DESC, r.id DESC OFFSET %d LIMIT %d
             """, where, start, length);
         List<Map<String,Object>> rows = jdbcTemplate.queryForList(sql);
@@ -546,13 +546,13 @@ public class ApprovalServiceImpl implements ApprovalService {
                    END AS status_badge,
                    '<div class="btn-group">'
                    || '<a href="javascript:;" onclick="delShow('   || d.id || ')" class="btn btn-white btn-sm" title="View"><i class="fas fa-eye text-success"></i></a>'
-                   || CASE WHEN d.status IN (''SCHEDULED'','ACTIVE') THEN
+                   || CASE WHEN d.status IN ('SCHEDULED','ACTIVE') THEN
                        '<a href="javascript:;" onclick="delRevoke(' || d.id || ')" class="btn btn-white btn-sm" title="Revoke"><i class="fas fa-ban text-danger"></i></a>'
                       ELSE '' END
                    || '</div>' AS actions
             FROM apr_delegations d
-            JOIN users du ON du.id = d.delegator_id
-            JOIN users ee ON ee.id = d.delegate_id
+            JOIN sec_users du ON du.id = d.delegator_id
+            JOIN sec_users ee ON ee.id = d.delegate_id
             %s ORDER BY d.id DESC OFFSET %d LIMIT %d
             """, where, start, length);
         List<Map<String,Object>> rows = jdbcTemplate.queryForList(sql);

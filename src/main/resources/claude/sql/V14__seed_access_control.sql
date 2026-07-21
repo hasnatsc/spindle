@@ -878,6 +878,25 @@ INSERT INTO app_menus (menu_code, menu_name, menu_url, icon, parent_id, display_
 SELECT 'TRV_SETTINGS', 'Settings', '/travel/settings', 'fa fa-cog', g.id, 20, 'LEAF', 'TRAVEL', 'trv.setting.view', '_self', true, true, false, NOW(), NOW()
 FROM app_menus g WHERE g.menu_code = 'GRP_TRV_CONFIG' ON CONFLICT (menu_code) DO NOTHING;
 
+-- =============================================================================
+-- 3C. LEAF level — Approvals
+-- =============================================================================
+INSERT INTO app_menus (menu_code, menu_name, menu_url, icon, parent_id, display_order, menu_type, module_name, required_permission, target, active, visible, deleted, created_at, updated_at)
+SELECT 'APR_DASHBOARD', 'Dashboard', '/approval/dashboard', 'fa fa-tachometer-alt', g.id, 5, 'LEAF', 'APPROVALS', 'apr.dashboard.view', '_self', true, true, false, NOW(), NOW()
+FROM app_menus g WHERE g.menu_code = 'MOD_APPROVALS' ON CONFLICT (menu_code) DO NOTHING;
+INSERT INTO app_menus (menu_code, menu_name, menu_url, icon, parent_id, display_order, menu_type, module_name, required_permission, target, active, visible, deleted, created_at, updated_at)
+SELECT 'APR_CONFIGS', 'Approval Configs', '/approval/configs', 'fa fa-tools', g.id, 10, 'LEAF', 'APPROVALS', 'apr.config.view', '_self', true, true, false, NOW(), NOW()
+FROM app_menus g WHERE g.menu_code = 'GRP_APR_CONFIG' ON CONFLICT (menu_code) DO NOTHING;
+INSERT INTO app_menus (menu_code, menu_name, menu_url, icon, parent_id, display_order, menu_type, module_name, required_permission, target, active, visible, deleted, created_at, updated_at)
+SELECT 'APR_DELEGATIONS', 'Delegations', '/approval/delegations', 'fa fa-user-clock', g.id, 20, 'LEAF', 'APPROVALS', 'apr.delegation.view', '_self', true, true, false, NOW(), NOW()
+FROM app_menus g WHERE g.menu_code = 'GRP_APR_CONFIG' ON CONFLICT (menu_code) DO NOTHING;
+INSERT INTO app_menus (menu_code, menu_name, menu_url, icon, parent_id, display_order, menu_type, module_name, required_permission, target, active, visible, deleted, created_at, updated_at)
+SELECT 'APR_INBOX', 'My Inbox', '/approval/inbox', 'fa fa-inbox', g.id, 10, 'LEAF', 'APPROVALS', 'apr.request.view', '_self', true, true, false, NOW(), NOW()
+FROM app_menus g WHERE g.menu_code = 'GRP_APR_PENDING' ON CONFLICT (menu_code) DO NOTHING;
+INSERT INTO app_menus (menu_code, menu_name, menu_url, icon, parent_id, display_order, menu_type, module_name, required_permission, target, active, visible, deleted, created_at, updated_at)
+SELECT 'APR_REQUESTS', 'All Requests', '/approval/requests', 'fa fa-list-check', g.id, 20, 'LEAF', 'APPROVALS', 'apr.request.view', '_self', true, true, false, NOW(), NOW()
+FROM app_menus g WHERE g.menu_code = 'GRP_APR_PENDING' ON CONFLICT (menu_code) DO NOTHING;
+
 -- ═════════════════════════════════════════════════════════════════════════════
 -- SECTION 4 — ROLE PERMISSIONS  (sec_role_permissions)
 -- ═════════════════════════════════════════════════════════════════════════════
