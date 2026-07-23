@@ -543,4 +543,136 @@ SELECT b.id, 'DRAFT', 'admin',    NOW() - INTERVAL '8 days', 'DRAFT with univers
 FROM trv_bookings b WHERE b.booking_no = 'BKG-25-0023'
 ON CONFLICT DO NOTHING;
 
+
+-- ═════════════════════════════════════════════════════════════════════════════
+-- 5.  HOTEL BOOKINGS  (reservations for each HOTEL-type booking service)
+-- ═════════════════════════════════════════════════════════════════════════════
+INSERT INTO trv_hotel_bookings (organization_id, booking_service_id, hotel_id,
+    check_in_date, check_out_date, adults, children, rooms_count, status,
+    total_amount, rate_per_night, nights,
+    booking_currency, vendor_confirmation_received,
+    created_at, created_by, updated_at)
+SELECT 1,
+    (SELECT bs.id FROM trv_booking_services bs JOIN trv_bookings b ON b.id = bs.booking_id
+     WHERE b.booking_no = 'BKG-25-0001' AND bs.service_type = 'HOTEL'),
+    (SELECT id FROM trv_hotels WHERE hotel_code = 'HT-COX-001'),
+    '2026-07-15', '2026-07-18', 2, 1, 2, 'CONFIRMED',
+    10000.00, 3333.33, 3,
+    'BDT', TRUE,
+    NOW(), 'system', NOW()
+WHERE NOT EXISTS (SELECT 1 FROM trv_hotel_bookings hb
+    JOIN trv_booking_services bs ON bs.id = hb.booking_service_id
+    JOIN trv_bookings b ON b.id = bs.booking_id WHERE b.booking_no = 'BKG-25-0001');
+
+INSERT INTO trv_hotel_bookings (organization_id, booking_service_id, hotel_id,
+    check_in_date, check_out_date, adults, children, rooms_count, status,
+    total_amount, rate_per_night, nights,
+    booking_currency, vendor_confirmation_received,
+    created_at, created_by, updated_at)
+SELECT 1,
+    (SELECT bs.id FROM trv_booking_services bs JOIN trv_bookings b ON b.id = bs.booking_id
+     WHERE b.booking_no = 'BKG-25-0004' AND bs.service_type = 'HOTEL'),
+    (SELECT id FROM trv_hotels WHERE hotel_code = 'HT-DHK-001'),
+    '2026-08-10', '2026-08-14', 2, 0, 1, 'CONFIRMED',
+    40000.00, 10000.00, 4,
+    'BDT', TRUE,
+    NOW(), 'system', NOW()
+WHERE NOT EXISTS (SELECT 1 FROM trv_hotel_bookings hb
+    JOIN trv_booking_services bs ON bs.id = hb.booking_service_id
+    JOIN trv_bookings b ON b.id = bs.booking_id WHERE b.booking_no = 'BKG-25-0004');
+
+INSERT INTO trv_hotel_bookings (organization_id, booking_service_id, hotel_id,
+    check_in_date, check_out_date, adults, children, rooms_count, status,
+    total_amount, rate_per_night, nights,
+    booking_currency, vendor_confirmation_received,
+    created_at, created_by, updated_at)
+SELECT 1,
+    (SELECT bs.id FROM trv_booking_services bs JOIN trv_bookings b ON b.id = bs.booking_id
+     WHERE b.booking_no = 'BKG-25-0010' AND bs.service_type = 'HOTEL'),
+    (SELECT id FROM trv_hotels WHERE hotel_code = 'HT-COX-002'),
+    '2026-09-01', '2026-09-05', 2, 0, 1, 'CONFIRMED',
+    28000.00, 7000.00, 4,
+    'BDT', TRUE,
+    NOW(), 'system', NOW()
+WHERE NOT EXISTS (SELECT 1 FROM trv_hotel_bookings hb
+    JOIN trv_booking_services bs ON bs.id = hb.booking_service_id
+    JOIN trv_bookings b ON b.id = bs.booking_id WHERE b.booking_no = 'BKG-25-0010');
+
+INSERT INTO trv_hotel_bookings (organization_id, booking_service_id, hotel_id,
+    check_in_date, check_out_date, adults, children, rooms_count, status,
+    total_amount, rate_per_night, nights,
+    booking_currency, vendor_confirmation_received,
+    created_at, created_by, updated_at)
+SELECT 1,
+    (SELECT bs.id FROM trv_booking_services bs JOIN trv_bookings b ON b.id = bs.booking_id
+     WHERE b.booking_no = 'BKG-25-0014' AND bs.service_type = 'HOTEL'),
+    (SELECT id FROM trv_hotels WHERE hotel_code = 'HT-SG-001'),
+    '2026-07-30', '2026-08-02', 1, 0, 1, 'CONFIRMED',
+    12500.00, 4166.67, 3,
+    'BDT', TRUE,
+    NOW(), 'system', NOW()
+WHERE NOT EXISTS (SELECT 1 FROM trv_hotel_bookings hb
+    JOIN trv_booking_services bs ON bs.id = hb.booking_service_id
+    JOIN trv_bookings b ON b.id = bs.booking_id WHERE b.booking_no = 'BKG-25-0014');
+
+INSERT INTO trv_hotel_bookings (organization_id, booking_service_id, hotel_id,
+    check_in_date, check_out_date, adults, children, rooms_count, status,
+    total_amount, rate_per_night, nights,
+    booking_currency, vendor_confirmation_received,
+    created_at, created_by, updated_at)
+SELECT 1,
+    (SELECT bs.id FROM trv_booking_services bs JOIN trv_bookings b ON b.id = bs.booking_id
+     WHERE b.booking_no = 'BKG-25-0018' AND bs.service_type = 'HOTEL'),
+    (SELECT id FROM trv_hotels WHERE hotel_code = 'HT-DHK-003'),
+    '2026-08-18', '2026-08-22', 2, 0, 1, 'CONFIRMED',
+    35000.00, 8750.00, 4,
+    'BDT', TRUE,
+    NOW(), 'system', NOW()
+WHERE NOT EXISTS (SELECT 1 FROM trv_hotel_bookings hb
+    JOIN trv_booking_services bs ON bs.id = hb.booking_service_id
+    JOIN trv_bookings b ON b.id = bs.booking_id WHERE b.booking_no = 'BKG-25-0018');
+
+-- ═════════════════════════════════════════════════════════════════════════════
+-- 6.  HOTEL ROOMS  (specific room assignments per hotel booking)
+-- ═════════════════════════════════════════════════════════════════════════════
+INSERT INTO trv_hotel_rooms (hotel_booking_id, room_number, room_type_snapshot)
+SELECT hb.id, '1201', 'Deluxe King'
+FROM trv_hotel_bookings hb
+JOIN trv_booking_services bs ON bs.id = hb.booking_service_id
+JOIN trv_bookings b ON b.id = bs.booking_id
+WHERE b.booking_no = 'BKG-25-0001'
+  AND NOT EXISTS (SELECT 1 FROM trv_hotel_rooms r WHERE r.hotel_booking_id = hb.id AND r.room_number = '1201');
+
+INSERT INTO trv_hotel_rooms (hotel_booking_id, room_number, room_type_snapshot)
+SELECT hb.id, '1202', 'Deluxe Twin'
+FROM trv_hotel_bookings hb
+JOIN trv_booking_services bs ON bs.id = hb.booking_service_id
+JOIN trv_bookings b ON b.id = bs.booking_id
+WHERE b.booking_no = 'BKG-25-0001'
+  AND NOT EXISTS (SELECT 1 FROM trv_hotel_rooms r WHERE r.hotel_booking_id = hb.id AND r.room_number = '1202');
+
+INSERT INTO trv_hotel_rooms (hotel_booking_id, room_number, room_type_snapshot)
+SELECT hb.id, '805', 'Executive Suite'
+FROM trv_hotel_bookings hb
+JOIN trv_booking_services bs ON bs.id = hb.booking_service_id
+JOIN trv_bookings b ON b.id = bs.booking_id
+WHERE b.booking_no = 'BKG-25-0004'
+  AND NOT EXISTS (SELECT 1 FROM trv_hotel_rooms r WHERE r.hotel_booking_id = hb.id AND r.room_number = '805');
+
+INSERT INTO trv_hotel_rooms (hotel_booking_id, room_number, room_type_snapshot)
+SELECT hb.id, '501', 'Family Suite'
+FROM trv_hotel_bookings hb
+JOIN trv_booking_services bs ON bs.id = hb.booking_service_id
+JOIN trv_bookings b ON b.id = bs.booking_id
+WHERE b.booking_no = 'BKG-25-0010'
+  AND NOT EXISTS (SELECT 1 FROM trv_hotel_rooms r WHERE r.hotel_booking_id = hb.id AND r.room_number = '501');
+
+INSERT INTO trv_hotel_rooms (hotel_booking_id, room_number, room_type_snapshot)
+SELECT hb.id, '1108', 'Presidential Suite'
+FROM trv_hotel_bookings hb
+JOIN trv_booking_services bs ON bs.id = hb.booking_service_id
+JOIN trv_bookings b ON b.id = bs.booking_id
+WHERE b.booking_no = 'BKG-25-0018'
+  AND NOT EXISTS (SELECT 1 FROM trv_hotel_rooms r WHERE r.hotel_booking_id = hb.id AND r.room_number = '1108');
+
 COMMIT;

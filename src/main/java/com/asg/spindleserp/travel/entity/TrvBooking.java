@@ -120,6 +120,10 @@ public class TrvBooking extends BaseEntity implements Serializable {
     private List<TrvPassenger> passengers = new ArrayList<>();
 
     @Builder.Default
+    @OneToMany(mappedBy = "booking", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    private List<TrvBookingReceipt> receipts = new ArrayList<>();
+
+    @Builder.Default
     @OneToMany(mappedBy = "booking", fetch = FetchType.LAZY)
     @JsonIgnore
     private List<TrvBookingNote> notes = new ArrayList<>();

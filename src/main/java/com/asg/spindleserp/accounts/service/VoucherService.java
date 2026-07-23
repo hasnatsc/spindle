@@ -58,6 +58,12 @@ public interface VoucherService {
     // ── Allocation helpers ────────────────────────────────────────────────────
 
     /**
+     * Saves VoucherAllocation rows and atomically updates allocatedAmount on each
+     * source voucher (invoice/bill). Must be called inside a transaction.
+     */
+    void processAllocations(JournalEntryMaster payingVoucher, List<VoucherDTO.AllocationDTO> allocations);
+
+    /**
      * Returns open (unsettled) vouchers for a party — for the allocation picker.
      * [{id, voucherNo, voucherType, voucherDate, dueDate, totalAmount, dueAmount}]
      */

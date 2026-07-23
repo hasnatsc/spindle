@@ -91,8 +91,7 @@ public class VoucherServiceImpl implements VoucherService {
     public VoucherDTO post(Long id) {
         JournalEntryMaster entity = findEntityByIdPublic(id);
         if (!"DRAFT".equals(entity.getVoucherStatus())) {
-            throw new IllegalStateException(
-                    "Only DRAFT vouchers can be posted. Current status: " + entity.getVoucherStatus());
+            throw new IllegalStateException("Only DRAFT vouchers can be posted. Current status: " + entity.getVoucherStatus());
         }
         if (entity.getVoucherDate() == null) {
             throw new IllegalStateException("Voucher date is required before posting.");
@@ -118,9 +117,7 @@ public class VoucherServiceImpl implements VoucherService {
     public VoucherDTO completeApproval(Long id) {
         JournalEntryMaster entity = findEntityByIdPublic(id);
         if (!"PENDING_APPROVAL".equals(entity.getVoucherStatus())) {
-            throw new IllegalStateException(
-                    "Only PENDING_APPROVAL vouchers can be completed via approval. Current status: "
-                            + entity.getVoucherStatus());
+            throw new IllegalStateException("Only PENDING_APPROVAL vouchers can be completed via approval. Current status: " + entity.getVoucherStatus());
         }
         return executePost(entity);
     }
@@ -130,9 +127,7 @@ public class VoucherServiceImpl implements VoucherService {
         JournalEntryMaster entity = findEntityByIdPublic(id);
         if (!"PENDING_APPROVAL".equals(entity.getVoucherStatus())) return;
         entity.setVoucherStatus("REJECTED");
-        entity.setNarration(entity.getNarration() != null
-                ? entity.getNarration() + " [REJECTED: " + reason + "]"
-                : "[REJECTED: " + reason + "]");
+        entity.setNarration(entity.getNarration() != null ? entity.getNarration() + " [REJECTED: " + reason + "]" : "[REJECTED: " + reason + "]");
         masterRepo.save(entity);
     }
 
@@ -142,9 +137,7 @@ public class VoucherServiceImpl implements VoucherService {
         if (!"PENDING_APPROVAL".equals(entity.getVoucherStatus())) return;
         entity.setVoucherStatus("DRAFT");
         entity.setPosted(false);
-        entity.setNarration(entity.getNarration() != null
-                ? entity.getNarration() + " [RETURNED: " + reason + "]"
-                : "[RETURNED: " + reason + "]");
+        entity.setNarration(entity.getNarration() != null ? entity.getNarration() + " [RETURNED: " + reason + "]" : "[RETURNED: " + reason + "]");
         masterRepo.save(entity);
     }
 
@@ -158,8 +151,7 @@ public class VoucherServiceImpl implements VoucherService {
                 .referenceNumber(entity.getVoucherNo() != null ? entity.getVoucherNo() : "DRAFT-" + entity.getId())
                 .documentDate(entity.getVoucherDate())
                 .documentAmount(entity.getTotalAmount())
-                .documentSummary(entity.getNarration() != null
-                        ? truncate(entity.getNarration(), 500) : vType + " #" + entity.getId())
+                .documentSummary(entity.getNarration() != null ? truncate(entity.getNarration(), 500) : vType + " #" + entity.getId())
                 .build();
 
         approvalService.submitRequest(reqDto);
@@ -199,8 +191,7 @@ public class VoucherServiceImpl implements VoucherService {
 
     private boolean hasApprovalConfig(JournalEntryMaster entity) {
         try {
-            return approvalService.hasActiveConfig(
-                    entity.getVoucherType() != null ? entity.getVoucherType().name() : "");
+            return approvalService.hasActiveConfig(entity.getVoucherType() != null ? entity.getVoucherType().name() : "");
         } catch (Exception e) {
             log.debug("Approval config check failed, falling back to direct post: {}", e.getMessage());
             return false;
@@ -220,18 +211,15 @@ public class VoucherServiceImpl implements VoucherService {
      * 2. alreadyApplied <= payingVoucher.totalAmount (can't allocate more than payment)
      * 3. DB unique constraint (source_id, paying_id) prevents duplicate pairs
      */
-    public void processAllocations(JournalEntryMaster payingVoucher,
-                                   List<VoucherDTO.AllocationDTO> allocations) {
+    @Override
+    public void processAllocations(JournalEntryMaster payingVoucher, List<VoucherDTO.AllocationDTO> allocations) {
         if (allocations == null || allocations.isEmpty()) return;
 
-        BigDecimal payingTotal = payingVoucher.getTotalAmount() != null
-                ? payingVoucher.getTotalAmount() : BigDecimal.ZERO;
+        BigDecimal payingTotal = payingVoucher.getTotalAmount() != null ? payingVoucher.getTotalAmount() : BigDecimal.ZERO;
         BigDecimal totalApplied = BigDecimal.ZERO;
 
         for (VoucherDTO.AllocationDTO ad : allocations) {
-            if (ad.getSourceVoucherId() == null
-                    || ad.getAllocatedAmount() == null
-                    || ad.getAllocatedAmount().compareTo(BigDecimal.ZERO) <= 0) continue;
+            if (ad.getSourceVoucherId() == null || ad.getAllocatedAmount() == null || ad.getAllocatedAmount().compareTo(BigDecimal.ZERO) <= 0) continue;
 
             JournalEntryMaster source = findEntityByIdPublic(ad.getSourceVoucherId());
             BigDecimal remaining = source.getDueAmount(); // @Transient

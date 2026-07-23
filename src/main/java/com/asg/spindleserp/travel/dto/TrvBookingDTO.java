@@ -63,6 +63,9 @@ public class TrvBookingDTO {
     @Valid
     private List<PassengerDTO> passengers = new ArrayList<>();
 
+    @Builder.Default
+    private List<ReceiptLineDTO> receipts = new ArrayList<>();
+
     private String createdAt;
     private String updatedAt;
     private String createdBy;
@@ -99,6 +102,15 @@ public class TrvBookingDTO {
         private String email;
         private String remarks;
         private PreferenceDTO preference;
+    }
+
+    @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+    public static class ReceiptLineDTO {
+        private String paymentMode;  // CASH | BANK | BKASH | NAGAD | CARD
+        private Long   subAccountId;
+        private String subAccountText;
+        private String reference;
+        private BigDecimal amount;
     }
 
     @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder

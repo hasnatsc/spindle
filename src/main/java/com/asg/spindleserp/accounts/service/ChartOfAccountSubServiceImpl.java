@@ -163,12 +163,21 @@ public class ChartOfAccountSubServiceImpl implements ChartOfAccountSubService {
                 ? subRepo.findByOrganizationIdAndIsActiveTrue(orgId)
                 : subRepo.findAll();
 
-//        if (subAccountType != null && !subAccountType.isBlank()) {
-//            all = all.stream()
-//                    .filter(s -> s.getSubAccountType() != null
-//                            && s.getSubAccountType().name().equalsIgnoreCase(subAccountType))
-//                    .collect(Collectors.toList());
-//        }
+        if (subAccountType != null && !subAccountType.isBlank()) {
+            all = all.stream()
+                    .filter(s -> {
+                        if ("CUSTOMER".equalsIgnoreCase(subAccountType)) return s instanceof CustomerAccount;
+                        if ("SUPPLIER".equalsIgnoreCase(subAccountType)) return s instanceof SupplierAccount;
+                        if ("BANK".equalsIgnoreCase(subAccountType)) return s instanceof BankAccount;
+                        if ("CASH".equalsIgnoreCase(subAccountType)) return s instanceof CashAccount;
+                        if ("EMPLOYEE".equalsIgnoreCase(subAccountType)) return s instanceof EmployeeSubAccount;
+                        if ("LC".equalsIgnoreCase(subAccountType)) return s instanceof LetterOfCredit;
+                        if ("GENERAL".equalsIgnoreCase(subAccountType)) return s instanceof GeneralSubAccount;
+                        if ("INTER_COMPANY".equalsIgnoreCase(subAccountType)) return s instanceof InterCompanyAccount;
+                        return true;
+                    })
+                    .collect(Collectors.toList());
+        }
 
         String query = q == null ? "" : q.trim().toLowerCase();
         List<ChartOfAccountSub> filtered = query.isEmpty() ? all
@@ -188,6 +197,7 @@ public class ChartOfAccountSubServiceImpl implements ChartOfAccountSubService {
             m.put("text", s.getSubAccountCode() + " — " + s.getSubAccountName());
             m.put("code", s.getSubAccountCode());
             m.put("name", s.getSubAccountName());
+            m.put("phone", s.getContactPhone());
 //            m.put("subAccountType", s.getSubAccountType() != null ? s.getSubAccountType().name() : "");
             return m;
         }).toList();
