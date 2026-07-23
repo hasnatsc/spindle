@@ -2,7 +2,7 @@
 <!--
   booking-confirmation.jrxml — SpindleERP Travel Module (JasperReports 7)
   Main dataset  : trv_booking_services lines for one booking ($P{bookingId})
-  Sub dataset   : PassengersDS (trv_passengers of the booking)
+  Sub dataset   : ReceiptsDS (trv_booking_receipts of the booking)
   Fill          : JasperFillManager.fillReport(jasper, params, jdbcConnection)
 -->
 <jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports"
@@ -16,26 +16,23 @@
               whenNoDataType="AllSectionsNoDetail">
 
 
-    <!-- ── Sub dataset: passengers of this booking ────────────────────── -->
-    <subDataset name="PassengersDS">
+    <!-- ── Sub dataset: receipts of this booking ──────────────────────── -->
+    <subDataset name="ReceiptsDS">
         <parameter name="bookingId" class="java.lang.Long"/>
         <queryString><![CDATA[
-            SELECT TRIM(COALESCE(p.title,'') || ' ' || p.first_name || ' ' || COALESCE(p.last_name,'')) AS full_name,
-                   p.passenger_type,
-                   COALESCE(p.passport_number,'-')                    AS passport_number,
-                   COALESCE(TO_CHAR(p.passport_expiry,'DD-Mon-YYYY'),'-') AS passport_expiry,
-                   COALESCE(p.nationality,'-')                        AS nationality,
-                   CASE WHEN p.is_lead_passenger THEN 'LEAD' ELSE '' END AS lead_flag
-            FROM   trv_passengers p
-            WHERE  p.booking_id = $P{bookingId}
-            ORDER  BY p.is_lead_passenger DESC, p.id
+            SELECT r.payment_mode,
+                   COALESCE(s.sub_account_code || ' — ' || s.sub_account_name, '-') AS sub_account_text,
+                   COALESCE(r.reference,'-')                     AS reference,
+                   r.amount
+            FROM   trv_booking_receipts r
+            LEFT   JOIN acc_chart_of_accounts_sub s ON s.id = r.sub_account_id
+            WHERE  r.booking_id = $P{bookingId}
+            ORDER  BY r.id
         ]]></queryString>
-        <field name="full_name"       class="java.lang.String"/>
-        <field name="passenger_type"  class="java.lang.String"/>
-        <field name="passport_number" class="java.lang.String"/>
-        <field name="passport_expiry" class="java.lang.String"/>
-        <field name="nationality"     class="java.lang.String"/>
-        <field name="lead_flag"       class="java.lang.String"/>
+        <field name="payment_mode"      class="java.lang.String"/>
+        <field name="sub_account_text"  class="java.lang.String"/>
+        <field name="reference"         class="java.lang.String"/>
+        <field name="amount"            class="java.math.BigDecimal"/>
     </subDataset>
 
     <!-- ── Company / branding ─────────────────────────────────────────── -->
@@ -271,12 +268,12 @@
 
     <summary>
         <band height="278">
-            <!-- ── Passenger manifest ─────────────────────────────────── -->
+            <!-- ── Receipt / Payment manifest ────────────────────────── -->
             <staticText>
                 <reportElement mode="Opaque" x="0" y="8" width="535" height="16" backcolor="#EEEEF7"/>
                 <textElement verticalAlignment="Middle"  isBold="true"><font size="9"/></textElement>
                 <box leftPadding="3"><pen lineWidth="0.25" lineColor="#2E3192"/></box>
-                <text><![CDATA[PASSENGERS]]></text>
+                <text><![CDATA[RECEIPTS / PAYMENTS]]></text>
             </staticText>
             <staticText>
                 <reportElement x="0" y="24" width="25" height="14"/>
@@ -285,45 +282,33 @@
                 <text><![CDATA[#]]></text>
             </staticText>
             <staticText>
-                <reportElement x="25" y="24" width="175" height="14"/>
+                <reportElement x="25" y="24" width="65" height="14"/>
+                <textElement textAlignment="Center" verticalAlignment="Middle"  isBold="true"><font size="8"/></textElement>
+                <box><pen lineWidth="0.25" lineColor="#CCCCCC"/></box>
+                <text><![CDATA[Mode]]></text>
+            </staticText>
+            <staticText>
+                <reportElement x="90" y="24" width="185" height="14"/>
                 <textElement verticalAlignment="Middle"  isBold="true"><font size="8"/></textElement>
                 <box leftPadding="3"><pen lineWidth="0.25" lineColor="#CCCCCC"/></box>
-                <text><![CDATA[Name]]></text>
+                <text><![CDATA[Sub Account]]></text>
             </staticText>
             <staticText>
-                <reportElement x="200" y="24" width="55" height="14"/>
+                <reportElement x="275" y="24" width="175" height="14"/>
                 <textElement textAlignment="Center" verticalAlignment="Middle"  isBold="true"><font size="8"/></textElement>
                 <box><pen lineWidth="0.25" lineColor="#CCCCCC"/></box>
-                <text><![CDATA[Type]]></text>
+                <text><![CDATA[Reference]]></text>
             </staticText>
             <staticText>
-                <reportElement x="255" y="24" width="105" height="14"/>
+                <reportElement x="450" y="24" width="85" height="14"/>
                 <textElement textAlignment="Center" verticalAlignment="Middle"  isBold="true"><font size="8"/></textElement>
-                <box><pen lineWidth="0.25" lineColor="#CCCCCC"/></box>
-                <text><![CDATA[Passport No]]></text>
-            </staticText>
-            <staticText>
-                <reportElement x="360" y="24" width="75" height="14"/>
-                <textElement textAlignment="Center" verticalAlignment="Middle"  isBold="true"><font size="8"/></textElement>
-                <box><pen lineWidth="0.25" lineColor="#CCCCCC"/></box>
-                <text><![CDATA[Expiry]]></text>
-            </staticText>
-            <staticText>
-                <reportElement x="435" y="24" width="65" height="14"/>
-                <textElement textAlignment="Center" verticalAlignment="Middle"  isBold="true"><font size="8"/></textElement>
-                <box><pen lineWidth="0.25" lineColor="#CCCCCC"/></box>
-                <text><![CDATA[Nationality]]></text>
-            </staticText>
-            <staticText>
-                <reportElement x="500" y="24" width="35" height="14"/>
-                <textElement textAlignment="Center" verticalAlignment="Middle"  isBold="true"><font size="8"/></textElement>
-                <box><pen lineWidth="0.25" lineColor="#CCCCCC"/></box>
-                <text><![CDATA[Lead]]></text>
+                <box rightPadding="2"><pen lineWidth="0.25" lineColor="#CCCCCC"/></box>
+                <text><![CDATA[Amount]]></text>
             </staticText>
             <componentElement>
                 <reportElement x="0" y="38" width="535" height="14" positionType="Float"/>
                 <jr:list printOrder="Vertical">
-                    <datasetRun subDataset="PassengersDS">
+                    <datasetRun subDataset="ReceiptsDS">
                         <datasetParameter name="bookingId">
                             <datasetParameterExpression><![CDATA[$P{bookingId}]]></datasetParameterExpression>
                         </datasetParameter>
@@ -337,40 +322,28 @@
                             <textFieldExpression><![CDATA[$V{REPORT_COUNT}]]></textFieldExpression>
                         </textField>
                         <textField>
-                            <reportElement x="25" y="0" width="175" height="14"/>
+                            <reportElement x="25" y="0" width="65" height="14"/>
+                            <textElement textAlignment="Center" verticalAlignment="Middle" ><font size="8"/></textElement>
+                            <box><pen lineWidth="0.25" lineColor="#CCCCCC"/></box>
+                            <textFieldExpression><![CDATA[$F{payment_mode}]]></textFieldExpression>
+                        </textField>
+                        <textField>
+                            <reportElement x="90" y="0" width="185" height="14"/>
                             <textElement verticalAlignment="Middle" ><font size="8"/></textElement>
                             <box leftPadding="3"><pen lineWidth="0.25" lineColor="#CCCCCC"/></box>
-                            <textFieldExpression><![CDATA[$F{full_name}]]></textFieldExpression>
+                            <textFieldExpression><![CDATA[$F{sub_account_text}]]></textFieldExpression>
                         </textField>
                         <textField>
-                            <reportElement x="200" y="0" width="55" height="14"/>
+                            <reportElement x="275" y="0" width="175" height="14"/>
                             <textElement textAlignment="Center" verticalAlignment="Middle" ><font size="8"/></textElement>
                             <box><pen lineWidth="0.25" lineColor="#CCCCCC"/></box>
-                            <textFieldExpression><![CDATA[$F{passenger_type}]]></textFieldExpression>
+                            <textFieldExpression><![CDATA[$F{reference}]]></textFieldExpression>
                         </textField>
-                        <textField>
-                            <reportElement x="255" y="0" width="105" height="14"/>
-                            <textElement textAlignment="Center" verticalAlignment="Middle" ><font size="8"/></textElement>
-                            <box><pen lineWidth="0.25" lineColor="#CCCCCC"/></box>
-                            <textFieldExpression><![CDATA[$F{passport_number}]]></textFieldExpression>
-                        </textField>
-                        <textField>
-                            <reportElement x="360" y="0" width="75" height="14"/>
-                            <textElement textAlignment="Center" verticalAlignment="Middle" ><font size="8"/></textElement>
-                            <box><pen lineWidth="0.25" lineColor="#CCCCCC"/></box>
-                            <textFieldExpression><![CDATA[$F{passport_expiry}]]></textFieldExpression>
-                        </textField>
-                        <textField>
-                            <reportElement x="435" y="0" width="65" height="14"/>
-                            <textElement textAlignment="Center" verticalAlignment="Middle" ><font size="8"/></textElement>
-                            <box><pen lineWidth="0.25" lineColor="#CCCCCC"/></box>
-                            <textFieldExpression><![CDATA[$F{nationality}]]></textFieldExpression>
-                        </textField>
-                        <textField>
-                            <reportElement x="500" y="0" width="35" height="14"/>
-                            <textElement textAlignment="Center" verticalAlignment="Middle"  isBold="true"><font size="8"/></textElement>
-                            <box><pen lineWidth="0.25" lineColor="#CCCCCC"/></box>
-                            <textFieldExpression><![CDATA[$F{lead_flag}]]></textFieldExpression>
+                        <textField pattern="#,##0.00">
+                            <reportElement x="450" y="0" width="85" height="14"/>
+                            <textElement textAlignment="Right" verticalAlignment="Middle"  isBold="true"><font size="8"/></textElement>
+                            <box rightPadding="2"><pen lineWidth="0.25" lineColor="#CCCCCC"/></box>
+                            <textFieldExpression><![CDATA[$F{amount}]]></textFieldExpression>
                         </textField>
                     </jr:listContents>
                 </jr:list>

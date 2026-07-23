@@ -153,6 +153,13 @@ public class TravelBookingController {
 
     // ── RECEIPT PREFILL  Booking → Receipt Voucher ───────────────────────────
 
+    @GetMapping("/bookings/print/{id}")
+    public String printBooking(@PathVariable Long id, Model model) {
+        TrvBookingDTO dto = bookingService.findById(id);
+        model.addAttribute("booking", dto);
+        return "travel/travel-booking-print";
+    }
+
     @GetMapping("/bookings/receipt-prefill")
     @ResponseBody
     public Map<String, Object> receiptPrefill(@RequestParam Long bookingId) {
