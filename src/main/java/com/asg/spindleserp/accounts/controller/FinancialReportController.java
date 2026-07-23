@@ -11,38 +11,38 @@ import java.util.Map;
 
 /**
  * FinancialReportController — all financial reporting pages and data endpoints.
- *
+ * <p>
  * Pages (Thymeleaf):
- *   GET /accounts/reports/day-book            → day-book.html
- *   GET /accounts/reports/voucher-register    → voucher-register.html
- *   GET /accounts/reports/cash-flow           → cash-flow.html
- *   GET /accounts/reports/bank-book           → bank-book.html
- *   GET /accounts/reports/cash-book           → cash-book.html
- *   GET /accounts/reports/party-ledger        → party-ledger.html
- *   GET /accounts/reports/comparative-pl      → comparative-pl.html
- *   GET /accounts/reports/comparative-tb      → comparative-trial-balance.html
- *   GET /accounts/reports/tax-summary         → tax-summary.html
- *   GET /accounts/reports/financial-kpis      → financial-kpis.html
- *   GET /accounts/reports/cost-center-summary → cost-center-summary.html
- *   GET /accounts/reports/account-summary     → account-summary.html
- *   GET /accounts/reports/sub-account-summary → sub-account-summary.html
- *   GET /accounts/reports/budget-vs-actual    → budget-vs-actual.html
- *
+ * GET /accounts/reports/day-book            → day-book.html
+ * GET /accounts/reports/voucher-register    → voucher-register.html
+ * GET /accounts/reports/cash-flow           → cash-flow.html
+ * GET /accounts/reports/bank-book           → bank-book.html
+ * GET /accounts/reports/cash-book           → cash-book.html
+ * GET /accounts/reports/party-ledger        → party-ledger.html
+ * GET /accounts/reports/comparative-pl      → comparative-pl.html
+ * GET /accounts/reports/comparative-tb      → comparative-trial-balance.html
+ * GET /accounts/reports/tax-summary         → tax-summary.html
+ * GET /accounts/reports/financial-kpis      → financial-kpis.html
+ * GET /accounts/reports/cost-center-summary → cost-center-summary.html
+ * GET /accounts/reports/account-summary     → account-summary.html
+ * GET /accounts/reports/sub-account-summary → sub-account-summary.html
+ * GET /accounts/reports/budget-vs-actual    → budget-vs-actual.html
+ * <p>
  * Data endpoints (JSON):
- *   GET /accounts/reports/data/day-book?startDate=&endDate=
- *   GET /accounts/reports/data/voucher-register?voucherType=&startDate=&endDate=
- *   GET /accounts/reports/data/cash-flow?startDate=&endDate=
- *   GET /accounts/reports/data/bank-book?bankAccountId=&startDate=&endDate=
- *   GET /accounts/reports/data/cash-book?cashAccountId=&startDate=&endDate=
- *   GET /accounts/reports/data/party-ledger?partyId=&partyType=&startDate=&endDate=
- *   GET /accounts/reports/data/comparative-pl?startDate=&endDate=&prevStartDate=&prevEndDate=
- *   GET /accounts/reports/data/comparative-tb?asOfDate=&prevAsOfDate=
- *   GET /accounts/reports/data/tax-summary?startDate=&endDate=
- *   GET /accounts/reports/data/financial-kpis?asOfDate=
- *   GET /accounts/reports/data/cost-center-summary?startDate=&endDate=
- *   GET /accounts/reports/data/account-summary?accountId=&startDate=&endDate=
- *   GET /accounts/reports/data/sub-account-summary?subAccountType=
- *   GET /accounts/reports/data/budget-vs-actual?budgetId=&startDate=&endDate=
+ * GET /accounts/reports/data/day-book?startDate=&endDate=
+ * GET /accounts/reports/data/voucher-register?voucherType=&startDate=&endDate=
+ * GET /accounts/reports/data/cash-flow?startDate=&endDate=
+ * GET /accounts/reports/data/bank-book?bankAccountId=&startDate=&endDate=
+ * GET /accounts/reports/data/cash-book?cashAccountId=&startDate=&endDate=
+ * GET /accounts/reports/data/party-ledger?partyId=&partyType=&startDate=&endDate=
+ * GET /accounts/reports/data/comparative-pl?startDate=&endDate=&prevStartDate=&prevEndDate=
+ * GET /accounts/reports/data/comparative-tb?asOfDate=&prevAsOfDate=
+ * GET /accounts/reports/data/tax-summary?startDate=&endDate=
+ * GET /accounts/reports/data/financial-kpis?asOfDate=
+ * GET /accounts/reports/data/cost-center-summary?startDate=&endDate=
+ * GET /accounts/reports/data/account-summary?accountId=&startDate=&endDate=
+ * GET /accounts/reports/data/sub-account-summary?subAccountType=
+ * GET /accounts/reports/data/budget-vs-actual?budgetId=&startDate=&endDate=
  */
 @Slf4j
 @Controller
@@ -149,8 +149,11 @@ public class FinancialReportController {
     public Map<String, Object> dayBookData(
             @RequestParam(required = false) String startDate,
             @RequestParam(required = false) String endDate) {
-        try { return reportService.dayBook(startDate, endDate); }
-        catch (Exception e) { return Map.of("error", e.getMessage()); }
+        try {
+            return reportService.dayBook(startDate, endDate);
+        } catch (Exception e) {
+            return Map.of("error", e.getMessage());
+        }
     }
 
     @GetMapping("/data/voucher-register")
@@ -159,8 +162,11 @@ public class FinancialReportController {
             @RequestParam(required = false) String voucherType,
             @RequestParam(required = false) String startDate,
             @RequestParam(required = false) String endDate) {
-        try { return reportService.voucherRegister(voucherType, startDate, endDate); }
-        catch (Exception e) { return Map.of("error", e.getMessage()); }
+        try {
+            return reportService.voucherRegister(voucherType, startDate, endDate);
+        } catch (Exception e) {
+            return Map.of("error", e.getMessage());
+        }
     }
 
     @GetMapping("/data/cash-flow")
@@ -168,8 +174,11 @@ public class FinancialReportController {
     public Map<String, Object> cashFlowData(
             @RequestParam(required = false) String startDate,
             @RequestParam(required = false) String endDate) {
-        try { return reportService.cashFlowStatement(startDate, endDate); }
-        catch (Exception e) { return Map.of("error", e.getMessage()); }
+        try {
+            return reportService.cashFlowStatement(startDate, endDate);
+        } catch (Exception e) {
+            return Map.of("error", e.getMessage());
+        }
     }
 
     @GetMapping("/data/bank-book")
@@ -178,8 +187,11 @@ public class FinancialReportController {
             @RequestParam Long bankAccountId,
             @RequestParam(required = false) String startDate,
             @RequestParam(required = false) String endDate) {
-        try { return reportService.bankBook(bankAccountId, startDate, endDate); }
-        catch (Exception e) { return Map.of("error", e.getMessage()); }
+        try {
+            return reportService.bankBook(bankAccountId, startDate, endDate);
+        } catch (Exception e) {
+            return Map.of("error", e.getMessage());
+        }
     }
 
     @GetMapping("/data/cash-book")
@@ -188,8 +200,11 @@ public class FinancialReportController {
             @RequestParam Long cashAccountId,
             @RequestParam(required = false) String startDate,
             @RequestParam(required = false) String endDate) {
-        try { return reportService.cashBook(cashAccountId, startDate, endDate); }
-        catch (Exception e) { return Map.of("error", e.getMessage()); }
+        try {
+            return reportService.cashBook(cashAccountId, startDate, endDate);
+        } catch (Exception e) {
+            return Map.of("error", e.getMessage());
+        }
     }
 
     @GetMapping("/data/party-ledger")
@@ -199,8 +214,11 @@ public class FinancialReportController {
             @RequestParam(defaultValue = "CUSTOMER") String partyType,
             @RequestParam(required = false) String startDate,
             @RequestParam(required = false) String endDate) {
-        try { return reportService.partyLedger(partyId, partyType, startDate, endDate); }
-        catch (Exception e) { return Map.of("error", e.getMessage()); }
+        try {
+            return reportService.partyLedger(partyId, partyType, startDate, endDate);
+        } catch (Exception e) {
+            return Map.of("error", e.getMessage());
+        }
     }
 
     @GetMapping("/data/comparative-pl")
@@ -210,8 +228,11 @@ public class FinancialReportController {
             @RequestParam String endDate,
             @RequestParam(required = false) String prevStartDate,
             @RequestParam(required = false) String prevEndDate) {
-        try { return reportService.comparativePL(startDate, endDate, prevStartDate, prevEndDate); }
-        catch (Exception e) { return Map.of("error", e.getMessage()); }
+        try {
+            return reportService.comparativePL(startDate, endDate, prevStartDate, prevEndDate);
+        } catch (Exception e) {
+            return Map.of("error", e.getMessage());
+        }
     }
 
     @GetMapping("/data/comparative-tb")
@@ -219,8 +240,11 @@ public class FinancialReportController {
     public Map<String, Object> comparativeTBData(
             @RequestParam(required = false) String asOfDate,
             @RequestParam(required = false) String prevAsOfDate) {
-        try { return reportService.comparativeTrialBalance(asOfDate, prevAsOfDate); }
-        catch (Exception e) { return Map.of("error", e.getMessage()); }
+        try {
+            return reportService.comparativeTrialBalance(asOfDate, prevAsOfDate);
+        } catch (Exception e) {
+            return Map.of("error", e.getMessage());
+        }
     }
 
     @GetMapping("/data/tax-summary")
@@ -228,16 +252,22 @@ public class FinancialReportController {
     public Map<String, Object> taxSummaryData(
             @RequestParam(required = false) String startDate,
             @RequestParam(required = false) String endDate) {
-        try { return reportService.taxSummary(startDate, endDate); }
-        catch (Exception e) { return Map.of("error", e.getMessage()); }
+        try {
+            return reportService.taxSummary(startDate, endDate);
+        } catch (Exception e) {
+            return Map.of("error", e.getMessage());
+        }
     }
 
     @GetMapping("/data/financial-kpis")
     @ResponseBody
     public Map<String, Object> financialKpisData(
             @RequestParam(required = false) String asOfDate) {
-        try { return reportService.financialKpis(asOfDate); }
-        catch (Exception e) { return Map.of("error", e.getMessage()); }
+        try {
+            return reportService.financialKpis(asOfDate);
+        } catch (Exception e) {
+            return Map.of("error", e.getMessage());
+        }
     }
 
     @GetMapping("/data/cost-center-summary")
@@ -245,8 +275,11 @@ public class FinancialReportController {
     public Map<String, Object> costCenterSummaryData(
             @RequestParam(required = false) String startDate,
             @RequestParam(required = false) String endDate) {
-        try { return reportService.costCenterSummary(startDate, endDate); }
-        catch (Exception e) { return Map.of("error", e.getMessage()); }
+        try {
+            return reportService.costCenterSummary(startDate, endDate);
+        } catch (Exception e) {
+            return Map.of("error", e.getMessage());
+        }
     }
 
     @GetMapping("/data/account-summary")
@@ -255,16 +288,22 @@ public class FinancialReportController {
             @RequestParam Long accountId,
             @RequestParam(required = false) String startDate,
             @RequestParam(required = false) String endDate) {
-        try { return reportService.accountTransactionSummary(accountId, startDate, endDate); }
-        catch (Exception e) { return Map.of("error", e.getMessage()); }
+        try {
+            return reportService.accountTransactionSummary(accountId, startDate, endDate);
+        } catch (Exception e) {
+            return Map.of("error", e.getMessage());
+        }
     }
 
     @GetMapping("/data/sub-account-summary")
     @ResponseBody
     public Map<String, Object> subAccountSummaryData(
             @RequestParam(defaultValue = "CUSTOMER") String subAccountType) {
-        try { return reportService.subAccountSummary(subAccountType); }
-        catch (Exception e) { return Map.of("error", e.getMessage()); }
+        try {
+            return reportService.subAccountSummary(subAccountType);
+        } catch (Exception e) {
+            return Map.of("error", e.getMessage());
+        }
     }
 
     @GetMapping("/data/budget-vs-actual")
@@ -273,7 +312,10 @@ public class FinancialReportController {
             @RequestParam Long budgetId,
             @RequestParam(required = false) String startDate,
             @RequestParam(required = false) String endDate) {
-        try { return reportService.budgetVsActual(budgetId, startDate, endDate); }
-        catch (Exception e) { return Map.of("error", e.getMessage()); }
+        try {
+            return reportService.budgetVsActual(budgetId, startDate, endDate);
+        } catch (Exception e) {
+            return Map.of("error", e.getMessage());
+        }
     }
 }

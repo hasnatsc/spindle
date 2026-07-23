@@ -18,25 +18,25 @@ import java.util.Map;
 
 /**
  * VoucherController — one controller serves all four voucher pages.
- *
+ * <p>
  * Pages:
- *   GET /accounts/journals          → journal-voucher.html
- *   GET /accounts/payment-vouchers  → payment-voucher.html
- *   GET /accounts/receipt-vouchers  → receipt-voucher.html
- *   GET /accounts/contra-vouchers   → contra-voucher.html
- *   GET /accounts/aging             → aging-report.html
- *
+ * GET /accounts/journals          → journal-voucher.html
+ * GET /accounts/payment-vouchers  → payment-voucher.html
+ * GET /accounts/receipt-vouchers  → receipt-voucher.html
+ * GET /accounts/contra-vouchers   → contra-voucher.html
+ * GET /accounts/aging             → aging-report.html
+ * <p>
  * Shared REST (discriminated by voucherType param):
- *   GET    /accounts/vouchers/list?voucherType=JOURNAL_VOUCHER
- *   GET    /accounts/vouchers/show/{id}
- *   POST   /accounts/vouchers/save
- *   POST   /accounts/vouchers/post/{id}          body: { allocations: [...] }  (optional)
- *   POST   /accounts/vouchers/reverse/{id}?narration=
- *   DELETE /accounts/vouchers/delete/{id}
- *   GET    /accounts/vouchers/open-for-party?partyId=&partyType=
- *   GET    /accounts/aging/summary?partyType=SUPPLIER
- *   GET    /accounts/aging/detail?partyId=&partyType=
- *
+ * GET    /accounts/vouchers/list?voucherType=JOURNAL_VOUCHER
+ * GET    /accounts/vouchers/show/{id}
+ * POST   /accounts/vouchers/save
+ * POST   /accounts/vouchers/post/{id}          body: { allocations: [...] }  (optional)
+ * POST   /accounts/vouchers/reverse/{id}?narration=
+ * DELETE /accounts/vouchers/delete/{id}
+ * GET    /accounts/vouchers/open-for-party?partyId=&partyType=
+ * GET    /accounts/aging/summary?partyType=SUPPLIER
+ * GET    /accounts/aging/detail?partyId=&partyType=
+ * <p>
  * JS prefix convention: jv / pv / rv / cv
  */
 @Slf4j
@@ -52,28 +52,28 @@ public class VoucherController {
 
     @GetMapping("/accounts/journals")
     public String journalPage(Model model) {
-        model.addAttribute("activePage",  "journal-voucher");
+        model.addAttribute("activePage", "journal-voucher");
         model.addAttribute("voucherType", "JOURNAL_VOUCHER");
         return "accounts/journal-voucher";
     }
 
     @GetMapping("/accounts/payment-vouchers")
     public String paymentPage(Model model) {
-        model.addAttribute("activePage",  "payment-voucher");
+        model.addAttribute("activePage", "payment-voucher");
         model.addAttribute("voucherType", "PAYMENT_VOUCHER");
         return "accounts/payment-voucher";
     }
 
     @GetMapping("/accounts/receipt-vouchers")
     public String receiptPage(Model model) {
-        model.addAttribute("activePage",  "receipt-voucher");
+        model.addAttribute("activePage", "receipt-voucher");
         model.addAttribute("voucherType", "RECEIPT_VOUCHER");
         return "accounts/receipt-voucher";
     }
 
     @GetMapping("/accounts/contra-vouchers")
     public String contraPage(Model model) {
-        model.addAttribute("activePage",  "contra-voucher");
+        model.addAttribute("activePage", "contra-voucher");
         model.addAttribute("voucherType", "CONTRA_VOUCHER");
         return "accounts/contra-voucher";
     }
@@ -89,8 +89,8 @@ public class VoucherController {
     @GetMapping("/accounts/vouchers/list")
     @ResponseBody
     public DataTableResponse list(
-            @RequestParam(defaultValue = "1")  int draw,
-            @RequestParam(defaultValue = "0")  int start,
+            @RequestParam(defaultValue = "1") int draw,
+            @RequestParam(defaultValue = "0") int start,
             @RequestParam(defaultValue = "25") int length,
             @RequestParam(value = "search[value]", defaultValue = "") String search,
             @RequestParam(defaultValue = "") String voucherType) {
@@ -124,8 +124,8 @@ public class VoucherController {
             res.put("success", true);
             res.put("id", saved.getId());
             res.put("message", dto.getId() != null
-                ? "Voucher updated successfully."
-                : "Voucher saved as draft.");
+                    ? "Voucher updated successfully."
+                    : "Voucher saved as draft.");
         } catch (Exception e) {
             res.put("success", false);
             res.put("message", e.getMessage());
@@ -139,9 +139,9 @@ public class VoucherController {
      * Post a DRAFT voucher.
      * If an approval config exists for the voucher type, the voucher enters
      * PENDING_APPROVAL instead of being posted immediately.
-     *
+     * <p>
      * For Payment / Receipt vouchers, an optional JSON body with allocations is accepted:
-     *   { "allocations": [{sourceVoucherId, allocatedAmount, discountAmount, ...}] }
+     * { "allocations": [{sourceVoucherId, allocatedAmount, discountAmount, ...}] }
      * For Journal / Contra vouchers the body can be empty or {}.
      * Allocations are only processed when the voucher actually reaches POSTED status.
      */
@@ -155,9 +155,9 @@ public class VoucherController {
 
             if ("PENDING_APPROVAL".equals(posted.getVoucherStatus())) {
                 // Voucher sent for approval — allocations processed after approval
-                res.put("success",   true);
+                res.put("success", true);
                 res.put("voucherStatus", "PENDING_APPROVAL");
-                res.put("message",   "Voucher submitted for approval.");
+                res.put("message", "Voucher submitted for approval.");
             } else {
                 // Process allocations if provided (PV / RV only) — only after full posting
                 if (allocationPayload != null
@@ -167,9 +167,9 @@ public class VoucherController {
                     voucherService.processAllocations(entity, allocationPayload.getAllocations());
                 }
 
-                res.put("success",   true);
+                res.put("success", true);
                 res.put("voucherNo", posted.getVoucherNo());
-                res.put("message",   "Voucher " + posted.getVoucherNo() + " posted successfully.");
+                res.put("message", "Voucher " + posted.getVoucherNo() + " posted successfully.");
             }
         } catch (Exception e) {
             res.put("success", false);
@@ -226,9 +226,9 @@ public class VoucherController {
     @GetMapping("/accounts/aging/summary")
     @ResponseBody
     public DataTableResponse agingSummary(
-            @RequestParam(defaultValue = "1")        int draw,
-            @RequestParam(defaultValue = "0")        int start,
-            @RequestParam(defaultValue = "25")       int length,
+            @RequestParam(defaultValue = "1") int draw,
+            @RequestParam(defaultValue = "0") int start,
+            @RequestParam(defaultValue = "25") int length,
             @RequestParam(value = "search[value]", defaultValue = "") String search,
             @RequestParam(defaultValue = "SUPPLIER") String partyType) {
         return voucherService.agingSummary(partyType, draw, start, length, search);
@@ -237,7 +237,7 @@ public class VoucherController {
     @GetMapping("/accounts/aging/detail")
     @ResponseBody
     public List<Map<String, Object>> agingDetail(
-            @RequestParam Long   partyId,
+            @RequestParam Long partyId,
             @RequestParam(defaultValue = "SUPPLIER") String partyType) {
         return voucherService.agingDetail(partyId, partyType);
     }

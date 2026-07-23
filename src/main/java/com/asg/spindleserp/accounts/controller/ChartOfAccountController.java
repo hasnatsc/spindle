@@ -19,14 +19,14 @@ import java.util.stream.Collectors;
 
 /**
  * ChartOfAccountController  /accounts/chart-of-accounts
- *
+ * <p>
  * JS fn → endpoint:
- *   coaShow(id)   GET    /accounts/chart-of-accounts/show/{id}
- *   coaEdit(id)   GET    /accounts/chart-of-accounts/show/{id}
- *   coaToggle(id) POST   /accounts/chart-of-accounts/toggle/{id}
- *   coaDelete(id) DELETE /accounts/chart-of-accounts/delete/{id}
- *   (save)        POST   /accounts/chart-of-accounts/save
- *   (search)      GET    /accounts/chart-of-accounts/search?search=&page=
+ * coaShow(id)   GET    /accounts/chart-of-accounts/show/{id}
+ * coaEdit(id)   GET    /accounts/chart-of-accounts/show/{id}
+ * coaToggle(id) POST   /accounts/chart-of-accounts/toggle/{id}
+ * coaDelete(id) DELETE /accounts/chart-of-accounts/delete/{id}
+ * (save)        POST   /accounts/chart-of-accounts/save
+ * (search)      GET    /accounts/chart-of-accounts/search?search=&page=
  */
 @Slf4j
 @Controller
@@ -49,8 +49,8 @@ public class ChartOfAccountController {
     @GetMapping("/list")
     @ResponseBody
     public DataTableResponse list(
-            @RequestParam(defaultValue = "1")  int draw,
-            @RequestParam(defaultValue = "0")  int start,
+            @RequestParam(defaultValue = "1") int draw,
+            @RequestParam(defaultValue = "0") int start,
             @RequestParam(defaultValue = "25") int length,
             @RequestParam(value = "search[value]", defaultValue = "") String search) {
         return coaService.datatableList(draw, start, length, search);
@@ -65,7 +65,10 @@ public class ChartOfAccountController {
         try {
             res.put("success", true);
             res.put("obj", Map.of("defaultData", coaService.findById(id)));
-        } catch (Exception e) { res.put("success", false); res.put("message", e.getMessage()); }
+        } catch (Exception e) {
+            res.put("success", false);
+            res.put("message", e.getMessage());
+        }
         return res;
     }
 
@@ -84,7 +87,10 @@ public class ChartOfAccountController {
                 res.put("message", "Account created successfully.");
             }
             res.put("success", true);
-        } catch (Exception e) { res.put("success", false); res.put("message", e.getMessage()); }
+        } catch (Exception e) {
+            res.put("success", false);
+            res.put("message", e.getMessage());
+        }
         return res;
     }
 
@@ -98,7 +104,10 @@ public class ChartOfAccountController {
             ChartOfAccountDTO dto = coaService.toggleStatus(id);
             res.put("success", true);
             res.put("message", "Account " + (Boolean.TRUE.equals(dto.getActive()) ? "activated" : "deactivated") + ".");
-        } catch (Exception e) { res.put("success", false); res.put("message", e.getMessage()); }
+        } catch (Exception e) {
+            res.put("success", false);
+            res.put("message", e.getMessage());
+        }
         return res;
     }
 
@@ -108,8 +117,14 @@ public class ChartOfAccountController {
     @ResponseBody
     public Map<String, Object> delete(@PathVariable Long id) {
         Map<String, Object> res = new HashMap<>();
-        try { coaService.delete(id); res.put("success", true); res.put("message", "Account deleted."); }
-        catch (Exception e) { res.put("success", false); res.put("message", e.getMessage()); }
+        try {
+            coaService.delete(id);
+            res.put("success", true);
+            res.put("message", "Account deleted.");
+        } catch (Exception e) {
+            res.put("success", false);
+            res.put("message", e.getMessage());
+        }
         return res;
     }
 
@@ -122,22 +137,26 @@ public class ChartOfAccountController {
     @GetMapping("/search")
     @ResponseBody
     public Map<String, Object> search(
-            @RequestParam(defaultValue = "")   String search,
-            @RequestParam(defaultValue = "1")  int    page,
-            @RequestParam(defaultValue = "30") int    pageSize) {
+            @RequestParam(defaultValue = "") String search,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "30") int pageSize) {
         return coaService.search(search, page, pageSize);
     }
 
     // ── Reference data ────────────────────────────────────────────────────────
 
-    /** Account type enum values for form dropdowns */
+    /**
+     * Account type enum values for form dropdowns
+     */
     @GetMapping("/account-types")
     @ResponseBody
     public List<String> accountTypes() {
         return Arrays.stream(ChartOfAccount.AccountType.values()).map(Enum::name).toList();
     }
 
-    /** Account nature enum values */
+    /**
+     * Account nature enum values
+     */
     @GetMapping("/account-natures")
     @ResponseBody
     public List<String> accountNatures() {

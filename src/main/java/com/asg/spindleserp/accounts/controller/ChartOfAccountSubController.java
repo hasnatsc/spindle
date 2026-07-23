@@ -18,33 +18,33 @@ import java.util.Map;
 
 /**
  * ChartOfAccountSubController
- *
+ * <p>
  * Serves pages for BANK | CASH | CUSTOMER | SUPPLIER | EMPLOYEE | LC | GENERAL sub-accounts.
  * Each type has its own page URL but shares one modal save/show endpoint.
- *
+ * <p>
  * URL patterns (page):
- *   GET /accounts/bank-accounts          → bank-accounts.html
- *   GET /accounts/cash-accounts          → cash-accounts.html
- *   GET /accounts/customer-accounts      → customer-accounts.html
- *   GET /accounts/supplier-accounts      → supplier-accounts.html
- *   GET /accounts/employee-accounts      → employee-accounts.html
- *   GET /accounts/sub-accounts           → sub-accounts.html  (all types)
- *
+ * GET /accounts/bank-accounts          → bank-accounts.html
+ * GET /accounts/cash-accounts          → cash-accounts.html
+ * GET /accounts/customer-accounts      → customer-accounts.html
+ * GET /accounts/supplier-accounts      → supplier-accounts.html
+ * GET /accounts/employee-accounts      → employee-accounts.html
+ * GET /accounts/sub-accounts           → sub-accounts.html  (all types)
+ * <p>
  * Shared REST endpoints (all types):
- *   GET    /accounts/sub-accounts/list?subAccountType=BANK
- *   GET    /accounts/sub-accounts/show/{id}
- *   POST   /accounts/sub-accounts/save
- *   POST   /accounts/sub-accounts/toggle/{id}
- *   DELETE /accounts/sub-accounts/delete/{id}
- *   GET    /accounts/sub-accounts/search?search=&subAccountType=&page=
- *
+ * GET    /accounts/sub-accounts/list?subAccountType=BANK
+ * GET    /accounts/sub-accounts/show/{id}
+ * POST   /accounts/sub-accounts/save
+ * POST   /accounts/sub-accounts/toggle/{id}
+ * DELETE /accounts/sub-accounts/delete/{id}
+ * GET    /accounts/sub-accounts/search?search=&subAccountType=&page=
+ * <p>
  * JS fn prefix per type:
- *   BANK → bankShow/bankEdit/bankToggle/bankDelete
- *   CASH → cashShow/cashEdit/cashToggle/cashDelete
- *   CUSTOMER → custShow/custEdit/custToggle/custDelete
- *   SUPPLIER → suppShow/suppEdit/suppToggle/suppDelete
- *   EMPLOYEE → empShow/empEdit/empToggle/empDelete
- *   LC       → lcShow/lcEdit/lcToggle/lcDelete
+ * BANK → bankShow/bankEdit/bankToggle/bankDelete
+ * CASH → cashShow/cashEdit/cashToggle/cashDelete
+ * CUSTOMER → custShow/custEdit/custToggle/custDelete
+ * SUPPLIER → suppShow/suppEdit/suppToggle/suppDelete
+ * EMPLOYEE → empShow/empEdit/empToggle/empDelete
+ * LC       → lcShow/lcEdit/lcToggle/lcDelete
  */
 @Slf4j
 @Controller
@@ -102,11 +102,11 @@ public class ChartOfAccountSubController {
     @GetMapping("/accounts/sub-accounts/list")
     @ResponseBody
     public DataTableResponse list(
-            @RequestParam(defaultValue = "1")  int draw,
-            @RequestParam(defaultValue = "0")  int start,
+            @RequestParam(defaultValue = "1") int draw,
+            @RequestParam(defaultValue = "0") int start,
             @RequestParam(defaultValue = "25") int length,
             @RequestParam(value = "search[value]", defaultValue = "") String search,
-            @RequestParam(defaultValue = "")   String subAccountType) {
+            @RequestParam(defaultValue = "") String subAccountType) {
         return subService.datatableList(subAccountType, draw, start, length, search);
     }
 
@@ -119,7 +119,10 @@ public class ChartOfAccountSubController {
         try {
             res.put("success", true);
             res.put("obj", Map.of("defaultData", subService.findById(id)));
-        } catch (Exception e) { res.put("success", false); res.put("message", e.getMessage()); }
+        } catch (Exception e) {
+            res.put("success", false);
+            res.put("message", e.getMessage());
+        }
         return res;
     }
 
@@ -138,7 +141,10 @@ public class ChartOfAccountSubController {
                 res.put("message", "Account created successfully.");
             }
             res.put("success", true);
-        } catch (Exception e) { res.put("success", false); res.put("message", e.getMessage()); }
+        } catch (Exception e) {
+            res.put("success", false);
+            res.put("message", e.getMessage());
+        }
         return res;
     }
 
@@ -152,7 +158,10 @@ public class ChartOfAccountSubController {
             ChartOfAccountSubDTO dto = subService.toggleStatus(id);
             res.put("success", true);
             res.put("message", "Account " + (Boolean.TRUE.equals(dto.getActive()) ? "activated" : "deactivated") + ".");
-        } catch (Exception e) { res.put("success", false); res.put("message", e.getMessage()); }
+        } catch (Exception e) {
+            res.put("success", false);
+            res.put("message", e.getMessage());
+        }
         return res;
     }
 
@@ -162,8 +171,14 @@ public class ChartOfAccountSubController {
     @ResponseBody
     public Map<String, Object> delete(@PathVariable Long id) {
         Map<String, Object> res = new HashMap<>();
-        try { subService.delete(id); res.put("success", true); res.put("message", "Account deleted."); }
-        catch (Exception e) { res.put("success", false); res.put("message", e.getMessage()); }
+        try {
+            subService.delete(id);
+            res.put("success", true);
+            res.put("message", "Account deleted.");
+        } catch (Exception e) {
+            res.put("success", false);
+            res.put("message", e.getMessage());
+        }
         return res;
     }
 
@@ -176,10 +191,10 @@ public class ChartOfAccountSubController {
     @GetMapping("/accounts/sub-accounts/search")
     @ResponseBody
     public Map<String, Object> search(
-            @RequestParam(defaultValue = "")   String search,
-            @RequestParam(defaultValue = "")   String subAccountType,
-            @RequestParam(defaultValue = "1")  int    page,
-            @RequestParam(defaultValue = "30") int    pageSize) {
+            @RequestParam(defaultValue = "") String search,
+            @RequestParam(defaultValue = "") String subAccountType,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "30") int pageSize) {
         return subService.search(search, subAccountType, page, pageSize);
     }
 

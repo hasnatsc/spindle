@@ -11,18 +11,18 @@ import java.util.Map;
 
 /**
  * GlReportController — General Ledger, Trial Balance, P&L, Balance Sheet.
- *
+ * <p>
  * Pages (Thymeleaf):
- *   GET /accounts/ledger          → accounts/ledger.html
- *   GET /accounts/trial-balance   → accounts/trial-balance.html
- *   GET /accounts/profit-loss     → accounts/profit-loss.html
- *   GET /accounts/balance-sheet   → accounts/balance-sheet.html
- *
+ * GET /accounts/ledger          → accounts/ledger.html
+ * GET /accounts/trial-balance   → accounts/trial-balance.html
+ * GET /accounts/profit-loss     → accounts/profit-loss.html
+ * GET /accounts/balance-sheet   → accounts/balance-sheet.html
+ * <p>
  * Data endpoints (JSON):
- *   GET /accounts/ledger/data?accountId=&startDate=&endDate=
- *   GET /accounts/trial-balance/data?asOfDate=&showZeroBalance=
- *   GET /accounts/profit-loss/data?startDate=&endDate=&compareStartDate=&compareEndDate=
- *   GET /accounts/balance-sheet/data?asOfDate=&compareDate=
+ * GET /accounts/ledger/data?accountId=&startDate=&endDate=
+ * GET /accounts/trial-balance/data?asOfDate=&showZeroBalance=
+ * GET /accounts/profit-loss/data?startDate=&endDate=&compareStartDate=&compareEndDate=
+ * GET /accounts/balance-sheet/data?asOfDate=&compareDate=
  */
 @Slf4j
 @Controller

@@ -18,14 +18,14 @@ import java.util.Map;
 
 /**
  * AccountingPeriodController  /accounts/periods
- *
+ * <p>
  * JS fn → endpoint:
- *   periodShow(id)   GET    /accounts/periods/show/{id}
- *   periodEdit(id)   GET    /accounts/periods/show/{id}
- *   periodToggle(id) POST   /accounts/periods/toggle/{id}
- *   periodClose(id)  POST   /accounts/periods/close/{id}
- *   periodDelete(id) DELETE /accounts/periods/delete/{id}
- *   (save)           POST   /accounts/periods/save
+ * periodShow(id)   GET    /accounts/periods/show/{id}
+ * periodEdit(id)   GET    /accounts/periods/show/{id}
+ * periodToggle(id) POST   /accounts/periods/toggle/{id}
+ * periodClose(id)  POST   /accounts/periods/close/{id}
+ * periodDelete(id) DELETE /accounts/periods/delete/{id}
+ * (save)           POST   /accounts/periods/save
  */
 @Slf4j
 @Controller
@@ -44,8 +44,8 @@ public class AccountingPeriodController {
     @GetMapping("/list")
     @ResponseBody
     public DataTableResponse list(
-            @RequestParam(defaultValue = "1")  int draw,
-            @RequestParam(defaultValue = "0")  int start,
+            @RequestParam(defaultValue = "1") int draw,
+            @RequestParam(defaultValue = "0") int start,
             @RequestParam(defaultValue = "25") int length,
             @RequestParam(value = "search[value]", defaultValue = "") String search) {
         return periodService.datatableList(draw, start, length, search);
@@ -55,8 +55,13 @@ public class AccountingPeriodController {
     @ResponseBody
     public Map<String, Object> show(@PathVariable Long id) {
         Map<String, Object> res = new HashMap<>();
-        try { res.put("success", true); res.put("obj", Map.of("defaultData", periodService.findById(id))); }
-        catch (Exception e) { res.put("success", false); res.put("message", e.getMessage()); }
+        try {
+            res.put("success", true);
+            res.put("obj", Map.of("defaultData", periodService.findById(id)));
+        } catch (Exception e) {
+            res.put("success", false);
+            res.put("message", e.getMessage());
+        }
         return res;
     }
 
@@ -65,10 +70,18 @@ public class AccountingPeriodController {
     public Map<String, Object> save(@RequestBody @Valid AccountingPeriodDTO dto) {
         Map<String, Object> res = new HashMap<>();
         try {
-            if (dto.getId() != null) { periodService.update(dto.getId(), dto); res.put("message", "Period updated."); }
-            else                     { periodService.create(dto);              res.put("message", "Period created."); }
+            if (dto.getId() != null) {
+                periodService.update(dto.getId(), dto);
+                res.put("message", "Period updated.");
+            } else {
+                periodService.create(dto);
+                res.put("message", "Period created.");
+            }
             res.put("success", true);
-        } catch (Exception e) { res.put("success", false); res.put("message", e.getMessage()); }
+        } catch (Exception e) {
+            res.put("success", false);
+            res.put("message", e.getMessage());
+        }
         return res;
     }
 
@@ -80,7 +93,10 @@ public class AccountingPeriodController {
             AccountingPeriodDTO dto = periodService.toggleStatus(id);
             res.put("success", true);
             res.put("message", "Period " + (Boolean.TRUE.equals(dto.getActive()) ? "activated" : "deactivated") + ".");
-        } catch (Exception e) { res.put("success", false); res.put("message", e.getMessage()); }
+        } catch (Exception e) {
+            res.put("success", false);
+            res.put("message", e.getMessage());
+        }
         return res;
     }
 
@@ -88,8 +104,14 @@ public class AccountingPeriodController {
     @ResponseBody
     public Map<String, Object> close(@PathVariable Long id) {
         Map<String, Object> res = new HashMap<>();
-        try { periodService.closePeriod(id); res.put("success", true); res.put("message", "Period closed successfully."); }
-        catch (Exception e) { res.put("success", false); res.put("message", e.getMessage()); }
+        try {
+            periodService.closePeriod(id);
+            res.put("success", true);
+            res.put("message", "Period closed successfully.");
+        } catch (Exception e) {
+            res.put("success", false);
+            res.put("message", e.getMessage());
+        }
         return res;
     }
 
@@ -97,8 +119,14 @@ public class AccountingPeriodController {
     @ResponseBody
     public Map<String, Object> delete(@PathVariable Long id) {
         Map<String, Object> res = new HashMap<>();
-        try { periodService.delete(id); res.put("success", true); res.put("message", "Period deleted."); }
-        catch (Exception e) { res.put("success", false); res.put("message", e.getMessage()); }
+        try {
+            periodService.delete(id);
+            res.put("success", true);
+            res.put("message", "Period deleted.");
+        } catch (Exception e) {
+            res.put("success", false);
+            res.put("message", e.getMessage());
+        }
         return res;
     }
 
