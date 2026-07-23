@@ -23,7 +23,7 @@ import java.util.stream.Collectors;
 public class ChartOfAccountServiceImpl implements ChartOfAccountService {
 
     private final ChartOfAccountRepository coaRepo;
-    private final JdbcTemplate             jdbcTemplate;
+    private final JdbcTemplate jdbcTemplate;
 
     // ─────────────────────────────────────────────────────────────────────────
     // CREATE
@@ -150,38 +150,38 @@ public class ChartOfAccountServiceImpl implements ChartOfAccountService {
         String where = "WHERE 1=1"
                 + (orgId != null ? " AND c.organization_id = " + orgId : "")
                 + CommonUtils.searchILike(search, Arrays.asList(
-                        "c.account_code", "c.account_name",
-                        "c.account_type", "c.account_nature"));
+                "c.account_code", "c.account_name",
+                "c.account_type", "c.account_nature"));
 
         String sql = String.format("""
-            SELECT
-                ROW_NUMBER() OVER (ORDER BY c.id DESC)         AS sl,
-                COUNT(*)     OVER ()                           AS full_count,
-                c.id,
-                c.account_code,
-                c.account_name,
-                c.account_type,
-                c.account_nature,
-                c.level,
-                COALESCE(p.account_code || ' — ' || p.account_name, '—') AS parent_account,
-                COALESCE(c.current_balance::text, '—')         AS current_balance,
-                TO_CHAR(c.created_at, 'DD-Mon-YYYY')           AS created_at,
-                CASE WHEN c.is_active
-                    THEN '<span class="badge bg-success">Active</span>'
-                    ELSE '<span class="badge bg-danger">Inactive</span>'
-                END AS status,
-                '<div class="btn-group">'
-                    || '<a href="javascript:;" onclick="coaShow('   || c.id || ')" class="btn btn-white btn-sm" title="View"><i class="fas fa-eye text-success"></i></a>'
-                    || '<a href="javascript:;" onclick="coaEdit('   || c.id || ')" class="btn btn-white btn-sm" title="Edit"><i class="fa-regular fa-pen-to-square text-warning"></i></a>'
-                    || '<a href="javascript:;" onclick="coaToggle(' || c.id || ')" class="btn btn-white btn-sm" title="Toggle"><i class="fa-regular fa-square-check text-primary"></i></a>'
-                    || '<a href="javascript:;" onclick="coaDelete(' || c.id || ')" class="btn btn-white btn-sm" title="Delete"><i class="fa-regular fa-trash-can text-danger"></i></a>'
-                    || '</div>'                                AS actions
-            FROM acc_chart_of_accounts c
-            LEFT JOIN acc_chart_of_accounts p ON p.id = c.parent_account_id
-            %s
-            ORDER BY c.account_code ASC
-            OFFSET %d LIMIT %d
-            """, where, start, length);
+                SELECT
+                    ROW_NUMBER() OVER (ORDER BY c.id DESC)         AS sl,
+                    COUNT(*)     OVER ()                           AS full_count,
+                    c.id,
+                    c.account_code,
+                    c.account_name,
+                    c.account_type,
+                    c.account_nature,
+                    c.level,
+                    COALESCE(p.account_code || ' — ' || p.account_name, '—') AS parent_account,
+                    COALESCE(c.current_balance::text, '—')         AS current_balance,
+                    TO_CHAR(c.created_at, 'DD-Mon-YYYY')           AS created_at,
+                    CASE WHEN c.is_active
+                        THEN '<span class="badge bg-success">Active</span>'
+                        ELSE '<span class="badge bg-danger">Inactive</span>'
+                    END AS status,
+                    '<div class="btn-group">'
+                        || '<a href="javascript:;" onclick="coaShow('   || c.id || ')" class="btn btn-white btn-sm" title="View"><i class="fas fa-eye text-success"></i></a>'
+                        || '<a href="javascript:;" onclick="coaEdit('   || c.id || ')" class="btn btn-white btn-sm" title="Edit"><i class="fa-regular fa-pen-to-square text-warning"></i></a>'
+                        || '<a href="javascript:;" onclick="coaToggle(' || c.id || ')" class="btn btn-white btn-sm" title="Toggle"><i class="fa-regular fa-square-check text-primary"></i></a>'
+                        || '<a href="javascript:;" onclick="coaDelete(' || c.id || ')" class="btn btn-white btn-sm" title="Delete"><i class="fa-regular fa-trash-can text-danger"></i></a>'
+                        || '</div>'                                AS actions
+                FROM acc_chart_of_accounts c
+                LEFT JOIN acc_chart_of_accounts p ON p.id = c.parent_account_id
+                %s
+                ORDER BY c.account_code ASC
+                OFFSET %d LIMIT %d
+                """, where, start, length);
 
         List<Map<String, Object>> rows = jdbcTemplate.queryForList(sql);
         long total = rows.isEmpty() ? 0L : CommonUtils.toLong(rows.get(0).get("full_count"));
@@ -204,28 +204,28 @@ public class ChartOfAccountServiceImpl implements ChartOfAccountService {
         String query = q == null ? "" : q.trim().toLowerCase();
         List<ChartOfAccount> filtered = query.isEmpty() ? all
                 : all.stream()
-                    .filter(c -> (c.getAccountCode() != null && c.getAccountCode().toLowerCase().contains(query))
-                              || (c.getAccountName() != null && c.getAccountName().toLowerCase().contains(query)))
-                    .collect(Collectors.toList());
+                  .filter(c -> (c.getAccountCode() != null && c.getAccountCode().toLowerCase().contains(query))
+                               || (c.getAccountName() != null && c.getAccountName().toLowerCase().contains(query)))
+                  .collect(Collectors.toList());
 
-        int from    = (page - 1) * pageSize;
-        int to      = Math.min(from + pageSize, filtered.size());
+        int from = (page - 1) * pageSize;
+        int to = Math.min(from + pageSize, filtered.size());
         boolean hasMore = to < filtered.size();
         List<ChartOfAccount> paged = from >= filtered.size() ? List.of() : filtered.subList(from, to);
 
         List<Map<String, Object>> items = paged.stream().map(c -> {
             Map<String, Object> m = new LinkedHashMap<>();
-            m.put("id",          c.getId());
-            m.put("text",        c.getAccountCode() + " — " + c.getAccountName());
-            m.put("code",        c.getAccountCode());
-            m.put("name",        c.getAccountName());
+            m.put("id", c.getId());
+            m.put("text", c.getAccountCode() + " — " + c.getAccountName());
+            m.put("code", c.getAccountCode());
+            m.put("name", c.getAccountName());
             m.put("accountType", c.getAccountType() != null ? c.getAccountType().name() : "");
-            m.put("nature",      c.getAccountNature() != null ? c.getAccountNature().name() : "");
+            m.put("nature", c.getAccountNature() != null ? c.getAccountNature().name() : "");
             return m;
         }).toList();
 
         Map<String, Object> res = new LinkedHashMap<>();
-        res.put("items",   items);
+        res.put("items", items);
         res.put("hasMore", hasMore);
         return res;
     }

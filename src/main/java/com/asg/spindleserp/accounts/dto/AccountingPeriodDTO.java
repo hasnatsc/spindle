@@ -10,7 +10,11 @@ import java.time.LocalDate;
 /**
  * AccountingPeriodDTO — canonical pattern.
  */
-@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class AccountingPeriodDTO {
 
     private Long id;
@@ -19,7 +23,9 @@ public class AccountingPeriodDTO {
     @Size(max = 50)
     private String periodName;
 
-    /** DAILY | WEEKLY | MONTHLY | QUARTERLY | YEARLY | CUSTOM */
+    /**
+     * DAILY | WEEKLY | MONTHLY | QUARTERLY | YEARLY | CUSTOM
+     */
     @NotBlank(message = "Period type is required")
     private String periodType;
 
@@ -35,8 +41,10 @@ public class AccountingPeriodDTO {
     @Size(max = 1000)
     private String description;
 
-    @Builder.Default private Boolean active = true;
-    @Builder.Default private Boolean closed = false;
+    @Builder.Default
+    private Boolean active = true;
+    @Builder.Default
+    private Boolean closed = false;
 
     private String closedBy;
     private LocalDate closedDate;

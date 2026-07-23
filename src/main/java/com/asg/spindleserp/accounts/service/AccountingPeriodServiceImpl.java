@@ -25,7 +25,7 @@ import java.util.Map;
 public class AccountingPeriodServiceImpl implements AccountingPeriodService {
 
     private final AccountingPeriodRepository periodRepo;
-    private final JdbcTemplate               jdbcTemplate;
+    private final JdbcTemplate jdbcTemplate;
 
     // ── CREATE ────────────────────────────────────────────────────────────────
 
@@ -72,7 +72,9 @@ public class AccountingPeriodServiceImpl implements AccountingPeriodService {
 
     @Override
     @Transactional(readOnly = true)
-    public AccountingPeriodDTO findById(Long id) { return toDTO(findEntityById(id)); }
+    public AccountingPeriodDTO findById(Long id) {
+        return toDTO(findEntityById(id));
+    }
 
     @Override
     @Transactional(readOnly = true)
@@ -128,41 +130,41 @@ public class AccountingPeriodServiceImpl implements AccountingPeriodService {
         String where = "WHERE 1=1"
                 + (orgId != null ? " AND p.organization_id = " + orgId : "")
                 + CommonUtils.searchILike(search, Arrays.asList(
-                        "p.period_name", "p.period_type", "p.fiscal_year::text"));
+                "p.period_name", "p.period_type", "p.fiscal_year::text"));
 
         String sql = String.format("""
-            SELECT
-                ROW_NUMBER() OVER (ORDER BY p.fiscal_year DESC, p.start_date DESC) AS sl,
-                COUNT(*)     OVER ()                                                AS full_count,
-                p.id,
-                p.period_name,
-                p.period_type,
-                p.fiscal_year,
-                TO_CHAR(p.start_date, 'DD-Mon-YYYY')  AS start_date,
-                TO_CHAR(p.end_date,   'DD-Mon-YYYY')  AS end_date,
-                CASE WHEN p.is_closed
-                    THEN '<span class="badge bg-dark">Closed</span>'
-                    WHEN p.is_active
-                    THEN '<span class="badge bg-success">Active</span>'
-                    ELSE '<span class="badge bg-secondary">Inactive</span>'
-                END AS status,
-                COALESCE(p.closed_by, '—')            AS closed_by,
-                COALESCE(TO_CHAR(p.closed_date, 'DD-Mon-YYYY'), '—') AS closed_date,
-                TO_CHAR(p.created_at, 'DD-Mon-YYYY')  AS created_at,
-                '<div class="btn-group">'
-                    || '<a href="javascript:;" onclick="periodShow('   || p.id || ')" class="btn btn-white btn-sm" title="View"><i class="fas fa-eye text-success"></i></a>'
-                    || '<a href="javascript:;" onclick="periodEdit('   || p.id || ')" class="btn btn-white btn-sm" title="Edit"><i class="fa-regular fa-pen-to-square text-warning"></i></a>'
-                    || CASE WHEN NOT p.is_closed THEN
-                        '<a href="javascript:;" onclick="periodClose(' || p.id || ')" class="btn btn-white btn-sm" title="Close Period"><i class="fas fa-lock text-danger"></i></a>'
-                       ELSE '' END
-                    || '<a href="javascript:;" onclick="periodToggle(' || p.id || ')" class="btn btn-white btn-sm" title="Toggle"><i class="fa-regular fa-square-check text-primary"></i></a>'
-                    || '<a href="javascript:;" onclick="periodDelete(' || p.id || ')" class="btn btn-white btn-sm" title="Delete"><i class="fa-regular fa-trash-can text-danger"></i></a>'
-                    || '</div>'                        AS actions
-            FROM acc_periods p
-            %s
-            ORDER BY p.fiscal_year DESC, p.start_date DESC
-            OFFSET %d LIMIT %d
-            """, where, start, length);
+                SELECT
+                    ROW_NUMBER() OVER (ORDER BY p.fiscal_year DESC, p.start_date DESC) AS sl,
+                    COUNT(*)     OVER ()                                                AS full_count,
+                    p.id,
+                    p.period_name,
+                    p.period_type,
+                    p.fiscal_year,
+                    TO_CHAR(p.start_date, 'DD-Mon-YYYY')  AS start_date,
+                    TO_CHAR(p.end_date,   'DD-Mon-YYYY')  AS end_date,
+                    CASE WHEN p.is_closed
+                        THEN '<span class="badge bg-dark">Closed</span>'
+                        WHEN p.is_active
+                        THEN '<span class="badge bg-success">Active</span>'
+                        ELSE '<span class="badge bg-secondary">Inactive</span>'
+                    END AS status,
+                    COALESCE(p.closed_by, '—')            AS closed_by,
+                    COALESCE(TO_CHAR(p.closed_date, 'DD-Mon-YYYY'), '—') AS closed_date,
+                    TO_CHAR(p.created_at, 'DD-Mon-YYYY')  AS created_at,
+                    '<div class="btn-group">'
+                        || '<a href="javascript:;" onclick="periodShow('   || p.id || ')" class="btn btn-white btn-sm" title="View"><i class="fas fa-eye text-success"></i></a>'
+                        || '<a href="javascript:;" onclick="periodEdit('   || p.id || ')" class="btn btn-white btn-sm" title="Edit"><i class="fa-regular fa-pen-to-square text-warning"></i></a>'
+                        || CASE WHEN NOT p.is_closed THEN
+                            '<a href="javascript:;" onclick="periodClose(' || p.id || ')" class="btn btn-white btn-sm" title="Close Period"><i class="fas fa-lock text-danger"></i></a>'
+                           ELSE '' END
+                        || '<a href="javascript:;" onclick="periodToggle(' || p.id || ')" class="btn btn-white btn-sm" title="Toggle"><i class="fa-regular fa-square-check text-primary"></i></a>'
+                        || '<a href="javascript:;" onclick="periodDelete(' || p.id || ')" class="btn btn-white btn-sm" title="Delete"><i class="fa-regular fa-trash-can text-danger"></i></a>'
+                        || '</div>'                        AS actions
+                FROM acc_periods p
+                %s
+                ORDER BY p.fiscal_year DESC, p.start_date DESC
+                OFFSET %d LIMIT %d
+                """, where, start, length);
 
         List<Map<String, Object>> rows = jdbcTemplate.queryForList(sql);
         long total = rows.isEmpty() ? 0L : CommonUtils.toLong(rows.get(0).get("full_count"));

@@ -15,12 +15,12 @@ import java.util.Optional;
 
 /**
  * JournalEntryMasterRepository
- *
+ * <p>
  * Includes:
- *  - Standard finders (by voucher no, org, posted flag)
- *  - Atomic allocation updaters (addAllocation / subtractAllocation)
- *  - AP/AR open-voucher query for the allocation picker
- *  - Aging support helpers
+ * - Standard finders (by voucher no, org, posted flag)
+ * - Atomic allocation updaters (addAllocation / subtractAllocation)
+ * - AP/AR open-voucher query for the allocation picker
+ * - Aging support helpers
  */
 @Repository
 public interface JournalEntryMasterRepository extends JpaRepository<JournalEntryMaster, Long>, JpaSpecificationExecutor<JournalEntryMaster> {
@@ -45,7 +45,7 @@ public interface JournalEntryMasterRepository extends JpaRepository<JournalEntry
               AND j.totalAmount     > j.allocatedAmount
             ORDER BY j.dueDate ASC NULLS LAST, j.voucherDate ASC
             """)
-    List<JournalEntryMaster> findOpenForParty(@Param("orgId")   Long orgId, @Param("partyId") Long partyId);
+    List<JournalEntryMaster> findOpenForParty(@Param("orgId") Long orgId, @Param("partyId") Long partyId);
 
     @Query("""
             SELECT j FROM JournalEntryMaster j
@@ -56,7 +56,7 @@ public interface JournalEntryMasterRepository extends JpaRepository<JournalEntry
               AND j.totalAmount     > j.allocatedAmount
             ORDER BY j.dueDate ASC NULLS LAST, j.voucherDate ASC
             """)
-    List<JournalEntryMaster> findOpenForPartyAndType(@Param("orgId")     Long orgId, @Param("partyId")   Long partyId, @Param("partyType") String partyType);
+    List<JournalEntryMaster> findOpenForPartyAndType(@Param("orgId") Long orgId, @Param("partyId") Long partyId, @Param("partyType") String partyType);
 
     @Modifying
     @Query("""
@@ -89,7 +89,7 @@ public interface JournalEntryMasterRepository extends JpaRepository<JournalEntry
               AND j.voucherStatus   = 'POSTED'
               AND j.totalAmount     > j.allocatedAmount
             """)
-    BigDecimal sumOutstandingByPartyType(@Param("orgId")     Long orgId, @Param("partyType") String partyType);
+    BigDecimal sumOutstandingByPartyType(@Param("orgId") Long orgId, @Param("partyType") String partyType);
 
     Optional<JournalEntryMaster> findByOrganizationIdAndReferenceNoAndVoucherType(
             Long organizationId,

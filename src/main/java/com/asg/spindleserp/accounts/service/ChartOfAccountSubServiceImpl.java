@@ -25,9 +25,9 @@ import java.util.stream.Collectors;
 public class ChartOfAccountSubServiceImpl implements ChartOfAccountSubService {
 
     private final ChartOfAccountSubRepository subRepo;
-    private final ChartOfAccountRepository    coaRepo;
-    private final BankRepository              bankRepo;
-    private final JdbcTemplate                jdbcTemplate;
+    private final ChartOfAccountRepository coaRepo;
+    private final BankRepository bankRepo;
+    private final JdbcTemplate jdbcTemplate;
 
     // ─────────────────────────────────────────────────────────────────────────
     // CREATE
@@ -46,7 +46,7 @@ public class ChartOfAccountSubServiceImpl implements ChartOfAccountSubService {
     @Override
     public ChartOfAccountSubDTO update(Long id, ChartOfAccountSubDTO dto) {
         ChartOfAccountSub existing = findEntityById(id);
-        ChartOfAccountSub updated  = buildEntity(dto, existing);
+        ChartOfAccountSub updated = buildEntity(dto, existing);
         return toDTO(subRepo.save(updated));
     }
 
@@ -108,42 +108,42 @@ public class ChartOfAccountSubServiceImpl implements ChartOfAccountSubService {
                 + (orgId != null ? " AND s.organization_id = " + orgId : "")
                 + typeFilter
                 + CommonUtils.searchILike(search, Arrays.asList(
-                        "s.sub_account_code", "s.sub_account_name",
-                        "s.sub_account_type", "s.contact_person",
-                        "s.contact_phone", "c.account_code", "c.account_name"));
+                "s.sub_account_code", "s.sub_account_name",
+                "s.sub_account_type", "s.contact_person",
+                "s.contact_phone", "c.account_code", "c.account_name"));
 
         String fnPrefix = fnPrefix(subAccountType);
 
         String sql = String.format("""
-            SELECT
-                ROW_NUMBER() OVER (ORDER BY s.id DESC)           AS sl,
-                COUNT(*)     OVER ()                             AS full_count,
-                s.id,
-                s.sub_account_type,
-                s.sub_account_code,
-                s.sub_account_name,
-                c.account_code || ' — ' || c.account_name        AS main_account,
-                COALESCE(s.contact_person, '—')                  AS contact_person,
-                COALESCE(s.contact_phone, '—')                   AS contact_phone,
-                COALESCE(s.currency, '—')                        AS currency,
-                COALESCE(s.current_balance::text, '—')           AS current_balance,
-                TO_CHAR(s.created_at, 'DD-Mon-YYYY')             AS created_at,
-                CASE WHEN s.is_active
-                    THEN '<span class="badge bg-success">Active</span>'
-                    ELSE '<span class="badge bg-danger">Inactive</span>'
-                END AS status,
-                '<div class="btn-group">'
-                    || '<a href="javascript:;" onclick="%1$sShow('   || s.id || ')" class="btn btn-white btn-sm" title="View"><i class="fas fa-eye text-success"></i></a>'
-                    || '<a href="javascript:;" onclick="%1$sEdit('   || s.id || ')" class="btn btn-white btn-sm" title="Edit"><i class="fa-regular fa-pen-to-square text-warning"></i></a>'
-                    || '<a href="javascript:;" onclick="%1$sToggle(' || s.id || ')" class="btn btn-white btn-sm" title="Toggle"><i class="fa-regular fa-square-check text-primary"></i></a>'
-                    || '<a href="javascript:;" onclick="%1$sDelete(' || s.id || ')" class="btn btn-white btn-sm" title="Delete"><i class="fa-regular fa-trash-can text-danger"></i></a>'
-                    || '</div>'                                   AS actions
-            FROM acc_chart_of_accounts_sub s
-            JOIN acc_chart_of_accounts c ON c.id = s.main_account_id
-            %2$s
-            ORDER BY s.sub_account_code ASC
-            OFFSET %3$d LIMIT %4$d
-            """, fnPrefix, where, start, length);
+                SELECT
+                    ROW_NUMBER() OVER (ORDER BY s.id DESC)           AS sl,
+                    COUNT(*)     OVER ()                             AS full_count,
+                    s.id,
+                    s.sub_account_type,
+                    s.sub_account_code,
+                    s.sub_account_name,
+                    c.account_code || ' — ' || c.account_name        AS main_account,
+                    COALESCE(s.contact_person, '—')                  AS contact_person,
+                    COALESCE(s.contact_phone, '—')                   AS contact_phone,
+                    COALESCE(s.currency, '—')                        AS currency,
+                    COALESCE(s.current_balance::text, '—')           AS current_balance,
+                    TO_CHAR(s.created_at, 'DD-Mon-YYYY')             AS created_at,
+                    CASE WHEN s.is_active
+                        THEN '<span class="badge bg-success">Active</span>'
+                        ELSE '<span class="badge bg-danger">Inactive</span>'
+                    END AS status,
+                    '<div class="btn-group">'
+                        || '<a href="javascript:;" onclick="%1$sShow('   || s.id || ')" class="btn btn-white btn-sm" title="View"><i class="fas fa-eye text-success"></i></a>'
+                        || '<a href="javascript:;" onclick="%1$sEdit('   || s.id || ')" class="btn btn-white btn-sm" title="Edit"><i class="fa-regular fa-pen-to-square text-warning"></i></a>'
+                        || '<a href="javascript:;" onclick="%1$sToggle(' || s.id || ')" class="btn btn-white btn-sm" title="Toggle"><i class="fa-regular fa-square-check text-primary"></i></a>'
+                        || '<a href="javascript:;" onclick="%1$sDelete(' || s.id || ')" class="btn btn-white btn-sm" title="Delete"><i class="fa-regular fa-trash-can text-danger"></i></a>'
+                        || '</div>'                                   AS actions
+                FROM acc_chart_of_accounts_sub s
+                JOIN acc_chart_of_accounts c ON c.id = s.main_account_id
+                %2$s
+                ORDER BY s.sub_account_code ASC
+                OFFSET %3$d LIMIT %4$d
+                """, fnPrefix, where, start, length);
 
         List<Map<String, Object>> rows = jdbcTemplate.queryForList(sql);
         long total = rows.isEmpty() ? 0L : CommonUtils.toLong(rows.get(0).get("full_count"));
@@ -173,27 +173,27 @@ public class ChartOfAccountSubServiceImpl implements ChartOfAccountSubService {
         String query = q == null ? "" : q.trim().toLowerCase();
         List<ChartOfAccountSub> filtered = query.isEmpty() ? all
                 : all.stream()
-                    .filter(s -> (s.getSubAccountCode() != null && s.getSubAccountCode().toLowerCase().contains(query))
-                              || (s.getSubAccountName() != null && s.getSubAccountName().toLowerCase().contains(query)))
-                    .collect(Collectors.toList());
+                  .filter(s -> (s.getSubAccountCode() != null && s.getSubAccountCode().toLowerCase().contains(query))
+                               || (s.getSubAccountName() != null && s.getSubAccountName().toLowerCase().contains(query)))
+                  .collect(Collectors.toList());
 
-        int from    = (page - 1) * pageSize;
-        int to      = Math.min(from + pageSize, filtered.size());
+        int from = (page - 1) * pageSize;
+        int to = Math.min(from + pageSize, filtered.size());
         boolean hasMore = to < filtered.size();
         List<ChartOfAccountSub> paged = from >= filtered.size() ? List.of() : filtered.subList(from, to);
 
         List<Map<String, Object>> items = paged.stream().map(s -> {
             Map<String, Object> m = new LinkedHashMap<>();
-            m.put("id",             s.getId());
-            m.put("text",           s.getSubAccountCode() + " — " + s.getSubAccountName());
-            m.put("code",           s.getSubAccountCode());
-            m.put("name",           s.getSubAccountName());
+            m.put("id", s.getId());
+            m.put("text", s.getSubAccountCode() + " — " + s.getSubAccountName());
+            m.put("code", s.getSubAccountCode());
+            m.put("name", s.getSubAccountName());
 //            m.put("subAccountType", s.getSubAccountType() != null ? s.getSubAccountType().name() : "");
             return m;
         }).toList();
 
         Map<String, Object> res = new LinkedHashMap<>();
-        res.put("items",   items);
+        res.put("items", items);
         res.put("hasMore", hasMore);
         return res;
     }
@@ -406,14 +406,14 @@ public class ChartOfAccountSubServiceImpl implements ChartOfAccountSubService {
 
     private ChartOfAccountSub instantiate(String type) {
         return switch (type) {
-            case "BANK"          -> new BankAccount();
-            case "CASH"          -> new CashAccount();
-            case "CUSTOMER"      -> new CustomerAccount();
-            case "SUPPLIER"      -> new SupplierAccount();
-            case "EMPLOYEE"      -> new EmployeeSubAccount();
-            case "LC"            -> new LetterOfCredit();
+            case "BANK" -> new BankAccount();
+            case "CASH" -> new CashAccount();
+            case "CUSTOMER" -> new CustomerAccount();
+            case "SUPPLIER" -> new SupplierAccount();
+            case "EMPLOYEE" -> new EmployeeSubAccount();
+            case "LC" -> new LetterOfCredit();
             case "INTER_COMPANY" -> new InterCompanyAccount();
-            default              -> new GeneralSubAccount();
+            default -> new GeneralSubAccount();
         };
     }
 
@@ -422,18 +422,20 @@ public class ChartOfAccountSubServiceImpl implements ChartOfAccountSubService {
                 .orElseThrow(() -> new IllegalArgumentException("Sub-account #" + id + " not found."));
     }
 
-    /** Maps sub-account type to the JS function prefix used in DataTable action buttons. */
+    /**
+     * Maps sub-account type to the JS function prefix used in DataTable action buttons.
+     */
     private String fnPrefix(String type) {
         if (type == null || type.isBlank()) return "sub";
         return switch (type.toUpperCase()) {
-            case "BANK"          -> "bank";
-            case "CASH"          -> "cash";
-            case "CUSTOMER"      -> "cust";
-            case "SUPPLIER"      -> "supp";
-            case "EMPLOYEE"      -> "emp";
-            case "LC"            -> "lc";
+            case "BANK" -> "bank";
+            case "CASH" -> "cash";
+            case "CUSTOMER" -> "cust";
+            case "SUPPLIER" -> "supp";
+            case "EMPLOYEE" -> "emp";
+            case "LC" -> "lc";
             case "INTER_COMPANY" -> "ic";
-            default              -> "sub";
+            default -> "sub";
         };
     }
 }

@@ -11,14 +11,14 @@ import java.util.Set;
 
 /**
  * Listens for approval lifecycle events and drives the voucher lifecycle.
- *
+ * <p>
  * When an approval request for a voucher is:
- *   APPROVED → posts the voucher (GL entries, balance update, numbering)
- *   REJECTED → marks voucher as REJECTED
- *   RETURNED → reverts voucher to DRAFT so the user can edit & re-submit
- *
+ * APPROVED → posts the voucher (GL entries, balance update, numbering)
+ * REJECTED → marks voucher as REJECTED
+ * RETURNED → reverts voucher to DRAFT so the user can edit & re-submit
+ * <p>
  * Document types handled: JOURNAL_VOUCHER, PAYMENT_VOUCHER,
- *                          RECEIPT_VOUCHER, CONTRA_VOUCHER
+ * RECEIPT_VOUCHER, CONTRA_VOUCHER
  */
 @Slf4j
 @Component
@@ -26,7 +26,7 @@ import java.util.Set;
 public class VoucherApprovalListener {
 
     private static final Set<String> VOUCHER_TYPES = Set.of(
-        "JOURNAL_VOUCHER", "PAYMENT_VOUCHER", "RECEIPT_VOUCHER", "CONTRA_VOUCHER", "SALES_VOUCHER");
+            "JOURNAL_VOUCHER", "PAYMENT_VOUCHER", "RECEIPT_VOUCHER", "CONTRA_VOUCHER", "SALES_VOUCHER");
 
     private final VoucherServiceImpl voucherService;
 
@@ -35,7 +35,7 @@ public class VoucherApprovalListener {
         if (!VOUCHER_TYPES.contains(event.getDocumentType())) return;
 
         log.info("Approval {} for {} #{} — executing voucher action",
-            event.getAction(), event.getDocumentType(), event.getReferenceId());
+                event.getAction(), event.getDocumentType(), event.getReferenceId());
 
         switch (event.getAction()) {
             case "APPROVED" -> voucherService.completeApproval(event.getReferenceId());

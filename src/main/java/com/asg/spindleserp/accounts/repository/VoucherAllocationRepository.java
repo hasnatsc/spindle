@@ -18,7 +18,7 @@ public interface VoucherAllocationRepository extends JpaRepository<VoucherAlloca
     List<VoucherAllocation> findByPayingVoucherId(Long payingVoucherId);
 
     @Query("SELECT COALESCE(SUM(a.allocatedAmount + a.discountAmount + a.writeOffAmount), 0) " +
-           "FROM VoucherAllocation a WHERE a.sourceVoucher.id = :id")
+            "FROM VoucherAllocation a WHERE a.sourceVoucher.id = :id")
     BigDecimal sumAllocatedForSource(@Param("id") Long sourceVoucherId);
 
     @Modifying
