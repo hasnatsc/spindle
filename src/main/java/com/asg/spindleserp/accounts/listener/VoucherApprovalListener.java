@@ -26,7 +26,7 @@ import java.util.Set;
 public class VoucherApprovalListener {
 
     private static final Set<String> VOUCHER_TYPES = Set.of(
-        "JOURNAL_VOUCHER", "PAYMENT_VOUCHER", "RECEIPT_VOUCHER", "CONTRA_VOUCHER");
+        "JOURNAL_VOUCHER", "PAYMENT_VOUCHER", "RECEIPT_VOUCHER", "CONTRA_VOUCHER", "SALES_VOUCHER");
 
     private final VoucherServiceImpl voucherService;
 
