@@ -99,7 +99,7 @@
                   </div>
 
                   <div class="col-md-4 view-group">
-                    <input id="rvAmount" type="number" step="0.01" min="0" class="form-control hs_span_view text-end fw-bold" required oninput="rvRecalcUnalloc()">
+                    <input id="rvAmount" type="number" step="0.01" min="0" class="form-control hs_span_view text-end fw-bold" required oninput="rvAutoDistribute(); rvRecalcUnalloc();">
                     <label class="input-label">Receipt Amount <span class="text-danger">*</span></label>
                   </div>
                   <div class="col-12 view-group">
@@ -125,14 +125,17 @@
                       <span>Unallocated</span><strong id="rvSumUnalloc">0.00</strong>
                     </div>
                   </div>
+                  <div class="col-12 mt-1">
+                    <div class="progress" style="height:6px">
+                      <div id="rvProgressBar" class="progress-bar bg-success" role="progressbar" style="width:0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+                    </div>
+                  </div>
                 </div>
 
                 <!-- ALLOCATION LINES -->
                 <div class="d-flex justify-content-between align-items-center mb-2 mt-2">
-                  <strong>Invoice Allocation</strong>
-                  <button type="button" class="btn btn-sm btn-outline-primary" onclick="rvLoadOpenInvoices()">
-                    <i class="fa fa-download me-1"></i> Load Open Invoices
-                  </button>
+                  <strong><i class="fa fa-file-invoice me-1 text-muted"></i> Invoice Allocation</strong>
+                  <span id="rvInvoiceCount" class="text-muted small"></span>
                 </div>
                 <div class="table-responsive">
                   <table class="table table-sm table-bordered">
@@ -151,8 +154,8 @@
               </div>
             </div>
             <div class="modal-footer">
-              <button class="btn btn-warning" type="button" onclick="rvPostCurrent()">
-                <i class="fas fa-check-circle me-1"></i> Save &amp; Post
+              <button class="btn btn-warning" type="button" id="rvPostBtn" onclick="rvPost()" style="display:none">
+                <i class="fas fa-check-circle me-1"></i> Post
               </button>
               <button class="btn btn-success" type="submit" id="rvSubmitBtn">
                 <span class="spinner-border spinner-border-sm me-2 d-none" id="rvSpinner"></span>
@@ -227,6 +230,11 @@
         templateSelection: function(r){ return r.text||r.id; }
       });
       if (preId) $el.append(new Option(preText||'', preId, true, true)).trigger('change');
+      // Auto-load invoices when customer changes (both create and edit)
+      $el.on('change', function() {
+        if ($(this).val()) rvLoadOpenInvoices();
+        else { document.getElementById('rvAllocBody').innerHTML = ''; rvRecalcUnalloc(); }
+      });
     }
 
     function _initBankS2(preId, preText) {
@@ -256,11 +264,13 @@
           if (!data || data.length === 0) {
             document.getElementById('rvAllocBody').innerHTML =
               '<tr><td colspan="10" class="text-center text-muted">No open invoices for this customer.</td></tr>';
+            document.getElementById('rvInvoiceCount').textContent = '';
+            rvRecalcUnalloc();
             return;
           }
           data.forEach(function(inv, i) {
             var remaining = parseFloat(inv.due_amount||0);
-            var html = '<tr>'
+            var html = '<tr data-remaining="'+remaining+'" data-index="'+i+'">'
               + '<td>'+( i+1)+'<input type="hidden" data-field="sourceVoucherId" value="'+inv.id+'"></td>'
               + '<td><strong>'+(inv.voucher_no||'—')+'</strong></td>'
               + '<td>'+(inv.voucher_type||'—')+'</td>'
@@ -269,16 +279,45 @@
               +   (inv.due_date||'—')+(parseFloat(inv.days_overdue||0)>0?' <small>('+inv.days_overdue+' days)</small>':'')+  '</td>'
               + '<td class="text-end">'+parseFloat(inv.total_amount||0).toFixed(2)+'</td>'
               + '<td class="text-end text-success">'+parseFloat(inv.allocated_amount||0).toFixed(2)+'</td>'
-              + '<td class="text-end fw-bold">'+remaining.toFixed(2)+'</td>'
-              + '<td><input type="number" step="0.01" min="0" max="'+remaining+'" class="form-control form-control-sm text-end" '
-              +   'data-field="allocatedAmount" value="'+remaining.toFixed(2)+'" oninput="rvRecalcUnalloc()"></td>'
-              + '<td><input type="number" step="0.01" min="0" class="form-control form-control-sm text-end" '
+              + '<td class="text-end fw-bold remaining-text">'+remaining.toFixed(2)+'</td>'
+              + '<td><input type="number" step="0.01" min="0" max="'+remaining+'" class="form-control form-control-sm text-end alloc-input" '
+              +   'data-field="allocatedAmount" value="0" oninput="rvRecalcUnalloc()"></td>'
+              + '<td><input type="number" step="0.01" min="0" class="form-control form-control-sm text-end discount-input" '
               +   'data-field="discountAmount" value="0" oninput="rvRecalcUnalloc()"></td>'
               + '</tr>';
             document.getElementById('rvAllocBody').insertAdjacentHTML('beforeend', html);
           });
+          document.getElementById('rvInvoiceCount').textContent = data.length + ' invoice' + (data.length > 1 ? 's' : '') + ' found';
+          // Sum remaining amounts and auto-set receipt amount
+          var totalRemaining = data.reduce(function(sum, inv) { return sum + (parseFloat(inv.due_amount)||0); }, 0);
+          if (totalRemaining > 0) {
+            document.getElementById('rvAmount').value = totalRemaining.toFixed(2);
+          }
+          // Auto-distribute based on current receipt amount
+          rvAutoDistribute();
           rvRecalcUnalloc();
         });
+    };
+
+    window.rvAutoDistribute = function() {
+      var total = parseFloat(document.getElementById('rvAmount').value)||0;
+      var rows = document.querySelectorAll('#rvAllocBody tr');
+      if (!rows.length) return;
+      // Collect remaining amounts
+      var targets = [];
+      rows.forEach(function(tr) {
+        var rem = parseFloat(tr.getAttribute('data-remaining'))||0;
+        if (rem > 0) targets.push({ tr: tr, remaining: rem });
+      });
+      if (!targets.length) return;
+      // Waterfall: fill oldest invoices (by row order) first
+      var remainingAmt = total;
+      targets.forEach(function(t) {
+        var alloc = Math.min(t.remaining, remainingAmt);
+        t.tr.querySelector('[data-field="allocatedAmount"]').value = alloc.toFixed(2);
+        t.tr.querySelector('[data-field="discountAmount"]').value = '0';
+        remainingAmt -= alloc;
+      });
     };
 
     window.rvRecalcUnalloc = function() {
@@ -288,7 +327,14 @@
       document.querySelectorAll('#rvAllocBody [data-field="discountAmount"]').forEach(function(i){ alloc+=parseFloat(i.value)||0; });
       document.getElementById('rvSumTotal').textContent     = total.toFixed(2);
       document.getElementById('rvSumAllocated').textContent = alloc.toFixed(2);
-      document.getElementById('rvSumUnalloc').textContent   = (total-alloc).toFixed(2);
+      var unalloc = total - alloc;
+      document.getElementById('rvSumUnalloc').textContent   = unalloc.toFixed(2);
+      // Progress bar
+      var pct = total > 0 ? Math.min(100, (alloc / total) * 100) : 0;
+      var bar = document.getElementById('rvProgressBar');
+      bar.style.width = pct + '%';
+      bar.setAttribute('aria-valuenow', pct.toFixed(0));
+      bar.className = 'progress-bar' + (pct >= 100 ? ' bg-success' : pct > 0 ? ' bg-warning' : '');
     };
 
     window.rvOpenCreate = function() {
@@ -351,35 +397,59 @@
       });
     };
 
-    window.rvPostCurrent = function() {
-      var form = document.getElementById('rvForm');
-      if (!form.checkValidity()) { form.reportValidity(); return; }
-      var vId = document.getElementById('rvId').value;
-      var doPost = function(id) {
+    /**
+     * rvPost(id) — called from both the modal Post button and the
+     * DataTable action button.  When called without an id it reads the
+     * hidden #rvId field (i.e. the modal's current voucher).
+     *
+     * Posts a DRAFT receipt voucher.  If an approval config exists for
+     * RECEIPT_VOUCHER the voucher enters PENDING_APPROVAL instead.
+     * After approval (VoucherApprovalListener) the system finalises
+     * automatically.
+     */
+    window.rvPost = function (id) {
+      var vId = id || document.getElementById('rvId').value;
+      if (!vId) { Swal.fire('Error', 'Save the voucher first before posting.', 'warning'); return; }
+      Swal.fire({
+        title: 'Post Receipt?',
+        text: 'This will record the receipt in the general ledger and cannot be edited after posting. Continue?',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Yes, Post',
+        confirmButtonColor: '#0d6efd'
+      }).then(function (r) {
+        if (!r.isConfirmed) return;
+        // Collect allocations from the table (modal mode only)
         var allocs = [];
-        document.querySelectorAll('#rvAllocBody tr').forEach(function(tr){
-          var src = tr.querySelector('[data-field="sourceVoucherId"]');
-          if (!src||!src.value) return;
-          var amt = parseFloat(tr.querySelector('[data-field="allocatedAmount"]').value)||0;
-          if (amt<=0) return;
-          allocs.push({ sourceVoucherId:src.value, allocatedAmount:amt,
-            discountAmount:parseFloat(tr.querySelector('[data-field="discountAmount"]').value)||0,
-            allocationDate: document.getElementById('rvDate').value });
-        });
-        secureFetch(BASE + '/post/' + id, { method:'POST', body:JSON.stringify({ allocations:allocs }) })
-          .then(function(d){
-            if (d.success) {
-              Swal.fire({ icon:'success', title:'Posted!', text:d.message, timer:1800, showConfirmButton:false });
-              bootstrap.Modal.getOrCreateInstance(document.getElementById('rvModal')).hide();
-              dt.ajax.reload(null, false);
-            } else { Swal.fire('Error', d.message, 'error'); }
+        if (!id) {
+          document.querySelectorAll('#rvAllocBody tr').forEach(function(tr){
+            var src = tr.querySelector('[data-field="sourceVoucherId"]');
+            if (!src || !src.value) return;
+            var amt = parseFloat(tr.querySelector('[data-field="allocatedAmount"]').value) || 0;
+            if (amt <= 0) return;
+            allocs.push({
+              sourceVoucherId: src.value,
+              allocatedAmount: amt,
+              discountAmount: parseFloat(tr.querySelector('[data-field="discountAmount"]').value) || 0,
+              allocationDate: document.getElementById('rvDate').value
+            });
           });
-      };
-      if (!vId) {
-        _save(function(id){ doPost(id); });
-      } else { doPost(vId); }
+        }
+        var body = allocs.length ? JSON.stringify({ allocations: allocs }) : '{}';
+        secureFetch(BASE + '/post/' + vId, { method: 'POST', body: body }).then(function (d) {
+          if (d.success) {
+            var msg = d.voucherStatus === 'PENDING_APPROVAL'
+              ? 'Receipt submitted for approval.'
+              : d.message || 'Receipt posted successfully.';
+            Swal.fire({ icon: 'success', title: msg, timer: 1800, showConfirmButton: false });
+            bootstrap.Modal.getOrCreateInstance(document.getElementById('rvModal')).hide();
+            dt.ajax.reload(null, false);
+          } else {
+            Swal.fire('Error', d.message, 'error');
+          }
+        });
+      });
     };
-
     window.rvReverse = function(id) {
       Swal.fire({ title:'Reverse Receipt?', icon:'warning', showCancelButton:true,
         confirmButtonText:'Yes, Reverse!', confirmButtonColor:'#dc3545',
@@ -421,6 +491,7 @@
       })}).then(function(d){
         if (d.success) {
           document.getElementById('rvId').value = d.id;
+          document.getElementById('rvPostBtn').style.display = '';
           Swal.fire({ icon:'success', title:'Saved!', text:d.message, timer:1200, showConfirmButton:false });
           if (cb) cb(d.id);
         } else { Swal.fire('Error', d.message, 'error'); }
@@ -435,6 +506,7 @@
       document.getElementById('rvId').value = '';
       document.getElementById('rvAllocBody').innerHTML = '';
       ['rvSumTotal','rvSumAllocated','rvSumUnalloc'].forEach(function(id){ document.getElementById(id).textContent='0.00'; });
+      document.getElementById('rvPostBtn').style.display = 'none';
       document.getElementById('rvDate').value = new Date().toISOString().substring(0,10);
       _initCustomerS2(null,null);
       _initBankS2(null,null);

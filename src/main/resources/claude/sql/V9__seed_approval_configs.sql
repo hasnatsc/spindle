@@ -35,6 +35,8 @@ VALUES
     ('APR-SO',       'Sales Order Approval',      'Approval flow for sales orders above threshold',     'SALES_CUSTOMER_OPERATIONS', 'SALES_ORDER',      'SEQUENTIAL', 100000.00, NULL,       10, true,  true, 24, 72, true, 1, NOW(), NOW(), 'system', 'system'),
     ('APR-JV',       'Journal Voucher Approval',  'Approval flow for manual journal vouchers',          'FINANCE_ACCOUNTS',          'JOURNAL_VOUCHER',  'SEQUENTIAL', 0.00,       NULL,       20, true,  true, 12, 48, true, 1, NOW(), NOW(), 'system', 'system'),
     ('APR-PAYMENT',  'Payment Voucher Approval',  'Approval flow for payment vouchers',                 'FINANCE_ACCOUNTS',          'PAYMENT_VOUCHER',  'SEQUENTIAL', 20000.00,  NULL,       15, true,  true, 12, 48, true, 1, NOW(), NOW(), 'system', 'system'),
+    ('APR-RECEIPT',  'Receipt Voucher Approval',  'Approval flow for receipt vouchers',                 'FINANCE_ACCOUNTS',          'RECEIPT_VOUCHER',  'SEQUENTIAL', 20000.00,  NULL,       15, true,  true, 12, 48, true, 1, NOW(), NOW(), 'system', 'system'),
+    ('APR-BOOKING',  'Travel Booking Approval',   'Approval flow for travel booking confirmations',      'TRAVEL',                    'SALES_VOUCHER',    'SEQUENTIAL', 0.00,       NULL,       20, true,  true, 12, 48, true, 1, NOW(), NOW(), 'system', 'system'),
     ('APR-LEAVE',    'Leave Application Approval','Approval flow for employee leave requests',          'HRM',                       'LEAVE_APPLICATION', 'SEQUENTIAL', NULL,      NULL,       30, true,  true, 24, 96, true, 1, NOW(), NOW(), 'system', 'system'),
     ('APR-PAYROLL',  'Payroll Approval',          'Approval flow for payroll run processing',           'HRM',                       'PAYROLL_RUN',       'SEQUENTIAL', NULL,      NULL,       5,  false, true, 12, 48, true, 1, NOW(), NOW(), 'system', 'system'),
     ('APR-LC',       'Letter of Credit Approval', 'Approval flow for LC opening/amendment',             'COMMERCIAL',                'LETTER_OF_CREDIT',  'SEQUENTIAL', 500000.00, NULL,       1,  false, true, 6,  24, true, 1, NOW(), NOW(), 'system', 'system'),
@@ -121,6 +123,32 @@ SELECT 2, 'Accounts Admin Approval', 'Final approval by accounts admin', c.id, u
 FROM apr_configs c, sec_users u
 WHERE c.code = 'APR-PAYMENT' AND c.organization_id = 1
   AND u.username = 'accounts.admin';
+
+-- ── APR-RECEIPT: 1-level approval (Accounts Admin) ──────────────────────────
+INSERT INTO apr_levels
+(level_number, level_name, approver_description, approval_config_id, approver_user_id,
+ can_approve_with_changes, can_forward, can_hold, can_delegate, description, is_active,
+ organization_id,
+ created_at, updated_at, created_by, updated_by)
+SELECT 1, 'Accounts Admin Approval', 'Accounts admin approves receipt voucher', c.id, u.id,
+       true, false, true, false, 'Receipt vouchers reviewed by accounts admin', true, c.organization_id,
+       NOW(), NOW(), 'system', 'system'
+FROM apr_configs c, sec_users u
+WHERE c.code = 'APR-RECEIPT' AND c.organization_id = 1
+  AND u.username = 'accounts.admin';
+
+-- ── APR-BOOKING: 1-level approval (Travel Manager) ──────────────────────────
+INSERT INTO apr_levels
+(level_number, level_name, approver_description, approval_config_id, approver_user_id,
+ can_approve_with_changes, can_forward, can_hold, can_delegate, description, is_active,
+ organization_id,
+ created_at, updated_at, created_by, updated_by)
+SELECT 1, 'Travel Manager Approval', 'Travel manager approves booking confirmation', c.id, u.id,
+       true, true, true, true, 'Travel booking confirmation review by travel manager', true, c.organization_id,
+       NOW(), NOW(), 'system', 'system'
+FROM apr_configs c, sec_users u
+WHERE c.code = 'APR-BOOKING' AND c.organization_id = 1
+  AND u.username = 'travel.manager';
 
 -- ── APR-LEAVE: 1-level approval (Reporting manager — no fixed approver_user_id) ──
 INSERT INTO apr_levels

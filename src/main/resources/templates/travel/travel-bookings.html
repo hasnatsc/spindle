@@ -109,9 +109,16 @@
                     <input id="bkgDiscount" type="number" step="0.01" class="form-control hs_span_view text-end" value="0" oninput="bkgRecalcTotal()">
                     <label class="input-label">Discount</label>
                   </div>
-                  <div class="col-12 view-group">
+                  <div class="col-md-9 view-group">
                     <textarea id="bkgRemarks" class="form-control hs_span_view" rows="1"></textarea>
                     <label class="input-label">Remarks</label>
+                  </div>
+                  <div class="col-md-3 d-flex align-items-end justify-content-end pb-1">
+                    <span id="bkgDocBtnWrap" style="display:none">
+                      <button type="button" class="btn btn-sm btn-outline-secondary" onclick="trvOpenDocuments('BOOKING', parseInt(document.getElementById('bkgId').value), 'Booking ' + (document.getElementById('bkgNo').value || '#' + document.getElementById('bkgId').value), ['PASSPORT','VISA','TICKET','INVOICE','CONFIRMATION','RECEIPT','OTHER'])">
+                        <i class="fa fa-paperclip me-1"></i> Documents
+                      </button>
+                    </span>
                   </div>
                 </div>
 
@@ -326,7 +333,15 @@
         (o.services || []).forEach(function (s) { html += '<tr><td>' + travel.typeChip(s.serviceType) + '</td><td>' + travel.esc(s.description || '—') + '</td><td class="text-end">' + s.quantity + '</td><td class="text-end">' + parseFloat(s.unitPrice || 0).toFixed(2) + '</td><td class="text-end">' + parseFloat(s.lineTotal || 0).toFixed(2) + '</td></tr>'; });
         html += '</tbody></table><h6 class="mt-3">Passengers</h6><table class="table table-sm table-bordered"><thead class="table-light"><tr><th>Name</th><th>Type</th><th>Passport</th></tr></thead><tbody>';
         (o.passengers || []).forEach(function (p) { html += '<tr><td>' + travel.esc(p.title || '') + ' ' + travel.esc(p.firstName) + ' ' + travel.esc(p.lastName || '') + (p.isLeadPassenger ? ' <span class="badge bg-primary">Lead</span>' : '') + '</td><td>' + p.passengerType + '</td><td>' + travel.esc(p.passportNumber || '—') + '</td></tr>'; });
-        html += '</tbody></table></div>';
+        html += '</tbody></table>';
+
+        // ── Documents section ──
+        html += '<h6 class="mt-3 d-flex justify-content-between align-items-center">'
+          + '<span><i class="fa fa-paperclip me-1 text-muted"></i> Documents</span>'
+          + '<button type="button" class="btn btn-sm btn-outline-primary" onclick="trvOpenDocuments(\'BOOKING\',' + o.id + ',\'Booking ' + (o.bookingNo || '#' + o.id) + '\')"><i class="fa fa-upload me-1"></i> Attach</button>'
+          + '</h6><div id="bkgViewDocs"><p class="text-muted small mb-0"><em>Loading…</em></p></div>';
+
+        html += '</div>';
         document.getElementById('bkgViewBody').innerHTML = html;
         // Show print button for confirmed bookings
         var printBtn = document.getElementById('bkgPrintBtn');
@@ -336,8 +351,45 @@
           printBtn.onclick = function () { window.open('/travel/reports/booking/' + o.id, '_blank'); };
         }
         bootstrap.Modal.getOrCreateInstance(document.getElementById('bkgViewModal')).show();
+
+        // ── Load documents after modal opens ──
+        _bkgLoadDocs(o.id);
       });
     };
+
+    function _bkgLoadDocs(bookingId) {
+      var container = document.getElementById('bkgViewDocs');
+      if (!container) return;
+      secureFetch('/travel/documents/list?entityType=BOOKING&entityId=' + bookingId).then(function (res) {
+        if (!res.success || !(res.data || []).length) {
+          container.innerHTML = '<p class="text-muted small mb-0"><em>No documents attached.</em></p>';
+          return;
+        }
+        var html = '<div class="list-group list-group-flush small">';
+        (res.data || []).forEach(function (d) {
+          var icon = 'fa-file';
+          if (d.originalFileName) {
+            var ext = d.originalFileName.split('.').pop().toLowerCase();
+            if (['jpg','jpeg','png','webp','gif'].indexOf(ext) >= 0) icon = 'fa-file-image';
+            else if (ext === 'pdf') icon = 'fa-file-pdf';
+            else if (['doc','docx'].indexOf(ext) >= 0) icon = 'fa-file-word';
+          }
+          var sizeStr = d.fileSizeBytes ? (d.fileSizeBytes < 1024 ? d.fileSizeBytes + ' B' : d.fileSizeBytes < 1048576 ? (d.fileSizeBytes / 1024).toFixed(1) + ' KB' : (d.fileSizeBytes / 1048576).toFixed(1) + ' MB') : '—';
+          html += '<div class="list-group-item list-group-item-action d-flex align-items-center gap-2 py-2 px-3">'
+            + '<i class="fa ' + icon + ' text-muted"></i>'
+            + '<div class="flex-grow-1"><span class="fw-medium">' + travel.esc(d.originalFileName || 'document') + '</span>'
+              + ' <span class="badge bg-secondary">' + d.documentType + '</span>'
+              + ' <small class="text-muted">' + sizeStr + '</small>'
+              + (d.remarks ? '<br><small class="text-muted"><em>' + travel.esc(d.remarks) + '</em></small>' : '')
+            + '</div>'
+            + '<a href="' + d.downloadUrl.replace('/download/', '/show/') + '" target="_blank" class="btn btn-sm btn-outline-secondary" title="View"><i class="fa fa-eye"></i></a>'
+            + '<a href="' + d.downloadUrl + '" class="btn btn-sm btn-outline-primary" title="Download"><i class="fa fa-download"></i></a>'
+            + '</div>';
+        });
+        html += '</div>';
+        container.innerHTML = html;
+      });
+    }
 
     window.bkgEdit = function (id) {
       secureFetch(BASE + '/show/' + id).then(function (res) {
@@ -358,6 +410,7 @@
         bkgRecalcTotal();
         document.getElementById('bkgModalTitle').innerHTML = '<i class="fa fa-pencil me-1 text-warning"></i> Edit Booking';
         document.getElementById('bkgBtnText').textContent = 'Update';
+        document.getElementById('bkgDocBtnWrap').style.display = '';
         bootstrap.Modal.getOrCreateInstance(document.getElementById('bkgModal')).show();
       });
     };
@@ -450,6 +503,8 @@
       document.getElementById('bkgDate').value = new Date().toISOString().substring(0, 10);
       _initCustomerS2(null, null);
       _initAgentS2(null, null);
+      var wrap = document.getElementById('bkgDocBtnWrap');
+      if (wrap) wrap.style.display = 'none';
     }
 
     function _vf(label, value) { return travel.viewField(label, value); }

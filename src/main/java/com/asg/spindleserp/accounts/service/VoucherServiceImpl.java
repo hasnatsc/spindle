@@ -269,6 +269,13 @@ public class VoucherServiceImpl implements VoucherService {
             masterRepo.addAllocation(source.getId(), totalSettlement);
             totalApplied = totalApplied.add(toApply);
         }
+
+        // Update the paying voucher's allocatedAmount to reflect total applied
+        BigDecimal finalApplied = totalApplied;
+        masterRepo.findById(payingVoucher.getId()).ifPresent(pv -> {
+            pv.setAllocatedAmount(finalApplied);
+            masterRepo.save(pv);
+        });
     }
 
     // =========================================================================
@@ -499,6 +506,7 @@ public class VoucherServiceImpl implements VoucherService {
               AND  j.party_type     = ?
               AND  j.voucher_status = 'POSTED'
               AND  j.total_amount   > j.allocated_amount
+              AND  j.voucher_type   NOT IN ('RECEIPT_VOUCHER', 'PAYMENT_VOUCHER', 'CONTRA_VOUCHER')
             ORDER  BY j.due_date ASC NULLS LAST, j.voucher_date ASC
             """;
         return jdbcTemplate.queryForList(sql, partyId, partyType);
@@ -858,6 +866,7 @@ public class VoucherServiceImpl implements VoucherService {
             case "CONTRA_VOUCHER"   -> "CV";
             case "DEBIT_NOTE"       -> "DN";
             case "CREDIT_NOTE"      -> "CN";
+            case "SALES_VOUCHER"    -> "TRV";
             default                 -> "VCH";
         };
     }

@@ -8,6 +8,8 @@ import com.asg.spindleserp.accounts.entity.JournalEntryMaster;
 import com.asg.spindleserp.accounts.repository.ChartOfAccountRepository;
 import com.asg.spindleserp.accounts.repository.ChartOfAccountSubRepository;
 import com.asg.spindleserp.accounts.repository.JournalEntryMasterRepository;
+import com.asg.spindleserp.approval.dto.ApprovalRequestDTO;
+import com.asg.spindleserp.approval.service.ApprovalService;
 import com.asg.spindleserp.common.dto.DataTableResponse;
 import com.asg.spindleserp.common.enums.VoucherType;
 import com.asg.spindleserp.common.util.CommonUtils;
@@ -58,6 +60,7 @@ public class TravelBookingServiceImpl implements TravelBookingService {
     private final OrganizationRepository             orgRepo;
     private final DocumentSequenceService            seqService;
     private final JdbcTemplate                       jdbcTemplate;
+    private final ApprovalService                    approvalService;
 
     // =========================================================================
     // SAVE
@@ -125,8 +128,17 @@ public class TravelBookingServiceImpl implements TravelBookingService {
                 "No Travel Revenue account configured. Set it in Travel → Settings, or create a " +
                 "REVENUE account with code 'TRAVEL-REVENUE' in this organisation.");
 
-        // ── Step 3: Build SALES_VOUCHER JEM (same type Sales/eCommerce use) ──
-        String voucherNo = seqService.nextDocumentNumber(orgId, "TRV", year);
+        // ── Step 3: Check for approval config before posting ─────────────────
+        boolean needsApproval = false;
+        try {
+            needsApproval = approvalService.hasActiveConfig("SALES_VOUCHER");
+        } catch (Exception e) {
+            log.debug("Approval config check failed, falling back to direct post: {}", e.getMessage());
+        }
+
+        // ── Step 4: Build SALES_VOUCHER JEM ───────────────────────────────────
+        String voucherNo = !needsApproval
+            ? seqService.nextDocumentNumber(orgId, "TRV", year) : null;
 
         JournalEntryMaster jem = new JournalEntryMaster();
         jem.setOrganization(orgRepo.getReferenceById(orgId));
@@ -135,8 +147,8 @@ public class TravelBookingServiceImpl implements TravelBookingService {
         jem.setVoucherDate(booking.getBookingDate());
         jem.setDueDate(booking.getTravelStartDate() != null
             ? booking.getTravelStartDate() : booking.getBookingDate().plusDays(15));
-        jem.setVoucherStatus("POSTED");
-        jem.setPosted(true);
+        jem.setVoucherStatus(needsApproval ? "DRAFT" : "POSTED");
+        jem.setPosted(!needsApproval);
         jem.setReversed(false);
         jem.setTotalAmount(booking.getTotalAmount());
         jem.setTotalDebit(booking.getTotalAmount());
@@ -146,10 +158,12 @@ public class TravelBookingServiceImpl implements TravelBookingService {
         jem.setPartyType("CUSTOMER");
         jem.setReferenceNo(booking.getBookingNo());
         jem.setNarration("Travel Booking: " + booking.getBookingNo() + " (" + booking.getBookingType() + ")");
-        jem.setPostedBy(user);
-        jem.setPostedAt(LocalDateTime.now());
         jem.setCreatedBy(user);
         jem.setUpdatedBy(user);
+        if (!needsApproval) {
+            jem.setPostedBy(user);
+            jem.setPostedAt(LocalDateTime.now());
+        }
 
         JournalEntryLine drLine = new JournalEntryLine();
         drLine.setJournalEntry(jem);
@@ -176,15 +190,33 @@ public class TravelBookingServiceImpl implements TravelBookingService {
         jem.getLines().add(crLine);
 
         JournalEntryMaster savedJem = jemRepo.save(jem);
-        log.info("Booking {} confirmed. SALES_VOUCHER {} created. Customer: {}",
-                 booking.getBookingNo(), savedJem.getVoucherNo(), customerSub.getSubAccountName());
 
-        // ── Step 4: Update customer AR balance ────────────────────────────────
-        BigDecimal current = customerSub.getCurrentBalance() != null ? customerSub.getCurrentBalance() : BigDecimal.ZERO;
-        customerSub.setCurrentBalance(current.add(booking.getTotalAmount()));
-        subRepo.save(customerSub);
+        // ── Step 5: Route through approval if needed ──────────────────────────
+        if (needsApproval) {
+            ApprovalRequestDTO reqDto = ApprovalRequestDTO.builder()
+                .documentType("SALES_VOUCHER")
+                .referenceId(savedJem.getId())
+                .referenceNumber(booking.getBookingNo())
+                .documentDate(booking.getBookingDate())
+                .documentAmount(booking.getTotalAmount())
+                .documentSummary("Travel Booking: " + booking.getBookingNo())
+                .build();
+            approvalService.submitRequest(reqDto);
+            savedJem.setVoucherStatus("PENDING_APPROVAL");
+            jemRepo.save(savedJem);
+            log.info("Booking {} confirmed. SALES_VOUCHER #{} submitted for approval.",
+                     booking.getBookingNo(), savedJem.getId());
+        } else {
+            // Update customer AR balance only when posted directly
+            BigDecimal current = customerSub.getCurrentBalance() != null
+                ? customerSub.getCurrentBalance() : BigDecimal.ZERO;
+            customerSub.setCurrentBalance(current.add(booking.getTotalAmount()));
+            subRepo.save(customerSub);
+            log.info("Booking {} confirmed. SALES_VOUCHER {} posted. Customer: {}",
+                     booking.getBookingNo(), savedJem.getVoucherNo(), customerSub.getSubAccountName());
+        }
 
-        // ── Step 5: Update booking ─────────────────────────────────────────────
+        // ── Step 6: Update booking record ──────────────────────────────────────
         booking.setJournalEntryId(savedJem.getId());
         booking.setPaidAmount(BigDecimal.ZERO);
         booking.setDueAmount(booking.getTotalAmount());
@@ -193,7 +225,10 @@ public class TravelBookingServiceImpl implements TravelBookingService {
         booking.setUpdatedAt(LocalDateTime.now());
 
         TrvBooking saved = bookingRepo.save(booking);
-        logStatus(saved, "CONFIRMED", "Confirmed. Voucher " + savedJem.getVoucherNo() + " posted.");
+        String logMsg = needsApproval
+            ? "Confirmed. Voucher submitted for approval."
+            : "Confirmed. Voucher " + savedJem.getVoucherNo() + " posted.";
+        logStatus(saved, "CONFIRMED", logMsg);
         return toDTO(saved);
     }
 
