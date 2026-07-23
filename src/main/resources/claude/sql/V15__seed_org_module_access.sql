@@ -9,7 +9,7 @@
 -- Safe to re-run: INSERTs use ON CONFLICT DO NOTHING.
 -- ============================================================================
 
-DO $$
+DO $body$
 DECLARE
     v_org_id BIGINT;
 BEGIN
@@ -36,4 +36,4 @@ BEGIN
             (v_org_id, 'ECOMMERCE',                  false, 'system', NOW(), 'Disabled by default')
         ON CONFLICT (organization_id, module_key) DO NOTHING;
     END IF;
-END $$;
+END $body$;

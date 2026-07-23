@@ -14,23 +14,23 @@ BEGIN;
 -- ═════════════════════════════════════════════════════════════════════════════
 INSERT INTO trv_bookings (booking_no, booking_type, booking_date, travel_start_date, travel_end_date, status, currency, exchange_rate, subtotal_amount, discount_amount, tax_amount, total_amount, paid_amount, due_amount, remarks, party_id, sales_agent_id, organization_id, created_at, created_by, updated_at, updated_by)
 VALUES
-    ('BKG-25-0001', 'PACKAGE',  '2026-06-10', '2026-07-15', '2026-07-18', 'CONFIRMED',  'BDT', 1.0000, 18500.00, 1000.00, 0.00, 17500.00, 5000.00, 12500.00,
+    ('BKG-25-0001', 'PACKAGE',  '2026-06-10', '2026-07-15', '2026-07-18', 'DRAFT',  'BDT', 1.0000, 18500.00, 1000.00, 0.00, 17500.00, 5000.00, 12500.00,
      'Cox''s Bazar family trip — 2 adults, 1 child. Early bird discount applied.', NULL, NULL, 1, NOW(), 'system', NOW(), 'system'),
 
-    ('BKG-25-0002', 'PACKAGE',  '2026-06-12', '2026-08-01', '2026-08-04', 'CONFIRMED',  'BDT', 1.0000, 14500.00, 0.00, 0.00, 14500.00, 14500.00, 0.00,
+    ('BKG-25-0002', 'PACKAGE',  '2026-06-12', '2026-08-01', '2026-08-04', 'DRAFT',  'BDT', 1.0000, 14500.00, 0.00, 0.00, 14500.00, 14500.00, 0.00,
      'Sylhet tea country weekend. Fully paid — wedding anniversary gift.', NULL, NULL, 1, NOW(), 'system', NOW(), 'system'),
 
     ('BKG-25-0003', 'PACKAGE',  '2026-06-15', '2026-07-20', '2026-07-24', 'PAID',       'BDT', 1.0000, 28500.00, 0.00, 0.00, 28500.00, 28500.00, 0.00,
      'Hill Tracts Explorer — corporate retreat for 6 people. Full payment received.', NULL, NULL, 1, NOW(), 'system', NOW(), 'system'),
 
-    ('BKG-25-0004', 'HOTEL',    '2026-06-18', '2026-08-10', '2026-08-14', 'CONFIRMED',  'BDT', 1.0000, 42000.00, 2000.00, 0.00, 40000.00, 0.00, 40000.00,
+    ('BKG-25-0004', 'HOTEL',    '2026-06-18', '2026-08-10', '2026-08-14', 'DRAFT',  'BDT', 1.0000, 42000.00, 2000.00, 0.00, 40000.00, 0.00, 40000.00,
      'Pan Pacific Dhaka — 4 nights executive suite. Corporate rate applied.', NULL, NULL, 1, NOW(), 'system', NOW(), 'system'),
 
     ('BKG-25-0005', 'COMBINED', '2026-06-20', '2026-09-05', '2026-09-12', 'DRAFT',      'BDT', 1.0000, 125000.00, 5000.00, 0.00, 120000.00, 0.00, 120000.00,
      'Maldives family holiday — 2 adults, 2 children. Awaiting customer confirmation.', NULL, NULL, 1, NOW(), 'system', NOW(), 'system'),
 
-    ('BKG-25-0006', 'PACKAGE',  '2026-06-22', '2026-07-25', '2026-07-29', 'CANCELLED',  'BDT', 1.0000, 22500.00, 0.00, 0.00, 22500.00, 0.00, 0.00,
-     'Sundarbans trip — cancelled due to weather. Full refund processed.', NULL, NULL, 1, NOW(), 'system', NOW(), 'system'),
+    ('BKG-25-0006', 'PACKAGE',  '2026-06-22', '2026-07-25', '2026-07-29', 'DRAFT',  'BDT', 1.0000, 22500.00, 0.00, 0.00, 22500.00, 0.00, 0.00,
+     'Sundarbans trip — DRAFT due to weather. Full refund processed.', NULL, NULL, 1, NOW(), 'system', NOW(), 'system'),
 
     ('BKG-25-0007', 'AIR',      '2026-06-25', '2026-08-15', '2026-08-15', 'PAID',       'BDT', 1.0000, 24500.00, 0.00, 0.00, 24500.00, 24500.00, 0.00,
      'Dhaka–Cox''s Bazar return ticket. Web booking — instant confirmation.', NULL, NULL, 1, NOW(), 'system', NOW(), 'system'),
@@ -41,31 +41,31 @@ VALUES
     ('BKG-25-0009', 'PACKAGE',  '2026-07-01', '2026-08-20', '2026-08-22', 'DRAFT',      'BDT', 1.0000, 16500.00, 0.00, 0.00, 16500.00, 0.00, 16500.00,
      'Sajek Valley quick getaway — website enquiry, not yet contacted.', NULL, NULL, 1, NOW(), 'system', NOW(), 'system'),
 
-    ('BKG-25-0010', 'HOTEL',    '2026-07-02', '2026-09-01', '2026-09-05', 'CONFIRMED',  'BDT', 1.0000, 28000.00, 0.00, 0.00, 28000.00, 14000.00, 14000.00,
+    ('BKG-25-0010', 'HOTEL',    '2026-07-02', '2026-09-01', '2026-09-05', 'DRAFT',  'BDT', 1.0000, 28000.00, 0.00, 0.00, 28000.00, 14000.00, 14000.00,
      'Royal Tulip Sea Pearl — 4 nights, sea-view suite. 50% advance paid.', NULL, NULL, 1, NOW(), 'system', NOW(), 'system'),
 
-    ('BKG-25-0011', 'PACKAGE',  '2026-07-05', '2026-10-01', '2026-10-07', 'CONFIRMED',  'BDT', 1.0000, 65000.00, 0.00, 0.00, 65000.00, 20000.00, 45000.00,
+    ('BKG-25-0011', 'PACKAGE',  '2026-07-05', '2026-10-01', '2026-10-07', 'DRAFT',  'BDT', 1.0000, 65000.00, 0.00, 0.00, 65000.00, 20000.00, 45000.00,
      'Nepal Himalayan Adventure — group of 4 friends. Deposit paid, balance due 2 weeks before departure.', NULL, NULL, 1, NOW(), 'system', NOW(), 'system'),
 
-    ('BKG-25-0012', 'PACKAGE',  '2026-07-08', '2026-07-28', '2026-07-30', 'CONFIRMED',  'BDT', 1.0000, 12500.00, 0.00, 0.00, 12500.00, 12500.00, 0.00,
+    ('BKG-25-0012', 'PACKAGE',  '2026-07-08', '2026-07-28', '2026-07-30', 'DRAFT',  'BDT', 1.0000, 12500.00, 0.00, 0.00, 12500.00, 12500.00, 0.00,
      'Dhaka City Discovery — 2 nights, single traveller. All inclusive.', NULL, NULL, 1, NOW(), 'system', NOW(), 'system'),
 
-    ('BKG-25-0013', 'COMBINED', '2026-07-10', '2026-08-05', '2026-08-10', 'PARTIALLY_PAID', 'BDT', 1.0000, 78000.00, 3000.00, 0.00, 75000.00, 30000.00, 45000.00,
+    ('BKG-25-0013', 'COMBINED', '2026-07-10', '2026-08-05', '2026-08-10', 'DRAFT', 'BDT', 1.0000, 78000.00, 3000.00, 0.00, 75000.00, 30000.00, 45000.00,
      'Singapore & Malaysia — 6 nights family trip. First instalment paid.', NULL, NULL, 1, NOW(), 'system', NOW(), 'system'),
 
     ('BKG-25-0014', 'HOTEL',    '2026-07-12', '2026-07-30', '2026-08-02', 'DRAFT',      'BDT', 1.0000, 12500.00, 0.00, 0.00, 12500.00, 0.00, 12500.00,
      'Hotel Agrabad Chittagong — 3 nights business trip. Not yet approved.', NULL, NULL, 1, NOW(), 'system', NOW(), 'system'),
 
-    ('BKG-25-0015', 'PACKAGE',  '2026-07-14', '2026-09-15', '2026-09-19', 'CONFIRMED',  'BDT', 1.0000, 22500.00, 0.00, 0.00, 22500.00, 22500.00, 0.00,
+    ('BKG-25-0015', 'PACKAGE',  '2026-07-14', '2026-09-15', '2026-09-19', 'DRAFT',  'BDT', 1.0000, 22500.00, 0.00, 0.00, 22500.00, 22500.00, 0.00,
      'Sundarbans Explorer — photography tour with naturalist guide. Full payment.', NULL, NULL, 1, NOW(), 'system', NOW(), 'system'),
 
-    ('BKG-25-0016', 'AIR',      '2026-07-15', '2026-08-12', '2026-08-12', 'CONFIRMED',  'BDT', 1.0000, 32000.00, 0.00, 0.00, 32000.00, 0.00, 32000.00,
-     'Dhaka–Dubai return — Emirates Economy. Booking confirmed, payment pending.', NULL, NULL, 1, NOW(), 'system', NOW(), 'system'),
+    ('BKG-25-0016', 'AIR',      '2026-07-15', '2026-08-12', '2026-08-12', 'DRAFT',  'BDT', 1.0000, 32000.00, 0.00, 0.00, 32000.00, 0.00, 32000.00,
+     'Dhaka–Dubai return — Emirates Economy. Booking DRAFT, payment pending.', NULL, NULL, 1, NOW(), 'system', NOW(), 'system'),
 
     ('BKG-25-0017', 'PACKAGE',  '2026-07-16', '2026-09-25', '2026-09-29', 'DRAFT',      'BDT', 1.0000, 18500.00, 0.00, 0.00, 18500.00, 0.00, 18500.00,
      'Cox''s Bazar return trip — returning customer. Waiting for dates confirmation.', NULL, NULL, 1, NOW(), 'system', NOW(), 'system'),
 
-    ('BKG-25-0018', 'HOTEL',    '2026-07-18', '2026-08-18', '2026-08-22', 'CONFIRMED',  'BDT', 1.0000, 35000.00, 0.00, 0.00, 35000.00, 17500.00, 17500.00,
+    ('BKG-25-0018', 'HOTEL',    '2026-07-18', '2026-08-18', '2026-08-22', 'DRAFT',  'BDT', 1.0000, 35000.00, 0.00, 0.00, 35000.00, 17500.00, 17500.00,
      'Six Seasons Dhaka — 4 nights deluxe room. Corporate account.', NULL, NULL, 1, NOW(), 'system', NOW(), 'system'),
 
     ('BKG-25-0019', 'PACKAGE',  '2026-07-20', '2026-10-10', '2026-10-14', 'DRAFT',      'BDT', 1.0000, 16500.00, 0.00, 0.00, 16500.00, 0.00, 16500.00,
@@ -74,13 +74,13 @@ VALUES
     ('BKG-25-0020', 'PACKAGE',  '2026-07-22', '2026-08-25', '2026-08-30', 'PAID',       'BDT', 1.0000, 85000.00, 0.00, 0.00, 85000.00, 85000.00, 0.00,
      'Maldives Island Paradise — 5th anniversary celebration. Full payment received.', NULL, NULL, 1, NOW(), 'system', NOW(), 'system'),
 
-    ('BKG-25-0021', 'COMBINED', '2026-07-24', '2026-11-01', '2026-11-07', 'CONFIRMED',  'BDT', 1.0000, 52000.00, 2000.00, 0.00, 50000.00, 25000.00, 25000.00,
+    ('BKG-25-0021', 'COMBINED', '2026-07-24', '2026-11-01', '2026-11-07', 'DRAFT',  'BDT', 1.0000, 52000.00, 2000.00, 0.00, 50000.00, 25000.00, 25000.00,
      'Bangkok & Pattaya — 6 nights, 2 adults. Half paid.', NULL, NULL, 1, NOW(), 'system', NOW(), 'system'),
 
-    ('BKG-25-0022', 'HOTEL',    '2026-07-25', '2026-09-10', '2026-09-13', 'CANCELLED',  'BDT', 1.0000, 14000.00, 0.00, 0.00, 14000.00, 0.00, 0.00,
-     'Rose View Sylhet — cancelled due to scheduling conflict.', NULL, NULL, 1, NOW(), 'system', NOW(), 'system'),
+    ('BKG-25-0022', 'HOTEL',    '2026-07-25', '2026-09-10', '2026-09-13', 'DRAFT',  'BDT', 1.0000, 14000.00, 0.00, 0.00, 14000.00, 0.00, 0.00,
+     'Rose View Sylhet — DRAFT due to scheduling conflict.', NULL, NULL, 1, NOW(), 'system', NOW(), 'system'),
 
-    ('BKG-25-0023', 'PACKAGE',  '2026-07-26', '2026-10-20', '2026-10-26', 'CONFIRMED',  'BDT', 1.0000, 28500.00, 1000.00, 0.00, 27500.00, 10000.00, 17500.00,
+    ('BKG-25-0023', 'PACKAGE',  '2026-07-26', '2026-10-20', '2026-10-26', 'DRAFT',  'BDT', 1.0000, 28500.00, 1000.00, 0.00, 27500.00, 10000.00, 17500.00,
      'Hill Tracts Explorer — university geography department field trip. 8 students, 2 faculty. Deposit paid.', NULL, NULL, 1, NOW(), 'system', NOW(), 'system'),
 
     ('BKG-25-0024', 'AIR',      '2026-07-28', '2026-09-20', '2026-09-20', 'DRAFT',      'BDT', 1.0000, 8500.00, 0.00, 0.00, 8500.00, 0.00, 8500.00,
@@ -142,19 +142,19 @@ SELECT b.id, 'HOTEL', 'Grand Sultan Tea Resort — Luxury Suite 3 nights', 1, 15
 FROM trv_bookings b WHERE b.booking_no = 'BKG-25-0008'
 ON CONFLICT DO NOTHING;
 
--- Booking 11: Nepal (CONFIRMED)
+-- Booking 11: Nepal (DRAFT)
 INSERT INTO trv_booking_services (booking_id, service_type, description, quantity, unit_price, unit_cost, discount_amount, tax_amount, line_total, reference_id, created_at, created_by)
 SELECT b.id, 'PACKAGE', 'Kathmandu & Pokhara Himalayan Adventure — 7D/6N', 1, 65000.00, 42000.00, 0.00, 0.00, 65000.00, (SELECT id FROM trv_packages WHERE package_code = 'P-NPL-01'), NOW(), 'system'
 FROM trv_bookings b WHERE b.booking_no = 'BKG-25-0011'
 ON CONFLICT DO NOTHING;
 
--- Booking 13: Singapore & Malaysia (PARTIALLY_PAID)
+-- Booking 13: Singapore & Malaysia (DRAFT)
 INSERT INTO trv_booking_services (booking_id, service_type, description, quantity, unit_price, unit_cost, discount_amount, tax_amount, line_total, reference_id, created_at, created_by)
 SELECT b.id, 'PACKAGE', 'Singapore & Malaysia — 7D/6N', 1, 78000.00, 52000.00, 3000.00, 0.00, 78000.00, (SELECT id FROM trv_packages WHERE package_code = 'P-SIN-01'), NOW(), 'system'
 FROM trv_bookings b WHERE b.booking_no = 'BKG-25-0013'
 ON CONFLICT DO NOTHING;
 
--- Booking 15: Sundarbans (CONFIRMED, photography tour)
+-- Booking 15: Sundarbans (DRAFT, photography tour)
 INSERT INTO trv_booking_services (booking_id, service_type, description, quantity, unit_price, unit_cost, discount_amount, tax_amount, line_total, reference_id, created_at, created_by)
 SELECT b.id, 'PACKAGE', 'Sundarbans Explorer — Tiger Territory 3D/2N', 1, 22500.00, 15000.00, 0.00, 0.00, 22500.00, (SELECT id FROM trv_packages WHERE package_code = 'P-KHL-01'), NOW(), 'system'
 FROM trv_bookings b WHERE b.booking_no = 'BKG-25-0015'
@@ -171,19 +171,19 @@ SELECT b.id, 'AIR', 'Dhaka–Malé–Dhaka — Biman Bangladesh Business Class',
 FROM trv_bookings b WHERE b.booking_no = 'BKG-25-0020'
 ON CONFLICT DO NOTHING;
 
--- Booking 21: Bangkok (CONFIRMED)
+-- Booking 21: Bangkok (DRAFT)
 INSERT INTO trv_booking_services (booking_id, service_type, description, quantity, unit_price, unit_cost, discount_amount, tax_amount, line_total, reference_id, created_at, created_by)
 SELECT b.id, 'PACKAGE', 'Bangkok & Pattaya — 5D/4N', 2, 52000.00, 32000.00, 2000.00, 0.00, 52000.00, (SELECT id FROM trv_packages WHERE package_code = 'P-THAI-01'), NOW(), 'system'
 FROM trv_bookings b WHERE b.booking_no = 'BKG-25-0021'
 ON CONFLICT DO NOTHING;
 
--- Booking 4: Pan Pacific Dhaka (HOTEL, CONFIRMED)
+-- Booking 4: Pan Pacific Dhaka (HOTEL, DRAFT)
 INSERT INTO trv_booking_services (booking_id, service_type, description, quantity, unit_price, unit_cost, discount_amount, tax_amount, line_total, reference_id, created_at, created_by)
 SELECT b.id, 'HOTEL', 'Pan Pacific Sonargaon — Executive Suite 4 nights', 1, 40000.00, 22000.00, 2000.00, 0.00, 40000.00, (SELECT id FROM trv_hotels WHERE hotel_code = 'HT-DHK-001'), NOW(), 'system'
 FROM trv_bookings b WHERE b.booking_no = 'BKG-25-0004'
 ON CONFLICT DO NOTHING;
 
--- Booking 6: Sundarbans (CANCELLED)
+-- Booking 6: Sundarbans (DRAFT)
 INSERT INTO trv_booking_services (booking_id, service_type, description, quantity, unit_price, unit_cost, discount_amount, tax_amount, line_total, reference_id, created_at, created_by)
 SELECT b.id, 'PACKAGE', 'Sundarbans Explorer — Tiger Territory 3D/2N', 1, 22500.00, 15000.00, 0.00, 0.00, 22500.00, (SELECT id FROM trv_packages WHERE package_code = 'P-KHL-01'), NOW(), 'system'
 FROM trv_bookings b WHERE b.booking_no = 'BKG-25-0006'
@@ -201,13 +201,13 @@ SELECT b.id, 'PACKAGE', 'Sajek Valley Cloud Trail — 3D/2N', 1, 16500.00, 10000
 FROM trv_bookings b WHERE b.booking_no = 'BKG-25-0009'
 ON CONFLICT DO NOTHING;
 
--- Booking 10: Royal Tulip Sea Pearl (HOTEL, CONFIRMED)
+-- Booking 10: Royal Tulip Sea Pearl (HOTEL, DRAFT)
 INSERT INTO trv_booking_services (booking_id, service_type, description, quantity, unit_price, unit_cost, discount_amount, tax_amount, line_total, reference_id, created_at, created_by)
 SELECT b.id, 'HOTEL', 'Royal Tulip Sea Pearl — Sea-View Suite 4 nights', 1, 28000.00, 16000.00, 0.00, 0.00, 28000.00, (SELECT id FROM trv_hotels WHERE hotel_code = 'HT-COX-002'), NOW(), 'system'
 FROM trv_bookings b WHERE b.booking_no = 'BKG-25-0010'
 ON CONFLICT DO NOTHING;
 
--- Booking 12: Dhaka City Discovery (CONFIRMED)
+-- Booking 12: Dhaka City Discovery (DRAFT)
 INSERT INTO trv_booking_services (booking_id, service_type, description, quantity, unit_price, unit_cost, discount_amount, tax_amount, line_total, reference_id, created_at, created_by)
 SELECT b.id, 'PACKAGE', 'Dhaka City & Heritage Discovery — 3D/2N', 1, 12500.00, 7500.00, 0.00, 0.00, 12500.00, (SELECT id FROM trv_packages WHERE package_code = 'P-DHK-01'), NOW(), 'system'
 FROM trv_bookings b WHERE b.booking_no = 'BKG-25-0012'
@@ -219,7 +219,7 @@ SELECT b.id, 'HOTEL', 'Hotel Agrabad — Executive Room 3 nights', 1, 12500.00, 
 FROM trv_bookings b WHERE b.booking_no = 'BKG-25-0014'
 ON CONFLICT DO NOTHING;
 
--- Booking 16: Dhaka–Dubai Air (CONFIRMED)
+-- Booking 16: Dhaka–Dubai Air (DRAFT)
 INSERT INTO trv_booking_services (booking_id, service_type, description, quantity, unit_price, unit_cost, discount_amount, tax_amount, line_total, reference_id, created_at, created_by)
 SELECT b.id, 'AIR', 'Dhaka–Dubai–Dhaka — Emirates Economy Class', 1, 32000.00, 24000.00, 0.00, 0.00, 32000.00, NULL, NOW(), 'system'
 FROM trv_bookings b WHERE b.booking_no = 'BKG-25-0016'
@@ -231,7 +231,7 @@ SELECT b.id, 'PACKAGE', 'Cox''s Bazar Beach & Marine Getaway — 4D/3N', 1, 1850
 FROM trv_bookings b WHERE b.booking_no = 'BKG-25-0017'
 ON CONFLICT DO NOTHING;
 
--- Booking 18: Six Seasons Dhaka (HOTEL, CONFIRMED)
+-- Booking 18: Six Seasons Dhaka (HOTEL, DRAFT)
 INSERT INTO trv_booking_services (booking_id, service_type, description, quantity, unit_price, unit_cost, discount_amount, tax_amount, line_total, reference_id, created_at, created_by)
 SELECT b.id, 'HOTEL', 'Six Seasons Hotel — Deluxe Room 4 nights', 1, 35000.00, 20000.00, 0.00, 0.00, 35000.00, (SELECT id FROM trv_hotels WHERE hotel_code = 'HT-DHK-003'), NOW(), 'system'
 FROM trv_bookings b WHERE b.booking_no = 'BKG-25-0018'
@@ -243,13 +243,13 @@ SELECT b.id, 'PACKAGE', 'Sajek Valley Cloud Trail — 3D/2N', 1, 16500.00, 10000
 FROM trv_bookings b WHERE b.booking_no = 'BKG-25-0019'
 ON CONFLICT DO NOTHING;
 
--- Booking 22: Rose View Sylhet (HOTEL, CANCELLED)
+-- Booking 22: Rose View Sylhet (HOTEL, DRAFT)
 INSERT INTO trv_booking_services (booking_id, service_type, description, quantity, unit_price, unit_cost, discount_amount, tax_amount, line_total, reference_id, created_at, created_by)
 SELECT b.id, 'HOTEL', 'Rose View Hotel — Standard Room 3 nights', 1, 14000.00, 8000.00, 0.00, 0.00, 14000.00, (SELECT id FROM trv_hotels WHERE hotel_code = 'HT-SYL-002'), NOW(), 'system'
 FROM trv_bookings b WHERE b.booking_no = 'BKG-25-0022'
 ON CONFLICT DO NOTHING;
 
--- Booking 23: Hill Tracts field trip (CONFIRMED)
+-- Booking 23: Hill Tracts field trip (DRAFT)
 INSERT INTO trv_booking_services (booking_id, service_type, description, quantity, unit_price, unit_cost, discount_amount, tax_amount, line_total, reference_id, created_at, created_by)
 SELECT b.id, 'PACKAGE', 'Hill Tracts Explorer — Bandarban & Rangamati 5D/4N', 1, 27500.00, 18000.00, 1000.00, 0.00, 27500.00, (SELECT id FROM trv_packages WHERE package_code = 'P-BND-01'), NOW(), 'system'
 FROM trv_bookings b WHERE b.booking_no = 'BKG-25-0023'
@@ -334,7 +334,7 @@ SELECT b.id, 'Mrs', 'Nabila', 'Islam',   '1994-09-08', 'FEMALE', 'ADULT', false,
 FROM trv_bookings b WHERE b.booking_no = 'BKG-25-0008'
 ON CONFLICT DO NOTHING;
 
--- Booking 11: Nepal (CONFIRMED, group)
+-- Booking 11: Nepal (DRAFT, group)
 INSERT INTO trv_passengers (booking_id, title, first_name, last_name, date_of_birth, gender, passenger_type, is_lead_passenger, phone, email, organization_id, created_at, created_by)
 SELECT b.id, 'Mr', 'Imtiaz',  'Hossain', '1984-03-22', 'MALE',   'ADULT', true,  '+8801911223344', 'imtiaz.h@email.com', 1, NOW(), 'system'
 FROM trv_bookings b WHERE b.booking_no = 'BKG-25-0011'
@@ -355,7 +355,7 @@ SELECT b.id, 'Mr', 'Rashed', 'Siddique','1988-05-10', 'MALE',   'ADULT', false, 
 FROM trv_bookings b WHERE b.booking_no = 'BKG-25-0011'
 ON CONFLICT DO NOTHING;
 
--- Booking 13: Singapore & Malaysia (PARTIALLY_PAID)
+-- Booking 13: Singapore & Malaysia (DRAFT)
 INSERT INTO trv_passengers (booking_id, title, first_name, last_name, date_of_birth, gender, passenger_type, is_lead_passenger, phone, email, organization_id, created_at, created_by)
 SELECT b.id, 'Mr', 'Shafiq', 'Ahmed',   '1980-08-05', 'MALE',   'ADULT', true,  '+8801712345678', 'shafiq.a@email.com', 1, NOW(), 'system'
 FROM trv_bookings b WHERE b.booking_no = 'BKG-25-0013'
@@ -388,7 +388,7 @@ SELECT b.id, 'Mrs', 'Samira', 'Siddiqui','1992-02-14', 'FEMALE', 'ADULT', false,
 FROM trv_bookings b WHERE b.booking_no = 'BKG-25-0020'
 ON CONFLICT DO NOTHING;
 
--- Booking 21: Bangkok (CONFIRMED)
+-- Booking 21: Bangkok (DRAFT)
 INSERT INTO trv_passengers (booking_id, title, first_name, last_name, date_of_birth, gender, passenger_type, is_lead_passenger, phone, email, organization_id, created_at, created_by)
 SELECT b.id, 'Mr', 'Jahid',   'Malik',   '1991-10-08', 'MALE',   'ADULT', true,  '+8801711009988', 'jahid.m@email.com', 1, NOW(), 'system'
 FROM trv_bookings b WHERE b.booking_no = 'BKG-25-0021'
@@ -414,7 +414,7 @@ FROM trv_bookings b WHERE b.booking_no = 'BKG-25-0001'
 ON CONFLICT DO NOTHING;
 
 INSERT INTO trv_booking_status_history (booking_id, status, changed_by, changed_at, remarks)
-SELECT b.id, 'CONFIRMED', 'admin', NOW() - INTERVAL '3 days', 'Customer confirmed via phone. Early bird discount applied.'
+SELECT b.id, 'DRAFT', 'admin', NOW() - INTERVAL '3 days', 'Customer DRAFT via phone. Early bird discount applied.'
 FROM trv_bookings b WHERE b.booking_no = 'BKG-25-0001'
 ON CONFLICT DO NOTHING;
 
@@ -424,7 +424,7 @@ FROM trv_bookings b WHERE b.booking_no = 'BKG-25-0002'
 ON CONFLICT DO NOTHING;
 
 INSERT INTO trv_booking_status_history (booking_id, status, changed_by, changed_at, remarks)
-SELECT b.id, 'CONFIRMED', 'admin',    NOW() - INTERVAL '2 days', 'Full payment received via bKYC. Booking confirmed.'
+SELECT b.id, 'DRAFT', 'admin',    NOW() - INTERVAL '2 days', 'Full payment received via bKYC. Booking DRAFT.'
 FROM trv_bookings b WHERE b.booking_no = 'BKG-25-0002'
 ON CONFLICT DO NOTHING;
 
@@ -434,7 +434,7 @@ FROM trv_bookings b WHERE b.booking_no = 'BKG-25-0003'
 ON CONFLICT DO NOTHING;
 
 INSERT INTO trv_booking_status_history (booking_id, status, changed_by, changed_at, remarks)
-SELECT b.id, 'CONFIRMED', 'admin',    NOW() - INTERVAL '5 days', 'Corporate rate negotiated. Full payment via bank transfer.'
+SELECT b.id, 'DRAFT', 'admin',    NOW() - INTERVAL '5 days', 'Corporate rate negotiated. Full payment via bank transfer.'
 FROM trv_bookings b WHERE b.booking_no = 'BKG-25-0003'
 ON CONFLICT DO NOTHING;
 
@@ -454,7 +454,7 @@ FROM trv_bookings b WHERE b.booking_no = 'BKG-25-0006'
 ON CONFLICT DO NOTHING;
 
 INSERT INTO trv_booking_status_history (booking_id, status, changed_by, changed_at, remarks)
-SELECT b.id, 'CANCELLED', 'admin',    NOW() - INTERVAL '8 days', 'Cancelled due to monsoon weather warning. Full refund processed.'
+SELECT b.id, 'DRAFT', 'admin',    NOW() - INTERVAL '8 days', 'DRAFT due to monsoon weather warning. Full refund processed.'
 FROM trv_bookings b WHERE b.booking_no = 'BKG-25-0006'
 ON CONFLICT DO NOTHING;
 
@@ -464,7 +464,7 @@ FROM trv_bookings b WHERE b.booking_no = 'BKG-25-0008'
 ON CONFLICT DO NOTHING;
 
 INSERT INTO trv_booking_status_history (booking_id, status, changed_by, changed_at, remarks)
-SELECT b.id, 'CONFIRMED', 'admin',    NOW() - INTERVAL '18 days', 'Confirmed. Special honeymoon arrangement requested.'
+SELECT b.id, 'DRAFT', 'admin',    NOW() - INTERVAL '18 days', 'DRAFT. Special honeymoon arrangement requested.'
 FROM trv_bookings b WHERE b.booking_no = 'BKG-25-0008'
 ON CONFLICT DO NOTHING;
 
@@ -479,7 +479,7 @@ FROM trv_bookings b WHERE b.booking_no = 'BKG-25-0011'
 ON CONFLICT DO NOTHING;
 
 INSERT INTO trv_booking_status_history (booking_id, status, changed_by, changed_at, remarks)
-SELECT b.id, 'CONFIRMED', 'admin',    NOW() - INTERVAL '1 day', 'Group deposit received. Flights booked.'
+SELECT b.id, 'DRAFT', 'admin',    NOW() - INTERVAL '1 day', 'Group deposit received. Flights booked.'
 FROM trv_bookings b WHERE b.booking_no = 'BKG-25-0011'
 ON CONFLICT DO NOTHING;
 
@@ -489,12 +489,12 @@ FROM trv_bookings b WHERE b.booking_no = 'BKG-25-0013'
 ON CONFLICT DO NOTHING;
 
 INSERT INTO trv_booking_status_history (booking_id, status, changed_by, changed_at, remarks)
-SELECT b.id, 'CONFIRMED', 'admin',    NOW() - INTERVAL '5 days', 'Confirmed. First instalment plan set up.'
+SELECT b.id, 'DRAFT', 'admin',    NOW() - INTERVAL '5 days', 'DRAFT. First instalment plan set up.'
 FROM trv_bookings b WHERE b.booking_no = 'BKG-25-0013'
 ON CONFLICT DO NOTHING;
 
 INSERT INTO trv_booking_status_history (booking_id, status, changed_by, changed_at, remarks)
-SELECT b.id, 'PARTIALLY_PAID', 'admin', NOW() - INTERVAL '4 days', 'First instalment (40%) received. Remaining due 30 days before travel.'
+SELECT b.id, 'DRAFT', 'admin', NOW() - INTERVAL '4 days', 'First instalment (40%) received. Remaining due 30 days before travel.'
 FROM trv_bookings b WHERE b.booking_no = 'BKG-25-0013'
 ON CONFLICT DO NOTHING;
 
@@ -504,7 +504,7 @@ FROM trv_bookings b WHERE b.booking_no = 'BKG-25-0015'
 ON CONFLICT DO NOTHING;
 
 INSERT INTO trv_booking_status_history (booking_id, status, changed_by, changed_at, remarks)
-SELECT b.id, 'CONFIRMED', 'admin',    NOW() - INTERVAL '1 day', 'Full payment received. Special photography guide arranged.'
+SELECT b.id, 'DRAFT', 'admin',    NOW() - INTERVAL '1 day', 'Full payment received. Special photography guide arranged.'
 FROM trv_bookings b WHERE b.booking_no = 'BKG-25-0015'
 ON CONFLICT DO NOTHING;
 
@@ -514,7 +514,7 @@ FROM trv_bookings b WHERE b.booking_no = 'BKG-25-0020'
 ON CONFLICT DO NOTHING;
 
 INSERT INTO trv_booking_status_history (booking_id, status, changed_by, changed_at, remarks)
-SELECT b.id, 'CONFIRMED', 'admin',    NOW() - INTERVAL '4 days', 'Customer called to confirm. Requested overwater villa with sunset view.'
+SELECT b.id, 'DRAFT', 'admin',    NOW() - INTERVAL '4 days', 'Customer called to confirm. Requested overwater villa with sunset view.'
 FROM trv_bookings b WHERE b.booking_no = 'BKG-25-0020'
 ON CONFLICT DO NOTHING;
 
@@ -529,7 +529,7 @@ FROM trv_bookings b WHERE b.booking_no = 'BKG-25-0021'
 ON CONFLICT DO NOTHING;
 
 INSERT INTO trv_booking_status_history (booking_id, status, changed_by, changed_at, remarks)
-SELECT b.id, 'CONFIRMED', 'admin',    NOW() - INTERVAL '5 hours', 'Confirmed. Half payment received via mobile banking.'
+SELECT b.id, 'DRAFT', 'admin',    NOW() - INTERVAL '5 hours', 'DRAFT. Half payment received via mobile banking.'
 FROM trv_bookings b WHERE b.booking_no = 'BKG-25-0021'
 ON CONFLICT DO NOTHING;
 
@@ -539,7 +539,7 @@ FROM trv_bookings b WHERE b.booking_no = 'BKG-25-0023'
 ON CONFLICT DO NOTHING;
 
 INSERT INTO trv_booking_status_history (booking_id, status, changed_by, changed_at, remarks)
-SELECT b.id, 'CONFIRMED', 'admin',    NOW() - INTERVAL '8 days', 'Confirmed with university administration. Educational discount applied.'
+SELECT b.id, 'DRAFT', 'admin',    NOW() - INTERVAL '8 days', 'DRAFT with university administration. Educational discount applied.'
 FROM trv_bookings b WHERE b.booking_no = 'BKG-25-0023'
 ON CONFLICT DO NOTHING;
 

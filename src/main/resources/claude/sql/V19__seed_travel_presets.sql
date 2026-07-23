@@ -16,14 +16,18 @@ BEGIN;
 -- 1.  HOTEL CATEGORIES
 -- ═════════════════════════════════════════════════════════════════════════════
 INSERT INTO trv_hotel_categories (category_name, description, organization_id, created_at, created_by)
-VALUES
+SELECT v.* FROM (VALUES
     ('5 Star',  'Luxury international-standard hotels with premium amenities', 1, NOW(), 'system'),
     ('4 Star',  'Superior comfort with excellent service and facilities',       1, NOW(), 'system'),
     ('3 Star',  'Quality accommodation at a great value',                      1, NOW(), 'system'),
     ('Boutique','Unique, stylish properties with a personal touch',            1, NOW(), 'system'),
     ('Resort',  'Full-service resort properties with leisure facilities',      1, NOW(), 'system'),
     ('Budget',  'Clean, comfortable, and affordable',                          1, NOW(), 'system')
-ON CONFLICT DO NOTHING;
+) AS v(category_name, description, organization_id, created_at, created_by)
+WHERE NOT EXISTS (
+    SELECT 1 FROM trv_hotel_categories t
+    WHERE t.category_name = v.category_name AND t.organization_id = v.organization_id
+);
 
 -- ═════════════════════════════════════════════════════════════════════════════
 -- 2.  MEAL PLANS

@@ -726,6 +726,7 @@ INSERT INTO acc_mapping_details (accounts_mapping_id, line_number, sort_order, e
     inherit_cost_center, control_account_type, created_by, created_at, updated_at)
 SELECT m.id, 1, 1, 'DEBIT', 'Inventory Debit', 'Debit inventory for purchase amount',
     'SUBTOTAL',
+    1,
     (SELECT id FROM acc_chart_of_accounts WHERE account_code = '1310'),
     TRUE, FALSE, FALSE, FALSE, TRUE, FALSE,
     TRUE, 'INVENTORY', 'SYSTEM', NOW(), NOW()
@@ -738,6 +739,7 @@ INSERT INTO acc_mapping_details (accounts_mapping_id, line_number, sort_order, e
     inherit_cost_center, control_account_type, created_by, created_at, updated_at)
 SELECT m.id, 2, 2, 'DEBIT', 'Input VAT', 'Input VAT on purchase (15%)',
     'TAX_ONLY', 'INPUT_VAT', 15.0000,
+    1,
     (SELECT id FROM acc_chart_of_accounts WHERE account_code = '1151'),
     TRUE, TRUE, TRUE, FALSE, TRUE, TRUE,
     FALSE, 'NONE', 'SYSTEM', NOW(), NOW()
@@ -750,6 +752,7 @@ INSERT INTO acc_mapping_details (accounts_mapping_id, line_number, sort_order, e
     inherit_cost_center, control_account_type, created_by, created_at, updated_at)
 SELECT m.id, 3, 3, 'DEBIT', 'Freight In', 'Freight and delivery charges on purchase',
     'FIELD_VALUE',
+    1,
     (SELECT id FROM acc_chart_of_accounts WHERE account_code = '5140'),
     TRUE, TRUE, FALSE, FALSE, TRUE, TRUE,
     FALSE, 'NONE', 'SYSTEM', NOW(), NOW()
@@ -762,6 +765,7 @@ INSERT INTO acc_mapping_details (accounts_mapping_id, line_number, sort_order, e
     inherit_cost_center, control_account_type, created_by, created_at, updated_at)
 SELECT m.id, 4, 4, 'CREDIT', 'Purchase Discount', 'Discount received from supplier',
     'FIELD_VALUE',
+    1,
     (SELECT id FROM acc_chart_of_accounts WHERE account_code = '5130'),
     TRUE, TRUE, FALSE, FALSE, TRUE, TRUE,
     FALSE, 'NONE', 'SYSTEM', NOW(), NOW()
@@ -774,6 +778,7 @@ INSERT INTO acc_mapping_details (accounts_mapping_id, line_number, sort_order, e
     inherit_cost_center, control_account_type, created_by, created_at, updated_at)
 SELECT m.id, 5, 5, 'CREDIT', 'Accounts Payable', 'Net payable to supplier',
     'BALANCE',
+    1,
     (SELECT id FROM acc_chart_of_accounts WHERE account_code = '2110'),
     TRUE, FALSE, FALSE, FALSE, TRUE, FALSE,
     FALSE, 'SUPPLIER', 'SYSTEM', NOW(), NOW()
@@ -787,6 +792,7 @@ INSERT INTO acc_mapping_details (accounts_mapping_id, line_number, sort_order, e
     inherit_cost_center, control_account_type, created_by, created_at, updated_at)
 SELECT m.id, 1, 1, 'DEBIT', 'Accounts Receivable', 'Amount due from customer including VAT',
     'BALANCE',
+    1,
     (SELECT id FROM acc_chart_of_accounts WHERE account_code = '1200'),
     TRUE, FALSE, FALSE, FALSE, TRUE, FALSE,
     FALSE, 'CUSTOMER', 'SYSTEM', NOW(), NOW()
@@ -799,6 +805,7 @@ INSERT INTO acc_mapping_details (accounts_mapping_id, line_number, sort_order, e
     inherit_cost_center, control_account_type, created_by, created_at, updated_at)
 SELECT m.id, 2, 2, 'CREDIT', 'Sales Revenue', 'Revenue from goods/services sold',
     'SUBTOTAL',
+    1,
     (SELECT id FROM acc_chart_of_accounts WHERE account_code = '4110'),
     TRUE, FALSE, FALSE, FALSE, TRUE, FALSE,
     TRUE, 'NONE', 'SYSTEM', NOW(), NOW()
@@ -811,6 +818,7 @@ INSERT INTO acc_mapping_details (accounts_mapping_id, line_number, sort_order, e
     inherit_cost_center, control_account_type, created_by, created_at, updated_at)
 SELECT m.id, 3, 3, 'CREDIT', 'Output VAT', 'VAT collected from customer (15%)',
     'TAX_ONLY', 'OUTPUT_VAT', 15.0000,
+    1,
     (SELECT id FROM acc_chart_of_accounts WHERE account_code = '2311'),
     TRUE, TRUE, TRUE, FALSE, TRUE, TRUE,
     FALSE, 'NONE', 'SYSTEM', NOW(), NOW()
@@ -823,6 +831,7 @@ INSERT INTO acc_mapping_details (accounts_mapping_id, line_number, sort_order, e
     inherit_cost_center, control_account_type, created_by, created_at, updated_at)
 SELECT m.id, 4, 4, 'DEBIT', 'Sales Discount', 'Discount given to customer',
     'FIELD_VALUE',
+    1,
     (SELECT id FROM acc_chart_of_accounts WHERE account_code = '4230'),
     TRUE, TRUE, FALSE, FALSE, TRUE, TRUE,
     FALSE, 'NONE', 'SYSTEM', NOW(), NOW()
@@ -835,6 +844,7 @@ INSERT INTO acc_mapping_details (accounts_mapping_id, line_number, sort_order, e
     inherit_cost_center, control_account_type, created_by, created_at, updated_at)
 SELECT m.id, 5, 5, 'CREDIT', 'Freight Revenue', 'Delivery and shipping charges billed',
     'FIELD_VALUE',
+    1,
     (SELECT id FROM acc_chart_of_accounts WHERE account_code = '4330'),
     TRUE, TRUE, FALSE, FALSE, TRUE, TRUE,
     FALSE, 'NONE', 'SYSTEM', NOW(), NOW()
@@ -848,6 +858,7 @@ INSERT INTO acc_mapping_details (accounts_mapping_id, line_number, sort_order, e
     inherit_cost_center, control_account_type, created_by, created_at, updated_at)
 SELECT m.id, 1, 1, 'DEBIT', 'Accounts Payable', 'Reduce supplier outstanding balance',
     'FULL_AMOUNT',
+    1,
     (SELECT id FROM acc_chart_of_accounts WHERE account_code = '2110'),
     TRUE, FALSE, FALSE, FALSE, TRUE, FALSE,
     FALSE, 'SUPPLIER', 'SYSTEM', NOW(), NOW()
@@ -860,6 +871,7 @@ INSERT INTO acc_mapping_details (accounts_mapping_id, line_number, sort_order, e
     inherit_cost_center, control_account_type, created_by, created_at, updated_at)
 SELECT m.id, 2, 2, 'CREDIT', 'Bank Account', 'Reduce bank balance on payment',
     'FULL_AMOUNT',
+    1,
     (SELECT id FROM acc_chart_of_accounts WHERE account_code = '1115'),
     TRUE, FALSE, FALSE, FALSE, TRUE, FALSE,
     FALSE, 'BANK', 'SYSTEM', NOW(), NOW()
@@ -873,6 +885,7 @@ INSERT INTO acc_mapping_details (accounts_mapping_id, line_number, sort_order, e
     inherit_cost_center, control_account_type, created_by, created_at, updated_at)
 SELECT m.id, 1, 1, 'DEBIT', 'Bank Account', 'Increase bank balance on customer receipt',
     'FULL_AMOUNT',
+    1,
     (SELECT id FROM acc_chart_of_accounts WHERE account_code = '1115'),
     TRUE, FALSE, FALSE, FALSE, TRUE, FALSE,
     FALSE, 'BANK', 'SYSTEM', NOW(), NOW()
@@ -885,6 +898,7 @@ INSERT INTO acc_mapping_details (accounts_mapping_id, line_number, sort_order, e
     inherit_cost_center, control_account_type, created_by, created_at, updated_at)
 SELECT m.id, 2, 2, 'CREDIT', 'Accounts Receivable', 'Reduce customer outstanding balance',
     'FULL_AMOUNT',
+    1,
     (SELECT id FROM acc_chart_of_accounts WHERE account_code = '1200'),
     TRUE, FALSE, FALSE, FALSE, TRUE, FALSE,
     FALSE, 'CUSTOMER', 'SYSTEM', NOW(), NOW()
@@ -898,6 +912,7 @@ INSERT INTO acc_mapping_details (accounts_mapping_id, line_number, sort_order, e
     inherit_cost_center, control_account_type, created_by, created_at, updated_at)
 SELECT m.id, 1, 1, 'DEBIT', 'Depreciation Expense', 'Monthly depreciation charge',
     'FORMULA',
+    1,
     (SELECT id FROM acc_chart_of_accounts WHERE account_code = '5510'),
     TRUE, FALSE, FALSE, FALSE, TRUE, FALSE,
     TRUE, 'ASSET', 'SYSTEM', NOW(), NOW()
@@ -910,6 +925,7 @@ INSERT INTO acc_mapping_details (accounts_mapping_id, line_number, sort_order, e
     inherit_cost_center, control_account_type, created_by, created_at, updated_at)
 SELECT m.id, 2, 2, 'CREDIT', 'Accumulated Depreciation', 'Accumulated depreciation on asset',
     'FORMULA',
+    1,
     (SELECT id FROM acc_chart_of_accounts WHERE account_code = '1631'),
     TRUE, FALSE, FALSE, FALSE, TRUE, FALSE,
     FALSE, 'ASSET', 'SYSTEM', NOW(), NOW()
@@ -923,6 +939,7 @@ INSERT INTO acc_mapping_details (accounts_mapping_id, line_number, sort_order, e
     inherit_cost_center, control_account_type, created_by, created_at, updated_at)
 SELECT m.id, 1, 1, 'DEBIT', 'Salaries & Wages', 'Gross salary expense',
     'FULL_AMOUNT',
+    1,
     (SELECT id FROM acc_chart_of_accounts WHERE account_code = '5211'),
     TRUE, FALSE, FALSE, FALSE, TRUE, FALSE,
     TRUE, 'NONE', 'SYSTEM', NOW(), NOW()
@@ -935,6 +952,7 @@ INSERT INTO acc_mapping_details (accounts_mapping_id, line_number, sort_order, e
     inherit_cost_center, control_account_type, created_by, created_at, updated_at)
 SELECT m.id, 2, 2, 'CREDIT', 'Employee Tax Withheld', 'Income tax deducted from salary',
     'FIELD_VALUE', 'INCOME_TAX',
+    1,
     (SELECT id FROM acc_chart_of_accounts WHERE account_code = '2230'),
     TRUE, TRUE, TRUE, FALSE, TRUE, TRUE,
     FALSE, 'NONE', 'SYSTEM', NOW(), NOW()
@@ -947,6 +965,7 @@ INSERT INTO acc_mapping_details (accounts_mapping_id, line_number, sort_order, e
     inherit_cost_center, control_account_type, created_by, created_at, updated_at)
 SELECT m.id, 3, 3, 'CREDIT', 'Net Salaries Payable', 'Net salary payable after deductions',
     'BALANCE',
+    1,
     (SELECT id FROM acc_chart_of_accounts WHERE account_code = '2210'),
     TRUE, FALSE, FALSE, FALSE, TRUE, FALSE,
     FALSE, 'EMPLOYEE', 'SYSTEM', NOW(), NOW()

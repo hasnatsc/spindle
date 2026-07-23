@@ -207,17 +207,6 @@ COMMIT;
 
 
 
-INSERT INTO trv_package_inclusions
-(package_id,inclusion_type,description)
-VALUES
-
-    (1,'INCLUDED','Round-trip Air Ticket'),
-    (1,'INCLUDED','4 Star Hotel'),
-    (1,'INCLUDED','Airport Transfer'),
-    (1,'INCLUDED','Breakfast'),
-
-    (1,'EXCLUDED','Personal Expenses'),
-    (1,'EXCLUDED','Travel Insurance');
 
 
 INSERT INTO trv_hotel_categories
