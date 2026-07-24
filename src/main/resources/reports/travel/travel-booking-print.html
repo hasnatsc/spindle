@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<!--
+  Spindle ERP · Travel · Booking Print ("Sale Voucher")
+  Ticket-stub identity — matches reports/travel/booking-confirmation.jrxml (PDF).
+  Model contract unchanged: same ${booking.*} fields as the previous template.
+  Print-robust: layout relies on borders + coloured TEXT, so it survives
+  browsers that strip background graphics; tinted fills are progressive
+  enhancement via print-color-adjust: exact.
+-->
+<html xmlns:th="http://www.thymeleaf.org"
+      th:with="st=${#strings.toString(booking.status ?: 'DRAFT')},
+               totalV=${booking.totalAmount ?: 0},
+               paidV=${booking.paidAmount ?: 0},
+               dueV=${booking.dueAmount ?: 0},
+               payState=${dueV le 0.004 and totalV gt 0 ? 'PAID IN FULL' : (paidV gt 0 ? 'PARTIALLY PAID' : 'UNPAID')}">
+<head>
+  <meta charset="UTF-8">
+  <title th:text="|Booking ${booking.bookingNo}|">Booking</title>
+  <style>
+    :root{
+      --ink:#23303A; --text:#33424D; --muted:#7A8B96;
+      --line:#D8E0E6; --tint:#F3F6F9;
+      --ok:#00ACAC; --warn:#F59C1A; --bad:#FF5B57; --primary:#348FE2;
+    }
+    *{margin:0;padding:0;box-sizing:border-box;}
+    html,body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+    body{
+      font-family:"Segoe UI",-apple-system,"Noto Sans","Noto Sans Bengali",Roboto,Arial,sans-serif;
+      font-size:12px;color:var(--text);padding:22px 26px;position:relative;
+    }
+    .num{font-variant-numeric:tabular-nums;}
+    .mono{font-family:ui-monospace,"Cascadia Mono","Courier New",monospace;}
+
+    /* ── rotated status watermark (prints as text — always survives) ── */
+    .watermark{
+      position:fixed;top:38%;left:6%;z-index:0;pointer-events:none;
+      font-size:104px;font-weight:800;letter-spacing:10px;text-transform:uppercase;
+      transform:rotate(-22deg);transform-origin:left top;opacity:.08;color:var(--primary);
+    }
+    .watermark.wm-ok{color:var(--ok);} .watermark.wm-warn{color:var(--warn);} .watermark.wm-bad{color:var(--bad);}
+    .sheet{position:relative;z-index:1;border-left:4px solid var(--ink);padding-left:18px;}
+
+    /* ── masthead: counterfoil ┊ stub ── */
+    .masthead{
+      display:flex;border:2.5px solid var(--ink);border-radius:12px;overflow:hidden;
+      background:var(--ink);color:#fff;
+    }
+    .masthead .brand{flex:1 1 auto;padding:16px 20px;}
+    .masthead .brand h1{font-size:21px;font-weight:800;letter-spacing:.5px;}
+    .masthead .brand .tagline{font-size:9px;font-weight:700;letter-spacing:3px;color:#9FC3E8;margin-top:3px;text-transform:uppercase;}
+    .masthead .brand .bn{font-size:10px;color:#C6D2DA;margin-top:6px;}
+    .masthead .stub{
+      flex:0 0 215px;padding:14px 16px;border-left:2px dashed rgba(255,255,255,.75);
+    }
+    .stub .lbl{font-size:8px;font-weight:700;letter-spacing:2px;color:#9FB3BF;text-transform:uppercase;}
+    .stub .bno{font-size:16px;font-weight:800;letter-spacing:1px;margin:2px 0 8px;}
+    .stub .row{display:flex;justify-content:space-between;align-items:center;gap:8px;}
+    .stub .date{font-size:11px;}
+    .pill{
+      display:inline-block;padding:3px 12px;border-radius:999px;font-size:9.5px;font-weight:800;
+      letter-spacing:1px;border:1.5px solid currentColor;color:#fff;text-transform:uppercase;
+    }
+    .pill-ok{background:var(--ok);border-color:var(--ok);}
+    .pill-warn{background:var(--warn);border-color:var(--warn);}
+    .pill-bad{background:var(--bad);border-color:var(--bad);}
+
+    /* ── doc title ── */
+    .doc-title{display:flex;align-items:center;gap:14px;margin:14px 0 12px;}
+    .doc-title::before,.doc-title::after{content:"";flex:1;border-top:1px solid var(--line);}
+    .doc-title span{font-size:13px;font-weight:800;letter-spacing:4px;color:var(--ink);text-transform:uppercase;}
+
+    /* ── info panels ── */
+    .panels{display:flex;gap:12px;margin-bottom:14px;}
+    .panel{flex:1;border:1px solid var(--line);border-radius:10px;background:var(--tint);padding:10px 14px;}
+    .panel .cap{font-size:8px;font-weight:800;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-bottom:5px;}
+    .panel .who{font-size:13.5px;font-weight:700;color:var(--ink);margin-bottom:6px;}
+    .kv{display:flex;font-size:11px;padding:1.5px 0;}
+    .kv .k{width:92px;color:var(--muted);flex:0 0 auto;}
+    .kv .v{font-weight:600;}
+    .kv .v.pay-ok{color:var(--ok);} .kv .v.pay-warn{color:var(--warn);} .kv .v.pay-bad{color:var(--bad);}
+
+    /* ── tables ── */
+    .sec{display:flex;justify-content:space-between;align-items:baseline;margin:12px 0 5px;}
+    .sec h3{font-size:9.5px;font-weight:800;letter-spacing:2px;color:var(--ink);text-transform:uppercase;}
+    .sec small{font-size:9px;color:var(--muted);font-style:italic;}
+    table.grid{width:100%;border-collapse:collapse;}
+    table.grid th{
+      background:var(--ink);color:#fff;font-size:9px;letter-spacing:1px;text-transform:uppercase;
+      padding:6px 8px;text-align:left;border:1px solid var(--ink);
+    }
+    table.grid td{padding:5px 8px;font-size:11px;border:1px solid var(--line);border-top:0;}
+    table.grid tbody tr:nth-child(even) td{background:var(--tint);}
+    .text-end{text-align:right;} .text-center{text-align:center;}
+    td.amt{font-weight:700;}
+    .empty{color:var(--muted);font-style:italic;text-align:center;}
+
+    /* ── bottom: receipts left, totals card right ── */
+    .bottom{display:flex;gap:16px;align-items:flex-start;margin-top:12px;}
+    .bottom .left{flex:1 1 auto;}
+    .totals{flex:0 0 250px;border:1.5px solid var(--ink);border-radius:10px;overflow:hidden;}
+    .totals .trow{display:flex;justify-content:space-between;padding:5px 14px;font-size:11px;}
+    .totals .trow .k{color:var(--muted);}
+    .totals .trow .v{font-weight:600;}
+    .totals .trow.total{border-top:1px solid var(--line);margin-top:2px;padding-top:7px;font-size:12px;}
+    .totals .trow.total .k,.totals .trow.total .v{color:var(--ink);font-weight:800;}
+    .totals .trow.recv .v{color:var(--ok);}
+    .banner{padding:8px 14px;color:#fff;}
+    .banner.due{background:var(--bad);} .banner.paid{background:var(--ok);}
+    .banner .cap{font-size:8.5px;font-weight:800;letter-spacing:2px;text-transform:uppercase;}
+    .banner .big{font-size:17px;font-weight:800;text-align:right;}
+    /* fallback if backgrounds are stripped in print */
+    .banner.due .cap,.banner.due .big{text-shadow:0 0 0 var(--bad);}
+    @media print{
+      .banner.due{border-top:2px solid var(--bad);} .banner.paid{border-top:2px solid var(--ok);}
+    }
+
+    .narration{margin-top:14px;border-top:1px dashed var(--line);padding-top:8px;font-size:11px;}
+    .narration strong{color:var(--ink);}
+
+    .signs{display:flex;justify-content:space-between;margin-top:48px;}
+    .signs div{width:30%;text-align:center;font-size:10px;color:var(--muted);}
+    .signs .ln{border-top:1.2px solid var(--text);padding-top:5px;}
+
+    .meta{
+      display:flex;justify-content:space-between;margin-top:20px;padding-top:6px;
+      border-top:1px dashed var(--line);font-size:9px;color:var(--muted);
+    }
+
+    .no-print{text-align:center;margin-bottom:16px;}
+    .no-print button{
+      padding:8px 22px;font-size:13px;cursor:pointer;border-radius:8px;
+      border:1.5px solid var(--ink);background:#fff;color:var(--ink);font-weight:600;
+    }
+    .no-print button.primary{background:var(--ink);color:#fff;}
+    @media print{
+      body{padding:0;}
+      .no-print{display:none;}
+      @page{size:A4;margin:12mm;}
+    }
+  </style>
+</head>
+<body>
+
+<div class="no-print">
+  <button class="primary" onclick="window.print()">🖨 Print / Save PDF</button>
+  <button onclick="window.close()" style="margin-left:8px">✖ Close</button>
+</div>
+
+<!-- rotated status watermark -->
+<div class="watermark"
+     th:text="${st}"
+     th:classappend="${st == 'CONFIRMED' ? 'wm-ok' : (st == 'CANCELLED' ? 'wm-bad' : 'wm-warn')}">DRAFT</div>
+
+<div class="sheet">
+
+  <!-- ── masthead: counterfoil ┊ perforation ┊ stub ── -->
+  <div class="masthead">
+    <div class="brand">
+      <h1>ASG Group</h1>
+      <div class="tagline">Travel &amp; Booking Desk</div>
+      <div class="bn">ট্রাভেল ও বুকিং ডেস্ক — Sale Voucher</div>
+    </div>
+    <div class="stub">
+      <div class="lbl">Booking No</div>
+      <div class="bno mono" th:text="${booking.bookingNo}">—</div>
+      <div class="row">
+        <span class="date num" th:text="${booking.bookingDate}">—</span>
+        <span class="pill"
+              th:text="${st}"
+              th:classappend="${st == 'CONFIRMED' ? 'pill-ok' : (st == 'CANCELLED' ? 'pill-bad' : 'pill-warn')}">DRAFT</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="doc-title"><span>Booking Confirmation</span></div>
+
+  <!-- ── info panels ── -->
+  <div class="panels">
+    <div class="panel">
+      <div class="cap">Customer</div>
+      <div class="who" th:text="${booking.partyDisplay ?: 'Walk-in Customer'}">—</div>
+      <div class="kv"><span class="k">Sales Agent</span><span class="v" th:text="${booking.salesAgentDisplay ?: '—'}">—</span></div>
+      <div class="kv"><span class="k">Sale Type</span><span class="v" th:text="${booking.bookingType ?: '—'}">—</span></div>
+    </div>
+    <div class="panel">
+      <div class="cap">Booking Details</div>
+      <div class="kv"><span class="k">Booking Date</span><span class="v num" th:text="${booking.bookingDate}">—</span></div>
+      <div class="kv"><span class="k">Status</span><span class="v" th:text="${st}">—</span></div>
+      <div class="kv"><span class="k">Payment</span>
+        <span class="v"
+              th:text="${payState}"
+              th:classappend="${payState == 'PAID IN FULL' ? 'pay-ok' : (payState == 'PARTIALLY PAID' ? 'pay-warn' : 'pay-bad')}">UNPAID</span>
+      </div>
+      <div class="kv"><span class="k">Currency</span><span class="v">BDT</span></div>
+    </div>
+  </div>
+
+  <!-- ── services ── -->
+  <div class="sec"><h3>Services / Particulars</h3><small>All amounts in BDT</small></div>
+  <table class="grid">
+    <thead><tr>
+      <th style="width:4%" class="text-center">#</th>
+      <th style="width:13%">Type</th>
+      <th>Description</th>
+      <th style="width:7%" class="text-center">Qty</th>
+      <th style="width:13%" class="text-end">Unit Price</th>
+      <th style="width:14%" class="text-end">Amount</th>
+    </tr></thead>
+    <tbody>
+      <tr th:each="s, it : ${booking.services}">
+        <td class="text-center num" th:text="${it.count}">1</td>
+        <td th:text="${s.serviceType}">—</td>
+        <td th:text="${s.description ?: '—'}">—</td>
+        <td class="text-center num" th:text="${s.quantity}">0</td>
+        <td class="text-end num" th:text="${#numbers.formatDecimal(s.unitPrice ?: 0, 1, 'COMMA', 2, 'POINT')}">0.00</td>
+        <td class="text-end num amt" th:text="${#numbers.formatDecimal(s.lineTotal ?: 0, 1, 'COMMA', 2, 'POINT')}">0.00</td>
+      </tr>
+      <tr th:if="${booking.services == null or #lists.isEmpty(booking.services)}">
+        <td colspan="6" class="empty">No service lines.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- ── receipts + totals ── -->
+  <div class="bottom">
+    <div class="left">
+      <div class="sec"><h3>Receipts / Payments</h3></div>
+      <table class="grid">
+        <thead><tr>
+          <th style="width:20%">Mode</th>
+          <th style="width:33%">Sub Account</th>
+          <th>Reference</th>
+          <th style="width:22%" class="text-end">Amount</th>
+        </tr></thead>
+        <tbody>
+          <th:block th:if="${booking.receipts != null}">
+            <tr th:each="r : ${booking.receipts}">
+              <td th:text="${r.paymentMode}">—</td>
+              <td th:text="${r.subAccountText ?: '—'}">—</td>
+              <td th:text="${r.reference ?: '—'}">—</td>
+              <td class="text-end num" th:text="${#numbers.formatDecimal(r.amount ?: 0, 1, 'COMMA', 2, 'POINT')}">0.00</td>
+            </tr>
+          </th:block>
+          <tr th:if="${booking.receipts == null or #lists.isEmpty(booking.receipts)}">
+            <td colspan="4" class="empty">No payments recorded.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="totals">
+      <div class="trow" style="padding-top:10px"><span class="k">Subtotal</span>
+        <span class="v num" th:text="${#numbers.formatDecimal(booking.subtotalAmount ?: 0, 1, 'COMMA', 2, 'POINT')}">0.00</span></div>
+      <div class="trow"><span class="k">Discount</span>
+        <span class="v num" th:text="${#numbers.formatDecimal(booking.discountAmount ?: 0, 1, 'COMMA', 2, 'POINT')}">0.00</span></div>
+      <div class="trow total"><span class="k">Total</span>
+        <span class="v num" th:text="${#numbers.formatDecimal(totalV, 1, 'COMMA', 2, 'POINT')}">0.00</span></div>
+      <div class="trow recv" style="padding-bottom:9px"><span class="k">Received</span>
+        <span class="v num" th:text="${#numbers.formatDecimal(paidV, 1, 'COMMA', 2, 'POINT')}">0.00</span></div>
+
+      <div class="banner" th:classappend="${dueV gt 0.004 ? 'due' : 'paid'}">
+        <div class="cap" th:text="${dueV gt 0.004 ? 'Total Due' : 'Paid in Full'}">Total Due</div>
+        <div class="big num" th:text="|BDT ${#numbers.formatDecimal(dueV, 1, 'COMMA', 2, 'POINT')}|">BDT 0.00</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── narration ── -->
+  <div class="narration" th:if="${booking.remarks}">
+    <strong>Narration:</strong> <span th:text="${booking.remarks}"></span>
+  </div>
+
+  <!-- ── signatures ── -->
+  <div class="signs">
+    <div><div class="ln">Prepared By</div></div>
+    <div><div class="ln">Verified By</div></div>
+    <div><div class="ln">Approved By</div></div>
+  </div>
+
+  <div class="meta">
+    <span>System generated by Spindle ERP</span>
+    <span>Printed <span th:text="${#dates.format(#dates.createNow(), 'dd MMM yyyy, HH:mm')}">—</span></span>
+  </div>
+
+</div>
+
+</body>
+</html>
