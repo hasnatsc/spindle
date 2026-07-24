@@ -8,6 +8,7 @@ import com.asg.spindleserp.security.auth.SecurityHelper;
 import java.util.List;
 import java.util.Map;
 import com.asg.spindleserp.travel.dto.TrvGlAccountDefaultsDTO;
+import com.asg.spindleserp.travel.entity.TrvBookingReceipt;
 import com.asg.spindleserp.travel.entity.TrvGlAccountDefaults;
 import com.asg.spindleserp.travel.entity.TrvPaymentModeAccount;
 import com.asg.spindleserp.travel.repository.TrvGlAccountDefaultsRepository;
@@ -78,7 +79,7 @@ public class TravelSettingsServiceImpl implements TravelSettingsService {
             .map(pm -> {
                 Map<String, Object> m = new java.util.HashMap<>();
                 m.put("id", pm.getId());
-                m.put("paymentMode", pm.getPaymentMode());
+                m.put("paymentMode", pm.getPaymentMode() != null ? pm.getPaymentMode().name() : null);
                 m.put("subAccountId", pm.getSubAccountId());
                 if (pm.getSubAccountId() != null) {
                     subRepo.findById(pm.getSubAccountId()).ifPresent(sub ->
@@ -92,11 +93,13 @@ public class TravelSettingsServiceImpl implements TravelSettingsService {
     @Override
     public void savePaymentModeAccount(String paymentMode, Long subAccountId) {
         Long orgId = SecurityHelper.requireOrgId();
+        TrvBookingReceipt.PaymentMode mode = paymentMode != null
+            ? TrvBookingReceipt.PaymentMode.valueOf(paymentMode) : null;
         TrvPaymentModeAccount e = payModeRepo
-            .findByOrganizationIdAndPaymentMode(orgId, paymentMode)
+            .findByOrganizationIdAndPaymentMode(orgId, mode)
             .orElse(TrvPaymentModeAccount.builder()
                 .organizationId(orgId)
-                .paymentMode(paymentMode)
+                .paymentMode(mode)
                 .build());
         e.setSubAccountId(subAccountId);
         payModeRepo.save(e);

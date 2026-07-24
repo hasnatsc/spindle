@@ -527,6 +527,14 @@
       var sb = document.getElementById('bkgSubmitBtn'), sp = document.getElementById('bkgSpinner'), bt = document.getElementById('bkgBtnText'), fm = document.getElementById('bkgForm');
       hsDisableButton(sb, sp, bt);
 
+      // Validate required fields
+      var partyId = $('#bkgCustomerId').val() || null;
+      if (!partyId) {
+        hsEnableButton(sb, sp, bt);
+        Swal.fire('Validation Error', 'Please select a Customer before saving.', 'warning');
+        return;
+      }
+
       var services = [];
       document.querySelectorAll('#bkgServiceBody tr').forEach(function (tr) {
         services.push({
@@ -556,7 +564,7 @@
         bookingDate: document.getElementById('bkgDate').value,
         discountAmount: parseFloat(document.getElementById('bkgDiscount').value) || 0,
         remarks: document.getElementById('bkgRemarks').value || null,
-        partyId: $('#bkgCustomerId').val() || null,
+        partyId: partyId,
         salesAgentId: $('#bkgAgentId').val() || null,
         services: services,
         receipts: receipts

@@ -15,8 +15,9 @@ public class TrvBookingStatusHistory {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 20)
-    private String status;
+    private TrvBooking.Status status;
 
     @Column(name = "changed_by", length = 100)
     private String changedBy;

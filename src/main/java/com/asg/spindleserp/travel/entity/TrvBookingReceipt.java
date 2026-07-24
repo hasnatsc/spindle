@@ -11,6 +11,8 @@ import java.math.BigDecimal;
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class TrvBookingReceipt extends BaseEntity {
 
+    public enum PaymentMode { CASH, BANK, BKASH, NAGAD, CARD }
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -19,8 +21,9 @@ public class TrvBookingReceipt extends BaseEntity {
     @JoinColumn(name = "booking_id", nullable = false)
     private TrvBooking booking;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "payment_mode", nullable = false, length = 20)
-    private String paymentMode;  // CASH | BANK | BKASH | NAGAD | CARD
+    private PaymentMode paymentMode;
 
     @Column(name = "sub_account_id")
     private Long subAccountId;
