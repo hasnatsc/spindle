@@ -423,6 +423,8 @@ public class TravelBookingServiceImpl implements TravelBookingService {
                 COALESCE(b.paid_amount::text,  '0')                              AS paid_amount,
                 COALESCE(b.due_amount::text,   '0')                              AS due_amount,
                 (SELECT COUNT(*) FROM trv_passengers p WHERE p.booking_id = b.id) AS passenger_count,
+                (SELECT STRING_AGG(bs.service_type || COALESCE(': ' || NULLIF(bs.description, ''), ''), ' | ')
+                 FROM   trv_booking_services bs WHERE bs.booking_id = b.id)       AS services_summary,
                 CASE b.status
                     WHEN 'DRAFT'           THEN '<span class="badge bg-secondary">Draft</span>'
                     WHEN 'CONFIRMED'       THEN '<span class="badge bg-success">Confirmed</span>'

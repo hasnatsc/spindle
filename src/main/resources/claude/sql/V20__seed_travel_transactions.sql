@@ -10,6 +10,21 @@
 BEGIN;
 
 -- ═════════════════════════════════════════════════════════════════════════════
+-- 0.  HOTELS  (required by hotel bookings below — embedded so this file
+--     is self-contained even when V19 hasn't been run)
+-- ═════════════════════════════════════════════════════════════════════════════
+INSERT INTO trv_hotels (hotel_code, hotel_name, city, country, address, star_rating, category_id, contact_phone, contact_email, is_active, organization_id, created_at, created_by)
+SELECT * FROM (VALUES
+    ('HT-COX-001', 'Ocean Paradise Hotel',     'Cox''s Bazar','Bangladesh', 'Hotel Motel Zone',       4, (SELECT id FROM trv_hotel_categories WHERE organization_id = 1 AND category_name = '4 Star'), '+880-xxx', 'info@op.com', true, 1, NOW(), 'system'),
+    ('HT-DHK-001', 'Pan Pacific Sonargaon',    'Dhaka',       'Bangladesh', '107 Kazi Nazrul Islam Ave', 5, (SELECT id FROM trv_hotel_categories WHERE organization_id = 1 AND category_name = '5 Star'), '+880-xxx', 'info@pp.com', true, 1, NOW(), 'system'),
+    ('HT-COX-002', 'Royal Tulip Sea Pearl',    'Cox''s Bazar','Bangladesh', 'Sugandha Point',           5, (SELECT id FROM trv_hotel_categories WHERE organization_id = 1 AND category_name = '5 Star'), '+880-xxx', 'info@rt.com', true, 1, NOW(), 'system'),
+    ('HT-SG-001',  'Hotel Agrabad',            'Chittagong',  'Bangladesh', 'Agrabad C/A',              4, (SELECT id FROM trv_hotel_categories WHERE organization_id = 1 AND category_name = '4 Star'), '+880-xxx', 'info@ha.com', true, 1, NOW(), 'system'),
+    ('HT-DHK-003', 'Six Seasons Hotel',        'Dhaka',       'Bangladesh', 'Gulshan 2',                5, (SELECT id FROM trv_hotel_categories WHERE organization_id = 1 AND category_name = '5 Star'), '+880-xxx', 'info@ss.com', true, 1, NOW(), 'system')
+) AS v(hotel_code, hotel_name, city, country, address, star_rating, category_id, contact_phone, contact_email, is_active, organization_id, created_at, created_by)
+WHERE NOT EXISTS (SELECT 1 FROM trv_hotels WHERE organization_id = 1 AND hotel_code = v.hotel_code)
+  AND EXISTS (SELECT 1 FROM trv_hotel_categories WHERE organization_id = 1 AND category_name IN ('5 Star', '4 Star'));
+
+-- ═════════════════════════════════════════════════════════════════════════════
 -- 1.  BOOKINGS  (various statuses for a realistic mix)
 -- ═════════════════════════════════════════════════════════════════════════════
 INSERT INTO trv_bookings (booking_no, booking_type, booking_date, travel_start_date, travel_end_date, status, currency, exchange_rate, subtotal_amount, discount_amount, tax_amount, total_amount, paid_amount, due_amount, remarks, party_id, sales_agent_id, organization_id, created_at, created_by, updated_at, updated_by)
@@ -594,7 +609,8 @@ SELECT 1,
     NOW(), 'system', NOW()
 WHERE NOT EXISTS (SELECT 1 FROM trv_hotel_bookings hb
     JOIN trv_booking_services bs ON bs.id = hb.booking_service_id
-    JOIN trv_bookings b ON b.id = bs.booking_id WHERE b.booking_no = 'BKG-25-0001');
+    JOIN trv_bookings b ON b.id = bs.booking_id WHERE b.booking_no = 'BKG-25-0001')
+      AND EXISTS (SELECT 1 FROM trv_hotels WHERE hotel_code = 'HT-COX-001');
 
 INSERT INTO trv_hotel_bookings (organization_id, booking_service_id, hotel_id,
     check_in_date, check_out_date, adults, children, rooms_count, status,
@@ -611,7 +627,8 @@ SELECT 1,
     NOW(), 'system', NOW()
 WHERE NOT EXISTS (SELECT 1 FROM trv_hotel_bookings hb
     JOIN trv_booking_services bs ON bs.id = hb.booking_service_id
-    JOIN trv_bookings b ON b.id = bs.booking_id WHERE b.booking_no = 'BKG-25-0004');
+    JOIN trv_bookings b ON b.id = bs.booking_id WHERE b.booking_no = 'BKG-25-0004')
+      AND EXISTS (SELECT 1 FROM trv_hotels WHERE hotel_code = 'HT-DHK-001');
 
 INSERT INTO trv_hotel_bookings (organization_id, booking_service_id, hotel_id,
     check_in_date, check_out_date, adults, children, rooms_count, status,
@@ -628,7 +645,8 @@ SELECT 1,
     NOW(), 'system', NOW()
 WHERE NOT EXISTS (SELECT 1 FROM trv_hotel_bookings hb
     JOIN trv_booking_services bs ON bs.id = hb.booking_service_id
-    JOIN trv_bookings b ON b.id = bs.booking_id WHERE b.booking_no = 'BKG-25-0010');
+    JOIN trv_bookings b ON b.id = bs.booking_id WHERE b.booking_no = 'BKG-25-0010')
+      AND EXISTS (SELECT 1 FROM trv_hotels WHERE hotel_code = 'HT-COX-002');
 
 INSERT INTO trv_hotel_bookings (organization_id, booking_service_id, hotel_id,
     check_in_date, check_out_date, adults, children, rooms_count, status,
@@ -645,7 +663,8 @@ SELECT 1,
     NOW(), 'system', NOW()
 WHERE NOT EXISTS (SELECT 1 FROM trv_hotel_bookings hb
     JOIN trv_booking_services bs ON bs.id = hb.booking_service_id
-    JOIN trv_bookings b ON b.id = bs.booking_id WHERE b.booking_no = 'BKG-25-0014');
+    JOIN trv_bookings b ON b.id = bs.booking_id WHERE b.booking_no = 'BKG-25-0014')
+      AND EXISTS (SELECT 1 FROM trv_hotels WHERE hotel_code = 'HT-SG-001');
 
 INSERT INTO trv_hotel_bookings (organization_id, booking_service_id, hotel_id,
     check_in_date, check_out_date, adults, children, rooms_count, status,
@@ -662,7 +681,8 @@ SELECT 1,
     NOW(), 'system', NOW()
 WHERE NOT EXISTS (SELECT 1 FROM trv_hotel_bookings hb
     JOIN trv_booking_services bs ON bs.id = hb.booking_service_id
-    JOIN trv_bookings b ON b.id = bs.booking_id WHERE b.booking_no = 'BKG-25-0018');
+    JOIN trv_bookings b ON b.id = bs.booking_id WHERE b.booking_no = 'BKG-25-0018')
+      AND EXISTS (SELECT 1 FROM trv_hotels WHERE hotel_code = 'HT-DHK-003');
 
 -- ═════════════════════════════════════════════════════════════════════════════
 -- 6.  HOTEL ROOMS  (specific room assignments per hotel booking)
