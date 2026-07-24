@@ -92,7 +92,7 @@
             </image>
             <textField>
                 <reportElement x="250" y="0" width="285" height="16"/>
-                <textElement textAlignment="Right" ><font isBold="true" size="12"/></textElement>
+                <textElement textAlignment="Right" ><font size="12"/></textElement>
                 <textFieldExpression><![CDATA[$P{company_name}]]></textFieldExpression>
             </textField>
             <textField>
@@ -102,59 +102,59 @@
             </textField>
             <staticText>
                 <reportElement mode="Opaque" x="117" y="48" width="300" height="22" backcolor="#2E3192" forecolor="#FFFFFF"/>
-                <textElement textAlignment="Center" verticalAlignment="Middle" ><font isBold="true" size="12"/></textElement>
+                <textElement textAlignment="Center" verticalAlignment="Middle" ><font size="12"/></textElement>
                 <text><![CDATA[BOOKING CONFIRMATION]]></text>
             </staticText>
 
             <!-- left column -->
             <textField>
                 <reportElement x="0" y="80" width="330" height="14"/>
-                <box><bottomPen lineWidth="0.5" lineStyle="Dotted"/></box>
                 <textElement  verticalAlignment="Middle"><font size="9"/></textElement>
+                <box><bottomPen lineWidth="0.5" lineStyle="Dotted"/></box>
                 <textFieldExpression><![CDATA["Customer : " + $P{customer}]]></textFieldExpression>
             </textField>
             <textField>
                 <reportElement x="0" y="96" width="330" height="14"/>
-                <box><bottomPen lineWidth="0.5" lineStyle="Dotted"/></box>
                 <textElement  verticalAlignment="Middle"><font size="9"/></textElement>
+                <box><bottomPen lineWidth="0.5" lineStyle="Dotted"/></box>
                 <textFieldExpression><![CDATA["Booking Type : " + $P{bookingType}]]></textFieldExpression>
             </textField>
             <textField>
                 <reportElement x="0" y="112" width="330" height="14"/>
-                <box><bottomPen lineWidth="0.5" lineStyle="Dotted"/></box>
                 <textElement  verticalAlignment="Middle"><font size="9"/></textElement>
+                <box><bottomPen lineWidth="0.5" lineStyle="Dotted"/></box>
                 <textFieldExpression><![CDATA["Travel Period : " + $P{travelPeriod}]]></textFieldExpression>
             </textField>
             <textField>
                 <reportElement x="0" y="128" width="330" height="14"/>
-                <box><bottomPen lineWidth="0.5" lineStyle="Dotted"/></box>
                 <textElement  verticalAlignment="Middle"><font size="9"/></textElement>
+                <box><bottomPen lineWidth="0.5" lineStyle="Dotted"/></box>
                 <textFieldExpression><![CDATA["Sales Agent : " + $P{salesAgent}]]></textFieldExpression>
             </textField>
 
             <!-- right column -->
             <textField>
                 <reportElement x="360" y="80" width="175" height="14"/>
+                <textElement  verticalAlignment="Middle"><font size="9"/></textElement>
                 <box><bottomPen lineWidth="0.5" lineStyle="Dotted"/></box>
-                <textElement  verticalAlignment="Middle"><font isBold="true" size="9"/></textElement>
                 <textFieldExpression><![CDATA["Booking No : " + $P{bookingNo}]]></textFieldExpression>
             </textField>
             <textField>
                 <reportElement x="360" y="96" width="175" height="14"/>
-                <box><bottomPen lineWidth="0.5" lineStyle="Dotted"/></box>
                 <textElement  verticalAlignment="Middle"><font size="9"/></textElement>
+                <box><bottomPen lineWidth="0.5" lineStyle="Dotted"/></box>
                 <textFieldExpression><![CDATA["Date : " + $P{bookingDate}]]></textFieldExpression>
             </textField>
             <textField>
                 <reportElement x="360" y="112" width="175" height="14"/>
-                <box><bottomPen lineWidth="0.5" lineStyle="Dotted"/></box>
                 <textElement  verticalAlignment="Middle"><font size="9"/></textElement>
+                <box><bottomPen lineWidth="0.5" lineStyle="Dotted"/></box>
                 <textFieldExpression><![CDATA["Status : " + $P{status}]]></textFieldExpression>
             </textField>
             <textField>
                 <reportElement x="360" y="128" width="175" height="14"/>
-                <box><bottomPen lineWidth="0.5" lineStyle="Dotted"/></box>
                 <textElement  verticalAlignment="Middle"><font size="9"/></textElement>
+                <box><bottomPen lineWidth="0.5" lineStyle="Dotted"/></box>
                 <textFieldExpression><![CDATA["Currency : " + $P{currency}]]></textFieldExpression>
             </textField>
         </band>
@@ -164,50 +164,50 @@
         <band height="18">
             <staticText>
                 <reportElement mode="Opaque" x="0" y="0" width="25" height="18" backcolor="#2E3192" forecolor="#FFFFFF"/>
+                <textElement textAlignment="Center" verticalAlignment="Middle" ><font size="8"/></textElement>
                 <box><pen lineWidth="0.5" lineColor="#FFFFFF"/></box>
-                <textElement textAlignment="Center" verticalAlignment="Middle" ><font isBold="true" size="8"/></textElement>
                 <text><![CDATA[SL]]></text>
             </staticText>
             <staticText>
                 <reportElement mode="Opaque" x="25" y="0" width="65" height="18" backcolor="#2E3192" forecolor="#FFFFFF"/>
+                <textElement textAlignment="Center" verticalAlignment="Middle" ><font size="8"/></textElement>
                 <box><pen lineWidth="0.5" lineColor="#FFFFFF"/></box>
-                <textElement textAlignment="Center" verticalAlignment="Middle" ><font isBold="true" size="8"/></textElement>
                 <text><![CDATA[Service]]></text>
             </staticText>
             <staticText>
                 <reportElement mode="Opaque" x="90" y="0" width="185" height="18" backcolor="#2E3192" forecolor="#FFFFFF"/>
+                <textElement textAlignment="Center" verticalAlignment="Middle" ><font size="8"/></textElement>
                 <box><pen lineWidth="0.5" lineColor="#FFFFFF"/></box>
-                <textElement textAlignment="Center" verticalAlignment="Middle" ><font isBold="true" size="8"/></textElement>
                 <text><![CDATA[Description]]></text>
             </staticText>
             <staticText>
                 <reportElement mode="Opaque" x="275" y="0" width="45" height="18" backcolor="#2E3192" forecolor="#FFFFFF"/>
+                <textElement textAlignment="Center" verticalAlignment="Middle" ><font size="8"/></textElement>
                 <box><pen lineWidth="0.5" lineColor="#FFFFFF"/></box>
-                <textElement textAlignment="Center" verticalAlignment="Middle" ><font isBold="true" size="8"/></textElement>
                 <text><![CDATA[Qty]]></text>
             </staticText>
             <staticText>
                 <reportElement mode="Opaque" x="320" y="0" width="70" height="18" backcolor="#2E3192" forecolor="#FFFFFF"/>
+                <textElement textAlignment="Center" verticalAlignment="Middle" ><font size="8"/></textElement>
                 <box><pen lineWidth="0.5" lineColor="#FFFFFF"/></box>
-                <textElement textAlignment="Center" verticalAlignment="Middle" ><font isBold="true" size="8"/></textElement>
                 <text><![CDATA[Unit Price]]></text>
             </staticText>
             <staticText>
                 <reportElement mode="Opaque" x="390" y="0" width="45" height="18" backcolor="#2E3192" forecolor="#FFFFFF"/>
+                <textElement textAlignment="Center" verticalAlignment="Middle" ><font size="8"/></textElement>
                 <box><pen lineWidth="0.5" lineColor="#FFFFFF"/></box>
-                <textElement textAlignment="Center" verticalAlignment="Middle" ><font isBold="true" size="8"/></textElement>
                 <text><![CDATA[Disc.]]></text>
             </staticText>
             <staticText>
                 <reportElement mode="Opaque" x="435" y="0" width="40" height="18" backcolor="#2E3192" forecolor="#FFFFFF"/>
+                <textElement textAlignment="Center" verticalAlignment="Middle" ><font size="8"/></textElement>
                 <box><pen lineWidth="0.5" lineColor="#FFFFFF"/></box>
-                <textElement textAlignment="Center" verticalAlignment="Middle" ><font isBold="true" size="8"/></textElement>
                 <text><![CDATA[Tax]]></text>
             </staticText>
             <staticText>
                 <reportElement mode="Opaque" x="475" y="0" width="60" height="18" backcolor="#2E3192" forecolor="#FFFFFF"/>
+                <textElement textAlignment="Center" verticalAlignment="Middle" ><font size="8"/></textElement>
                 <box><pen lineWidth="0.5" lineColor="#FFFFFF"/></box>
-                <textElement textAlignment="Center" verticalAlignment="Middle" ><font isBold="true" size="8"/></textElement>
                 <text><![CDATA[Line Total]]></text>
             </staticText>
         </band>
@@ -217,50 +217,50 @@
         <band height="16">
             <textField>
                 <reportElement x="0" y="0" width="25" height="16"/>
-                <box><pen lineWidth="0.25" lineColor="#CCCCCC"/></box>
                 <textElement textAlignment="Center" verticalAlignment="Middle" ><font size="8"/></textElement>
+                <box><pen lineWidth="0.25" lineColor="#CCCCCC"/></box>
                 <textFieldExpression><![CDATA[$V{REPORT_COUNT}]]></textFieldExpression>
             </textField>
             <textField>
                 <reportElement x="25" y="0" width="65" height="16"/>
-                <box><pen lineWidth="0.25" lineColor="#CCCCCC"/></box>
                 <textElement textAlignment="Center" verticalAlignment="Middle" ><font size="8"/></textElement>
+                <box><pen lineWidth="0.25" lineColor="#CCCCCC"/></box>
                 <textFieldExpression><![CDATA[$F{service_type}]]></textFieldExpression>
             </textField>
             <textField>
                 <reportElement x="90" y="0" width="185" height="16"/>
-                <box leftPadding="3"><pen lineWidth="0.25" lineColor="#CCCCCC"/></box>
                 <textElement verticalAlignment="Middle" ><font size="8"/></textElement>
+                <box leftPadding="3"><pen lineWidth="0.25" lineColor="#CCCCCC"/></box>
                 <textFieldExpression><![CDATA[$F{description}]]></textFieldExpression>
             </textField>
             <textField pattern="#,##0.###">
                 <reportElement x="275" y="0" width="45" height="16"/>
-                <box rightPadding="3"><pen lineWidth="0.25" lineColor="#CCCCCC"/></box>
                 <textElement textAlignment="Right" verticalAlignment="Middle" ><font size="8"/></textElement>
+                <box rightPadding="3"><pen lineWidth="0.25" lineColor="#CCCCCC"/></box>
                 <textFieldExpression><![CDATA[$F{quantity}]]></textFieldExpression>
             </textField>
             <textField pattern="#,##0.00">
                 <reportElement x="320" y="0" width="70" height="16"/>
-                <box rightPadding="3"><pen lineWidth="0.25" lineColor="#CCCCCC"/></box>
                 <textElement textAlignment="Right" verticalAlignment="Middle" ><font size="8"/></textElement>
+                <box rightPadding="3"><pen lineWidth="0.25" lineColor="#CCCCCC"/></box>
                 <textFieldExpression><![CDATA[$F{unit_price}]]></textFieldExpression>
             </textField>
             <textField pattern="#,##0.00">
                 <reportElement x="390" y="0" width="45" height="16"/>
-                <box rightPadding="3"><pen lineWidth="0.25" lineColor="#CCCCCC"/></box>
                 <textElement textAlignment="Right" verticalAlignment="Middle" ><font size="8"/></textElement>
+                <box rightPadding="3"><pen lineWidth="0.25" lineColor="#CCCCCC"/></box>
                 <textFieldExpression><![CDATA[$F{line_discount}]]></textFieldExpression>
             </textField>
             <textField pattern="#,##0.00">
                 <reportElement x="435" y="0" width="40" height="16"/>
-                <box rightPadding="3"><pen lineWidth="0.25" lineColor="#CCCCCC"/></box>
                 <textElement textAlignment="Right" verticalAlignment="Middle" ><font size="8"/></textElement>
+                <box rightPadding="3"><pen lineWidth="0.25" lineColor="#CCCCCC"/></box>
                 <textFieldExpression><![CDATA[$F{line_tax}]]></textFieldExpression>
             </textField>
             <textField pattern="#,##0.00">
                 <reportElement x="475" y="0" width="60" height="16"/>
-                <box rightPadding="3"><pen lineWidth="0.25" lineColor="#CCCCCC"/></box>
                 <textElement textAlignment="Right" verticalAlignment="Middle" ><font size="8"/></textElement>
+                <box rightPadding="3"><pen lineWidth="0.25" lineColor="#CCCCCC"/></box>
                 <textFieldExpression><![CDATA[$F{line_total}]]></textFieldExpression>
             </textField>
         </band>
@@ -271,38 +271,38 @@
             <!-- ── Receipt / Payment manifest ────────────────────────── -->
             <staticText>
                 <reportElement mode="Opaque" x="0" y="8" width="535" height="16" backcolor="#EEEEF7"/>
+                <textElement verticalAlignment="Middle" ><font size="9"/></textElement>
                 <box leftPadding="3"><pen lineWidth="0.25" lineColor="#2E3192"/></box>
-                <textElement verticalAlignment="Middle" ><font isBold="true" size="9"/></textElement>
                 <text><![CDATA[RECEIPTS / PAYMENTS]]></text>
             </staticText>
             <staticText>
                 <reportElement x="0" y="24" width="25" height="14"/>
+                <textElement textAlignment="Center" verticalAlignment="Middle" ><font size="8"/></textElement>
                 <box><pen lineWidth="0.25" lineColor="#CCCCCC"/></box>
-                <textElement textAlignment="Center" verticalAlignment="Middle" ><font isBold="true" size="8"/></textElement>
                 <text><![CDATA[#]]></text>
             </staticText>
             <staticText>
                 <reportElement x="25" y="24" width="65" height="14"/>
+                <textElement textAlignment="Center" verticalAlignment="Middle" ><font size="8"/></textElement>
                 <box><pen lineWidth="0.25" lineColor="#CCCCCC"/></box>
-                <textElement textAlignment="Center" verticalAlignment="Middle" ><font isBold="true" size="8"/></textElement>
                 <text><![CDATA[Mode]]></text>
             </staticText>
             <staticText>
                 <reportElement x="90" y="24" width="185" height="14"/>
+                <textElement verticalAlignment="Middle" ><font size="8"/></textElement>
                 <box leftPadding="3"><pen lineWidth="0.25" lineColor="#CCCCCC"/></box>
-                <textElement verticalAlignment="Middle" ><font isBold="true" size="8"/></textElement>
                 <text><![CDATA[Sub Account]]></text>
             </staticText>
             <staticText>
                 <reportElement x="275" y="24" width="175" height="14"/>
+                <textElement textAlignment="Center" verticalAlignment="Middle" ><font size="8"/></textElement>
                 <box><pen lineWidth="0.25" lineColor="#CCCCCC"/></box>
-                <textElement textAlignment="Center" verticalAlignment="Middle" ><font isBold="true" size="8"/></textElement>
                 <text><![CDATA[Reference]]></text>
             </staticText>
             <staticText>
                 <reportElement x="450" y="24" width="85" height="14"/>
+                <textElement textAlignment="Center" verticalAlignment="Middle" ><font size="8"/></textElement>
                 <box rightPadding="2"><pen lineWidth="0.25" lineColor="#CCCCCC"/></box>
-                <textElement textAlignment="Center" verticalAlignment="Middle" ><font isBold="true" size="8"/></textElement>
                 <text><![CDATA[Amount]]></text>
             </staticText>
             <componentElement>
@@ -317,32 +317,32 @@
                     <jr:listContents height="14" width="535">
                         <textField>
                             <reportElement x="0" y="0" width="25" height="14"/>
-                            <box><pen lineWidth="0.25" lineColor="#CCCCCC"/></box>
                             <textElement textAlignment="Center" verticalAlignment="Middle" ><font size="8"/></textElement>
+                            <box><pen lineWidth="0.25" lineColor="#CCCCCC"/></box>
                             <textFieldExpression><![CDATA[$V{REPORT_COUNT}]]></textFieldExpression>
                         </textField>
                         <textField>
                             <reportElement x="25" y="0" width="65" height="14"/>
-                            <box><pen lineWidth="0.25" lineColor="#CCCCCC"/></box>
                             <textElement textAlignment="Center" verticalAlignment="Middle" ><font size="8"/></textElement>
+                            <box><pen lineWidth="0.25" lineColor="#CCCCCC"/></box>
                             <textFieldExpression><![CDATA[$F{payment_mode}]]></textFieldExpression>
                         </textField>
                         <textField>
                             <reportElement x="90" y="0" width="185" height="14"/>
-                            <box leftPadding="3"><pen lineWidth="0.25" lineColor="#CCCCCC"/></box>
                             <textElement verticalAlignment="Middle" ><font size="8"/></textElement>
+                            <box leftPadding="3"><pen lineWidth="0.25" lineColor="#CCCCCC"/></box>
                             <textFieldExpression><![CDATA[$F{sub_account_text}]]></textFieldExpression>
                         </textField>
                         <textField>
                             <reportElement x="275" y="0" width="175" height="14"/>
-                            <box><pen lineWidth="0.25" lineColor="#CCCCCC"/></box>
                             <textElement textAlignment="Center" verticalAlignment="Middle" ><font size="8"/></textElement>
+                            <box><pen lineWidth="0.25" lineColor="#CCCCCC"/></box>
                             <textFieldExpression><![CDATA[$F{reference}]]></textFieldExpression>
                         </textField>
                         <textField pattern="#,##0.00">
                             <reportElement x="450" y="0" width="85" height="14"/>
+                            <textElement textAlignment="Right" verticalAlignment="Middle" ><font size="8"/></textElement>
                             <box rightPadding="2"><pen lineWidth="0.25" lineColor="#CCCCCC"/></box>
-                            <textElement textAlignment="Right" verticalAlignment="Middle" ><font isBold="true" size="8"/></textElement>
                             <textFieldExpression><![CDATA[$F{amount}]]></textFieldExpression>
                         </textField>
                     </jr:listContents>
@@ -393,14 +393,14 @@
             </textField>
             <staticText>
                 <reportElement mode="Opaque" x="340" y="100" width="110" height="16" backcolor="#EEEEF7" positionType="Float"/>
+                <textElement textAlignment="Right" verticalAlignment="Middle" ><font size="10"/></textElement>
                 <box><topPen lineWidth="0.75"/></box>
-                <textElement textAlignment="Right" verticalAlignment="Middle" ><font isBold="true" size="10"/></textElement>
                 <text><![CDATA[Total :]]></text>
             </staticText>
             <textField pattern="#,##0.00">
                 <reportElement mode="Opaque" x="450" y="100" width="85" height="16" backcolor="#EEEEF7" positionType="Float"/>
+                <textElement textAlignment="Right" verticalAlignment="Middle" ><font size="10"/></textElement>
                 <box rightPadding="2"><topPen lineWidth="0.75"/></box>
-                <textElement textAlignment="Right" verticalAlignment="Middle" ><font isBold="true" size="10"/></textElement>
                 <textFieldExpression><![CDATA[$P{totalAmount}]]></textFieldExpression>
             </textField>
             <staticText>
@@ -415,38 +415,38 @@
             </textField>
             <staticText>
                 <reportElement x="340" y="130" width="110" height="14" positionType="Float"/>
-                <textElement textAlignment="Right" ><font isBold="true" size="9"/></textElement>
+                <textElement textAlignment="Right" ><font size="9"/></textElement>
                 <text><![CDATA[Due :]]></text>
             </staticText>
             <textField pattern="#,##0.00">
                 <reportElement x="450" y="130" width="85" height="14" positionType="Float"/>
-                <textElement textAlignment="Right" ><font isBold="true" size="9"/></textElement>
+                <textElement textAlignment="Right" ><font size="9"/></textElement>
                 <textFieldExpression><![CDATA[$P{dueAmount}]]></textFieldExpression>
             </textField>
 
             <!-- ── Signatures ─────────────────────────────────────────── -->
             <staticText>
                 <reportElement x="0" y="250" width="120" height="12" positionType="Float"/>
-                <box><topPen lineWidth="0.5"/></box>
                 <textElement textAlignment="Center" ><font size="8"/></textElement>
+                <box><topPen lineWidth="0.5"/></box>
                 <text><![CDATA[Prepared by]]></text>
             </staticText>
             <staticText>
                 <reportElement x="140" y="250" width="120" height="12" positionType="Float"/>
-                <box><topPen lineWidth="0.5"/></box>
                 <textElement textAlignment="Center" ><font size="8"/></textElement>
+                <box><topPen lineWidth="0.5"/></box>
                 <text><![CDATA[Customer]]></text>
             </staticText>
             <staticText>
                 <reportElement x="280" y="250" width="120" height="12" positionType="Float"/>
-                <box><topPen lineWidth="0.5"/></box>
                 <textElement textAlignment="Center" ><font size="8"/></textElement>
+                <box><topPen lineWidth="0.5"/></box>
                 <text><![CDATA[Accounts]]></text>
             </staticText>
             <staticText>
                 <reportElement x="415" y="250" width="120" height="12" positionType="Float"/>
-                <box><topPen lineWidth="0.5"/></box>
                 <textElement textAlignment="Center" ><font size="8"/></textElement>
+                <box><topPen lineWidth="0.5"/></box>
                 <text><![CDATA[Authorized Signatory]]></text>
             </staticText>
         </band>
