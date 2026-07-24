@@ -1162,6 +1162,7 @@ WHERE NOT EXISTS (
       AND ob.account_id = (SELECT id FROM acc_chart_of_accounts WHERE account_code = '1000')
       AND ob.accounting_period_id = (SELECT id FROM acc_periods WHERE period_name = 'FY-2024-25' AND organization_id = 1)
       AND 1=1
+      AND EXISTS (SELECT 1 FROM acc_chart_of_accounts WHERE account_code = '1000')
 );
 
 -- Cash on Hand (1111)
@@ -1179,6 +1180,7 @@ WHERE NOT EXISTS (
       AND ob.account_id = (SELECT id FROM acc_chart_of_accounts WHERE account_code = '1111')
       AND ob.accounting_period_id = (SELECT id FROM acc_periods WHERE period_name = 'FY-2024-25' AND organization_id = 1)
       AND 1=1
+      AND EXISTS (SELECT 1 FROM acc_chart_of_accounts WHERE account_code = '1111')
 );
 
 -- Petty Cash (1112)
@@ -1196,6 +1198,7 @@ WHERE NOT EXISTS (
       AND ob.account_id = (SELECT id FROM acc_chart_of_accounts WHERE account_code = '1112')
       AND ob.accounting_period_id = (SELECT id FROM acc_periods WHERE period_name = 'FY-2024-25' AND organization_id = 1)
       AND 1=1
+      AND EXISTS (SELECT 1 FROM acc_chart_of_accounts WHERE account_code = '1112')
 );
 
 -- Bank Main (1115)
@@ -1213,6 +1216,7 @@ WHERE NOT EXISTS (
       AND ob.account_id = (SELECT id FROM acc_chart_of_accounts WHERE account_code = '1115')
       AND ob.accounting_period_id = (SELECT id FROM acc_periods WHERE period_name = 'FY-2024-25' AND organization_id = 1)
       AND 1=1
+      AND EXISTS (SELECT 1 FROM acc_chart_of_accounts WHERE account_code = '1115')
 );
 
 -- Accounts Receivable (1200)
@@ -1230,6 +1234,7 @@ WHERE NOT EXISTS (
       AND ob.account_id = (SELECT id FROM acc_chart_of_accounts WHERE account_code = '1200')
       AND ob.accounting_period_id = (SELECT id FROM acc_periods WHERE period_name = 'FY-2024-25' AND organization_id = 1)
       AND 1=1
+      AND EXISTS (SELECT 1 FROM acc_chart_of_accounts WHERE account_code = '1200')
 );
 
 -- Raw Materials (1310)
@@ -1247,6 +1252,7 @@ WHERE NOT EXISTS (
       AND ob.account_id = (SELECT id FROM acc_chart_of_accounts WHERE account_code = '1310')
       AND ob.accounting_period_id = (SELECT id FROM acc_periods WHERE period_name = 'FY-2024-25' AND organization_id = 1)
       AND 1=1
+      AND EXISTS (SELECT 1 FROM acc_chart_of_accounts WHERE account_code = '1310')
 );
 
 -- Finished Goods (1330)
@@ -1264,6 +1270,7 @@ WHERE NOT EXISTS (
       AND ob.account_id = (SELECT id FROM acc_chart_of_accounts WHERE account_code = '1330')
       AND ob.accounting_period_id = (SELECT id FROM acc_periods WHERE period_name = 'FY-2024-25' AND organization_id = 1)
       AND 1=1
+      AND EXISTS (SELECT 1 FROM acc_chart_of_accounts WHERE account_code = '1330')
 );
 
 -- Root: LIABILITIES (2000)
@@ -1281,6 +1288,7 @@ WHERE NOT EXISTS (
       AND ob.account_id = (SELECT id FROM acc_chart_of_accounts WHERE account_code = '2000')
       AND ob.accounting_period_id = (SELECT id FROM acc_periods WHERE period_name = 'FY-2024-25' AND organization_id = 1)
       AND 1=1
+      AND EXISTS (SELECT 1 FROM acc_chart_of_accounts WHERE account_code = '2000')
 );
 
 -- Accounts Payable (2110)
@@ -1298,6 +1306,7 @@ WHERE NOT EXISTS (
       AND ob.account_id = (SELECT id FROM acc_chart_of_accounts WHERE account_code = '2110')
       AND ob.accounting_period_id = (SELECT id FROM acc_periods WHERE period_name = 'FY-2024-25' AND organization_id = 1)
       AND 1=1
+      AND EXISTS (SELECT 1 FROM acc_chart_of_accounts WHERE account_code = '2110')
 );
 
 -- Salaries Payable (2210)
@@ -1315,6 +1324,7 @@ WHERE NOT EXISTS (
       AND ob.account_id = (SELECT id FROM acc_chart_of_accounts WHERE account_code = '2210')
       AND ob.accounting_period_id = (SELECT id FROM acc_periods WHERE period_name = 'FY-2024-25' AND organization_id = 1)
       AND 1=1
+      AND EXISTS (SELECT 1 FROM acc_chart_of_accounts WHERE account_code = '2210')
 );
 
 -- Root: EQUITY (3000)
@@ -1332,6 +1342,7 @@ WHERE NOT EXISTS (
       AND ob.account_id = (SELECT id FROM acc_chart_of_accounts WHERE account_code = '3000')
       AND ob.accounting_period_id = (SELECT id FROM acc_periods WHERE period_name = 'FY-2024-25' AND organization_id = 1)
       AND 1=1
+      AND EXISTS (SELECT 1 FROM acc_chart_of_accounts WHERE account_code = '3000')
 );
 
 -- Retained Earnings (3300)
@@ -1349,6 +1360,7 @@ WHERE NOT EXISTS (
       AND ob.account_id = (SELECT id FROM acc_chart_of_accounts WHERE account_code = '3300')
       AND ob.accounting_period_id = (SELECT id FROM acc_periods WHERE period_name = 'FY-2024-25' AND organization_id = 1)
       AND 1=1
+      AND EXISTS (SELECT 1 FROM acc_chart_of_accounts WHERE account_code = '3300')
 );
 
 -- Root: REVENUE (4000)
@@ -1366,6 +1378,7 @@ WHERE NOT EXISTS (
       AND ob.account_id = (SELECT id FROM acc_chart_of_accounts WHERE account_code = '4000')
       AND ob.accounting_period_id = (SELECT id FROM acc_periods WHERE period_name = 'FY-2024-25' AND organization_id = 1)
       AND 1=1
+      AND EXISTS (SELECT 1 FROM acc_chart_of_accounts WHERE account_code = '4000')
 );
 
 -- Root: EXPENSES (5000)
@@ -1383,6 +1396,7 @@ WHERE NOT EXISTS (
       AND ob.account_id = (SELECT id FROM acc_chart_of_accounts WHERE account_code = '5000')
       AND ob.accounting_period_id = (SELECT id FROM acc_periods WHERE period_name = 'FY-2024-25' AND organization_id = 1)
       AND 1=1
+      AND EXISTS (SELECT 1 FROM acc_chart_of_accounts WHERE account_code = '5000')
 );
 
 

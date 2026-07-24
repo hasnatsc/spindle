@@ -64,10 +64,6 @@ public class TravelBookingServiceImpl implements TravelBookingService {
     private final com.asg.spindleserp.accounts.service.VoucherService voucherService;
     private final UserRepository                     userRepo;
 
-    @org.springframework.beans.factory.annotation.Autowired
-    @org.springframework.context.annotation.Lazy
-    private com.asg.spindleserp.approval.service.ApprovalService approvalService;
-
     // =========================================================================
     // SAVE
     // =========================================================================
@@ -75,7 +71,6 @@ public class TravelBookingServiceImpl implements TravelBookingService {
     @Override
     public TrvBookingDTO save(TrvBookingDTO dto) {
         TrvBooking entity;
-        Long orgId = SecurityHelper.requireOrgId();
 
         if (dto.getId() != null) {
             entity = findBooking(dto.getId());
@@ -109,7 +104,7 @@ public class TravelBookingServiceImpl implements TravelBookingService {
         TrvBooking booking = findBooking(id);
         guardDraft(booking);
 
-        if (booking.getPartyId() == null)
+        if (booking.getParty() == null)
             throw new IllegalStateException("Customer (party) is required to confirm a booking.");
         if (booking.getServices().isEmpty())
             throw new IllegalStateException("At least one service line is required to confirm a booking.");
@@ -121,8 +116,9 @@ public class TravelBookingServiceImpl implements TravelBookingService {
         String year = String.valueOf(LocalDate.now().getYear()).substring(2);
 
         // ── Step 1: Resolve AR account from customer's main account ──────────
-        ChartOfAccountSub customerSub = subRepo.findById(booking.getPartyId())
-            .orElseThrow(() -> new IllegalStateException("Customer account not found: " + booking.getPartyId()));
+        ChartOfAccountSub customerSub = booking.getParty();
+        if (customerSub == null)
+            throw new IllegalStateException("Customer account not found for booking " + booking.getBookingNo());
         ChartOfAccount arAccount = customerSub.getMainAccount();
         if (arAccount == null)
             throw new IllegalStateException(
@@ -153,7 +149,7 @@ public class TravelBookingServiceImpl implements TravelBookingService {
         jem.setTotalDebit(booking.getTotalAmount());
         jem.setTotalCredit(booking.getTotalAmount());
         jem.setAllocatedAmount(BigDecimal.ZERO);
-        jem.setPartyId(booking.getPartyId());
+        jem.setPartyId(booking.getParty().getId());
         jem.setPartyType("CUSTOMER");
         jem.setReferenceNo(booking.getBookingNo());
         jem.setNarration("Travel Booking: " + booking.getBookingNo() + " (" + booking.getBookingType() + ")");
@@ -176,7 +172,7 @@ public class TravelBookingServiceImpl implements TravelBookingService {
         // Build patient-category summary for audit trail on the credit line
         String catSummary = booking.getServices().stream()
             .map(s -> s.getPatientCategory() != null
-                ? s.getPatientCategory() : "—")
+                ? s.getPatientCategory().name() : "—")
             .collect(Collectors.groupingBy(c -> c, Collectors.counting()))
             .entrySet().stream()
             .map(e -> e.getValue() + "×" + e.getKey())
@@ -195,52 +191,6 @@ public class TravelBookingServiceImpl implements TravelBookingService {
         jem.getLines().add(drLine);
         jem.getLines().add(crLine);
 
-        // Check if approval is required for SALES_VOUCHER in this org
-        boolean needsApproval = false;
-        try {
-            needsApproval = approvalService != null
-                && approvalService.hasActiveConfig("SALES_VOUCHER");
-        } catch (Exception e) {
-            log.debug("Approval config check failed, proceeding with direct post: {}", e.getMessage());
-        }
-
-        if (needsApproval) {
-            // ── Save JEM as PENDING_APPROVAL (not yet posted to GL) ──────────
-            jem.setVoucherStatus("PENDING_APPROVAL");
-            jem.setPosted(false);
-            jem.setPostedBy(null);
-            jem.setPostedAt(null);
-            // Don't set voucherNo yet — will be assigned when posted
-            JournalEntryMaster savedJem = jemRepo.save(jem);
-
-            // Submit approval request
-            com.asg.spindleserp.approval.dto.ApprovalRequestDTO reqDto =
-                com.asg.spindleserp.approval.dto.ApprovalRequestDTO.builder()
-                    .documentType("SALES_VOUCHER")
-                    .referenceId(savedJem.getId())
-                    .referenceNumber("DRAFT-" + savedJem.getId())
-                    .documentDate(booking.getBookingDate())
-                    .documentAmount(booking.getTotalAmount())
-                    .documentSummary("Travel Booking: " + booking.getBookingNo())
-                    .build();
-            approvalService.submitRequest(reqDto);
-
-            booking.setJournalEntryId(savedJem.getId());
-            booking.setPaidAmount(BigDecimal.ZERO);
-            booking.setDueAmount(booking.getTotalAmount());
-            booking.setStatus(TrvBooking.Status.CONFIRMED);
-            booking.setUpdatedBy(user);
-            booking.setUpdatedAt(LocalDateTime.now());
-
-            TrvBooking saved = bookingRepo.save(booking);
-            log.info("Booking {} confirmed. SALES_VOUCHER #{} pending approval.",
-                     booking.getBookingNo(), savedJem.getId());
-            logStatus(saved, TrvBooking.Status.CONFIRMED,
-                "Confirmed. Sales Voucher #" + savedJem.getId() + " pending approval.");
-            return toDTO(saved);
-        }
-
-        // ── Direct post (no approval required) ────────────────────────────────
         JournalEntryMaster savedJem = jemRepo.save(jem);
 
         // ── Update customer AR balance ─────────────────────────────────────────
@@ -410,7 +360,7 @@ public class TravelBookingServiceImpl implements TravelBookingService {
                 "No accounting voucher found for booking " + booking.getBookingNo() +
                 ". Please confirm the booking again to regenerate the accounting entry."));
 
-        ChartOfAccountSub customerSub = subRepo.findById(booking.getPartyId()).orElse(null);
+        ChartOfAccountSub customerSub = booking.getParty();
 
         VoucherDTO dto = new VoucherDTO();
         dto.setVoucherType("RECEIPT_VOUCHER");
@@ -419,7 +369,7 @@ public class TravelBookingServiceImpl implements TravelBookingService {
         dto.setDueDate(booking.getTravelStartDate());
         dto.setTotalAmount(dueAmount);
         dto.setPartyType("CUSTOMER");
-        dto.setPartyId(booking.getPartyId());
+        dto.setPartyId(booking.getParty() != null ? booking.getParty().getId() : null);
         dto.setPartyDisplay(customerSub != null
             ? customerSub.getSubAccountCode() + " — " + customerSub.getSubAccountName() : null);
         dto.setPartyBalance(customerSub != null ? customerSub.getCurrentBalance() : null);
@@ -750,7 +700,7 @@ public class TravelBookingServiceImpl implements TravelBookingService {
             .paidAmount(e.getPaidAmount())
             .dueAmount(e.getDueAmount())
             .remarks(e.getRemarks())
-            .partyId(e.getPartyId())
+            .partyId(e.getParty() != null ? e.getParty().getId() : null)
             .leadId(e.getLeadId())
             .opportunityId(e.getOpportunityId())
             .salesAgentId(e.getSalesAgentId())
@@ -761,9 +711,8 @@ public class TravelBookingServiceImpl implements TravelBookingService {
             .createdBy(e.getCreatedBy())
             .build();
 
-        if (e.getPartyId() != null) {
-            subRepo.findById(e.getPartyId()).ifPresent(s ->
-                d.setPartyDisplay(s.getSubAccountCode() + " — " + s.getSubAccountName()));
+        if (e.getParty() != null) {
+            d.setPartyDisplay(e.getParty().getSubAccountCode() + " — " + e.getParty().getSubAccountName());
         }
         if (e.getSalesAgentId() != null) {
             userRepo.findById(e.getSalesAgentId()).ifPresent(u ->
@@ -781,7 +730,7 @@ public class TravelBookingServiceImpl implements TravelBookingService {
             .discountAmount(s.getDiscountAmount())
             .taxAmount(s.getTaxAmount())
             .lineTotal(s.getLineTotal())
-            .patientCategory(s.getPatientCategory() != null ? s.getPatientCategory() : null)
+            .patientCategory(s.getPatientCategory() != null ? s.getPatientCategory().name() : null)
             .costCenterId(s.getCostCenterId())
             .build()).collect(Collectors.toList()));
 
@@ -839,7 +788,7 @@ public class TravelBookingServiceImpl implements TravelBookingService {
         e.setExchangeRate(dto.getExchangeRate() != null ? dto.getExchangeRate() : BigDecimal.ONE);
         e.setDiscountAmount(dto.getDiscountAmount() != null ? dto.getDiscountAmount() : BigDecimal.ZERO);
         e.setRemarks(dto.getRemarks());
-        e.setPartyId(dto.getPartyId());
+        e.setParty(dto.getPartyId() != null ? subRepo.getReferenceById(dto.getPartyId()) : null);
         e.setLeadId(dto.getLeadId());
         e.setOpportunityId(dto.getOpportunityId());
         e.setSalesAgentId(dto.getSalesAgentId());
@@ -871,7 +820,8 @@ public class TravelBookingServiceImpl implements TravelBookingService {
                 .discountAmount(sd.getDiscountAmount() != null ? sd.getDiscountAmount() : BigDecimal.ZERO)
                 .taxAmount(sd.getTaxAmount() != null ? sd.getTaxAmount() : BigDecimal.ZERO)
                 .lineTotal(sd.getLineTotal() != null ? sd.getLineTotal() : BigDecimal.ZERO)
-                .patientCategory(sd.getPatientCategory())
+                .patientCategory(sd.getPatientCategory() != null
+                    ? TrvPassenger.PassengerType.valueOf(sd.getPatientCategory()) : null)
                 .costCenterId(sd.getCostCenterId())
                 .booking(parent)
                 .build());
@@ -987,8 +937,7 @@ public class TravelBookingServiceImpl implements TravelBookingService {
         if (totalReceived.compareTo(BigDecimal.ZERO) <= 0) return;
 
         // Resolve customer sub-account (AR)
-        ChartOfAccountSub customerSub = subRepo.findById(booking.getPartyId())
-            .orElse(null);
+        ChartOfAccountSub customerSub = booking.getParty();
         if (customerSub == null || customerSub.getMainAccount() == null) return;
 
         // Generate voucher number
@@ -1009,7 +958,7 @@ public class TravelBookingServiceImpl implements TravelBookingService {
         rv.setTotalDebit(totalReceived);
         rv.setTotalCredit(totalReceived);
         rv.setAllocatedAmount(BigDecimal.ZERO);
-        rv.setPartyId(booking.getPartyId());
+        rv.setPartyId(booking.getParty() != null ? booking.getParty().getId() : null);
         rv.setPartyType("CUSTOMER");
         rv.setReferenceNo(booking.getBookingNo());
         rv.setNarration("Receipt against Booking: " + booking.getBookingNo());
