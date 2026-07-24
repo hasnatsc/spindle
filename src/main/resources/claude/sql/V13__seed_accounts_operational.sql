@@ -987,14 +987,10 @@ INSERT INTO acc_policy (organization_id, policy_code, policy_name, policy_type, 
     default_narration_template, description, created_by, created_at, updated_at)
 SELECT 1, 'POL_JV', 'Journal Voucher Policy', 'JOURNAL_VOUCHER', 'GENERAL_LEDGER',
     TRUE, TRUE, TRUE,
-    TRUE, 30, FALSE, 0,
-    FALSE, FALSE, FALSE, TRUE, TRUE,
+    TRUE, 30, FALSE, FALSE,
+    FALSE, FALSE, NULL,
+    TRUE, 'JV', 6, 1,
     FALSE, FALSE, FALSE,
-    TRUE, 10, TRUE, FALSE,
-    FALSE, TRUE,
-    TRUE, 'JV', 6, 'FISCAL_YEAR', 1,
-    FALSE, FALSE, FALSE, FALSE,
-    1, 0,
     'Journal Entry #{voucherNumber} dated {voucherDate}',
     'Standard system policy for all manual journal vouchers', 'SYSTEM', NOW(), NOW()
 WHERE NOT EXISTS (SELECT 1 FROM acc_policy WHERE organization_id = 1 AND policy_code = 'POL_JV');
@@ -1009,14 +1005,10 @@ INSERT INTO acc_policy (organization_id, policy_code, policy_name, policy_type, 
     default_narration_template, description, created_by, created_at, updated_at)
 SELECT 1, 'POL_PV', 'Payment Voucher Policy', 'PAYMENT_VOUCHER', 'ACCOUNTS_PAYABLE',
     TRUE, TRUE, TRUE,
-    TRUE, 7, FALSE, 0,
-    FALSE, FALSE, FALSE, TRUE, TRUE,
-    FALSE, FALSE, FALSE,
-    TRUE, 10, TRUE, TRUE,
-    FALSE, TRUE,
-    TRUE, 'PV', 6, 'FISCAL_YEAR', 1,
-    TRUE, FALSE, TRUE, TRUE,
-    1, 50000,
+    TRUE, 7, FALSE, FALSE,
+    FALSE, FALSE, NULL,
+    TRUE, 'PV', 6, 1,
+    TRUE, TRUE, FALSE,
     'Payment #{voucherNumber} to {partyName} dated {voucherDate}',
     'Standard system policy for all supplier payment vouchers', 'SYSTEM', NOW(), NOW()
 WHERE NOT EXISTS (SELECT 1 FROM acc_policy WHERE organization_id = 1 AND policy_code = 'POL_PV');
@@ -1031,14 +1023,10 @@ INSERT INTO acc_policy (organization_id, policy_code, policy_name, policy_type, 
     default_narration_template, description, created_by, created_at, updated_at)
 SELECT 1, 'POL_RV', 'Receipt Voucher Policy', 'RECEIPT_VOUCHER', 'ACCOUNTS_RECEIVABLE',
     TRUE, TRUE, TRUE,
-    TRUE, 7, FALSE, 0,
-    FALSE, FALSE, FALSE, TRUE, FALSE,
-    FALSE, FALSE, FALSE,
-    TRUE, 10, TRUE, TRUE,
-    FALSE, TRUE,
-    TRUE, 'RV', 6, 'FISCAL_YEAR', 1,
-    FALSE, FALSE, FALSE, FALSE,
-    1, 0,
+    TRUE, 7, FALSE, FALSE,
+    FALSE, FALSE, NULL,
+    TRUE, 'RV', 6, 1,
+    TRUE, TRUE, FALSE,
     'Receipt #{voucherNumber} from {partyName} dated {voucherDate}',
     'Standard system policy for all customer receipt vouchers', 'SYSTEM', NOW(), NOW()
 WHERE NOT EXISTS (SELECT 1 FROM acc_policy WHERE organization_id = 1 AND policy_code = 'POL_RV');
@@ -1053,14 +1041,10 @@ INSERT INTO acc_policy (organization_id, policy_code, policy_name, policy_type, 
     default_narration_template, description, created_by, created_at, updated_at)
 SELECT 1, 'POL_CV', 'Contra Voucher Policy', 'CONTRA_VOUCHER', 'CASH_MANAGEMENT',
     TRUE, TRUE, TRUE,
-    TRUE, 3, FALSE, 0,
-    FALSE, FALSE, FALSE, TRUE, FALSE,
+    TRUE, 3, FALSE, FALSE,
+    FALSE, FALSE, NULL,
+    TRUE, 'CV', 6, 1,
     FALSE, FALSE, FALSE,
-    TRUE, 10, TRUE, FALSE,
-    FALSE, TRUE,
-    TRUE, 'CV', 6, 'FISCAL_YEAR', 1,
-    TRUE, FALSE, FALSE, FALSE,
-    1, 100000,
     'Contra #{voucherNumber} dated {voucherDate}',
     'Policy for inter-account and bank-to-cash contra entries', 'SYSTEM', NOW(), NOW()
 WHERE NOT EXISTS (SELECT 1 FROM acc_policy WHERE organization_id = 1 AND policy_code = 'POL_CV');
@@ -1075,14 +1059,10 @@ INSERT INTO acc_policy (organization_id, policy_code, policy_name, policy_type, 
     default_narration_template, description, created_by, created_at, updated_at)
 SELECT 1, 'POL_PURV', 'Purchase Voucher Policy', 'PURCHASE_VOUCHER', 'PURCHASE',
     TRUE, TRUE, TRUE,
-    TRUE, 15, FALSE, 0,
-    TRUE, FALSE, FALSE, TRUE, TRUE,
-    FALSE, FALSE, FALSE,
-    TRUE, 5, TRUE, TRUE,
-    TRUE, TRUE,
-    TRUE, 'PURV', 6, 'FISCAL_YEAR', 1,
-    TRUE, FALSE, TRUE, TRUE,
-    2, 100000,
+    TRUE, 15, FALSE, FALSE,
+    TRUE, FALSE, NULL,
+    TRUE, 'PURV', 6, 1,
+    TRUE, TRUE, FALSE,
     'Purchase Invoice #{voucherNumber} from {partyName}',
     'Policy for purchase invoices and AP vouchers', 'SYSTEM', NOW(), NOW()
 WHERE NOT EXISTS (SELECT 1 FROM acc_policy WHERE organization_id = 1 AND policy_code = 'POL_PURV');
@@ -1097,14 +1077,10 @@ INSERT INTO acc_policy (organization_id, policy_code, policy_name, policy_type, 
     default_narration_template, description, created_by, created_at, updated_at)
 SELECT 1, 'POL_SALV', 'Sales Voucher Policy', 'SALES_VOUCHER', 'SALES',
     TRUE, TRUE, TRUE,
-    TRUE, 7, TRUE, 3,
-    TRUE, FALSE, FALSE, TRUE, FALSE,
-    FALSE, FALSE, FALSE,
-    TRUE, 5, TRUE, TRUE,
-    TRUE, TRUE,
-    TRUE, 'SALV', 6, 'FISCAL_YEAR', 1,
-    FALSE, TRUE, FALSE, FALSE,
-    1, 0,
+    TRUE, 7, TRUE, FALSE,
+    TRUE, FALSE, NULL,
+    TRUE, 'SALV', 6, 1,
+    TRUE, TRUE, FALSE,
     'Sales Invoice #{voucherNumber} to {partyName}',
     'Policy for sales invoices and AR vouchers', 'SYSTEM', NOW(), NOW()
 WHERE NOT EXISTS (SELECT 1 FROM acc_policy WHERE organization_id = 1 AND policy_code = 'POL_SALV');
@@ -1119,14 +1095,10 @@ INSERT INTO acc_policy (organization_id, policy_code, policy_name, policy_type, 
     default_narration_template, description, created_by, created_at, updated_at)
 SELECT 1, 'POL_DN', 'Debit Note Policy', 'DEBIT_NOTE', 'PURCHASE',
     TRUE, TRUE, TRUE,
-    TRUE, 30, FALSE, 0,
-    TRUE, FALSE, FALSE, FALSE, FALSE,
+    TRUE, 30, FALSE, FALSE,
+    TRUE, FALSE, NULL,
+    TRUE, 'DN', 6, 1,
     FALSE, FALSE, FALSE,
-    TRUE, 10, TRUE, TRUE,
-    FALSE, TRUE,
-    TRUE, 'DN', 6, 'FISCAL_YEAR', 1,
-    TRUE, FALSE, TRUE, TRUE,
-    1, 0,
     'Debit Note #{voucherNumber} to {partyName}',
     'Policy for purchase return debit notes', 'SYSTEM', NOW(), NOW()
 WHERE NOT EXISTS (SELECT 1 FROM acc_policy WHERE organization_id = 1 AND policy_code = 'POL_DN');
@@ -1141,14 +1113,10 @@ INSERT INTO acc_policy (organization_id, policy_code, policy_name, policy_type, 
     default_narration_template, description, created_by, created_at, updated_at)
 SELECT 1, 'POL_CN', 'Credit Note Policy', 'CREDIT_NOTE', 'SALES',
     TRUE, TRUE, TRUE,
-    TRUE, 30, FALSE, 0,
-    TRUE, FALSE, FALSE, FALSE, FALSE,
+    TRUE, 30, FALSE, FALSE,
+    TRUE, FALSE, NULL,
+    TRUE, 'CN', 6, 1,
     FALSE, FALSE, FALSE,
-    TRUE, 10, TRUE, TRUE,
-    FALSE, TRUE,
-    TRUE, 'CN', 6, 'FISCAL_YEAR', 1,
-    TRUE, FALSE, TRUE, TRUE,
-    1, 0,
     'Credit Note #{voucherNumber} to {partyName}',
     'Policy for sales return credit notes', 'SYSTEM', NOW(), NOW()
 WHERE NOT EXISTS (SELECT 1 FROM acc_policy WHERE organization_id = 1 AND policy_code = 'POL_CN');
@@ -1163,14 +1131,10 @@ INSERT INTO acc_policy (organization_id, policy_code, policy_name, policy_type, 
     default_narration_template, description, created_by, created_at, updated_at)
 SELECT 1, 'POL_EXP', 'Expense Voucher Policy', 'EXPENSE_VOUCHER', 'GENERAL_LEDGER',
     TRUE, TRUE, TRUE,
-    TRUE, 7, FALSE, 0,
-    TRUE, FALSE, FALSE, FALSE, FALSE,
+    TRUE, 7, FALSE, FALSE,
+    TRUE, FALSE, NULL,
+    TRUE, 'EXP', 6, 1,
     FALSE, FALSE, FALSE,
-    TRUE, 5, TRUE, FALSE,
-    TRUE, TRUE,
-    TRUE, 'EXP', 6, 'FISCAL_YEAR', 1,
-    TRUE, FALSE, TRUE, TRUE,
-    1, 10000,
     'Expense #{voucherNumber} dated {voucherDate}',
     'Policy for expense and petty cash vouchers', 'SYSTEM', NOW(), NOW()
 WHERE NOT EXISTS (SELECT 1 FROM acc_policy WHERE organization_id = 1 AND policy_code = 'POL_EXP');
@@ -1190,7 +1154,6 @@ INSERT INTO acc_opening_balances (organization_id, account_id, accounting_period
 SELECT 1,
     (SELECT id FROM acc_chart_of_accounts WHERE account_code = '1000'),
     (SELECT id FROM acc_periods WHERE period_name = 'FY-2024-25' AND organization_id = 1),
-    NULL,
     0, 0, FALSE, TRUE,
     'OPENING', 'Opening balance for Assets root account — FY 2024-25', 'SYSTEM', NOW(), NOW()
 WHERE NOT EXISTS (
@@ -1208,7 +1171,6 @@ INSERT INTO acc_opening_balances (organization_id, account_id, accounting_period
 SELECT 1,
     (SELECT id FROM acc_chart_of_accounts WHERE account_code = '1111'),
     (SELECT id FROM acc_periods WHERE period_name = 'FY-2024-25' AND organization_id = 1),
-    NULL,
     0, 0, FALSE, TRUE,
     'OPENING', 'Opening balance — Cash on Hand', 'SYSTEM', NOW(), NOW()
 WHERE NOT EXISTS (
@@ -1226,7 +1188,6 @@ INSERT INTO acc_opening_balances (organization_id, account_id, accounting_period
 SELECT 1,
     (SELECT id FROM acc_chart_of_accounts WHERE account_code = '1112'),
     (SELECT id FROM acc_periods WHERE period_name = 'FY-2024-25' AND organization_id = 1),
-    NULL,
     0, 0, FALSE, TRUE,
     'OPENING', 'Opening balance — Petty Cash', 'SYSTEM', NOW(), NOW()
 WHERE NOT EXISTS (
@@ -1244,7 +1205,6 @@ INSERT INTO acc_opening_balances (organization_id, account_id, accounting_period
 SELECT 1,
     (SELECT id FROM acc_chart_of_accounts WHERE account_code = '1115'),
     (SELECT id FROM acc_periods WHERE period_name = 'FY-2024-25' AND organization_id = 1),
-    NULL,
     0, 0, FALSE, TRUE,
     'OPENING', 'Opening balance — Bank Account Main', 'SYSTEM', NOW(), NOW()
 WHERE NOT EXISTS (
@@ -1262,7 +1222,6 @@ INSERT INTO acc_opening_balances (organization_id, account_id, accounting_period
 SELECT 1,
     (SELECT id FROM acc_chart_of_accounts WHERE account_code = '1200'),
     (SELECT id FROM acc_periods WHERE period_name = 'FY-2024-25' AND organization_id = 1),
-    NULL,
     0, 0, FALSE, TRUE,
     'OPENING', 'Opening balance — Accounts Receivable control', 'SYSTEM', NOW(), NOW()
 WHERE NOT EXISTS (
@@ -1280,7 +1239,6 @@ INSERT INTO acc_opening_balances (organization_id, account_id, accounting_period
 SELECT 1,
     (SELECT id FROM acc_chart_of_accounts WHERE account_code = '1310'),
     (SELECT id FROM acc_periods WHERE period_name = 'FY-2024-25' AND organization_id = 1),
-    NULL,
     0, 0, FALSE, TRUE,
     'OPENING', 'Opening balance — Raw Materials inventory', 'SYSTEM', NOW(), NOW()
 WHERE NOT EXISTS (
@@ -1298,7 +1256,6 @@ INSERT INTO acc_opening_balances (organization_id, account_id, accounting_period
 SELECT 1,
     (SELECT id FROM acc_chart_of_accounts WHERE account_code = '1330'),
     (SELECT id FROM acc_periods WHERE period_name = 'FY-2024-25' AND organization_id = 1),
-    NULL,
     0, 0, FALSE, TRUE,
     'OPENING', 'Opening balance — Finished Goods inventory', 'SYSTEM', NOW(), NOW()
 WHERE NOT EXISTS (
@@ -1316,7 +1273,6 @@ INSERT INTO acc_opening_balances (organization_id, account_id, accounting_period
 SELECT 1,
     (SELECT id FROM acc_chart_of_accounts WHERE account_code = '2000'),
     (SELECT id FROM acc_periods WHERE period_name = 'FY-2024-25' AND organization_id = 1),
-    NULL,
     0, 0, FALSE, TRUE,
     'OPENING', 'Opening balance — Liabilities root account', 'SYSTEM', NOW(), NOW()
 WHERE NOT EXISTS (
@@ -1334,7 +1290,6 @@ INSERT INTO acc_opening_balances (organization_id, account_id, accounting_period
 SELECT 1,
     (SELECT id FROM acc_chart_of_accounts WHERE account_code = '2110'),
     (SELECT id FROM acc_periods WHERE period_name = 'FY-2024-25' AND organization_id = 1),
-    NULL,
     0, 0, FALSE, TRUE,
     'OPENING', 'Opening balance — Accounts Payable control', 'SYSTEM', NOW(), NOW()
 WHERE NOT EXISTS (
@@ -1352,7 +1307,6 @@ INSERT INTO acc_opening_balances (organization_id, account_id, accounting_period
 SELECT 1,
     (SELECT id FROM acc_chart_of_accounts WHERE account_code = '2210'),
     (SELECT id FROM acc_periods WHERE period_name = 'FY-2024-25' AND organization_id = 1),
-    NULL,
     0, 0, FALSE, TRUE,
     'OPENING', 'Opening balance — Salaries Payable', 'SYSTEM', NOW(), NOW()
 WHERE NOT EXISTS (
@@ -1370,7 +1324,6 @@ INSERT INTO acc_opening_balances (organization_id, account_id, accounting_period
 SELECT 1,
     (SELECT id FROM acc_chart_of_accounts WHERE account_code = '3000'),
     (SELECT id FROM acc_periods WHERE period_name = 'FY-2024-25' AND organization_id = 1),
-    NULL,
     0, 0, FALSE, TRUE,
     'OPENING', 'Opening balance — Equity root account', 'SYSTEM', NOW(), NOW()
 WHERE NOT EXISTS (
@@ -1388,7 +1341,6 @@ INSERT INTO acc_opening_balances (organization_id, account_id, accounting_period
 SELECT 1,
     (SELECT id FROM acc_chart_of_accounts WHERE account_code = '3300'),
     (SELECT id FROM acc_periods WHERE period_name = 'FY-2024-25' AND organization_id = 1),
-    NULL,
     0, 0, FALSE, TRUE,
     'OPENING', 'Opening balance — Retained Earnings', 'SYSTEM', NOW(), NOW()
 WHERE NOT EXISTS (
@@ -1406,7 +1358,6 @@ INSERT INTO acc_opening_balances (organization_id, account_id, accounting_period
 SELECT 1,
     (SELECT id FROM acc_chart_of_accounts WHERE account_code = '4000'),
     (SELECT id FROM acc_periods WHERE period_name = 'FY-2024-25' AND organization_id = 1),
-    NULL,
     0, 0, FALSE, TRUE,
     'OPENING', 'Opening balance — Revenue root account (income statement reset)', 'SYSTEM', NOW(), NOW()
 WHERE NOT EXISTS (
@@ -1424,7 +1375,6 @@ INSERT INTO acc_opening_balances (organization_id, account_id, accounting_period
 SELECT 1,
     (SELECT id FROM acc_chart_of_accounts WHERE account_code = '5000'),
     (SELECT id FROM acc_periods WHERE period_name = 'FY-2024-25' AND organization_id = 1),
-    NULL,
     0, 0, FALSE, TRUE,
     'OPENING', 'Opening balance — Expenses root account (income statement reset)', 'SYSTEM', NOW(), NOW()
 WHERE NOT EXISTS (

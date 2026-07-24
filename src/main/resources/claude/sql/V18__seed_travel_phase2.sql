@@ -473,20 +473,8 @@ ON CONFLICT (organization_id, hotel_code) DO NOTHING;
 
 
 
-INSERT INTO trv_hotel_rooms
-(hotel_booking_id, room_number, room_type_snapshot)
-VALUES
-    (1, '1201', 'Deluxe King'),
-    (1, '1202', 'Deluxe Twin'),
-
-    (2, '805', 'Executive Suite'),
-
-    (3, '305', 'Superior Double'),
-    (3, '306', 'Superior Double'),
-
-    (4, '501', 'Family Suite'),
-
-    (5, '1108', 'Presidential Suite');
+-- trv_hotel_rooms skipped here: hotel bookings are user-created, not seed data.
+-- Rooms are added via the hotel booking UI after a booking is saved.
 
 
 INSERT INTO trv_airports
