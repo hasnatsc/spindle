@@ -62,6 +62,9 @@ public class TrvBookingService implements Serializable {
     @Column(name = "line_total", nullable = false, precision = 18, scale = 2)
     private BigDecimal lineTotal = BigDecimal.ZERO;
 
+    @Column(name = "patient_category", length = 20)
+    private String patientCategory;
+
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "booking_id", nullable = false)
     private TrvBooking booking;

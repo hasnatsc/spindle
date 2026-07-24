@@ -16,4 +16,5 @@ public class TrvSupplierCostDTO {
 
     private Long bookingServiceId;
     private Long supplierId; private String supplierDisplay;
+    private Long journalEntryId;
 }

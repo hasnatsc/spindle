@@ -108,6 +108,7 @@
 	<field name="quantity" class="java.lang.Number"/>
 	<field name="unitPrice" class="java.lang.Number"/>
 	<field name="lineTotal" class="java.lang.Number"/>
+	<field name="patientCategory" class="java.lang.Object"/>
 	<background>
 		<band height="790" splitType="Stretch">
 			<rectangle>
@@ -394,10 +395,16 @@
 				<text><![CDATA[TYPE]]></text>
 			</staticText>
 			<staticText>
-				<reportElement style="st_th" x="96" y="0" width="253" height="18" uuid="6c1d8a53-c65e-43ba-8178-bdf1f4ed442e"/>
+				<reportElement style="st_th" x="96" y="0" width="170" height="18" uuid="6c1d8a53-c65e-43ba-8178-bdf1f4ed442e"/>
 				<box leftPadding="4"/>
 				<textElement verticalAlignment="Middle"/>
 				<text><![CDATA[DESCRIPTION]]></text>
+			</staticText>
+		<staticText>
+				<reportElement style="st_th" x="266" y="0" width="83" height="18"/>
+				<box leftPadding="4"/>
+				<textElement verticalAlignment="Middle"/>
+				<text><![CDATA[PATIENT CAT.]]></text>
 			</staticText>
 			<staticText>
 				<reportElement style="st_th" x="349" y="0" width="40" height="18" uuid="65a4aed4-67c6-474a-acf3-6702aef8695f"/>
@@ -441,7 +448,7 @@
 				<textFieldExpression><![CDATA[$F{serviceType} == null ? "" : String.valueOf($F{serviceType})]]></textFieldExpression>
 			</textField>
 			<textField textAdjust="StretchHeight" isBlankWhenNull="true">
-				<reportElement style="st_row" x="96" y="0" width="253" height="18" uuid="13cffb24-66b0-47bb-9680-80fd2040e174"/>
+				<reportElement style="st_row" x="96" y="0" width="170" height="18" uuid="13cffb24-66b0-47bb-9680-80fd2040e174"/>
 				<box leftPadding="4" rightPadding="4">
 					<bottomPen lineWidth="0.5" lineColor="#E3E9EE"/>
 				</box>
@@ -449,6 +456,16 @@
 					<font size="8"/>
 				</textElement>
 				<textFieldExpression><![CDATA[$F{description} == null ? "—" : String.valueOf($F{description})]]></textFieldExpression>
+			</textField>
+		<textField isBlankWhenNull="true">
+				<reportElement style="st_row" stretchType="ContainerHeight" x="266" y="0" width="83" height="18"/>
+				<box leftPadding="4">
+					<bottomPen lineWidth="0.5" lineColor="#E3E9EE"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{patientCategory} == null ? "—" : String.valueOf($F{patientCategory})]]></textFieldExpression>
 			</textField>
 			<textField pattern="#,##0.##" isBlankWhenNull="true">
 				<reportElement style="st_row" stretchType="ContainerHeight" x="349" y="0" width="40" height="18" uuid="b12c26ed-7c30-4055-acd6-45378c353d8b"/>

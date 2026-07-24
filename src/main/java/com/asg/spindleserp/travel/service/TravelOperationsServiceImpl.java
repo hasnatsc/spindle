@@ -1,11 +1,23 @@
 package com.asg.spindleserp.travel.service;
 
+import com.asg.spindleserp.accounts.entity.ChartOfAccount;
+import com.asg.spindleserp.accounts.entity.ChartOfAccountSub;
+import com.asg.spindleserp.accounts.entity.JournalEntryLine;
+import com.asg.spindleserp.accounts.entity.JournalEntryMaster;
+import com.asg.spindleserp.accounts.repository.ChartOfAccountRepository;
+import com.asg.spindleserp.accounts.repository.ChartOfAccountSubRepository;
+import com.asg.spindleserp.accounts.repository.JournalEntryMasterRepository;
+import com.asg.spindleserp.common.enums.VoucherType;
+import com.asg.spindleserp.organization.repository.OrganizationRepository;
+import com.asg.spindleserp.security.auth.ContextProvider;
 import com.asg.spindleserp.security.auth.SecurityHelper;
+import com.asg.spindleserp.setup.service.DocumentSequenceService;
 import com.asg.spindleserp.travel.dto.TrvAirTicketDTO;
 import com.asg.spindleserp.travel.dto.TrvHotelBookingDTO;
 import com.asg.spindleserp.travel.dto.TrvSupplierCostDTO;
 import com.asg.spindleserp.travel.entity.*;
 import com.asg.spindleserp.travel.repository.*;
+import com.asg.spindleserp.travel.entity.TrvGlAccountDefaults;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -30,6 +42,12 @@ public class TravelOperationsServiceImpl implements TravelOperationsService {
     private final TrvPassengerTicketRepository   passengerTicketRepo;
     private final TrvSupplierCostRepository      supplierCostRepo;
     private final TrvBookingServiceRepository    bookingServiceRepo;
+    private final TrvGlAccountDefaultsRepository glDefaultsRepo;
+    private final ChartOfAccountRepository       coaRepo;
+    private final ChartOfAccountSubRepository    subRepo;
+    private final JournalEntryMasterRepository   jemRepo;
+    private final DocumentSequenceService        seqService;
+    private final com.asg.spindleserp.organization.repository.OrganizationRepository orgRepo;
     private final TrvPassengerRepository         passengerRepo;
     private final TrvAirlineRepository           airlineRepo;
     private final TrvAirportRepository           airportRepo;
@@ -491,6 +509,112 @@ public class TravelOperationsServiceImpl implements TravelOperationsService {
     @Override
     public void deleteSupplierCost(Long id) { supplierCostRepo.deleteById(id); }
 
+    @Override
+    public TrvSupplierCostDTO postSupplierCostToGl(Long id) {
+        TrvSupplierCost cost = supplierCostRepo.findById(id)
+            .orElseThrow(() -> new IllegalArgumentException("Supplier cost #" + id + " not found."));
+        if (cost.getJournalEntryId() != null)
+            throw new IllegalStateException("Supplier cost #" + id + " already posted to GL.");
+
+        Long orgId = ContextProvider.getOrganizationId();
+        String user = SecurityHelper.currentUsername().orElse("system");
+        String year = String.valueOf(java.time.LocalDate.now().getYear()).substring(2);
+
+        // Resolve GL accounts from org defaults
+        TrvGlAccountDefaults glDefaults = glDefaultsRepo.findByOrganizationId(orgId).orElse(null);
+        ChartOfAccount costOfService = null;
+        if (glDefaults != null && glDefaults.getCostOfServiceAccountId() != null)
+            costOfService = coaRepo.findById(glDefaults.getCostOfServiceAccountId()).orElse(null);
+
+        // CR: supplier sub-account main account, or supplier payable default
+        ChartOfAccount crAccount = null;
+        ChartOfAccountSub supplierSub = null;
+        if (cost.getSupplierId() != null) {
+            supplierSub = subRepo.findById(cost.getSupplierId()).orElse(null);
+            if (supplierSub != null) crAccount = supplierSub.getMainAccount();
+        }
+        if (crAccount == null && glDefaults != null && glDefaults.getSupplierPayableDefaultId() != null)
+            crAccount = coaRepo.findById(glDefaults.getSupplierPayableDefaultId()).orElse(null);
+
+        // Build JEM
+        String voucherNo = seqService.nextDocumentNumber(orgId, "DN", year);
+        JournalEntryMaster jem = new JournalEntryMaster();
+        jem.setOrganization(orgRepo.getReferenceById(orgId));
+        jem.setVoucherType(VoucherType.DEBIT_NOTE);
+        jem.setVoucherNo(voucherNo);
+        jem.setVoucherDate(java.time.LocalDate.now());
+        jem.setVoucherStatus("POSTED");
+        jem.setPosted(true);
+        jem.setPostedBy(user);
+        jem.setPostedAt(java.time.LocalDateTime.now());
+        jem.setReversed(false);
+        jem.setTotalAmount(cost.getCostAmount());
+        jem.setTotalDebit(cost.getCostAmount());
+        jem.setTotalCredit(cost.getCostAmount());
+        jem.setAllocatedAmount(java.math.BigDecimal.ZERO);
+        jem.setPartyId(cost.getSupplierId());
+        jem.setPartyType("SUPPLIER");
+        jem.setReferenceNo(cost.getInvoiceReference());
+        jem.setNarration("Supplier cost: " + (cost.getInvoiceReference() != null ? cost.getInvoiceReference() : "SC#" + id));
+        jem.setCreatedBy(user);
+        jem.setUpdatedBy(user);
+
+        // DR: Cost of Service
+        int lineNo = 1;
+        JournalEntryLine drLine = new JournalEntryLine();
+        drLine.setJournalEntry(jem);
+        drLine.setLineNumber(lineNo++);
+        drLine.setAccount(costOfService);
+        drLine.setEntryType(JournalEntryLine.EntryType.DEBIT);
+        drLine.setAmount(cost.getCostAmount());
+        drLine.setNarration("Cost of service — " + (cost.getInvoiceReference() != null ? cost.getInvoiceReference() : "SC#" + id));
+        drLine.setOrganization(orgRepo.getReferenceById(orgId));
+        drLine.setTaxLine(false);
+        jem.getLines().add(drLine);
+
+        // CR: Supplier Payable
+        JournalEntryLine crLine = new JournalEntryLine();
+        crLine.setJournalEntry(jem);
+        crLine.setLineNumber(lineNo);
+        crLine.setAccount(crAccount);
+        crLine.setSubAccount(supplierSub);
+        crLine.setEntryType(JournalEntryLine.EntryType.CREDIT);
+        crLine.setAmount(cost.getCostAmount());
+        crLine.setNarration("Payable to supplier — " + (cost.getInvoiceReference() != null ? cost.getInvoiceReference() : "SC#" + id));
+        crLine.setOrganization(orgRepo.getReferenceById(orgId));
+        crLine.setTaxLine(false);
+        jem.getLines().add(crLine);
+
+        JournalEntryMaster saved = jemRepo.save(jem);
+
+        // Update supplier sub-account balance (increase — we owe them)
+        if (supplierSub != null) {
+            java.math.BigDecimal bal = supplierSub.getCurrentBalance() != null
+                ? supplierSub.getCurrentBalance() : java.math.BigDecimal.ZERO;
+            supplierSub.setCurrentBalance(bal.add(cost.getCostAmount()));
+            subRepo.save(supplierSub);
+        }
+
+        // Mark supplier cost as posted
+        cost.setJournalEntryId(saved.getId());
+        cost.setPaymentStatus(TrvSupplierCost.PaymentStatus.UNPAID);
+        supplierCostRepo.save(cost);
+
+        return toDto(cost);
+    }
+
+    private TrvSupplierCostDTO toDto(TrvSupplierCost cost) {
+        return TrvSupplierCostDTO.builder()
+            .id(cost.getId())
+            .costAmount(cost.getCostAmount())
+            .currency(cost.getCurrency())
+            .paymentStatus(cost.getPaymentStatus().name())
+            .invoiceReference(cost.getInvoiceReference())
+            .bookingServiceId(cost.getBookingServiceId())
+            .supplierId(cost.getSupplierId())
+            .journalEntryId(cost.getJournalEntryId())
+            .build();
+    }
     @Override
     @Transactional(readOnly = true)
     public List<Map<String, Object>> listSupplierCosts(String search) {
