@@ -11,7 +11,17 @@ import java.math.BigDecimal;
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class TrvBookingReceipt extends BaseEntity {
 
-    public enum PaymentMode { CASH, BANK, BKASH, NAGAD, CARD }
+    public enum PaymentMode {
+        CASH("CASH"),
+        BANK("BANK"),
+        BKASH("BANK"),
+        NAGAD("BANK"),
+        CARD("BANK");
+
+        @Getter private final String accountType;
+
+        PaymentMode(String accountType) { this.accountType = accountType; }
+    }
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

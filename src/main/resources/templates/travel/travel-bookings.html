@@ -111,7 +111,7 @@
                 <div class="table-responsive mb-3">
                   <table class="table table-sm table-bordered">
                     <thead class="table-light"><tr>
-                      <th width="12%">Type</th><th width="20%">Description</th><th width="12%">Patient Cat.</th>
+                      <th width="10%">Type</th><th width="16%">Description</th><th>PNR</th><th width="10%">Patient Cat.</th>
                       <th>Qty</th><th>Unit Cost</th><th>Unit Price</th><th>Tax</th><th>Amount</th><th></th>
                     </tr></thead>
                     <tbody id="bkgServiceBody"></tbody>
@@ -201,7 +201,7 @@
     const SUB_URL = '/accounts/sub-accounts/search';
     let _AR_ACCOUNT_ID = 0; // resolved once — default AR account for new customers
     const USER_URL = '/users/search';
-    var dt, _svcCount = 0, _rcptCount = 0;
+    var dt, _svcCount = 0, _rcptCount = 0, _ENUMS = {};
 
     document.addEventListener('DOMContentLoaded', function () {
       dt = $('#bkgTable').DataTable({
@@ -229,6 +229,8 @@
         if (d.items && d.items.length) _AR_ACCOUNT_ID = d.items[0].id;
       });
       document.getElementById('custForm').addEventListener('submit', _onCustSubmit);
+      // Load enums for dynamic dropdowns
+      secureFetch('/enums/all').then(function (d) { _ENUMS = d; }).catch(function () { _ENUMS = {}; });
     });
 
     window._bkgReload = function () { dt.ajax.reload(); };
@@ -281,11 +283,12 @@
           + '<option value="VISA"' + (data && data.serviceType === 'VISA' ? ' selected' : '') + '>Visa</option>'
           + '</select></td>'
         + '<td><input type="text" class="form-control form-control-sm" data-field="description" value="' + (data ? (data.description || '') : '') + '"></td>'
+        + '<td><input type="text" class="form-control form-control-sm" data-field="pnr" maxlength="20" value="' + (data ? (data.pnr || '') : '') + '" placeholder="PNR" oninput="this.value=this.value.toUpperCase().replace(/\\s+/g,\'\')"></td>'
         + '<td><select class="form-select form-select-sm" data-field="patientCategory">'
           + '<option value="">—</option>'
-          + '<option value="INFANT"' + (data && data.patientCategory === 'INFANT' ? ' selected' : '') + '>Infant</option>'
-          + '<option value="CHILD"' + (data && data.patientCategory === 'CHILD' ? ' selected' : '') + '>Child</option>'
-          + '<option value="ADULT"' + (data && data.patientCategory === 'ADULT' ? ' selected' : '') + '>Adult</option>'
+          + (_ENUMS.passengerType || []).map(function (e) {
+              return '<option value="' + e.value + '"' + (data && data.patientCategory === e.value ? ' selected' : '') + '>' + e.display + '</option>';
+            }).join('')
           + '</select></td>'
         + '<td><input type="number" step="0.001" class="form-control form-control-sm text-end" data-field="quantity" value="' + (data ? data.quantity || 1 : 1) + '" oninput="bkgCalcService(this.closest(\'tr\'))"></td>'
         + '<td><input type="number" step="0.01" class="form-control form-control-sm text-end" data-field="unitCost" value="' + (data ? data.unitCost || 0 : 0) + '"></td>'
@@ -316,16 +319,21 @@
       bkgCalcReceipt();
     };
 
+    /** Format due amount: "0.00", "50.00", or "(100.00)" for negative (overpayment) */
+    window.bkgDueTotal = function (n) {
+      if (!n) return '0.00';
+      var v = parseFloat(n);
+      return v < 0 ? '(' + Math.abs(v).toFixed(2) + ')' : v.toFixed(2);
+    };
+
     // ── MONEY RECEIPT LINES ───────────────────────────────────────────────────
     window.bkgAddReceiptLine = function (data) {
       _rcptCount++; var n = _rcptCount;
       var html = '<tr id="bkgRcpt_' + n + '">'
         + '<td><select class="form-select form-select-sm" data-field="paymentMode" onchange="rcptOnModeChange(' + n + ')">'
-          + '<option value="CASH"' + (!data || data.paymentMode === 'CASH' ? ' selected' : '') + '>Cash</option>'
-          + '<option value="BANK"' + (data && data.paymentMode === 'BANK' ? ' selected' : '') + '>Bank</option>'
-          + '<option value="BKASH"' + (data && data.paymentMode === 'BKASH' ? ' selected' : '') + '>bKash</option>'
-          + '<option value="NAGAD"' + (data && data.paymentMode === 'NAGAD' ? ' selected' : '') + '>Nagad</option>'
-          + '<option value="CARD"' + (data && data.paymentMode === 'CARD' ? ' selected' : '') + '>Card</option>'
+          + (_ENUMS.paymentMode || []).map(function (e) {
+              return '<option value="' + e.value + '"' + (data && data.paymentMode === e.value ? ' selected' : '') + '>' + e.display + '</option>';
+            }).join('')
           + '</select></td>'
         + '<td><select id="rcptSubAccount_' + n + '" class="form-select form-select-sm" data-field="subAccountId"></select></td>'
         + '<td><input type="text" class="form-control form-control-sm" data-field="reference" value="' + (data ? data.reference || '' : '') + '" placeholder="Ref/TrxID"></td>'
@@ -344,14 +352,16 @@
       });
       document.getElementById('bkgReceiptTotal').textContent = total.toFixed(2);
       var billTotal = parseFloat(document.getElementById('bkgTotal').textContent) || 0;
-      var due = Math.max(0, billTotal - total);
+      var due = billTotal - total;
       var dueEl = document.getElementById('bkgDueTotal');
-      dueEl.textContent = due.toFixed(2);
-      dueEl.className = 'text-end ' + (due > 0 ? 'text-danger' : 'text-success');
+      dueEl.textContent = bkgDueTotal(due);
+      dueEl.className = 'text-end ' + (due >= 0 ? 'text-danger' : 'text-success');
     };
 
     function _rcptSubAccountType(mode) {
-      return { CASH: 'CASH', BANK: 'BANK', BKASH: 'BANK', NAGAD: 'BANK', CARD: 'BANK' }[mode] || 'BANK';
+      // Account type comes from PaymentMode enum data
+      var pm = (_ENUMS.paymentMode || []).find(function (e) { return e.value === mode; });
+      return pm ? pm.accountType : 'BANK';
     }
 
     window.rcptOnModeChange = function (n) {
@@ -388,18 +398,18 @@
         var html = '<div class="hs-box"><div class="row g-2">'
           + travel.viewField('Sale No', o.bookingNo) + travel.viewField('Type', o.bookingType) + travel.viewField('Status', travel.statusBadge(o.status))
           + travel.viewField('Customer', o.partyDisplay || '—') + travel.viewField('Sale Date', o.bookingDate)
-          + travel.viewField('Total', parseFloat(o.totalAmount || 0).toFixed(2)) + travel.viewField('Due', parseFloat(o.dueAmount || 0).toFixed(2))
+          + travel.viewField('Total', parseFloat(o.totalAmount || 0).toFixed(2)) + travel.viewField('Due', bkgDueTotal(o.dueAmount))
           + travel.viewField('Narration', o.remarks || '')
           + '</div><h6 class="mt-3">Services</h6><table class="table table-sm table-bordered"><thead class="table-light"><tr>'
-          + '<th>Type</th><th>Description</th><th>Patient Cat.</th><th class="text-end">Qty</th><th class="text-end">Price</th><th class="text-end">Amount</th></tr></thead><tbody>';
-        (o.services || []).forEach(function (s) { html += '<tr><td>' + travel.typeChip(s.serviceType) + '</td><td>' + travel.esc(s.description || '—') + '</td><td class="text-nowrap">' + (s.patientCategory || '—') + '</td><td class="text-end">' + s.quantity + '</td><td class="text-end">' + parseFloat(s.unitPrice || 0).toFixed(2) + '</td><td class="text-end">' + parseFloat(s.lineTotal || 0).toFixed(2) + '</td></tr>'; });
+          + '<th>Type</th><th>Description</th><th>PNR</th><th>Patient Cat.</th><th class="text-end">Qty</th><th class="text-end">Price</th><th class="text-end">Amount</th></tr></thead><tbody>';
+        (o.services || []).forEach(function (s) { html += '<tr><td>' + travel.typeChip(s.serviceType) + '</td><td>' + travel.esc(s.description || '—') + '</td><td>' + travel.esc(s.pnr || '—') + '</td><td class="text-nowrap">' + (s.patientCategory || '—') + '</td><td class="text-end">' + s.quantity + '</td><td class="text-end">' + parseFloat(s.unitPrice || 0).toFixed(2) + '</td><td class="text-end">' + parseFloat(s.lineTotal || 0).toFixed(2) + '</td></tr>'; });
         html += '</tbody></table><h6 class="mt-3">Receipts</h6><table class="table table-sm table-bordered"><thead class="table-light"><tr><th>Mode</th><th>Sub Account</th><th>Reference</th><th class="text-end">Amount</th></tr></thead><tbody>';
         var rcptTotal = 0;
         (o.receipts || []).forEach(function (r) { rcptTotal += parseFloat(r.amount || 0); html += '<tr><td>' + r.paymentMode + '</td><td>' + (r.subAccountText || '—') + '</td><td>' + travel.esc(r.reference || '—') + '</td><td class="text-end">' + parseFloat(r.amount || 0).toFixed(2) + '</td></tr>'; });
         var total = parseFloat(o.totalAmount || 0);
-        var due = Math.max(0, total - rcptTotal);
+        var due = total - rcptTotal;
         html += '<tr class="fw-bold bg-light"><td colspan="3" class="text-end">Total Received:</td><td class="text-end">' + rcptTotal.toFixed(2) + '</td></tr>'
-          + '<tr class="fw-bold ' + (due > 0 ? 'text-danger' : 'text-success') + '"><td colspan="3" class="text-end">Total Due:</td><td class="text-end">' + due.toFixed(2) + '</td></tr>';
+          + '<tr class="fw-bold ' + (due >= 0 ? 'text-danger' : 'text-success') + '"><td colspan="3" class="text-end">' + (due < 0 ? 'Overpayment (Credit):' : 'Total Due:') + '</td><td class="text-end">' + bkgDueTotal(due) + '</td></tr>';
         html += '</tbody></table>';
 
         // ── Customer AR Balance ──
@@ -540,6 +550,7 @@
         services.push({
           serviceType: tr.querySelector('[data-field="serviceType"]').value,
           description: tr.querySelector('[data-field="description"]').value || null,
+          pnr: tr.querySelector('[data-field="pnr"]').value || null,
           patientCategory: tr.querySelector('[data-field="patientCategory"]').value || null,
           quantity: parseFloat(tr.querySelector('[data-field="quantity"]').value) || 1,
           unitCost: parseFloat(tr.querySelector('[data-field="unitCost"]').value) || 0,

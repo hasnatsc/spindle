@@ -121,16 +121,12 @@ public class TravelBookingServiceImpl implements TravelBookingService {
             throw new IllegalStateException("Customer account not found for booking " + booking.getBookingNo());
         ChartOfAccount arAccount = customerSub.getMainAccount();
         if (arAccount == null)
-            throw new IllegalStateException(
-                "Customer '" + customerSub.getSubAccountName() +
-                "' has no linked main account (AR control account). Set it on the customer sub-account first.");
+            throw new IllegalStateException("Customer '" + customerSub.getSubAccountName() + "' has no linked main account (AR control account). Set it on the customer sub-account first.");
 
         // ── Step 2: Resolve Travel Revenue account (org defaults first) ──────
         ChartOfAccount revenueAccount = resolveRevenueAccount(orgId);
         if (revenueAccount == null)
-            throw new IllegalStateException(
-                "No Travel Revenue account configured. Set it in Travel → Settings, or create a " +
-                "REVENUE account with code 'TRAVEL-REVENUE' in this organisation.");
+            throw new IllegalStateException("No Travel Revenue account configured. Set it in Travel → Settings, or create a " + "REVENUE account with code 'TRAVEL-REVENUE' in this organisation.");
 
         // ── Step 3: Build SALES_VOUCHER JEM (always posted directly) ──────────
         String voucherNo = seqService.nextDocumentNumber(orgId, "TRV", year);
@@ -140,8 +136,7 @@ public class TravelBookingServiceImpl implements TravelBookingService {
         jem.setVoucherType(VoucherType.SALES_VOUCHER);
         jem.setVoucherNo(voucherNo);
         jem.setVoucherDate(booking.getBookingDate());
-        jem.setDueDate(booking.getTravelStartDate() != null
-            ? booking.getTravelStartDate() : booking.getBookingDate().plusDays(15));
+        jem.setDueDate(booking.getTravelStartDate() != null ? booking.getTravelStartDate() : booking.getBookingDate().plusDays(15));
         jem.setVoucherStatus("POSTED");
         jem.setPosted(true);
         jem.setReversed(false);
@@ -171,8 +166,7 @@ public class TravelBookingServiceImpl implements TravelBookingService {
 
         // Build patient-category summary for audit trail on the credit line
         String catSummary = booking.getServices().stream()
-            .map(s -> s.getPatientCategory() != null
-                ? s.getPatientCategory().name() : "—")
+            .map(s -> s.getPatientCategory() != null ? s.getPatientCategory().name() : "—")
             .collect(Collectors.groupingBy(c -> c, Collectors.counting()))
             .entrySet().stream()
             .map(e -> e.getValue() + "×" + e.getKey())
@@ -183,8 +177,7 @@ public class TravelBookingServiceImpl implements TravelBookingService {
         crLine.setAccount(revenueAccount);
         crLine.setEntryType(JournalEntryLine.EntryType.CREDIT);
         crLine.setAmount(booking.getTotalAmount());
-        crLine.setNarration("Travel Revenue: " + booking.getBookingNo()
-            + (catSummary.isEmpty() ? "" : " (" + catSummary + ")"));
+        crLine.setNarration("Travel Revenue: " + booking.getBookingNo() + (catSummary.isEmpty() ? "" : " (" + catSummary + ")"));
         crLine.setOrganization(orgRepo.getReferenceById(orgId));
         crLine.setTaxLine(false);
 
@@ -198,8 +191,7 @@ public class TravelBookingServiceImpl implements TravelBookingService {
             ? customerSub.getCurrentBalance() : BigDecimal.ZERO;
         customerSub.setCurrentBalance(current.add(booking.getTotalAmount()));
         subRepo.save(customerSub);
-        log.info("Booking {} confirmed. SALES_VOUCHER {} posted. Customer: {}",
-                 booking.getBookingNo(), savedJem.getVoucherNo(), customerSub.getSubAccountName());
+        log.info("Booking {} confirmed. SALES_VOUCHER {} posted. Customer: {}", booking.getBookingNo(), savedJem.getVoucherNo(), customerSub.getSubAccountName());
 
         // ── Process receipts (create RECEIPT_VOUCHER if any) ─────────────────
         BigDecimal totalReceived = BigDecimal.ZERO;
@@ -228,8 +220,7 @@ public class TravelBookingServiceImpl implements TravelBookingService {
         booking.setUpdatedAt(LocalDateTime.now());
 
         TrvBooking saved = bookingRepo.save(booking);
-        log.info("Booking {} confirmed. Voucher {} posted.",
-                 booking.getBookingNo(), savedJem.getVoucherNo());
+        log.info("Booking {} confirmed. Voucher {} posted.", booking.getBookingNo(), savedJem.getVoucherNo());
         logStatus(saved, saved.getStatus() != null ? saved.getStatus() : TrvBooking.Status.CONFIRMED,
             "Confirmed. Voucher " + savedJem.getVoucherNo() + " posted.");
         return toDTO(saved);
@@ -286,9 +277,7 @@ public class TravelBookingServiceImpl implements TravelBookingService {
         // Reverse the SALES_VOUCHER if one exists
         if (booking.getJournalEntryId() != null) {
             voucherService.reverse(booking.getJournalEntryId(),
-                reason != null && !reason.isBlank()
-                    ? "Reversal: " + reason
-                    : "Reversal of booking " + booking.getBookingNo());
+                reason != null && !reason.isBlank() ? "Reversal: " + reason : "Reversal of booking " + booking.getBookingNo());
         }
 
         // Reverse any RECEIPT_VOUCHER linked to this booking
@@ -346,19 +335,15 @@ public class TravelBookingServiceImpl implements TravelBookingService {
 
         if (booking.getStatus() != TrvBooking.Status.CONFIRMED
                 && booking.getStatus() != TrvBooking.Status.PARTIALLY_PAID)
-            throw new IllegalStateException(
-                "Booking must be CONFIRMED before creating a receipt. Status: " + booking.getStatus());
+            throw new IllegalStateException("Booking must be CONFIRMED before creating a receipt. Status: " + booking.getStatus());
 
         BigDecimal dueAmount = booking.getDueAmount() != null ? booking.getDueAmount() : BigDecimal.ZERO;
         if (dueAmount.compareTo(BigDecimal.ZERO) <= 0)
             throw new IllegalStateException("Booking " + booking.getBookingNo() + " is already fully collected.");
 
         JournalEntryMaster jem = jemRepo
-            .findByOrganizationIdAndReferenceNoAndVoucherType(
-                ContextProvider.getOrganizationId(), booking.getBookingNo(), VoucherType.SALES_VOUCHER)
-            .orElseThrow(() -> new IllegalStateException(
-                "No accounting voucher found for booking " + booking.getBookingNo() +
-                ". Please confirm the booking again to regenerate the accounting entry."));
+            .findByOrganizationIdAndReferenceNoAndVoucherType(ContextProvider.getOrganizationId(), booking.getBookingNo(), VoucherType.SALES_VOUCHER)
+            .orElseThrow(() -> new IllegalStateException("No accounting voucher found for booking " + booking.getBookingNo() + ". Please confirm the booking again to regenerate the accounting entry."));
 
         ChartOfAccountSub customerSub = booking.getParty();
 
@@ -370,8 +355,7 @@ public class TravelBookingServiceImpl implements TravelBookingService {
         dto.setTotalAmount(dueAmount);
         dto.setPartyType("CUSTOMER");
         dto.setPartyId(booking.getParty() != null ? booking.getParty().getId() : null);
-        dto.setPartyDisplay(customerSub != null
-            ? customerSub.getSubAccountCode() + " — " + customerSub.getSubAccountName() : null);
+        dto.setPartyDisplay(customerSub != null ? customerSub.getSubAccountCode() + " — " + customerSub.getSubAccountName() : null);
         dto.setPartyBalance(customerSub != null ? customerSub.getCurrentBalance() : null);
         dto.setReferenceNo(booking.getBookingNo());
         dto.setNarration("Receipt against Travel Booking: " + booking.getBookingNo());
@@ -734,6 +718,7 @@ public class TravelBookingServiceImpl implements TravelBookingService {
             .lineTotal(s.getLineTotal())
             .patientCategory(s.getPatientCategory() != null ? s.getPatientCategory().name() : null)
             .costCenterId(s.getCostCenterId())
+            .pnr(s.getPnr())
             .build()).collect(Collectors.toList()));
 
         d.setPassengers(e.getPassengers().stream().map(p -> {
@@ -825,6 +810,7 @@ public class TravelBookingServiceImpl implements TravelBookingService {
                 .patientCategory(sd.getPatientCategory() != null
                     ? TrvPassenger.PassengerType.valueOf(sd.getPatientCategory()) : null)
                 .costCenterId(sd.getCostCenterId())
+                .pnr(sd.getPnr())
                 .booking(parent)
                 .build());
         }
@@ -864,8 +850,7 @@ public class TravelBookingServiceImpl implements TravelBookingService {
             TrvBookingDTO.PreferenceDTO pref = dto.getPassengers().get(i).getPreference();
             if (pref == null) continue;
             Long paxId = savedPax.get(i).getId();
-            TrvPassengerPreference entity = preferenceRepo.findByPassengerId(paxId)
-                .orElse(TrvPassengerPreference.builder().passengerId(paxId).build());
+            TrvPassengerPreference entity = preferenceRepo.findByPassengerId(paxId).orElse(TrvPassengerPreference.builder().passengerId(paxId).build());
             entity.setMealPreference(pref.getMealPreference());
             entity.setSeatPreference(pref.getSeatPreference());
             entity.setSpecialAssistance(pref.getSpecialAssistance());
@@ -898,8 +883,7 @@ public class TravelBookingServiceImpl implements TravelBookingService {
         for (TrvBookingDTO.ReceiptLineDTO rd : dto.getReceipts()) {
             if (rd.getAmount() == null || rd.getAmount().compareTo(BigDecimal.ZERO) <= 0) continue;
             TrvBookingReceipt receipt = TrvBookingReceipt.builder()
-                .paymentMode(rd.getPaymentMode() != null
-                    ? TrvBookingReceipt.PaymentMode.valueOf(rd.getPaymentMode()) : TrvBookingReceipt.PaymentMode.CASH)
+                .paymentMode(rd.getPaymentMode() != null ? TrvBookingReceipt.PaymentMode.valueOf(rd.getPaymentMode()) : TrvBookingReceipt.PaymentMode.CASH)
                 .subAccountId(rd.getSubAccountId())
                 .reference(rd.getReference())
                 .amount(rd.getAmount())

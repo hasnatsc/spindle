@@ -66,12 +66,13 @@
 <h3 style="margin-bottom:4px;font-size:13px;text-transform:uppercase">Services</h3>
 <table class="details">
   <thead><tr>
-    <th width="12%">Type</th><th>Description</th><th width="8%" class="text-center">Qty</th><th width="12%" class="text-end">Price</th><th width="12%" class="text-end">Amount</th>
+    <th width="12%">Type</th><th>Description</th><th>PNR</th><th width="8%" class="text-center">Qty</th><th width="12%" class="text-end">Price</th><th width="12%" class="text-end">Amount</th>
   </tr></thead>
   <tbody>
     <tr th:each="s : ${booking.services}">
       <td th:text="${s.serviceType}">—</td>
       <td th:text="${s.description ?: '—'}">—</td>
+      <td th:text="${s.pnr ?: '—'}">—</td>
       <td class="text-center" th:text="${s.quantity}">0</td>
       <td class="text-end" th:text="${#numbers.formatDecimal(s.unitPrice, 1, 2)}">0.00</td>
       <td class="text-end" th:text="${#numbers.formatDecimal(s.lineTotal, 1, 2)}">0.00</td>

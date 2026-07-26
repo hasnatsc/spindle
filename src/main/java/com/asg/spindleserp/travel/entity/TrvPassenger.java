@@ -17,7 +17,7 @@ public class TrvPassenger extends BaseEntity implements Serializable {
 
     public enum Gender { MALE, FEMALE, OTHER }
 
-    public enum PassengerType { ADULT, CHILD, INFANT }
+    public enum PassengerType { ADULT, CHILD, INFANT, KISD }
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

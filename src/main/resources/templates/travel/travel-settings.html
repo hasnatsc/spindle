@@ -63,6 +63,31 @@
           </form>
         </div>
       </div>
+
+      <!-- ═══════════════════════════════════════════════════════════════════
+           PAYMENT MODE → ACCOUNT MAPPING
+           ═══════════════════════════════════════════════════════════════════ -->
+      <div class="panel panel-inverse mt-4">
+        <div class="panel-heading">
+          <h4 class="panel-title"><i class="fa fa-credit-card me-2"></i>Payment Mode &rarr; Account Mapping</h4>
+        </div>
+        <div class="panel-body">
+          <div class="alert alert-info py-2">
+            <i class="fas fa-circle-info me-1"></i>
+            Map each payment mode to a default sub-account (GL head). When a receipt is created,
+            the DR side uses this sub-account's main account. If no mapping is set, the user must
+            select a sub-account manually on the booking receipt line.
+          </div>
+          <div class="table-responsive">
+            <table class="table table-sm table-bordered" id="pmaTable">
+              <thead class="table-light"><tr>
+                <th>Payment Mode</th><th>Account Type</th><th>Default Sub-Account</th><th></th>
+              </tr></thead>
+              <tbody id="pmaBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -71,10 +96,12 @@
     'use strict';
     const BASE = '/travel/settings';
     const COA_URL = '/accounts/chart-of-accounts/search';
+    const SUB_URL = '/accounts/sub-accounts/search';
 
     document.addEventListener('DOMContentLoaded', function () {
-      document.getElementById('gldForm').addEventListener('submit', _onSubmit);
-      _load();
+      document.getElementById('gldForm').addEventListener('submit', _onGldSubmit);
+      _gldLoad();
+      _pmaLoad();
     });
 
     function _initAccountS2(elId, preId, preText) {
@@ -90,7 +117,7 @@
       if (preId) $el.append(new Option(preText || '', preId, true, true)).trigger('change');
     }
 
-    function _load() {
+    function _gldLoad() {
       secureFetch(BASE + '/defaults').then(function (res) {
         if (!res.success) { Swal.fire('Error', res.message, 'error'); return; }
         var o = res.obj.defaultData;
@@ -102,7 +129,7 @@
       });
     }
 
-    function _onSubmit(e) {
+    function _onGldSubmit(e) {
       e.preventDefault();
       var sb = document.getElementById('gldSubmitBtn'), sp = document.getElementById('gldSpinner'), bt = document.getElementById('gldBtnText');
       hsDisableButton(sb, sp, bt);
@@ -117,6 +144,72 @@
         else { Swal.fire('Error', d.message, 'error'); }
       }).finally(function () { hsEnableButton(sb, sp, bt); });
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // PAYMENT MODE → ACCOUNT MAPPING
+    // ═══════════════════════════════════════════════════════════════════════
+
+    var _pmaData = [];
+
+    function _pmaLoad() {
+      secureFetch(BASE + '/payment-mode-accounts').then(function (res) {
+        if (!res.success) { Swal.fire('Error', res.message, 'error'); return; }
+        _pmaData = res.data || [];
+        _pmaRender();
+      });
+    }
+
+    function _pmaRender() {
+      var tbody = document.getElementById('pmaBody');
+      tbody.innerHTML = '';
+      // Build a lookup of saved mappings
+      var savedMap = {};
+      (_pmaData || []).forEach(function (m) { savedMap[m.paymentMode] = m; });
+      // Iterate over all payment modes from the enums endpoint
+      var modes = _ENUMS && _ENUMS.paymentMode ? _ENUMS.paymentMode : [];
+      if (!modes.length) {
+        tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-2">Loading payment modes…</td></tr>';
+        // If enums not yet loaded, fetch them
+        if (!_ENUMS || !_ENUMS.paymentMode) {
+          secureFetch('/enums/all').then(function (d) { _ENUMS = d; _pmaRender(); });
+        }
+        return;
+      }
+      modes.forEach(function (pm) {
+        var saved = savedMap[pm.value] || {};
+        var tr = document.createElement('tr');
+        tr.id = 'pmaRow_' + pm.value;
+        tr.innerHTML = '<td><strong>' + pm.display + '</strong></td>'
+          + '<td><span class="badge bg-' + (pm.accountType === 'CASH' ? 'success' : 'info') + '">' + pm.accountType + '</span></td>'
+          + '<td><select id="pmaSub_' + pm.value + '" class="form-select form-select-sm" style="min-width:300px"></select></td>'
+          + '<td class="text-center"><button class="btn btn-sm btn-outline-success" onclick="_pmaSave(\'' + pm.value + '\')"><i class="fa fa-check"></i></button></td>';
+        tbody.appendChild(tr);
+        _pmaInitS2(pm.value, saved.subAccountId, saved.subAccountDisplay, pm.accountType);
+      });
+    }
+
+    function _pmaInitS2(mode, preId, preText, accountType) {
+      var $el = $('#pmaSub_' + mode);
+      if ($el.hasClass('select2-hidden-accessible')) $el.select2('destroy');
+      $el.select2({
+        width: '100%', placeholder: '— Select ' + accountType + ' Account —', allowClear: true, minimumInputLength: 0,
+        ajax: { url: SUB_URL, dataType: 'json', delay: 250,
+          data: function (p) { return { search: p.term || '', subAccountType: accountType, page: p.page || 1 }; },
+          processResults: function (data, p) { p.page = p.page || 1; return { results: (data.items || []).map(function (i) { return { id: i.id, text: i.text }; }), pagination: { more: data.hasMore || false } }; },
+          cache: true }
+      });
+      if (preId) $el.append(new Option(preText || '', preId, true, true)).trigger('change');
+    }
+
+    window._pmaSave = function (mode) {
+      var subId = $('#pmaSub_' + mode).val() || null;
+      secureFetch(BASE + '/payment-mode-accounts', { method: 'POST', body: JSON.stringify({
+        paymentMode: mode, subAccountId: subId
+      }) }).then(function (d) {
+        if (d.success) { Swal.fire({ icon: 'success', timer: 1200, showConfirmButton: false, title: d.message }); }
+        else { Swal.fire('Error', d.message, 'error'); }
+      });
+    };
   })();
   </script>
 </section>

@@ -74,6 +74,9 @@ public class TrvBookingService implements Serializable {
     @Column(name = "cost_center_id")
     private Long costCenterId;
 
+    @Column(name = "pnr", length = 20)
+    private String pnr;
+
     @PrePersist
     void onCreate() { createdAt = LocalDateTime.now(); updatedAt = createdAt; }
 

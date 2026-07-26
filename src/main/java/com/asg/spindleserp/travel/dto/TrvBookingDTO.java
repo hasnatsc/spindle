@@ -98,6 +98,7 @@ public class TrvBookingDTO {
         private String patientCategory;
         private Long costCenterId;
         private String costCenterDisplay;
+        private String pnr;
     }
 
     @Getter
