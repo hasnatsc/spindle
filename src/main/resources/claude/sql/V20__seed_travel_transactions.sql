@@ -10,24 +10,54 @@
 BEGIN;
 
 -- ═════════════════════════════════════════════════════════════════════════════
+-- 0.  HOTELS  (required by hotel bookings below — embedded so this file
+--     is self-contained even when V19 hasn't been run)
+-- ═════════════════════════════════════════════════════════════════════════════
+INSERT INTO trv_hotels (hotel_code, hotel_name, city, country, address, star_rating, category_id, contact_phone, contact_email, is_active, organization_id, created_at, created_by)
+SELECT * FROM (VALUES
+    ('HT-COX-001', 'Ocean Paradise Hotel',     'Cox''s Bazar','Bangladesh', 'Hotel Motel Zone',       4, (SELECT id FROM trv_hotel_categories WHERE organization_id = 1 AND category_name = '4 Star'), '+880-xxx', 'info@op.com', true, 1, NOW(), 'system'),
+    ('HT-DHK-001', 'Pan Pacific Sonargaon',    'Dhaka',       'Bangladesh', '107 Kazi Nazrul Islam Ave', 5, (SELECT id FROM trv_hotel_categories WHERE organization_id = 1 AND category_name = '5 Star'), '+880-xxx', 'info@pp.com', true, 1, NOW(), 'system'),
+    ('HT-COX-002', 'Royal Tulip Sea Pearl',    'Cox''s Bazar','Bangladesh', 'Sugandha Point',           5, (SELECT id FROM trv_hotel_categories WHERE organization_id = 1 AND category_name = '5 Star'), '+880-xxx', 'info@rt.com', true, 1, NOW(), 'system'),
+    ('HT-SG-001',  'Hotel Agrabad',            'Chittagong',  'Bangladesh', 'Agrabad C/A',              4, (SELECT id FROM trv_hotel_categories WHERE organization_id = 1 AND category_name = '4 Star'), '+880-xxx', 'info@ha.com', true, 1, NOW(), 'system'),
+    ('HT-DHK-003', 'Six Seasons Hotel',        'Dhaka',       'Bangladesh', 'Gulshan 2',                5, (SELECT id FROM trv_hotel_categories WHERE organization_id = 1 AND category_name = '5 Star'), '+880-xxx', 'info@ss.com', true, 1, NOW(), 'system')
+) AS v(hotel_code, hotel_name, city, country, address, star_rating, category_id, contact_phone, contact_email, is_active, organization_id, created_at, created_by)
+WHERE NOT EXISTS (SELECT 1 FROM trv_hotels WHERE organization_id = 1 AND hotel_code = v.hotel_code)
+  AND EXISTS (SELECT 1 FROM trv_hotel_categories WHERE organization_id = 1 AND category_name IN ('5 Star', '4 Star'));
+
+-- ═════════════════════════════════════════════════════════════════════════════
 -- 1.  BOOKINGS  (various statuses for a realistic mix)
 -- ═════════════════════════════════════════════════════════════════════════════
 INSERT INTO trv_bookings (booking_no, booking_type, booking_date, travel_start_date, travel_end_date, status, currency, exchange_rate, subtotal_amount, discount_amount, tax_amount, total_amount, paid_amount, due_amount, remarks, party_id, sales_agent_id, organization_id, created_at, created_by, updated_at, updated_by)
-VALUES
+SELECT
+    v.booking_no, v.booking_type, v.booking_date::date, v.travel_start_date::date, v.travel_end_date::date,
+    v.status, v.currency, v.exchange_rate::numeric,
+    v.subtotal_amount::numeric, v.discount_amount::numeric, v.tax_amount::numeric, v.total_amount::numeric, v.paid_amount::numeric, v.due_amount::numeric,
+    v.remarks, v.party_id::bigint, v.sales_agent_id::bigint, v.organization_id::bigint, v.created_at::timestamp, v.created_by, v.updated_at::timestamp, v.updated_by
+FROM (VALUES
     ('BKG-25-0001', 'PACKAGE',  '2026-06-10', '2026-07-15', '2026-07-18', 'DRAFT',  'BDT', 1.0000, 18500.00, 1000.00, 0.00, 17500.00, 5000.00, 12500.00,
-     'Cox''s Bazar family trip — 2 adults, 1 child. Early bird discount applied.', NULL, NULL, 1, NOW(), 'system', NOW(), 'system'),
+     'Cox''s Bazar family trip — 2 adults, 1 child. Early bird discount applied.',
+     (SELECT id FROM acc_chart_of_accounts_sub WHERE sub_account_name = 'Rafiq Hassan' AND organization_id = 1 LIMIT 1),
+     (SELECT id FROM sec_users WHERE username = 'admin' LIMIT 1), 1, NOW(), 'system', NOW(), 'system'),
 
     ('BKG-25-0002', 'PACKAGE',  '2026-06-12', '2026-08-01', '2026-08-04', 'DRAFT',  'BDT', 1.0000, 14500.00, 0.00, 0.00, 14500.00, 14500.00, 0.00,
-     'Sylhet tea country weekend. Fully paid — wedding anniversary gift.', NULL, NULL, 1, NOW(), 'system', NOW(), 'system'),
+     'Sylhet tea country weekend. Fully paid — wedding anniversary gift.',
+     (SELECT id FROM acc_chart_of_accounts_sub WHERE sub_account_name = 'Shahid Ahmed' AND organization_id = 1 LIMIT 1),
+     (SELECT id FROM sec_users WHERE username = 'admin' LIMIT 1), 1, NOW(), 'system', NOW(), 'system'),
 
     ('BKG-25-0003', 'PACKAGE',  '2026-06-15', '2026-07-20', '2026-07-24', 'PAID',       'BDT', 1.0000, 28500.00, 0.00, 0.00, 28500.00, 28500.00, 0.00,
-     'Hill Tracts Explorer — corporate retreat for 6 people. Full payment received.', NULL, NULL, 1, NOW(), 'system', NOW(), 'system'),
+     'Hill Tracts Explorer — corporate retreat for 6 people. Full payment received.',
+     (SELECT id FROM acc_chart_of_accounts_sub WHERE sub_account_name = 'Kabir Chowdhury' AND organization_id = 1 LIMIT 1),
+     (SELECT id FROM sec_users WHERE username = 'admin' LIMIT 1), 1, NOW(), 'system', NOW(), 'system'),
 
     ('BKG-25-0004', 'HOTEL',    '2026-06-18', '2026-08-10', '2026-08-14', 'DRAFT',  'BDT', 1.0000, 42000.00, 2000.00, 0.00, 40000.00, 0.00, 40000.00,
-     'Pan Pacific Dhaka — 4 nights executive suite. Corporate rate applied.', NULL, NULL, 1, NOW(), 'system', NOW(), 'system'),
+     'Pan Pacific Dhaka — 4 nights executive suite. Corporate rate applied.',
+     (SELECT id FROM acc_chart_of_accounts_sub WHERE sub_account_name = 'Rafiq Hassan' AND organization_id = 1 LIMIT 1),
+     (SELECT id FROM sec_users WHERE username = 'admin' LIMIT 1), 1, NOW(), 'system', NOW(), 'system'),
 
     ('BKG-25-0005', 'COMBINED', '2026-06-20', '2026-09-05', '2026-09-12', 'DRAFT',      'BDT', 1.0000, 125000.00, 5000.00, 0.00, 120000.00, 0.00, 120000.00,
-     'Maldives family holiday — 2 adults, 2 children. Awaiting customer confirmation.', NULL, NULL, 1, NOW(), 'system', NOW(), 'system'),
+     'Maldives family holiday — 2 adults, 2 children. Awaiting customer confirmation.',
+     (SELECT id FROM acc_chart_of_accounts_sub WHERE sub_account_name = 'Tanvir Rahman' AND organization_id = 1 LIMIT 1),
+     (SELECT id FROM sec_users WHERE username = 'admin' LIMIT 1), 1, NOW(), 'system', NOW(), 'system'),
 
     ('BKG-25-0006', 'PACKAGE',  '2026-06-22', '2026-07-25', '2026-07-29', 'DRAFT',  'BDT', 1.0000, 22500.00, 0.00, 0.00, 22500.00, 0.00, 0.00,
      'Sundarbans trip — DRAFT due to weather. Full refund processed.', NULL, NULL, 1, NOW(), 'system', NOW(), 'system'),
@@ -36,22 +66,30 @@ VALUES
      'Dhaka–Cox''s Bazar return ticket. Web booking — instant confirmation.', NULL, NULL, 1, NOW(), 'system', NOW(), 'system'),
 
     ('BKG-25-0008', 'PACKAGE',  '2026-06-28', '2026-07-10', '2026-07-14', 'COMPLETED',  'BDT', 1.0000, 32000.00, 0.00, 0.00, 32000.00, 32000.00, 0.00,
-     'Sylhet Romantic Escape — honeymoon package. Both guests very satisfied. Completed.', NULL, NULL, 1, NOW(), 'system', NOW(), 'system'),
+     'Sylhet Romantic Escape — honeymoon package. Both guests very satisfied. Completed.',
+     (SELECT id FROM acc_chart_of_accounts_sub WHERE sub_account_name = 'Fahim Islam' AND organization_id = 1 LIMIT 1),
+     (SELECT id FROM sec_users WHERE username = 'admin' LIMIT 1), 1, NOW(), 'system', NOW(), 'system'),
 
     ('BKG-25-0009', 'PACKAGE',  '2026-07-01', '2026-08-20', '2026-08-22', 'DRAFT',      'BDT', 1.0000, 16500.00, 0.00, 0.00, 16500.00, 0.00, 16500.00,
      'Sajek Valley quick getaway — website enquiry, not yet contacted.', NULL, NULL, 1, NOW(), 'system', NOW(), 'system'),
 
     ('BKG-25-0010', 'HOTEL',    '2026-07-02', '2026-09-01', '2026-09-05', 'DRAFT',  'BDT', 1.0000, 28000.00, 0.00, 0.00, 28000.00, 14000.00, 14000.00,
-     'Royal Tulip Sea Pearl — 4 nights, sea-view suite. 50% advance paid.', NULL, NULL, 1, NOW(), 'system', NOW(), 'system'),
+     'Royal Tulip Sea Pearl — 4 nights, sea-view suite. 50% advance paid.',
+     (SELECT id FROM acc_chart_of_accounts_sub WHERE sub_account_name = 'Shahid Ahmed' AND organization_id = 1 LIMIT 1),
+     (SELECT id FROM sec_users WHERE username = 'admin' LIMIT 1), 1, NOW(), 'system', NOW(), 'system'),
 
     ('BKG-25-0011', 'PACKAGE',  '2026-07-05', '2026-10-01', '2026-10-07', 'DRAFT',  'BDT', 1.0000, 65000.00, 0.00, 0.00, 65000.00, 20000.00, 45000.00,
-     'Nepal Himalayan Adventure — group of 4 friends. Deposit paid, balance due 2 weeks before departure.', NULL, NULL, 1, NOW(), 'system', NOW(), 'system'),
+     'Nepal Himalayan Adventure — group of 4 friends. Deposit paid, balance due 2 weeks before departure.',
+     (SELECT id FROM acc_chart_of_accounts_sub WHERE sub_account_name = 'Imtiaz Hossain' AND organization_id = 1 LIMIT 1),
+     (SELECT id FROM sec_users WHERE username = 'admin' LIMIT 1), 1, NOW(), 'system', NOW(), 'system'),
 
     ('BKG-25-0012', 'PACKAGE',  '2026-07-08', '2026-07-28', '2026-07-30', 'DRAFT',  'BDT', 1.0000, 12500.00, 0.00, 0.00, 12500.00, 12500.00, 0.00,
      'Dhaka City Discovery — 2 nights, single traveller. All inclusive.', NULL, NULL, 1, NOW(), 'system', NOW(), 'system'),
 
     ('BKG-25-0013', 'COMBINED', '2026-07-10', '2026-08-05', '2026-08-10', 'DRAFT', 'BDT', 1.0000, 78000.00, 3000.00, 0.00, 75000.00, 30000.00, 45000.00,
-     'Singapore & Malaysia — 6 nights family trip. First instalment paid.', NULL, NULL, 1, NOW(), 'system', NOW(), 'system'),
+     'Singapore & Malaysia — 6 nights family trip. First instalment paid.',
+     (SELECT id FROM acc_chart_of_accounts_sub WHERE sub_account_name = 'Shafiq Ahmed' AND organization_id = 1 LIMIT 1),
+     (SELECT id FROM sec_users WHERE username = 'admin' LIMIT 1), 1, NOW(), 'system', NOW(), 'system'),
 
     ('BKG-25-0014', 'HOTEL',    '2026-07-12', '2026-07-30', '2026-08-02', 'DRAFT',      'BDT', 1.0000, 12500.00, 0.00, 0.00, 12500.00, 0.00, 12500.00,
      'Hotel Agrabad Chittagong — 3 nights business trip. Not yet approved.', NULL, NULL, 1, NOW(), 'system', NOW(), 'system'),
@@ -66,29 +104,38 @@ VALUES
      'Cox''s Bazar return trip — returning customer. Waiting for dates confirmation.', NULL, NULL, 1, NOW(), 'system', NOW(), 'system'),
 
     ('BKG-25-0018', 'HOTEL',    '2026-07-18', '2026-08-18', '2026-08-22', 'DRAFT',  'BDT', 1.0000, 35000.00, 0.00, 0.00, 35000.00, 17500.00, 17500.00,
-     'Six Seasons Dhaka — 4 nights deluxe room. Corporate account.', NULL, NULL, 1, NOW(), 'system', NOW(), 'system'),
+     'Six Seasons Dhaka — 4 nights deluxe room. Corporate account.',
+     (SELECT id FROM acc_chart_of_accounts_sub WHERE sub_account_name = 'Rafiq Hassan' AND organization_id = 1 LIMIT 1),
+     (SELECT id FROM sec_users WHERE username = 'admin' LIMIT 1), 1, NOW(), 'system', NOW(), 'system'),
 
     ('BKG-25-0019', 'PACKAGE',  '2026-07-20', '2026-10-10', '2026-10-14', 'DRAFT',      'BDT', 1.0000, 16500.00, 0.00, 0.00, 16500.00, 0.00, 16500.00,
      'Sajek Valley Cloud Trail — website enquiry, pax 2.', NULL, NULL, 1, NOW(), 'system', NOW(), 'system'),
 
     ('BKG-25-0020', 'PACKAGE',  '2026-07-22', '2026-08-25', '2026-08-30', 'PAID',       'BDT', 1.0000, 85000.00, 0.00, 0.00, 85000.00, 85000.00, 0.00,
-     'Maldives Island Paradise — 5th anniversary celebration. Full payment received.', NULL, NULL, 1, NOW(), 'system', NOW(), 'system'),
+     'Maldives Island Paradise — 5th anniversary celebration. Full payment received.',
+     (SELECT id FROM acc_chart_of_accounts_sub WHERE sub_account_name = 'Tanvir Rahman' AND organization_id = 1 LIMIT 1),
+     (SELECT id FROM sec_users WHERE username = 'admin' LIMIT 1), 1, NOW(), 'system', NOW(), 'system'),
 
     ('BKG-25-0021', 'COMBINED', '2026-07-24', '2026-11-01', '2026-11-07', 'DRAFT',  'BDT', 1.0000, 52000.00, 2000.00, 0.00, 50000.00, 25000.00, 25000.00,
-     'Bangkok & Pattaya — 6 nights, 2 adults. Half paid.', NULL, NULL, 1, NOW(), 'system', NOW(), 'system'),
+     'Bangkok & Pattaya — 6 nights, 2 adults. Half paid.',
+     (SELECT id FROM acc_chart_of_accounts_sub WHERE sub_account_name = 'Shafiq Ahmed' AND organization_id = 1 LIMIT 1),
+     (SELECT id FROM sec_users WHERE username = 'admin' LIMIT 1), 1, NOW(), 'system', NOW(), 'system'),
 
     ('BKG-25-0022', 'HOTEL',    '2026-07-25', '2026-09-10', '2026-09-13', 'DRAFT',  'BDT', 1.0000, 14000.00, 0.00, 0.00, 14000.00, 0.00, 0.00,
      'Rose View Sylhet — DRAFT due to scheduling conflict.', NULL, NULL, 1, NOW(), 'system', NOW(), 'system'),
 
     ('BKG-25-0023', 'PACKAGE',  '2026-07-26', '2026-10-20', '2026-10-26', 'DRAFT',  'BDT', 1.0000, 28500.00, 1000.00, 0.00, 27500.00, 10000.00, 17500.00,
-     'Hill Tracts Explorer — university geography department field trip. 8 students, 2 faculty. Deposit paid.', NULL, NULL, 1, NOW(), 'system', NOW(), 'system'),
+     'Hill Tracts Explorer — university geography department field trip. 8 students, 2 faculty. Deposit paid.',
+     (SELECT id FROM acc_chart_of_accounts_sub WHERE sub_account_name = 'Kabir Chowdhury' AND organization_id = 1 LIMIT 1),
+     (SELECT id FROM sec_users WHERE username = 'admin' LIMIT 1), 1, NOW(), 'system', NOW(), 'system'),
 
     ('BKG-25-0024', 'AIR',      '2026-07-28', '2026-09-20', '2026-09-20', 'DRAFT',      'BDT', 1.0000, 8500.00, 0.00, 0.00, 8500.00, 0.00, 8500.00,
      'Dhaka–Sylhet one-way — Novoair. Single traveller.', NULL, NULL, 1, NOW(), 'system', NOW(), 'system'),
 
     ('BKG-25-0025', 'PACKAGE',  '2026-07-30', '2026-11-15', '2026-11-19', 'DRAFT',      'BDT', 1.0000, 22500.00, 0.00, 0.00, 22500.00, 0.00, 22500.00,
      'Sundarbans Explorer — corporate team-building enquiry. 12 pax tentative.', NULL, NULL, 1, NOW(), 'system', NOW(), 'system')
-ON CONFLICT DO NOTHING;
+) AS v(booking_no, booking_type, booking_date, travel_start_date, travel_end_date, status, currency, exchange_rate, subtotal_amount, discount_amount, tax_amount, total_amount, paid_amount, due_amount, remarks, party_id, sales_agent_id, organization_id, created_at, created_by, updated_at, updated_by)
+WHERE NOT EXISTS (SELECT 1 FROM trv_bookings WHERE organization_id = 1 AND booking_no = v.booking_no);
 
 -- ═════════════════════════════════════════════════════════════════════════════
 -- 2.  BOOKING SERVICES  (service lines for each booking)
@@ -542,5 +589,142 @@ INSERT INTO trv_booking_status_history (booking_id, status, changed_by, changed_
 SELECT b.id, 'DRAFT', 'admin',    NOW() - INTERVAL '8 days', 'DRAFT with university administration. Educational discount applied.'
 FROM trv_bookings b WHERE b.booking_no = 'BKG-25-0023'
 ON CONFLICT DO NOTHING;
+
+
+-- ═════════════════════════════════════════════════════════════════════════════
+-- 5.  HOTEL BOOKINGS  (reservations for each HOTEL-type booking service)
+-- ═════════════════════════════════════════════════════════════════════════════
+INSERT INTO trv_hotel_bookings (organization_id, booking_service_id, hotel_id,
+    check_in_date, check_out_date, adults, children, rooms_count, status,
+    total_amount, rate_per_night, nights,
+    booking_currency, vendor_confirmation_received,
+    created_at, created_by, updated_at)
+SELECT 1,
+    (SELECT bs.id FROM trv_booking_services bs JOIN trv_bookings b ON b.id = bs.booking_id
+     WHERE b.booking_no = 'BKG-25-0001' AND bs.service_type = 'HOTEL'),
+    (SELECT id FROM trv_hotels WHERE hotel_code = 'HT-COX-001'),
+    '2026-07-15', '2026-07-18', 2, 1, 2, 'CONFIRMED',
+    10000.00, 3333.33, 3,
+    'BDT', TRUE,
+    NOW(), 'system', NOW()
+WHERE NOT EXISTS (SELECT 1 FROM trv_hotel_bookings hb
+    JOIN trv_booking_services bs ON bs.id = hb.booking_service_id
+    JOIN trv_bookings b ON b.id = bs.booking_id WHERE b.booking_no = 'BKG-25-0001')
+      AND EXISTS (SELECT 1 FROM trv_hotels WHERE hotel_code = 'HT-COX-001');
+
+INSERT INTO trv_hotel_bookings (organization_id, booking_service_id, hotel_id,
+    check_in_date, check_out_date, adults, children, rooms_count, status,
+    total_amount, rate_per_night, nights,
+    booking_currency, vendor_confirmation_received,
+    created_at, created_by, updated_at)
+SELECT 1,
+    (SELECT bs.id FROM trv_booking_services bs JOIN trv_bookings b ON b.id = bs.booking_id
+     WHERE b.booking_no = 'BKG-25-0004' AND bs.service_type = 'HOTEL'),
+    (SELECT id FROM trv_hotels WHERE hotel_code = 'HT-DHK-001'),
+    '2026-08-10', '2026-08-14', 2, 0, 1, 'CONFIRMED',
+    40000.00, 10000.00, 4,
+    'BDT', TRUE,
+    NOW(), 'system', NOW()
+WHERE NOT EXISTS (SELECT 1 FROM trv_hotel_bookings hb
+    JOIN trv_booking_services bs ON bs.id = hb.booking_service_id
+    JOIN trv_bookings b ON b.id = bs.booking_id WHERE b.booking_no = 'BKG-25-0004')
+      AND EXISTS (SELECT 1 FROM trv_hotels WHERE hotel_code = 'HT-DHK-001');
+
+INSERT INTO trv_hotel_bookings (organization_id, booking_service_id, hotel_id,
+    check_in_date, check_out_date, adults, children, rooms_count, status,
+    total_amount, rate_per_night, nights,
+    booking_currency, vendor_confirmation_received,
+    created_at, created_by, updated_at)
+SELECT 1,
+    (SELECT bs.id FROM trv_booking_services bs JOIN trv_bookings b ON b.id = bs.booking_id
+     WHERE b.booking_no = 'BKG-25-0010' AND bs.service_type = 'HOTEL'),
+    (SELECT id FROM trv_hotels WHERE hotel_code = 'HT-COX-002'),
+    '2026-09-01', '2026-09-05', 2, 0, 1, 'CONFIRMED',
+    28000.00, 7000.00, 4,
+    'BDT', TRUE,
+    NOW(), 'system', NOW()
+WHERE NOT EXISTS (SELECT 1 FROM trv_hotel_bookings hb
+    JOIN trv_booking_services bs ON bs.id = hb.booking_service_id
+    JOIN trv_bookings b ON b.id = bs.booking_id WHERE b.booking_no = 'BKG-25-0010')
+      AND EXISTS (SELECT 1 FROM trv_hotels WHERE hotel_code = 'HT-COX-002');
+
+INSERT INTO trv_hotel_bookings (organization_id, booking_service_id, hotel_id,
+    check_in_date, check_out_date, adults, children, rooms_count, status,
+    total_amount, rate_per_night, nights,
+    booking_currency, vendor_confirmation_received,
+    created_at, created_by, updated_at)
+SELECT 1,
+    (SELECT bs.id FROM trv_booking_services bs JOIN trv_bookings b ON b.id = bs.booking_id
+     WHERE b.booking_no = 'BKG-25-0014' AND bs.service_type = 'HOTEL'),
+    (SELECT id FROM trv_hotels WHERE hotel_code = 'HT-SG-001'),
+    '2026-07-30', '2026-08-02', 1, 0, 1, 'CONFIRMED',
+    12500.00, 4166.67, 3,
+    'BDT', TRUE,
+    NOW(), 'system', NOW()
+WHERE NOT EXISTS (SELECT 1 FROM trv_hotel_bookings hb
+    JOIN trv_booking_services bs ON bs.id = hb.booking_service_id
+    JOIN trv_bookings b ON b.id = bs.booking_id WHERE b.booking_no = 'BKG-25-0014')
+      AND EXISTS (SELECT 1 FROM trv_hotels WHERE hotel_code = 'HT-SG-001');
+
+INSERT INTO trv_hotel_bookings (organization_id, booking_service_id, hotel_id,
+    check_in_date, check_out_date, adults, children, rooms_count, status,
+    total_amount, rate_per_night, nights,
+    booking_currency, vendor_confirmation_received,
+    created_at, created_by, updated_at)
+SELECT 1,
+    (SELECT bs.id FROM trv_booking_services bs JOIN trv_bookings b ON b.id = bs.booking_id
+     WHERE b.booking_no = 'BKG-25-0018' AND bs.service_type = 'HOTEL'),
+    (SELECT id FROM trv_hotels WHERE hotel_code = 'HT-DHK-003'),
+    '2026-08-18', '2026-08-22', 2, 0, 1, 'CONFIRMED',
+    35000.00, 8750.00, 4,
+    'BDT', TRUE,
+    NOW(), 'system', NOW()
+WHERE NOT EXISTS (SELECT 1 FROM trv_hotel_bookings hb
+    JOIN trv_booking_services bs ON bs.id = hb.booking_service_id
+    JOIN trv_bookings b ON b.id = bs.booking_id WHERE b.booking_no = 'BKG-25-0018')
+      AND EXISTS (SELECT 1 FROM trv_hotels WHERE hotel_code = 'HT-DHK-003');
+
+-- ═════════════════════════════════════════════════════════════════════════════
+-- 6.  HOTEL ROOMS  (specific room assignments per hotel booking)
+-- ═════════════════════════════════════════════════════════════════════════════
+INSERT INTO trv_hotel_rooms (hotel_booking_id, room_number, room_type_snapshot)
+SELECT hb.id, '1201', 'Deluxe King'
+FROM trv_hotel_bookings hb
+JOIN trv_booking_services bs ON bs.id = hb.booking_service_id
+JOIN trv_bookings b ON b.id = bs.booking_id
+WHERE b.booking_no = 'BKG-25-0001'
+  AND NOT EXISTS (SELECT 1 FROM trv_hotel_rooms r WHERE r.hotel_booking_id = hb.id AND r.room_number = '1201');
+
+INSERT INTO trv_hotel_rooms (hotel_booking_id, room_number, room_type_snapshot)
+SELECT hb.id, '1202', 'Deluxe Twin'
+FROM trv_hotel_bookings hb
+JOIN trv_booking_services bs ON bs.id = hb.booking_service_id
+JOIN trv_bookings b ON b.id = bs.booking_id
+WHERE b.booking_no = 'BKG-25-0001'
+  AND NOT EXISTS (SELECT 1 FROM trv_hotel_rooms r WHERE r.hotel_booking_id = hb.id AND r.room_number = '1202');
+
+INSERT INTO trv_hotel_rooms (hotel_booking_id, room_number, room_type_snapshot)
+SELECT hb.id, '805', 'Executive Suite'
+FROM trv_hotel_bookings hb
+JOIN trv_booking_services bs ON bs.id = hb.booking_service_id
+JOIN trv_bookings b ON b.id = bs.booking_id
+WHERE b.booking_no = 'BKG-25-0004'
+  AND NOT EXISTS (SELECT 1 FROM trv_hotel_rooms r WHERE r.hotel_booking_id = hb.id AND r.room_number = '805');
+
+INSERT INTO trv_hotel_rooms (hotel_booking_id, room_number, room_type_snapshot)
+SELECT hb.id, '501', 'Family Suite'
+FROM trv_hotel_bookings hb
+JOIN trv_booking_services bs ON bs.id = hb.booking_service_id
+JOIN trv_bookings b ON b.id = bs.booking_id
+WHERE b.booking_no = 'BKG-25-0010'
+  AND NOT EXISTS (SELECT 1 FROM trv_hotel_rooms r WHERE r.hotel_booking_id = hb.id AND r.room_number = '501');
+
+INSERT INTO trv_hotel_rooms (hotel_booking_id, room_number, room_type_snapshot)
+SELECT hb.id, '1108', 'Presidential Suite'
+FROM trv_hotel_bookings hb
+JOIN trv_booking_services bs ON bs.id = hb.booking_service_id
+JOIN trv_bookings b ON b.id = bs.booking_id
+WHERE b.booking_no = 'BKG-25-0018'
+  AND NOT EXISTS (SELECT 1 FROM trv_hotel_rooms r WHERE r.hotel_booking_id = hb.id AND r.room_number = '1108');
 
 COMMIT;

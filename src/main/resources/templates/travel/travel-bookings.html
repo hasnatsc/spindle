@@ -2,22 +2,22 @@
 <!--
   travel/travel-bookings.html    GET /travel/bookings
   JS prefix: bkg*
-  Booking → Receipt Voucher bridge: createReceiptFromBooking(id)
+  Sale → Receipt Voucher bridge: createReceiptFromBooking(id)
 -->
-<html th:replace="~{layout/base :: layout('Bookings', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
+<html th:replace="~{layout/base :: layout('Sales', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
 <section>
 
   <ol class="breadcrumb float-xl-end">
     <li class="breadcrumb-item"><a th:href="@{/dashboard}">Home</a></li>
     <li class="breadcrumb-item">Travel</li>
-    <li class="breadcrumb-item active">Bookings</li>
+    <li class="breadcrumb-item active">Sales</li>
   </ol>
-  <h1 class="page-header">Bookings <small>packages, hotels &amp; flights sold to customers</small></h1>
+  <h1 class="page-header">Sales <small>packages, hotels &amp; flights sold to customers</small></h1>
 
   <div class="travel-nav">
     <a th:href="@{/travel/dashboard}"      class="btn btn-outline-primary btn-sm"><i class="fa fa-tachometer-alt"></i> Dashboard</a>
-    <a th:href="@{/travel/bookings}"       class="btn btn-primary btn-sm"><i class="fa fa-ticket-alt"></i> Bookings</a>
-    <a th:href="@{/travel/hotel-bookings}" class="btn btn-outline-primary btn-sm"><i class="fa fa-bed"></i> Hotel Bookings</a>
+    <a th:href="@{/travel/bookings}"       class="btn btn-primary btn-sm"><i class="fa fa-ticket-alt"></i> Sales</a>
+    <a th:href="@{/travel/hotel-bookings}" class="btn btn-outline-primary btn-sm"><i class="fa fa-bed"></i> Hotel Sales</a>
     <a th:href="@{/travel/air-tickets}"    class="btn btn-outline-primary btn-sm"><i class="fa fa-plane-departure"></i> Air Tickets</a>
     <a th:href="@{/travel/supplier-costs}" class="btn btn-outline-primary btn-sm"><i class="fa fa-file-invoice-dollar"></i> Supplier Costs</a>
     <a th:href="@{/travel/packages}"       class="btn btn-outline-primary btn-sm"><i class="fa fa-suitcase-rolling"></i> Packages</a>
@@ -29,7 +29,7 @@
     <div class="panel-heading">
       <div class="panel-title d-flex gap-2 align-items-center flex-wrap">
         <a href="javascript:;" onclick="bkgOpenCreate()">
-          <span class="badge btn btn-outline-success"><i class="fa fa-plus me-1"></i> New Booking</span>
+          <span class="badge btn btn-outline-success"><i class="fa fa-plus me-1"></i> New Sale</span>
         </a>
         <select id="bkgStatusFilter" class="form-select form-select-sm" style="width:170px" onchange="_bkgReload()">
           <option value="">All Status</option>
@@ -49,7 +49,7 @@
     <div class="panel-body">
       <table id="bkgTable" width="100%" class="table table-striped table-bordered align-middle">
         <thead><tr>
-          <th width="1%">SL</th><th>Booking No</th><th>Type</th><th>Date</th><th>Departs</th>
+          <th width="1%">SL</th><th>Sale No</th><th>Type</th><th>Date</th><th>Departs</th>
           <th>Customer</th><th>Agent</th><th class="text-center">Pax</th>
           <th class="text-end">Total</th><th class="text-end">Due</th>
           <th class="text-center">Status</th><th class="text-center" width="18%">Actions</th>
@@ -63,7 +63,7 @@
       <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
         <div class="modal-content">
           <div class="modal-header">
-            <h5 class="modal-title" id="bkgModalTitle"><i class="fa fa-ticket-alt me-1 text-success"></i> New Booking</h5>
+            <h5 class="modal-title" id="bkgModalTitle"><i class="fa fa-ticket-alt me-1 text-success"></i> New Sale</h5>
             <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
           </div>
           <form id="bkgForm" novalidate>
@@ -71,54 +71,35 @@
               <div class="hs-box">
                 <input type="hidden" id="bkgId">
                 <div class="row g-2 mb-3">
-                  <div class="col-md-3 view-group">
+                  <div class="col-md-4 view-group">
                     <input id="bkgNo" type="text" class="form-control hs_span_view bg-light" readonly placeholder="Auto-generated">
-                    <label class="input-label">Booking No</label>
+                    <label class="input-label">Sale No</label>
                   </div>
-                  <div class="col-md-3 view-group">
+                  <div class="col-md-4 view-group">
                     <select id="bkgType" class="form-select hs_span_view" required>
                       <option value="PACKAGE">Package</option>
                       <option value="HOTEL">Hotel</option>
                       <option value="AIR">Air</option>
                       <option value="COMBINED">Combined</option>
                     </select>
-                    <label class="input-label">Booking Type <span class="text-danger">*</span></label>
+                    <label class="input-label">Sale Type <span class="text-danger">*</span></label>
                   </div>
-                  <div class="col-md-3 view-group">
-                    <input id="bkgDate" type="date" class="form-control hs_span_view" required>
-                    <label class="input-label">Booking Date <span class="text-danger">*</span></label>
-                  </div>
-                  <div class="col-md-3 view-group">
-                    <input id="bkgTravelStart" type="date" class="form-control hs_span_view">
-                    <label class="input-label">Travel Start</label>
-                  </div>
-                  <div class="col-md-3 view-group">
-                    <input id="bkgTravelEnd" type="date" class="form-control hs_span_view">
-                    <label class="input-label">Travel End</label>
-                  </div>
-
                   <div class="col-md-4 view-group">
-                    <select id="bkgCustomerId" class="form-select hs_span_view"></select>
+                    <input id="bkgDate" type="date" class="form-control hs_span_view" required>
+                    <label class="input-label">Sale Date <span class="text-danger">*</span></label>
+                  </div>
+                </div>
+                <div class="row g-2 mb-3">
+                  <div class="col-md-6 view-group">
+                    <div class="d-flex gap-1">
+                      <select id="bkgCustomerId" class="form-select hs_span_view flex-fill"></select>
+                      <button type="button" class="btn btn-outline-success btn-sm flex-shrink-0" onclick="openCustomerModal()" title="New Customer"><i class="fa fa-plus"></i></button>
+                    </div>
                     <label class="input-label">Customer <span class="text-danger">*</span></label>
                   </div>
-                  <div class="col-md-4 view-group">
+                  <div class="col-md-6 view-group">
                     <select id="bkgAgentId" class="form-select hs_span_view"></select>
                     <label class="input-label">Sales Agent</label>
-                  </div>
-                  <div class="col-md-2 view-group">
-                    <input id="bkgDiscount" type="number" step="0.01" class="form-control hs_span_view text-end" value="0" oninput="bkgRecalcTotal()">
-                    <label class="input-label">Discount</label>
-                  </div>
-                  <div class="col-md-9 view-group">
-                    <textarea id="bkgRemarks" class="form-control hs_span_view" rows="1"></textarea>
-                    <label class="input-label">Remarks</label>
-                  </div>
-                  <div class="col-md-3 d-flex align-items-end justify-content-end pb-1">
-                    <span id="bkgDocBtnWrap" style="display:none">
-                      <button type="button" class="btn btn-sm btn-outline-secondary" onclick="trvOpenDocuments('BOOKING', parseInt(document.getElementById('bkgId').value), 'Booking ' + (document.getElementById('bkgNo').value || '#' + document.getElementById('bkgId').value), ['PASSPORT','VISA','TICKET','INVOICE','CONFIRMATION','RECEIPT','OTHER'])">
-                        <i class="fa fa-paperclip me-1"></i> Documents
-                      </button>
-                    </span>
                   </div>
                 </div>
 
@@ -130,34 +111,59 @@
                 <div class="table-responsive mb-3">
                   <table class="table table-sm table-bordered">
                     <thead class="table-light"><tr>
-                      <th width="12%">Type</th><th width="24%">Description</th>
+                      <th width="12%">Type</th><th width="20%">Description</th><th width="12%">Patient Cat.</th>
                       <th>Qty</th><th>Unit Cost</th><th>Unit Price</th><th>Tax</th><th>Amount</th><th></th>
                     </tr></thead>
                     <tbody id="bkgServiceBody"></tbody>
                     <tfoot><tr class="fw-bold bg-light">
-                      <td colspan="6" class="text-end">Subtotal:</td>
+                      <td colspan="7" class="text-end">Subtotal:</td>
                       <td id="bkgSubtotal" class="text-end">0.00</td><td></td>
                     </tr>
                     <tr class="fw-bold bg-light">
-                      <td colspan="6" class="text-end">Total (after discount + tax):</td>
+                      <td colspan="7" class="text-end">Discount:</td>
+                      <td><input id="bkgDiscount" type="number" step="0.01" class="form-control form-control-sm text-end border-0 fw-bold p-0" value="0" oninput="bkgRecalcTotal()" style="height:auto;box-shadow:none"></td><td></td>
+                    </tr>
+                    <tr class="fw-bold bg-light">
+                      <td colspan="7" class="text-end">Total (after discount + tax):</td>
                       <td id="bkgTotal" class="text-end">0.00</td><td></td>
                     </tr></tfoot>
                   </table>
                 </div>
 
-                <!-- PASSENGERS -->
+                <!-- MONEY RECEIPT LINES -->
                 <div class="d-flex justify-content-between align-items-center mb-2">
-                  <strong>Passengers</strong>
-                  <button type="button" class="btn btn-sm btn-outline-primary" onclick="bkgAddPassenger()"><i class="fa fa-user-plus me-1"></i> Add Passenger</button>
+                  <strong>Money Receipt</strong>
+                  <button type="button" class="btn btn-sm btn-outline-primary" onclick="bkgAddReceiptLine()"><i class="fa fa-plus me-1"></i> Add Receipt</button>
                 </div>
                 <div class="table-responsive">
                   <table class="table table-sm table-bordered">
                     <thead class="table-light"><tr>
-                      <th width="8%">Title</th><th width="16%">First Name</th><th width="16%">Last Name</th>
-                      <th>Type</th><th>Passport No</th><th>Nationality</th><th>Lead</th><th></th><th></th>
+                      <th>Payment Mode</th><th>Sub Account</th><th>Reference</th><th class="text-end">Amount</th><th></th>
                     </tr></thead>
-                    <tbody id="bkgPaxBody"></tbody>
+                    <tbody id="bkgReceiptBody"></tbody>
+                    <tfoot><tr class="fw-bold bg-light">
+                      <td colspan="3" class="text-end">Total Received:</td>
+                      <td id="bkgReceiptTotal" class="text-end">0.00</td><td></td>
+                    </tr>
+                    <tr class="fw-bold bg-light">
+                      <td colspan="3" class="text-end">Total Due:</td>
+                      <td id="bkgDueTotal" class="text-end text-danger">0.00</td><td></td>
+                    </tr></tfoot>
                   </table>
+                </div>
+
+                <div class="row g-2 mb-3">
+                  <div class="col-md-9 view-group">
+                    <textarea id="bkgRemarks" class="form-control hs_span_view" rows="1" required></textarea>
+                    <label class="input-label">Narration <span class="text-danger">*</span></label>
+                  </div>
+                  <div class="col-md-3 d-flex align-items-end justify-content-end pb-1">
+                    <span id="bkgDocBtnWrap" style="display:none">
+                      <button type="button" class="btn btn-sm btn-outline-secondary" onclick="trvOpenDocuments('BOOKING', parseInt(document.getElementById('bkgId').value), 'Sale ' + (document.getElementById('bkgNo').value || '#' + document.getElementById('bkgId').value), ['PASSPORT','VISA','TICKET','INVOICE','CONFIRMATION','RECEIPT','OTHER'])">
+                        <i class="fa fa-paperclip me-1"></i> Documents
+                      </button>
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -177,10 +183,10 @@
     <div tabindex="-1" id="bkgViewModal" class="modal fade">
       <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
         <div class="modal-content">
-          <div class="modal-header"><h5 class="modal-title"><i class="fa fa-ticket-alt me-1 text-primary"></i> Booking Details</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+          <div class="modal-header"><h5 class="modal-title"><i class="fa fa-ticket-alt me-1 text-primary"></i> Sale Details</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
           <div class="modal-body" id="bkgViewBody"></div>
           <div class="modal-footer">
-            <button type="button" class="btn btn-sm btn-outline-primary travel-no-print" onclick="trvPrintBooking()" id="bkgPrintBtn" style="display:none"><i class="fa fa-print me-1"></i> Print Confirmation</button>
+            <button type="button" class="btn btn-sm btn-outline-primary travel-no-print" id="bkgPrintBtn" style="display:none"><i class="fa fa-print me-1"></i> Print</button>
             <button type="button" class="btn btn-white" data-bs-dismiss="modal">Close</button>
           </div>
         </div>
@@ -193,8 +199,9 @@
     'use strict';
     const BASE = '/travel/bookings';
     const SUB_URL = '/accounts/sub-accounts/search';
+    let _AR_ACCOUNT_ID = 0; // resolved once — default AR account for new customers
     const USER_URL = '/users/search';
-    var dt, _svcCount = 0, _paxCount = 0;
+    var dt, _svcCount = 0, _rcptCount = 0;
 
     document.addEventListener('DOMContentLoaded', function () {
       dt = $('#bkgTable').DataTable({
@@ -217,6 +224,11 @@
       document.getElementById('bkgDate').value = new Date().toISOString().substring(0, 10);
       _initCustomerS2(null, null);
       _initAgentS2(null, null);
+      // Resolve default AR account for customer creation
+      secureFetch('/accounts/chart-of-accounts/search?search=1200&pageSize=1').then(function (d) {
+        if (d.items && d.items.length) _AR_ACCOUNT_ID = d.items[0].id;
+      });
+      document.getElementById('custForm').addEventListener('submit', _onCustSubmit);
     });
 
     window._bkgReload = function () { dt.ajax.reload(); };
@@ -228,8 +240,10 @@
         dropdownParent: $('#bkgModal'), width: '100%', placeholder: '— Search Customer —', allowClear: true, minimumInputLength: 0,
         ajax: { url: SUB_URL, dataType: 'json', delay: 250,
           data: function (p) { return { search: p.term || '', subAccountType: 'CUSTOMER', page: p.page || 1 }; },
-          processResults: function (data, p) { p.page = p.page || 1; return { results: (data.items || []).map(function (i) { return { id: i.id, text: i.text }; }), pagination: { more: data.hasMore || false } }; },
-          cache: false }
+          processResults: function (data, p) { p.page = p.page || 1; return { results: (data.items || []).map(function (i) { return { id: i.id, text: i.text, phone: i.phone || '' }; }), pagination: { more: data.hasMore || false } }; },
+          cache: false },
+        templateResult: function (d) { if (!d.id) return d.text; return $('<span>' + d.text + (d.phone ? ' <span class="text-muted">— ' + d.phone + '</span>' : '') + '</span>'); },
+        templateSelection: function (d) { var phone = d.phone || (d.element && d.element.dataset.phone) || ''; return d.text + (phone ? ' — ' + phone : ''); }
       });
       if (preId) $el.append(new Option(preText || '', preId, true, true)).trigger('change');
     }
@@ -249,9 +263,9 @@
 
     window.bkgOpenCreate = function () {
       _resetForm();
-      document.getElementById('bkgModalTitle').innerHTML = '<i class="fa fa-plus me-1 text-success"></i> New Booking';
+      document.getElementById('bkgModalTitle').innerHTML = '<i class="fa fa-plus me-1 text-success"></i> New Sale';
       document.getElementById('bkgBtnText').textContent = 'Save Draft';
-      bkgAddService(); bkgAddPassenger();
+      bkgAddService(); bkgAddReceiptLine();
       bootstrap.Modal.getOrCreateInstance(document.getElementById('bkgModal')).show();
     };
 
@@ -267,6 +281,12 @@
           + '<option value="VISA"' + (data && data.serviceType === 'VISA' ? ' selected' : '') + '>Visa</option>'
           + '</select></td>'
         + '<td><input type="text" class="form-control form-control-sm" data-field="description" value="' + (data ? (data.description || '') : '') + '"></td>'
+        + '<td><select class="form-select form-select-sm" data-field="patientCategory">'
+          + '<option value="">—</option>'
+          + '<option value="INFANT"' + (data && data.patientCategory === 'INFANT' ? ' selected' : '') + '>Infant</option>'
+          + '<option value="CHILD"' + (data && data.patientCategory === 'CHILD' ? ' selected' : '') + '>Child</option>'
+          + '<option value="ADULT"' + (data && data.patientCategory === 'ADULT' ? ' selected' : '') + '>Adult</option>'
+          + '</select></td>'
         + '<td><input type="number" step="0.001" class="form-control form-control-sm text-end" data-field="quantity" value="' + (data ? data.quantity || 1 : 1) + '" oninput="bkgCalcService(this.closest(\'tr\'))"></td>'
         + '<td><input type="number" step="0.01" class="form-control form-control-sm text-end" data-field="unitCost" value="' + (data ? data.unitCost || 0 : 0) + '"></td>'
         + '<td><input type="number" step="0.01" class="form-control form-control-sm text-end" data-field="unitPrice" value="' + (data ? data.unitPrice || 0 : 0) + '" oninput="bkgCalcService(this.closest(\'tr\'))"></td>'
@@ -293,64 +313,126 @@
       var discount = parseFloat(document.getElementById('bkgDiscount').value) || 0;
       document.getElementById('bkgSubtotal').textContent = subtotal.toFixed(2);
       document.getElementById('bkgTotal').textContent = (subtotal - discount + tax).toFixed(2);
+      bkgCalcReceipt();
     };
 
-    // ── PASSENGERS ────────────────────────────────────────────────────────────
-    window.bkgAddPassenger = function (data) {
-      _paxCount++; var n = _paxCount;
-      var html = '<tr id="bkgPax_' + n + '">'
-        + '<td><input type="text" class="form-control form-control-sm" data-field="title" value="' + (data ? data.title || '' : '') + '" placeholder="Mr/Mrs"></td>'
-        + '<td><input type="text" class="form-control form-control-sm" data-field="firstName" value="' + (data ? data.firstName || '' : '') + '" required></td>'
-        + '<td><input type="text" class="form-control form-control-sm" data-field="lastName" value="' + (data ? data.lastName || '' : '') + '"></td>'
-        + '<td><select class="form-select form-select-sm" data-field="passengerType">'
-          + '<option value="ADULT"' + (!data || data.passengerType === 'ADULT' ? ' selected' : '') + '>Adult</option>'
-          + '<option value="CHILD"' + (data && data.passengerType === 'CHILD' ? ' selected' : '') + '>Child</option>'
-          + '<option value="INFANT"' + (data && data.passengerType === 'INFANT' ? ' selected' : '') + '>Infant</option>'
+    // ── MONEY RECEIPT LINES ───────────────────────────────────────────────────
+    window.bkgAddReceiptLine = function (data) {
+      _rcptCount++; var n = _rcptCount;
+      var html = '<tr id="bkgRcpt_' + n + '">'
+        + '<td><select class="form-select form-select-sm" data-field="paymentMode" onchange="rcptOnModeChange(' + n + ')">'
+          + '<option value="CASH"' + (!data || data.paymentMode === 'CASH' ? ' selected' : '') + '>Cash</option>'
+          + '<option value="BANK"' + (data && data.paymentMode === 'BANK' ? ' selected' : '') + '>Bank</option>'
+          + '<option value="BKASH"' + (data && data.paymentMode === 'BKASH' ? ' selected' : '') + '>bKash</option>'
+          + '<option value="NAGAD"' + (data && data.paymentMode === 'NAGAD' ? ' selected' : '') + '>Nagad</option>'
+          + '<option value="CARD"' + (data && data.paymentMode === 'CARD' ? ' selected' : '') + '>Card</option>'
           + '</select></td>'
-        + '<td><input type="text" class="form-control form-control-sm" data-field="passportNumber" value="' + (data ? data.passportNumber || '' : '') + '"></td>'
-        + '<td><input type="text" class="form-control form-control-sm" data-field="nationality" value="' + (data ? data.nationality || '' : '') + '"></td>'
-        + '<td class="text-center"><input type="checkbox" data-field="isLeadPassenger"' + (data && data.isLeadPassenger ? ' checked' : '') + '></td>'
-        + '<td>' + (data && data.id
-            ? '<button type="button" class="btn btn-sm btn-outline-secondary" title="Documents" onclick="trvOpenDocuments(\'PASSENGER\',' + data.id + ',\'' + ((data.firstName || '') + ' ' + (data.lastName || '')).replace(/'/g, "\\'") + '\')"><i class="fa fa-paperclip"></i></button>'
-            : '<span class="text-muted small">save first</span>') + '</td>'
-        + '<td><button type="button" class="btn btn-sm btn-outline-danger" onclick="bkgRemovePax(' + n + ')"><i class="fa fa-times"></i></button></td>'
+        + '<td><select id="rcptSubAccount_' + n + '" class="form-select form-select-sm" data-field="subAccountId"></select></td>'
+        + '<td><input type="text" class="form-control form-control-sm" data-field="reference" value="' + (data ? data.reference || '' : '') + '" placeholder="Ref/TrxID"></td>'
+        + '<td><input type="number" step="0.01" class="form-control form-control-sm text-end" data-field="amount" value="' + (data ? data.amount || '' : '') + '" oninput="bkgCalcReceipt()"></td>'
+        + '<td><button type="button" class="btn btn-sm btn-outline-danger" onclick="bkgRemoveReceipt(' + n + ')"><i class="fa fa-times"></i></button></td>'
         + '</tr>';
-      document.getElementById('bkgPaxBody').insertAdjacentHTML('beforeend', html);
+      document.getElementById('bkgReceiptBody').insertAdjacentHTML('beforeend', html);
+      // Init sub-account select2 for this row based on initial payment mode
+      _initRcptSubS2(n, data ? data.subAccountId : null, data ? data.subAccountText : null);
     };
-    window.bkgRemovePax = function (n) { var r = document.getElementById('bkgPax_' + n); if (r) r.remove(); };
+    window.bkgRemoveReceipt = function (n) { var r = document.getElementById('bkgRcpt_' + n); if (r) r.remove(); bkgCalcReceipt(); };
+    window.bkgCalcReceipt = function () {
+      var total = 0;
+      document.querySelectorAll('#bkgReceiptBody tr').forEach(function (tr) {
+        total += parseFloat(tr.querySelector('[data-field="amount"]').value) || 0;
+      });
+      document.getElementById('bkgReceiptTotal').textContent = total.toFixed(2);
+      var billTotal = parseFloat(document.getElementById('bkgTotal').textContent) || 0;
+      var due = Math.max(0, billTotal - total);
+      var dueEl = document.getElementById('bkgDueTotal');
+      dueEl.textContent = due.toFixed(2);
+      dueEl.className = 'text-end ' + (due > 0 ? 'text-danger' : 'text-success');
+    };
+
+    function _rcptSubAccountType(mode) {
+      return { CASH: 'CASH', BANK: 'BANK', BKASH: 'BANK', NAGAD: 'BANK', CARD: 'BANK' }[mode] || 'BANK';
+    }
+
+    window.rcptOnModeChange = function (n) {
+      var tr = document.getElementById('bkgRcpt_' + n);
+      if (!tr) return;
+      var mode = tr.querySelector('[data-field="paymentMode"]').value;
+      var $el = $('#rcptSubAccount_' + n);
+      if ($el.hasClass('select2-hidden-accessible')) $el.select2('destroy');
+      $el.empty();
+      _initRcptSubS2(n, null, null, mode);
+    };
+
+    function _initRcptSubS2(n, preId, preText, mode) {
+      var $el = $('#rcptSubAccount_' + n);
+      if (!$el.length) return;
+      if ($el.hasClass('select2-hidden-accessible')) $el.select2('destroy');
+      var acctType = _rcptSubAccountType(mode || document.querySelector('#bkgRcpt_' + n + ' [data-field="paymentMode"]')?.value || 'BANK');
+      $el.select2({
+        dropdownParent: $('#bkgModal'), width: '100%', placeholder: '— Select Account —', allowClear: true, minimumInputLength: 0,
+        ajax: { url: SUB_URL, dataType: 'json', delay: 250,
+          data: function (p) { return { search: p.term || '', subAccountType: acctType, page: p.page || 1 }; },
+          processResults: function (data, p) { p.page = p.page || 1; return { results: (data.items || []).map(function (i) { return { id: i.id, text: i.text, phone: i.phone || '' }; }), pagination: { more: data.hasMore || false } }; },
+          cache: false },
+        templateResult: function (d) { if (!d.id) return d.text; return $('<span>' + d.text + (d.phone ? ' <span class="text-muted">— ' + d.phone + '</span>' : '') + '</span>'); },
+        templateSelection: function (d) { return d.text; }
+      });
+      if (preId) $el.append(new Option(preText || '', preId, true, true)).trigger('change');
+    }
 
     window.bkgShow = function (id) {
       secureFetch(BASE + '/show/' + id).then(function (res) {
         if (!res.success) { Swal.fire('Error', res.message, 'error'); return; }
         var o = res.obj.defaultData;
         var html = '<div class="hs-box"><div class="row g-2">'
-          + travel.viewField('Booking No', o.bookingNo) + travel.viewField('Type', o.bookingType) + travel.viewField('Status', travel.statusBadge(o.status))
-          + travel.viewField('Customer', o.partyDisplay || '—') + travel.viewField('Booking Date', o.bookingDate)
-          + travel.viewField('Travel', (o.travelStartDate || '—') + ' to ' + (o.travelEndDate || '—'))
+          + travel.viewField('Sale No', o.bookingNo) + travel.viewField('Type', o.bookingType) + travel.viewField('Status', travel.statusBadge(o.status))
+          + travel.viewField('Customer', o.partyDisplay || '—') + travel.viewField('Sale Date', o.bookingDate)
           + travel.viewField('Total', parseFloat(o.totalAmount || 0).toFixed(2)) + travel.viewField('Due', parseFloat(o.dueAmount || 0).toFixed(2))
+          + travel.viewField('Narration', o.remarks || '')
           + '</div><h6 class="mt-3">Services</h6><table class="table table-sm table-bordered"><thead class="table-light"><tr>'
-          + '<th>Type</th><th>Description</th><th class="text-end">Qty</th><th class="text-end">Price</th><th class="text-end">Amount</th></tr></thead><tbody>';
-        (o.services || []).forEach(function (s) { html += '<tr><td>' + travel.typeChip(s.serviceType) + '</td><td>' + travel.esc(s.description || '—') + '</td><td class="text-end">' + s.quantity + '</td><td class="text-end">' + parseFloat(s.unitPrice || 0).toFixed(2) + '</td><td class="text-end">' + parseFloat(s.lineTotal || 0).toFixed(2) + '</td></tr>'; });
-        html += '</tbody></table><h6 class="mt-3">Passengers</h6><table class="table table-sm table-bordered"><thead class="table-light"><tr><th>Name</th><th>Type</th><th>Passport</th></tr></thead><tbody>';
-        (o.passengers || []).forEach(function (p) { html += '<tr><td>' + travel.esc(p.title || '') + ' ' + travel.esc(p.firstName) + ' ' + travel.esc(p.lastName || '') + (p.isLeadPassenger ? ' <span class="badge bg-primary">Lead</span>' : '') + '</td><td>' + p.passengerType + '</td><td>' + travel.esc(p.passportNumber || '—') + '</td></tr>'; });
+          + '<th>Type</th><th>Description</th><th>Patient Cat.</th><th class="text-end">Qty</th><th class="text-end">Price</th><th class="text-end">Amount</th></tr></thead><tbody>';
+        (o.services || []).forEach(function (s) { html += '<tr><td>' + travel.typeChip(s.serviceType) + '</td><td>' + travel.esc(s.description || '—') + '</td><td class="text-nowrap">' + (s.patientCategory || '—') + '</td><td class="text-end">' + s.quantity + '</td><td class="text-end">' + parseFloat(s.unitPrice || 0).toFixed(2) + '</td><td class="text-end">' + parseFloat(s.lineTotal || 0).toFixed(2) + '</td></tr>'; });
+        html += '</tbody></table><h6 class="mt-3">Receipts</h6><table class="table table-sm table-bordered"><thead class="table-light"><tr><th>Mode</th><th>Sub Account</th><th>Reference</th><th class="text-end">Amount</th></tr></thead><tbody>';
+        var rcptTotal = 0;
+        (o.receipts || []).forEach(function (r) { rcptTotal += parseFloat(r.amount || 0); html += '<tr><td>' + r.paymentMode + '</td><td>' + (r.subAccountText || '—') + '</td><td>' + travel.esc(r.reference || '—') + '</td><td class="text-end">' + parseFloat(r.amount || 0).toFixed(2) + '</td></tr>'; });
+        var total = parseFloat(o.totalAmount || 0);
+        var due = Math.max(0, total - rcptTotal);
+        html += '<tr class="fw-bold bg-light"><td colspan="3" class="text-end">Total Received:</td><td class="text-end">' + rcptTotal.toFixed(2) + '</td></tr>'
+          + '<tr class="fw-bold ' + (due > 0 ? 'text-danger' : 'text-success') + '"><td colspan="3" class="text-end">Total Due:</td><td class="text-end">' + due.toFixed(2) + '</td></tr>';
         html += '</tbody></table>';
+
+        // ── Customer AR Balance ──
+        html += '<p class="mt-2 mb-0 small" id="bkgViewArBalance"><em>Loading customer balance…</em></p>';
 
         // ── Documents section ──
         html += '<h6 class="mt-3 d-flex justify-content-between align-items-center">'
           + '<span><i class="fa fa-paperclip me-1 text-muted"></i> Documents</span>'
-          + '<button type="button" class="btn btn-sm btn-outline-primary" onclick="trvOpenDocuments(\'BOOKING\',' + o.id + ',\'Booking ' + (o.bookingNo || '#' + o.id) + '\')"><i class="fa fa-upload me-1"></i> Attach</button>'
+          + '<button type="button" class="btn btn-sm btn-outline-primary" onclick="trvOpenDocuments(\'BOOKING\',' + o.id + ',\'Sale ' + (o.bookingNo || '#' + o.id) + '\')"><i class="fa fa-upload me-1"></i> Attach</button>'
           + '</h6><div id="bkgViewDocs"><p class="text-muted small mb-0"><em>Loading…</em></p></div>';
 
         html += '</div>';
         document.getElementById('bkgViewBody').innerHTML = html;
-        // Show print button for confirmed bookings
+        // Show print button for all bookings
         var printBtn = document.getElementById('bkgPrintBtn');
         if (printBtn) {
-          var s = (o.status || '').toUpperCase();
-          printBtn.style.display = (s === 'CONFIRMED' || s === 'PARTIALLY_PAID' || s === 'PAID' || s === 'COMPLETED') ? '' : 'none';
+          printBtn.style.display = '';
           printBtn.onclick = function () { window.open('/travel/reports/booking/' + o.id, '_blank'); };
         }
         bootstrap.Modal.getOrCreateInstance(document.getElementById('bkgViewModal')).show();
+
+        // ── Load customer AR balance ──
+        if (o.partyId) {
+          secureFetch('/accounts/sub-accounts/show/' + o.partyId).then(function (cr) {
+            var balEl = document.getElementById('bkgViewArBalance');
+            if (cr.success && cr.obj) {
+              var bal = parseFloat(cr.obj.currentBalance || 0).toFixed(2);
+              balEl.innerHTML = '<span class="text-muted">Customer AR Balance: <strong class="' + (bal > 0 ? 'text-danger' : 'text-success') + '">' + bal + '</strong></span>';
+            } else if (balEl) {
+              balEl.innerHTML = '';
+            }
+          }).catch(function () { var be = document.getElementById('bkgViewArBalance'); if (be) be.innerHTML = ''; });
+        }
 
         // ── Load documents after modal opens ──
         _bkgLoadDocs(o.id);
@@ -399,16 +481,15 @@
         document.getElementById('bkgNo').value = o.bookingNo || '';
         document.getElementById('bkgType').value = o.bookingType || 'PACKAGE';
         document.getElementById('bkgDate').value = o.bookingDate || '';
-        document.getElementById('bkgTravelStart').value = o.travelStartDate || '';
-        document.getElementById('bkgTravelEnd').value = o.travelEndDate || '';
         document.getElementById('bkgDiscount').value = o.discountAmount || 0;
         document.getElementById('bkgRemarks').value = o.remarks || '';
         _initCustomerS2(o.partyId, o.partyDisplay);
         _initAgentS2(o.salesAgentId, o.salesAgentDisplay);
         (o.services || []).forEach(function (s) { bkgAddService(s); });
-        (o.passengers || []).forEach(function (p) { bkgAddPassenger(p); });
+        (o.receipts || []).forEach(function (r) { bkgAddReceiptLine(r); });
+        bkgCalcReceipt();
         bkgRecalcTotal();
-        document.getElementById('bkgModalTitle').innerHTML = '<i class="fa fa-pencil me-1 text-warning"></i> Edit Booking';
+        document.getElementById('bkgModalTitle').innerHTML = '<i class="fa fa-pencil me-1 text-warning"></i> Edit Sale';
         document.getElementById('bkgBtnText').textContent = 'Update';
         document.getElementById('bkgDocBtnWrap').style.display = '';
         bootstrap.Modal.getOrCreateInstance(document.getElementById('bkgModal')).show();
@@ -416,7 +497,7 @@
     };
 
     window.bkgConfirm = function (id) {
-      Swal.fire({ title: 'Confirm Booking?', text: 'This posts a Sales Voucher to accounts and cannot be edited afterward.', icon: 'warning', showCancelButton: true, confirmButtonText: 'Yes, Confirm', confirmButtonColor: '#0d6efd' })
+      Swal.fire({ title: 'Confirm Sale?', text: 'This posts a Sales Voucher to accounts and cannot be edited afterward.', icon: 'warning', showCancelButton: true, confirmButtonText: 'Yes, Confirm', confirmButtonColor: '#0d6efd' })
         .then(function (r) { if (!r.isConfirmed) return;
           secureFetch(BASE + '/confirm/' + id, { method: 'POST' }).then(function (d) {
             if (d.success) { Swal.fire({ icon: 'success', title: 'Confirmed!', text: d.message, timer: 1800, showConfirmButton: false }); dt.ajax.reload(null, false); }
@@ -424,7 +505,7 @@
     };
 
     window.bkgCancel = function (id) {
-      Swal.fire({ title: 'Cancel Booking?', icon: 'warning', showCancelButton: true, confirmButtonColor: '#dc3545', confirmButtonText: 'Cancel Booking' })
+      Swal.fire({ title: 'Cancel Sale?', icon: 'warning', showCancelButton: true, confirmButtonColor: '#dc3545', confirmButtonText: 'Cancel Sale' })
         .then(function (r) { if (!r.isConfirmed) return;
           secureFetch(BASE + '/cancel/' + id, { method: 'POST' }).then(function (d) {
             if (d.success) { Swal.fire({ icon: 'success', timer: 1400, title: 'Cancelled', text: d.message, showConfirmButton: false }); dt.ajax.reload(null, false); }
@@ -446,11 +527,20 @@
       var sb = document.getElementById('bkgSubmitBtn'), sp = document.getElementById('bkgSpinner'), bt = document.getElementById('bkgBtnText'), fm = document.getElementById('bkgForm');
       hsDisableButton(sb, sp, bt);
 
+      // Validate required fields
+      var partyId = $('#bkgCustomerId').val() || null;
+      if (!partyId) {
+        hsEnableButton(sb, sp, bt);
+        Swal.fire('Validation Error', 'Please select a Customer before saving.', 'warning');
+        return;
+      }
+
       var services = [];
       document.querySelectorAll('#bkgServiceBody tr').forEach(function (tr) {
         services.push({
           serviceType: tr.querySelector('[data-field="serviceType"]').value,
           description: tr.querySelector('[data-field="description"]').value || null,
+          patientCategory: tr.querySelector('[data-field="patientCategory"]').value || null,
           quantity: parseFloat(tr.querySelector('[data-field="quantity"]').value) || 1,
           unitCost: parseFloat(tr.querySelector('[data-field="unitCost"]').value) || 0,
           unitPrice: parseFloat(tr.querySelector('[data-field="unitPrice"]').value) || 0,
@@ -458,18 +548,13 @@
           lineTotal: parseFloat(tr.querySelector('[data-field="lineTotal"]').value) || 0
         });
       });
-      var passengers = [];
-      document.querySelectorAll('#bkgPaxBody tr').forEach(function (tr) {
-        var firstName = tr.querySelector('[data-field="firstName"]').value;
-        if (!firstName) return;
-        passengers.push({
-          title: tr.querySelector('[data-field="title"]').value || null,
-          firstName: firstName,
-          lastName: tr.querySelector('[data-field="lastName"]').value || null,
-          passengerType: tr.querySelector('[data-field="passengerType"]').value,
-          passportNumber: tr.querySelector('[data-field="passportNumber"]').value || null,
-          nationality: tr.querySelector('[data-field="nationality"]').value || null,
-          isLeadPassenger: tr.querySelector('[data-field="isLeadPassenger"]').checked
+      var receipts = [];
+      document.querySelectorAll('#bkgReceiptBody tr').forEach(function (tr) {
+        receipts.push({
+          paymentMode: tr.querySelector('[data-field="paymentMode"]').value,
+          subAccountId: tr.querySelector('[data-field="subAccountId"]').value || null,
+          reference: tr.querySelector('[data-field="reference"]').value || null,
+          amount: parseFloat(tr.querySelector('[data-field="amount"]').value) || 0
         });
       });
 
@@ -477,14 +562,12 @@
         id: document.getElementById('bkgId').value || null,
         bookingType: document.getElementById('bkgType').value,
         bookingDate: document.getElementById('bkgDate').value,
-        travelStartDate: document.getElementById('bkgTravelStart').value || null,
-        travelEndDate: document.getElementById('bkgTravelEnd').value || null,
         discountAmount: parseFloat(document.getElementById('bkgDiscount').value) || 0,
         remarks: document.getElementById('bkgRemarks').value || null,
-        partyId: $('#bkgCustomerId').val() || null,
+        partyId: partyId,
         salesAgentId: $('#bkgAgentId').val() || null,
         services: services,
-        passengers: passengers
+        receipts: receipts
       }) }).then(function (d) {
         if (d.success) { document.getElementById('bkgId').value = d.id || ''; hsAfterSaveMessages(d.success, d.message, fm, dt); bootstrap.Modal.getOrCreateInstance(document.getElementById('bkgModal')).hide(); }
         else { Swal.fire('Error', d.message, 'error'); }
@@ -496,10 +579,11 @@
       document.getElementById('bkgForm').reset();
       document.getElementById('bkgId').value = '';
       document.getElementById('bkgServiceBody').innerHTML = '';
-      document.getElementById('bkgPaxBody').innerHTML = '';
+      document.getElementById('bkgReceiptBody').innerHTML = '';
       document.getElementById('bkgSubtotal').textContent = '0.00';
       document.getElementById('bkgTotal').textContent = '0.00';
-      _svcCount = 0; _paxCount = 0;
+      document.getElementById('bkgReceiptTotal').textContent = '0.00';
+      _svcCount = 0; _rcptCount = 0;
       document.getElementById('bkgDate').value = new Date().toISOString().substring(0, 10);
       _initCustomerS2(null, null);
       _initAgentS2(null, null);
@@ -507,9 +591,120 @@
       if (wrap) wrap.style.display = 'none';
     }
 
+    // ── Customer Quick-Create ──────────────────────────────────────────────
+    window.openCustomerModal = function () {
+      document.getElementById('custForm').reset();
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('custModal')).show();
+      setTimeout(function () { document.getElementById('custName').focus(); }, 200);
+    };
+
+    function _onCustSubmit(e) {
+      e.preventDefault();
+      var btn = document.getElementById('custBtn'), sp = document.getElementById('custSpinner'), bt = document.getElementById('custBtnText');
+      hsDisableButton(btn, sp, bt, 'Saving…');
+
+      var name = document.getElementById('custName').value.trim();
+      var phone = document.getElementById('custPhone').value.trim();
+      if (!name || !phone) { hsEnableButton(btn, sp, bt); return; }
+      var code = 'CUST-' + name.replace(/[^a-zA-Z0-9]/g, '').substring(0, 10).toUpperCase();
+
+      secureFetch('/accounts/sub-accounts/save', {
+        method: 'POST',
+        body: JSON.stringify({
+          subAccountType: 'CUSTOMER',
+          subAccountName: name,
+          subAccountCode: code,
+          active: true,
+          mainAccountId: _AR_ACCOUNT_ID || null,
+          contactPhone: document.getElementById('custPhone').value || null,
+          contactEmail: document.getElementById('custEmail').value || null,
+          address: document.getElementById('custAddress').value || null,
+          contactPerson: document.getElementById('custContactPerson').value || null,
+          taxId: document.getElementById('custTaxId').value || null,
+          remarks: document.getElementById('custRemarks').value || null
+        })
+      }).then(function (d) {
+        if (d.success) {
+          bootstrap.Modal.getOrCreateInstance(document.getElementById('custModal')).hide();
+          Swal.fire({ icon: 'success', title: 'Customer Created', timer: 1000, showConfirmButton: false });
+          // Search for the newly created customer & select it in the dropdown
+          secureFetch('/accounts/sub-accounts/search?subAccountType=CUSTOMER&search=' + encodeURIComponent(name) + '&pageSize=5').then(function (s) {
+            var match = s.items ? s.items.find(function (i) { return i.text === name || i.name === name; }) : null;
+            if (match) {
+              var $el = $('#bkgCustomerId');
+              if ($el.hasClass('select2-hidden-accessible')) $el.select2('destroy');
+              $el.empty();
+              var opt = new Option(match.text || name, match.id, true, true);
+              if (match.phone) opt.setAttribute('data-phone', match.phone);
+              $el.append(opt).trigger('change');
+              _initCustomerS2(match.id, match.text || name);
+            } else {
+              _initCustomerS2(null, null);
+            }
+          }).catch(function () { _initCustomerS2(null, null); });
+        } else {
+          Swal.fire('Error', d.message || 'Failed to create customer', 'error');
+        }
+      }).catch(function (err) {
+        Swal.fire('Error', err.message || 'Request failed.', 'error');
+      }).finally(function () {
+        hsEnableButton(btn, sp, bt);
+      });
+    }
+
     function _vf(label, value) { return travel.viewField(label, value); }
   })();
   </script>
+  <!-- CUSTOMER CREATION MODAL -->
+  <div tabindex="-1" id="custModal" class="modal fade">
+    <div class="modal-dialog modal-dialog-centered modal-md modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title"><i class="fa fa-user me-1 text-success"></i> New Customer</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <form id="custForm" novalidate>
+          <div class="modal-body">
+            <div class="row g-2">
+              <div class="col-md-12 view-group">
+                <input id="custName" type="text" class="form-control hs_span_view" required>
+                <label class="input-label">Customer Name <span class="text-danger">*</span></label>
+              </div>
+              <div class="col-md-6 view-group">
+                <input id="custPhone" type="text" class="form-control hs_span_view" required>
+                <label class="input-label">Phone <span class="text-danger">*</span></label>
+              </div>
+              <div class="col-md-6 view-group">
+                <input id="custEmail" type="email" class="form-control hs_span_view">
+                <label class="input-label">Email</label>
+              </div>
+              <div class="col-md-12 view-group">
+                <input id="custAddress" type="text" class="form-control hs_span_view">
+                <label class="input-label">Address</label>
+              </div>
+              <div class="col-md-6 view-group">
+                <input id="custContactPerson" type="text" class="form-control hs_span_view">
+                <label class="input-label">Contact Person</label>
+              </div>
+              <div class="col-md-6 view-group">
+                <input id="custTaxId" type="text" class="form-control hs_span_view">
+                <label class="input-label">Tax ID / BIN</label>
+              </div>
+              <div class="col-md-12 view-group">
+                <textarea id="custRemarks" class="form-control hs_span_view" rows="1"></textarea>
+                <label class="input-label">Remarks</label>
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button type="submit" class="btn btn-success" id="custBtn"><span class="spinner-border spinner-border-sm d-none" id="custSpinner" role="status"></span> <span id="custBtnText">Save Customer</span></button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
   <div th:replace="~{travel/trv-documents-fragment :: modal}"></div>
 </section>
 </html>

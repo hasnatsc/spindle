@@ -9,7 +9,7 @@ import java.util.Map;
 
 /**
  * VoucherService
- *
+ * <p>
  * Handles all four voucher types via the same interface.
  * voucherType discriminates business logic in the implementation.
  */
@@ -25,7 +25,9 @@ public interface VoucherService {
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
 
-    /** Post voucher: validates balance, writes GL, updates sub-account balance, allocates */
+    /**
+     * Post voucher: validates balance, writes GL, updates sub-account balance, allocates
+     */
     VoucherDTO post(Long id);
 
     /**
@@ -34,13 +36,19 @@ public interface VoucherService {
      */
     VoucherDTO completeApproval(Long id);
 
-    /** Called when approval is rejected — marks voucher as REJECTED */
+    /**
+     * Called when approval is rejected — marks voucher as REJECTED
+     */
     void rejectApproval(Long id, String reason);
 
-    /** Called when approval is returned — reverts voucher to DRAFT */
+    /**
+     * Called when approval is returned — reverts voucher to DRAFT
+     */
     void returnApproval(Long id, String reason);
 
-    /** Reverse a posted voucher: creates mirror entry, marks original as REVERSED */
+    /**
+     * Reverse a posted voucher: creates mirror entry, marks original as REVERSED
+     */
     VoucherDTO reverse(Long id, String narration);
 
     // ── DataTable listing per type ────────────────────────────────────────────
@@ -48,6 +56,12 @@ public interface VoucherService {
     DataTableResponse datatableList(String voucherType, int draw, int start, int length, String search);
 
     // ── Allocation helpers ────────────────────────────────────────────────────
+
+    /**
+     * Saves VoucherAllocation rows and atomically updates allocatedAmount on each
+     * source voucher (invoice/bill). Must be called inside a transaction.
+     */
+    void processAllocations(JournalEntryMaster payingVoucher, List<VoucherDTO.AllocationDTO> allocations);
 
     /**
      * Returns open (unsettled) vouchers for a party — for the allocation picker.

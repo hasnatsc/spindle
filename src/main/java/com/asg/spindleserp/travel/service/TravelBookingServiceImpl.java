@@ -8,8 +8,7 @@ import com.asg.spindleserp.accounts.entity.JournalEntryMaster;
 import com.asg.spindleserp.accounts.repository.ChartOfAccountRepository;
 import com.asg.spindleserp.accounts.repository.ChartOfAccountSubRepository;
 import com.asg.spindleserp.accounts.repository.JournalEntryMasterRepository;
-import com.asg.spindleserp.approval.dto.ApprovalRequestDTO;
-import com.asg.spindleserp.approval.service.ApprovalService;
+import com.asg.spindleserp.security.repository.UserRepository;
 import com.asg.spindleserp.common.dto.DataTableResponse;
 import com.asg.spindleserp.common.enums.VoucherType;
 import com.asg.spindleserp.common.util.CommonUtils;
@@ -60,7 +59,10 @@ public class TravelBookingServiceImpl implements TravelBookingService {
     private final OrganizationRepository             orgRepo;
     private final DocumentSequenceService            seqService;
     private final JdbcTemplate                       jdbcTemplate;
-    private final ApprovalService                    approvalService;
+    private final TrvBookingReceiptRepository        receiptRepo;
+    private final TrvPaymentModeAccountRepository     paymentModeAccountRepo;
+    private final com.asg.spindleserp.accounts.service.VoucherService voucherService;
+    private final UserRepository                     userRepo;
 
     // =========================================================================
     // SAVE
@@ -69,7 +71,6 @@ public class TravelBookingServiceImpl implements TravelBookingService {
     @Override
     public TrvBookingDTO save(TrvBookingDTO dto) {
         TrvBooking entity;
-        Long orgId = SecurityHelper.requireOrgId();
 
         if (dto.getId() != null) {
             entity = findBooking(dto.getId());
@@ -83,12 +84,14 @@ public class TravelBookingServiceImpl implements TravelBookingService {
         buildHeader(dto, entity);
         syncServices(dto, entity);
         syncPassengers(dto, entity);
+        syncReceipts(dto, entity);
         recalcTotals(entity);
+        recalcPaymentStatus(entity);
 
         boolean isCreate = entity.getId() == null;
         TrvBooking saved = bookingRepo.save(entity);
         syncPreferencesAfterSave(dto, saved);
-        if (isCreate) logStatus(saved, "DRAFT", "Booking created.");
+        if (isCreate) logStatus(saved, TrvBooking.Status.DRAFT, "Booking created.");
         return toDTO(saved);
     }
 
@@ -101,7 +104,7 @@ public class TravelBookingServiceImpl implements TravelBookingService {
         TrvBooking booking = findBooking(id);
         guardDraft(booking);
 
-        if (booking.getPartyId() == null)
+        if (booking.getParty() == null)
             throw new IllegalStateException("Customer (party) is required to confirm a booking.");
         if (booking.getServices().isEmpty())
             throw new IllegalStateException("At least one service line is required to confirm a booking.");
@@ -113,8 +116,9 @@ public class TravelBookingServiceImpl implements TravelBookingService {
         String year = String.valueOf(LocalDate.now().getYear()).substring(2);
 
         // ── Step 1: Resolve AR account from customer's main account ──────────
-        ChartOfAccountSub customerSub = subRepo.findById(booking.getPartyId())
-            .orElseThrow(() -> new IllegalStateException("Customer account not found: " + booking.getPartyId()));
+        ChartOfAccountSub customerSub = booking.getParty();
+        if (customerSub == null)
+            throw new IllegalStateException("Customer account not found for booking " + booking.getBookingNo());
         ChartOfAccount arAccount = customerSub.getMainAccount();
         if (arAccount == null)
             throw new IllegalStateException(
@@ -128,17 +132,8 @@ public class TravelBookingServiceImpl implements TravelBookingService {
                 "No Travel Revenue account configured. Set it in Travel → Settings, or create a " +
                 "REVENUE account with code 'TRAVEL-REVENUE' in this organisation.");
 
-        // ── Step 3: Check for approval config before posting ─────────────────
-        boolean needsApproval = false;
-        try {
-            needsApproval = approvalService.hasActiveConfig("SALES_VOUCHER");
-        } catch (Exception e) {
-            log.debug("Approval config check failed, falling back to direct post: {}", e.getMessage());
-        }
-
-        // ── Step 4: Build SALES_VOUCHER JEM ───────────────────────────────────
-        String voucherNo = !needsApproval
-            ? seqService.nextDocumentNumber(orgId, "TRV", year) : null;
+        // ── Step 3: Build SALES_VOUCHER JEM (always posted directly) ──────────
+        String voucherNo = seqService.nextDocumentNumber(orgId, "TRV", year);
 
         JournalEntryMaster jem = new JournalEntryMaster();
         jem.setOrganization(orgRepo.getReferenceById(orgId));
@@ -147,23 +142,21 @@ public class TravelBookingServiceImpl implements TravelBookingService {
         jem.setVoucherDate(booking.getBookingDate());
         jem.setDueDate(booking.getTravelStartDate() != null
             ? booking.getTravelStartDate() : booking.getBookingDate().plusDays(15));
-        jem.setVoucherStatus(needsApproval ? "DRAFT" : "POSTED");
-        jem.setPosted(!needsApproval);
+        jem.setVoucherStatus("POSTED");
+        jem.setPosted(true);
         jem.setReversed(false);
         jem.setTotalAmount(booking.getTotalAmount());
         jem.setTotalDebit(booking.getTotalAmount());
         jem.setTotalCredit(booking.getTotalAmount());
         jem.setAllocatedAmount(BigDecimal.ZERO);
-        jem.setPartyId(booking.getPartyId());
+        jem.setPartyId(booking.getParty().getId());
         jem.setPartyType("CUSTOMER");
         jem.setReferenceNo(booking.getBookingNo());
         jem.setNarration("Travel Booking: " + booking.getBookingNo() + " (" + booking.getBookingType() + ")");
         jem.setCreatedBy(user);
         jem.setUpdatedBy(user);
-        if (!needsApproval) {
-            jem.setPostedBy(user);
-            jem.setPostedAt(LocalDateTime.now());
-        }
+        jem.setPostedBy(user);
+        jem.setPostedAt(LocalDateTime.now());
 
         JournalEntryLine drLine = new JournalEntryLine();
         drLine.setJournalEntry(jem);
@@ -176,13 +169,22 @@ public class TravelBookingServiceImpl implements TravelBookingService {
         drLine.setOrganization(orgRepo.getReferenceById(orgId));
         drLine.setTaxLine(false);
 
+        // Build patient-category summary for audit trail on the credit line
+        String catSummary = booking.getServices().stream()
+            .map(s -> s.getPatientCategory() != null
+                ? s.getPatientCategory().name() : "—")
+            .collect(Collectors.groupingBy(c -> c, Collectors.counting()))
+            .entrySet().stream()
+            .map(e -> e.getValue() + "×" + e.getKey())
+            .collect(Collectors.joining(", "));
         JournalEntryLine crLine = new JournalEntryLine();
         crLine.setJournalEntry(jem);
         crLine.setLineNumber(2);
         crLine.setAccount(revenueAccount);
         crLine.setEntryType(JournalEntryLine.EntryType.CREDIT);
         crLine.setAmount(booking.getTotalAmount());
-        crLine.setNarration("Travel Revenue: " + booking.getBookingNo());
+        crLine.setNarration("Travel Revenue: " + booking.getBookingNo()
+            + (catSummary.isEmpty() ? "" : " (" + catSummary + ")"));
         crLine.setOrganization(orgRepo.getReferenceById(orgId));
         crLine.setTaxLine(false);
 
@@ -191,44 +193,45 @@ public class TravelBookingServiceImpl implements TravelBookingService {
 
         JournalEntryMaster savedJem = jemRepo.save(jem);
 
-        // ── Step 5: Route through approval if needed ──────────────────────────
-        if (needsApproval) {
-            ApprovalRequestDTO reqDto = ApprovalRequestDTO.builder()
-                .documentType("SALES_VOUCHER")
-                .referenceId(savedJem.getId())
-                .referenceNumber(booking.getBookingNo())
-                .documentDate(booking.getBookingDate())
-                .documentAmount(booking.getTotalAmount())
-                .documentSummary("Travel Booking: " + booking.getBookingNo())
-                .build();
-            approvalService.submitRequest(reqDto);
-            savedJem.setVoucherStatus("PENDING_APPROVAL");
-            jemRepo.save(savedJem);
-            log.info("Booking {} confirmed. SALES_VOUCHER #{} submitted for approval.",
-                     booking.getBookingNo(), savedJem.getId());
-        } else {
-            // Update customer AR balance only when posted directly
-            BigDecimal current = customerSub.getCurrentBalance() != null
-                ? customerSub.getCurrentBalance() : BigDecimal.ZERO;
-            customerSub.setCurrentBalance(current.add(booking.getTotalAmount()));
-            subRepo.save(customerSub);
-            log.info("Booking {} confirmed. SALES_VOUCHER {} posted. Customer: {}",
-                     booking.getBookingNo(), savedJem.getVoucherNo(), customerSub.getSubAccountName());
+        // ── Update customer AR balance ─────────────────────────────────────────
+        BigDecimal current = customerSub.getCurrentBalance() != null
+            ? customerSub.getCurrentBalance() : BigDecimal.ZERO;
+        customerSub.setCurrentBalance(current.add(booking.getTotalAmount()));
+        subRepo.save(customerSub);
+        log.info("Booking {} confirmed. SALES_VOUCHER {} posted. Customer: {}",
+                 booking.getBookingNo(), savedJem.getVoucherNo(), customerSub.getSubAccountName());
+
+        // ── Process receipts (create RECEIPT_VOUCHER if any) ─────────────────
+        BigDecimal totalReceived = BigDecimal.ZERO;
+        if (booking.getReceipts() != null && !booking.getReceipts().isEmpty()) {
+            totalReceived = booking.getReceipts().stream()
+                .map(r -> r.getAmount() != null ? r.getAmount() : BigDecimal.ZERO)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+            if (totalReceived.compareTo(BigDecimal.ZERO) > 0) {
+                createReceiptVoucher(booking, savedJem, user, orgId, year);
+            }
         }
 
-        // ── Step 6: Update booking record ──────────────────────────────────────
+        // ── Update booking record ──────────────────────────────────────────────
         booking.setJournalEntryId(savedJem.getId());
-        booking.setPaidAmount(BigDecimal.ZERO);
-        booking.setDueAmount(booking.getTotalAmount());
-        booking.setStatus(TrvBooking.Status.CONFIRMED);
+        booking.setPaidAmount(totalReceived);
+        booking.setDueAmount(booking.getTotalAmount().subtract(totalReceived));
+        if (totalReceived.compareTo(BigDecimal.ZERO) > 0
+            && totalReceived.compareTo(booking.getTotalAmount()) >= 0) {
+            booking.setStatus(TrvBooking.Status.PAID);
+        } else if (totalReceived.compareTo(BigDecimal.ZERO) > 0) {
+            booking.setStatus(TrvBooking.Status.PARTIALLY_PAID);
+        } else {
+            booking.setStatus(TrvBooking.Status.CONFIRMED);
+        }
         booking.setUpdatedBy(user);
         booking.setUpdatedAt(LocalDateTime.now());
 
         TrvBooking saved = bookingRepo.save(booking);
-        String logMsg = needsApproval
-            ? "Confirmed. Voucher submitted for approval."
-            : "Confirmed. Voucher " + savedJem.getVoucherNo() + " posted.";
-        logStatus(saved, "CONFIRMED", logMsg);
+        log.info("Booking {} confirmed. Voucher {} posted.",
+                 booking.getBookingNo(), savedJem.getVoucherNo());
+        logStatus(saved, saved.getStatus() != null ? saved.getStatus() : TrvBooking.Status.CONFIRMED,
+            "Confirmed. Voucher " + savedJem.getVoucherNo() + " posted.");
         return toDTO(saved);
     }
 
@@ -265,10 +268,47 @@ public class TravelBookingServiceImpl implements TravelBookingService {
         booking.setUpdatedAt(LocalDateTime.now());
         booking.setUpdatedBy(SecurityHelper.currentUsername().orElse("system"));
         TrvBooking saved = bookingRepo.save(booking);
-        logStatus(saved, "CANCELLED", "Booking cancelled.");
+        logStatus(saved, TrvBooking.Status.CANCELLED, "Booking cancelled.");
         return toDTO(saved);
     }
 
+    @Override
+    public TrvBookingDTO reverse(Long id, String reason) {
+        TrvBooking booking = findBooking(id);
+        if (booking.getStatus() == TrvBooking.Status.DRAFT)
+            throw new IllegalStateException("Use cancel() for DRAFT bookings.");
+        if (booking.getStatus() == TrvBooking.Status.CANCELLED)
+            throw new IllegalStateException("Booking " + booking.getBookingNo() + " is already cancelled.");
+
+        Long orgId = ContextProvider.getOrganizationId();
+        String user = SecurityHelper.currentUsername().orElse("system");
+
+        // Reverse the SALES_VOUCHER if one exists
+        if (booking.getJournalEntryId() != null) {
+            voucherService.reverse(booking.getJournalEntryId(),
+                reason != null && !reason.isBlank()
+                    ? "Reversal: " + reason
+                    : "Reversal of booking " + booking.getBookingNo());
+        }
+
+        // Reverse any RECEIPT_VOUCHER linked to this booking
+        try {
+            jemRepo.findByOrganizationIdAndReferenceNoAndVoucherType(orgId, booking.getBookingNo(), VoucherType.RECEIPT_VOUCHER)
+                .filter(rv -> !rv.isReversed() && "POSTED".equals(rv.getVoucherStatus()))
+                .ifPresent(rv -> voucherService.reverse(rv.getId(), "Reversal of receipt for cancelled booking " + booking.getBookingNo()));
+        } catch (Exception e) {
+            log.warn("Could not reverse receipt voucher for booking {}: {}", booking.getBookingNo(), e.getMessage());
+        }
+
+        // Update booking status
+        booking.setStatus(TrvBooking.Status.CANCELLED);
+        booking.setJournalEntryId(null);
+        booking.setUpdatedAt(LocalDateTime.now());
+        booking.setUpdatedBy(user);
+        TrvBooking saved = bookingRepo.save(booking);
+        logStatus(saved, TrvBooking.Status.CANCELLED, "Booking reversed." + (reason != null ? " Reason: " + reason : ""));
+        return toDTO(saved);
+    }
     @Override
     public void delete(Long id) {
         TrvBooking booking = findBooking(id);
@@ -320,7 +360,7 @@ public class TravelBookingServiceImpl implements TravelBookingService {
                 "No accounting voucher found for booking " + booking.getBookingNo() +
                 ". Please confirm the booking again to regenerate the accounting entry."));
 
-        ChartOfAccountSub customerSub = subRepo.findById(booking.getPartyId()).orElse(null);
+        ChartOfAccountSub customerSub = booking.getParty();
 
         VoucherDTO dto = new VoucherDTO();
         dto.setVoucherType("RECEIPT_VOUCHER");
@@ -329,7 +369,7 @@ public class TravelBookingServiceImpl implements TravelBookingService {
         dto.setDueDate(booking.getTravelStartDate());
         dto.setTotalAmount(dueAmount);
         dto.setPartyType("CUSTOMER");
-        dto.setPartyId(booking.getPartyId());
+        dto.setPartyId(booking.getParty() != null ? booking.getParty().getId() : null);
         dto.setPartyDisplay(customerSub != null
             ? customerSub.getSubAccountCode() + " — " + customerSub.getSubAccountName() : null);
         dto.setPartyBalance(customerSub != null ? customerSub.getCurrentBalance() : null);
@@ -383,6 +423,8 @@ public class TravelBookingServiceImpl implements TravelBookingService {
                 COALESCE(b.paid_amount::text,  '0')                              AS paid_amount,
                 COALESCE(b.due_amount::text,   '0')                              AS due_amount,
                 (SELECT COUNT(*) FROM trv_passengers p WHERE p.booking_id = b.id) AS passenger_count,
+                (SELECT STRING_AGG(bs.service_type || COALESCE(': ' || NULLIF(bs.description, ''), ''), ' | ')
+                 FROM   trv_booking_services bs WHERE bs.booking_id = b.id)       AS services_summary,
                 CASE b.status
                     WHEN 'DRAFT'           THEN '<span class="badge bg-secondary">Draft</span>'
                     WHEN 'CONFIRMED'       THEN '<span class="badge bg-success">Confirmed</span>'
@@ -660,7 +702,7 @@ public class TravelBookingServiceImpl implements TravelBookingService {
             .paidAmount(e.getPaidAmount())
             .dueAmount(e.getDueAmount())
             .remarks(e.getRemarks())
-            .partyId(e.getPartyId())
+            .partyId(e.getParty() != null ? e.getParty().getId() : null)
             .leadId(e.getLeadId())
             .opportunityId(e.getOpportunityId())
             .salesAgentId(e.getSalesAgentId())
@@ -671,9 +713,12 @@ public class TravelBookingServiceImpl implements TravelBookingService {
             .createdBy(e.getCreatedBy())
             .build();
 
-        if (e.getPartyId() != null) {
-            subRepo.findById(e.getPartyId()).ifPresent(s ->
-                d.setPartyDisplay(s.getSubAccountCode() + " — " + s.getSubAccountName()));
+        if (e.getParty() != null) {
+            d.setPartyDisplay(e.getParty().getSubAccountCode() + " — " + e.getParty().getSubAccountName());
+        }
+        if (e.getSalesAgentId() != null) {
+            userRepo.findById(e.getSalesAgentId()).ifPresent(u ->
+                d.setSalesAgentDisplay(u.getFullName()));
         }
 
         d.setServices(e.getServices().stream().map(s -> TrvBookingDTO.ServiceLineDTO.builder()
@@ -687,6 +732,7 @@ public class TravelBookingServiceImpl implements TravelBookingService {
             .discountAmount(s.getDiscountAmount())
             .taxAmount(s.getTaxAmount())
             .lineTotal(s.getLineTotal())
+            .patientCategory(s.getPatientCategory() != null ? s.getPatientCategory().name() : null)
             .costCenterId(s.getCostCenterId())
             .build()).collect(Collectors.toList()));
 
@@ -719,6 +765,14 @@ public class TravelBookingServiceImpl implements TravelBookingService {
             return pd;
         }).collect(Collectors.toList()));
 
+        d.setReceipts(e.getReceipts().stream().map(r -> TrvBookingDTO.ReceiptLineDTO.builder()
+            .paymentMode(r.getPaymentMode() != null ? r.getPaymentMode().name() : null)
+            .subAccountId(r.getSubAccountId())
+            .subAccountText(r.getSubAccountId() != null ? subRepo.findById(r.getSubAccountId()).map(s -> s.getSubAccountCode() + " — " + s.getSubAccountName()).orElse(null) : null)
+            .reference(r.getReference())
+            .amount(r.getAmount())
+            .build()).collect(Collectors.toList()));
+
         return d;
     }
 
@@ -736,7 +790,7 @@ public class TravelBookingServiceImpl implements TravelBookingService {
         e.setExchangeRate(dto.getExchangeRate() != null ? dto.getExchangeRate() : BigDecimal.ONE);
         e.setDiscountAmount(dto.getDiscountAmount() != null ? dto.getDiscountAmount() : BigDecimal.ZERO);
         e.setRemarks(dto.getRemarks());
-        e.setPartyId(dto.getPartyId());
+        e.setParty(dto.getPartyId() != null ? subRepo.getReferenceById(dto.getPartyId()) : null);
         e.setLeadId(dto.getLeadId());
         e.setOpportunityId(dto.getOpportunityId());
         e.setSalesAgentId(dto.getSalesAgentId());
@@ -768,6 +822,8 @@ public class TravelBookingServiceImpl implements TravelBookingService {
                 .discountAmount(sd.getDiscountAmount() != null ? sd.getDiscountAmount() : BigDecimal.ZERO)
                 .taxAmount(sd.getTaxAmount() != null ? sd.getTaxAmount() : BigDecimal.ZERO)
                 .lineTotal(sd.getLineTotal() != null ? sd.getLineTotal() : BigDecimal.ZERO)
+                .patientCategory(sd.getPatientCategory() != null
+                    ? TrvPassenger.PassengerType.valueOf(sd.getPatientCategory()) : null)
                 .costCenterId(sd.getCostCenterId())
                 .booking(parent)
                 .build());
@@ -836,7 +892,162 @@ public class TravelBookingServiceImpl implements TravelBookingService {
         e.setDueAmount(total.subtract(paid));
     }
 
-    private void logStatus(TrvBooking booking, String status, String remarks) {
+    private void syncReceipts(TrvBookingDTO dto, TrvBooking parent) {
+        parent.getReceipts().clear();
+        if (dto.getReceipts() == null) return;
+        for (TrvBookingDTO.ReceiptLineDTO rd : dto.getReceipts()) {
+            if (rd.getAmount() == null || rd.getAmount().compareTo(BigDecimal.ZERO) <= 0) continue;
+            TrvBookingReceipt receipt = TrvBookingReceipt.builder()
+                .paymentMode(rd.getPaymentMode() != null
+                    ? TrvBookingReceipt.PaymentMode.valueOf(rd.getPaymentMode()) : TrvBookingReceipt.PaymentMode.CASH)
+                .subAccountId(rd.getSubAccountId())
+                .reference(rd.getReference())
+                .amount(rd.getAmount())
+                .booking(parent)
+                .build();
+            parent.getReceipts().add(receipt);
+        }
+    }
+
+    private void recalcPaymentStatus(TrvBooking e) {
+        BigDecimal totalReceived = e.getReceipts().stream()
+            .map(r -> r.getAmount() != null ? r.getAmount() : BigDecimal.ZERO)
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal total = e.getTotalAmount() != null ? e.getTotalAmount() : BigDecimal.ZERO;
+        e.setPaidAmount(totalReceived);
+        e.setDueAmount(total.subtract(totalReceived));
+        // Only auto-update status if already CONFIRMED or beyond (not DRAFT)
+        if (e.getStatus() != null && e.getStatus() != TrvBooking.Status.DRAFT) {
+            if (totalReceived.compareTo(BigDecimal.ZERO) > 0
+                && totalReceived.compareTo(total) >= 0) {
+                e.setStatus(TrvBooking.Status.PAID);
+            } else if (totalReceived.compareTo(BigDecimal.ZERO) > 0) {
+                e.setStatus(TrvBooking.Status.PARTIALLY_PAID);
+            }
+        }
+    }
+
+    /**
+     * Creates a RECEIPT_VOUCHER JournalEntryMaster for the booking's receipt lines,
+     * allocates it against the SALES_VOUCHER, and updates customer AR balance.
+     */
+    private void createReceiptVoucher(TrvBooking booking, JournalEntryMaster salesJem,
+                                       String user, Long orgId, String year) {
+        BigDecimal totalReceived = booking.getReceipts().stream()
+            .map(r -> r.getAmount() != null ? r.getAmount() : BigDecimal.ZERO)
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
+        if (totalReceived.compareTo(BigDecimal.ZERO) <= 0) return;
+
+        // Resolve customer sub-account (AR)
+        ChartOfAccountSub customerSub = booking.getParty();
+        if (customerSub == null || customerSub.getMainAccount() == null) return;
+
+        // Generate voucher number
+        String voucherNo = seqService.nextDocumentNumber(orgId, "RV", year);
+
+        // Build RECEIPT_VOUCHER JEM
+        JournalEntryMaster rv = new JournalEntryMaster();
+        rv.setOrganization(orgRepo.getReferenceById(orgId));
+        rv.setVoucherType(VoucherType.RECEIPT_VOUCHER);
+        rv.setVoucherNo(voucherNo);
+        rv.setVoucherDate(booking.getBookingDate());
+        rv.setVoucherStatus("POSTED");
+        rv.setPosted(true);
+        rv.setPostedBy(user);
+        rv.setPostedAt(LocalDateTime.now());
+        rv.setReversed(false);
+        rv.setTotalAmount(totalReceived);
+        rv.setTotalDebit(totalReceived);
+        rv.setTotalCredit(totalReceived);
+        rv.setAllocatedAmount(BigDecimal.ZERO);
+        rv.setPartyId(booking.getParty() != null ? booking.getParty().getId() : null);
+        rv.setPartyType("CUSTOMER");
+        rv.setReferenceNo(booking.getBookingNo());
+        rv.setNarration("Receipt against Booking: " + booking.getBookingNo());
+        rv.setCreatedBy(user);
+        rv.setUpdatedBy(user);
+
+        // DR: each receipt line's sub-account (bank/cash)
+        int lineNo = 1;
+        for (TrvBookingReceipt rcpt : booking.getReceipts()) {
+            JournalEntryLine drLine = new JournalEntryLine();
+            drLine.setJournalEntry(rv);
+            drLine.setLineNumber(lineNo++);
+            drLine.setEntryType(JournalEntryLine.EntryType.DEBIT);
+            drLine.setAmount(rcpt.getAmount());
+            drLine.setNarration(rcpt.getPaymentMode().name() + " receipt"
+                + (rcpt.getReference() != null ? " — " + rcpt.getReference() : ""));
+            drLine.setOrganization(orgRepo.getReferenceById(orgId));
+            drLine.setTaxLine(false);
+            // Resolve the GL account from the sub-account's main account
+            Long subId = rcpt.getSubAccountId();
+            if (subId == null) {
+                // Fall back to payment-mode default from settings
+                subId = resolvePaymentModeSubAccount(orgId, rcpt.getPaymentMode().name());
+            }
+            if (subId != null) {
+                Long finalSubId = subId;
+                subRepo.findById(finalSubId).ifPresent(sub -> {
+                    drLine.setSubAccount(sub);
+                    drLine.setAccount(sub.getMainAccount());
+                });
+            }
+            rv.getLines().add(drLine);
+        }
+
+        // CR: Customer AR (total received)
+        JournalEntryLine crLine = new JournalEntryLine();
+        crLine.setJournalEntry(rv);
+        crLine.setLineNumber(lineNo);
+        crLine.setAccount(customerSub.getMainAccount());
+        crLine.setSubAccount(customerSub);
+        crLine.setEntryType(JournalEntryLine.EntryType.CREDIT);
+        crLine.setAmount(totalReceived);
+        crLine.setNarration("AR reduction: " + booking.getBookingNo());
+        crLine.setOrganization(orgRepo.getReferenceById(orgId));
+        crLine.setTaxLine(false);
+        rv.getLines().add(crLine);
+
+        // Save RECEIPT_VOUCHER
+        JournalEntryMaster savedRv = jemRepo.save(rv);
+
+        // Update customer AR balance (decrease — they paid us)
+        BigDecimal current = customerSub.getCurrentBalance() != null
+            ? customerSub.getCurrentBalance() : BigDecimal.ZERO;
+        customerSub.setCurrentBalance(current.subtract(totalReceived));
+        subRepo.save(customerSub);
+
+        // Allocate against the SALES_VOUCHER
+        VoucherDTO.AllocationDTO alloc = new VoucherDTO.AllocationDTO();
+        alloc.setSourceVoucherId(salesJem.getId());
+        alloc.setAllocatedAmount(totalReceived);
+        alloc.setAllocationDate(booking.getBookingDate());
+        alloc.setNarration("Auto-allocation from booking confirm: " + booking.getBookingNo());
+        voucherService.processAllocations(savedRv, List.of(alloc));
+
+        log.info("Booking {} confirmed. RECEIPT_VOUCHER {} posted for {}. Customer AR reduced by {}.",
+                 booking.getBookingNo(), voucherNo, totalReceived, totalReceived);
+    }
+
+    /**
+     * Resolves the default sub-account for a payment mode from org settings.
+     * Returns null if no mapping is configured.
+     */
+    private Long resolvePaymentModeSubAccount(Long orgId, String paymentModeStr) {
+        if (paymentModeStr == null) return null;
+        try {
+            TrvBookingReceipt.PaymentMode mode = TrvBookingReceipt.PaymentMode.valueOf(paymentModeStr);
+            return paymentModeAccountRepo
+                .findByOrganizationIdAndPaymentMode(orgId, mode)
+                .map(TrvPaymentModeAccount::getSubAccountId)
+                .orElse(null);
+        } catch (Exception e) {
+            log.debug("Failed to resolve payment mode account for {}: {}", paymentModeStr, e.getMessage());
+            return null;
+        }
+    }
+
+    private void logStatus(TrvBooking booking, TrvBooking.Status status, String remarks) {
         historyRepo.save(TrvBookingStatusHistory.builder()
             .bookingId(booking.getId())
             .status(status)

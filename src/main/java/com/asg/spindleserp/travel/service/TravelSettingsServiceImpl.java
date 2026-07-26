@@ -2,10 +2,17 @@ package com.asg.spindleserp.travel.service;
 
 import com.asg.spindleserp.accounts.entity.ChartOfAccount;
 import com.asg.spindleserp.accounts.repository.ChartOfAccountRepository;
+import com.asg.spindleserp.accounts.repository.ChartOfAccountSubRepository;
 import com.asg.spindleserp.security.auth.SecurityHelper;
+
+import java.util.List;
+import java.util.Map;
 import com.asg.spindleserp.travel.dto.TrvGlAccountDefaultsDTO;
+import com.asg.spindleserp.travel.entity.TrvBookingReceipt;
 import com.asg.spindleserp.travel.entity.TrvGlAccountDefaults;
+import com.asg.spindleserp.travel.entity.TrvPaymentModeAccount;
 import com.asg.spindleserp.travel.repository.TrvGlAccountDefaultsRepository;
+import com.asg.spindleserp.travel.repository.TrvPaymentModeAccountRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,6 +24,8 @@ public class TravelSettingsServiceImpl implements TravelSettingsService {
 
     private final TrvGlAccountDefaultsRepository repo;
     private final ChartOfAccountRepository       coaRepo;
+    private final TrvPaymentModeAccountRepository payModeRepo;
+    private final ChartOfAccountSubRepository subRepo;
 
     @Override
     @Transactional(readOnly = true)
@@ -60,5 +69,39 @@ public class TravelSettingsServiceImpl implements TravelSettingsService {
             coaRepo.findById(e.getSupplierPayableDefaultId())
                 .ifPresent(a -> dto.setSupplierPayableDefaultDisplay(a.getAccountCode() + " — " + a.getAccountName()));
         return dto;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<Map<String, Object>> getPaymentModeAccounts() {
+        Long orgId = SecurityHelper.requireOrgId();
+        return payModeRepo.findByOrganizationId(orgId).stream()
+            .map(pm -> {
+                Map<String, Object> m = new java.util.HashMap<>();
+                m.put("id", pm.getId());
+                m.put("paymentMode", pm.getPaymentMode() != null ? pm.getPaymentMode().name() : null);
+                m.put("subAccountId", pm.getSubAccountId());
+                if (pm.getSubAccountId() != null) {
+                    subRepo.findById(pm.getSubAccountId()).ifPresent(sub ->
+                        m.put("subAccountDisplay", sub.getSubAccountCode() + " — " + sub.getSubAccountName()));
+                }
+                return m;
+            })
+            .collect(java.util.stream.Collectors.toList());
+    }
+
+    @Override
+    public void savePaymentModeAccount(String paymentMode, Long subAccountId) {
+        Long orgId = SecurityHelper.requireOrgId();
+        TrvBookingReceipt.PaymentMode mode = paymentMode != null
+            ? TrvBookingReceipt.PaymentMode.valueOf(paymentMode) : null;
+        TrvPaymentModeAccount e = payModeRepo
+            .findByOrganizationIdAndPaymentMode(orgId, mode)
+            .orElse(TrvPaymentModeAccount.builder()
+                .organizationId(orgId)
+                .paymentMode(mode)
+                .build());
+        e.setSubAccountId(subAccountId);
+        payModeRepo.save(e);
     }
 }

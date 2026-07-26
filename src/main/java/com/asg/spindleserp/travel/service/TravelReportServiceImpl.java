@@ -1,8 +1,10 @@
 package com.asg.spindleserp.travel.service;
 
 import com.asg.spindleserp.security.auth.ContextProvider;
+import com.asg.spindleserp.travel.dto.TrvBookingDTO;
 import lombok.extern.slf4j.Slf4j;
 import net.sf.jasperreports.engine.*;
+import net.sf.jasperreports.engine.data.JRBeanCollectionDataSource;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -15,6 +17,7 @@ import java.sql.Date;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -46,58 +49,54 @@ public class TravelReportServiceImpl implements TravelReportService {
 
     private final JdbcTemplate jdbcTemplate;
     private final DataSource dataSource;
+    private final TravelBookingService bookingService;
     private final Map<String, JasperReport> compiledCache = new ConcurrentHashMap<>();
 
-    public TravelReportServiceImpl(JdbcTemplate jdbcTemplate, DataSource dataSource) {
+    public TravelReportServiceImpl(JdbcTemplate jdbcTemplate, DataSource dataSource, TravelBookingService bookingService) {
         this.jdbcTemplate = jdbcTemplate;
         this.dataSource = dataSource;
+        this.bookingService = bookingService;
     }
 
     // =========================================================================
     // BOOKING CONFIRMATION
     // =========================================================================
 
+
     @Override
     public byte[] bookingConfirmation(Long bookingId) {
-        Long orgId = requireOrg();
-        Map<String, Object> b = jdbcTemplate.queryForMap("""
-            SELECT b.booking_no,
-                   TO_CHAR(b.booking_date, 'DD-Mon-YYYY')                          AS booking_date,
-                   b.booking_type, b.status, b.currency, b.remarks,
-                   COALESCE(s.sub_account_code || ' — ' || s.sub_account_name,
-                            'Walk-in / Unregistered')                              AS customer,
-                   COALESCE(TO_CHAR(b.travel_start_date, 'DD-Mon-YYYY'), '-')      AS travel_start,
-                   COALESCE(TO_CHAR(b.travel_end_date, 'DD-Mon-YYYY'), '-')        AS travel_end,
-                   COALESCE(e.first_name || ' ' || e.last_name, '-')               AS sales_agent,
-                   b.subtotal_amount, b.discount_amount, b.tax_amount,
-                   b.total_amount, b.paid_amount, b.due_amount
-            FROM   trv_bookings b
-            LEFT   JOIN acc_chart_of_accounts_sub s ON s.id = b.party_id
-            LEFT   JOIN hrm_employees e ON e.id = b.sales_agent_id
-            WHERE  b.id = ? AND b.organization_id = ?
-            """, bookingId, orgId);
+        TrvBookingDTO b = bookingService.findById(bookingId);          // ★ your existing lookup
 
-        Map<String, Object> params = companyParams(orgId);
-        params.put("bookingId",      bookingId);
-        params.put("bookingNo",      str(b.get("booking_no")));
-        params.put("bookingDate",    str(b.get("booking_date")));
-        params.put("bookingType",    str(b.get("booking_type")));
-        params.put("status",         str(b.get("status")));
-        params.put("customer",       str(b.get("customer")));
-        params.put("travelPeriod",   str(b.get("travel_start")) + "  to  " + str(b.get("travel_end")));
-        params.put("currency",       str(b.get("currency")));
-        params.put("salesAgent",     str(b.get("sales_agent")));
-        params.put("remarks",        str(b.get("remarks")));
-        params.put("subtotalAmount", dec(b.get("subtotal_amount")));
-        params.put("discountAmount", dec(b.get("discount_amount")));
-        params.put("taxAmount",      dec(b.get("tax_amount")));
-        params.put("totalAmount",    dec(b.get("total_amount")));
-        params.put("paidAmount",     dec(b.get("paid_amount")));
-        params.put("dueAmount",      dec(b.get("due_amount")));
-        params.put("amountInWords",  amountInWords(dec(b.get("total_amount")), str(b.get("currency"))));
+        Map<String, Object> p = new HashMap<>();
+        p.put("P_ORG_NAME",     "ASG Group");                          // ★ wire from OrganizationService if desired
+        p.put("P_ORG_TAGLINE",  "TRAVEL & BOOKING DESK");
+        p.put("P_ORG_ADDRESS",  "");                                   // ★ org address line
+        p.put("P_DOC_TITLE",    "BOOKING CONFIRMATION");
+        p.put("P_BOOKING_NO",   nz(b.getBookingNo()));
+        p.put("P_BOOKING_DATE", b.getBookingDate() == null ? "" : String.valueOf(b.getBookingDate()));
+        p.put("P_PARTY",        nz(b.getPartyDisplay(), "Walk-in Customer"));
+        p.put("P_STATUS",       b.getStatus() == null ? "DRAFT" : String.valueOf(b.getStatus()));
+        p.put("P_BOOKING_TYPE", b.getBookingType() == null ? "" : String.valueOf(b.getBookingType()));
+        p.put("P_AGENT",        nz(b.getSalesAgentDisplay()));
+        p.put("P_REMARKS",      nz(b.getRemarks()));
+        p.put("P_CURRENCY",     "BDT");
 
-        return renderPdf("booking-confirmation", params);
+        p.put("P_SUBTOTAL", b.getSubtotalAmount());   // Number params — BigDecimal is fine,
+        p.put("P_DISCOUNT", b.getDiscountAmount());   // JRXML declares java.lang.Number and
+        p.put("P_TOTAL",    b.getTotalAmount());      // null-guards every use.
+        p.put("P_PAID",     b.getPaidAmount());
+        p.put("P_DUE",      b.getDueAmount());
+
+        p.put("P_RECEIPTS", b.getReceipts());         // rendered via jr:list sub-dataset
+
+        JRDataSource ds = new JRBeanCollectionDataSource(b.getServices() == null ? List.of() : b.getServices());
+
+        // ★ keep YOUR existing render call — only the template path + args matter:
+        return renderPdf("booking-confirmation", p, ds);
     }
+
+    private static String nz(String s)            { return s == null ? "" : s; }
+    private static String nz(String s, String d)  { return (s == null || s.isBlank()) ? d : s; }
 
     // =========================================================================
     // AIR TICKET
@@ -308,6 +307,17 @@ public class TravelReportServiceImpl implements TravelReportService {
         JasperReport report = compiledCache.computeIfAbsent(templateName, this::compile);
         try (Connection conn = dataSource.getConnection()) {
             JasperPrint print = JasperFillManager.fillReport(report, params, conn);
+            return JasperExportManager.exportReportToPdf(print);
+        } catch (Exception e) {
+            log.error("Report fill failed [{}]: {}", templateName, e.getMessage(), e);
+            throw new IllegalStateException("Could not generate " + templateName + " report: " + e.getMessage(), e);
+        }
+    }
+
+    private byte[] renderPdf(String templateName, Map<String, Object> params, JRDataSource dataSource) {
+        JasperReport report = compiledCache.computeIfAbsent(templateName, this::compile);
+        try {
+            JasperPrint print = JasperFillManager.fillReport(report, params, dataSource);
             return JasperExportManager.exportReportToPdf(print);
         } catch (Exception e) {
             log.error("Report fill failed [{}]: {}", templateName, e.getMessage(), e);

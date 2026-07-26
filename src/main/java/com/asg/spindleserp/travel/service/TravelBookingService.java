@@ -31,8 +31,14 @@ public interface TravelBookingService {
     /** DRAFT → CONFIRMED. Creates the GL voucher and updates customer AR. */
     TrvBookingDTO confirm(Long id);
 
-    /** DRAFT → CANCELLED. Confirmed bookings cannot be cancelled here (need reversal flow). */
+    /** DRAFT → CANCELLED. */
     TrvBookingDTO cancel(Long id);
+
+    /**
+     * CONFIRMED/PARTIALLY_PAID/PAID → CANCELLED with GL reversal.
+     * Reverses the SALES_VOUCHER and any RECEIPT_VOUCHERs, then marks the booking CANCELLED.
+     */
+    TrvBookingDTO reverse(Long id, String reason);
 
     /**
      * Pre-fills a Receipt Voucher for a CONFIRMED booking with due balance.

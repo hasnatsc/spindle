@@ -1,6 +1,7 @@
 package com.asg.spindleserp.travel.entity;
 
 import com.asg.spindleserp.BaseEntity;
+import com.asg.spindleserp.accounts.entity.ChartOfAccountSub;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
@@ -87,9 +88,10 @@ public class TrvBooking extends BaseEntity implements Serializable {
     @Column(name = "remarks", length = 1000)
     private String remarks;
 
-    /** Soft FK → acc_chart_of_accounts_sub (CUSTOMER sub-type). */
-    @Column(name = "party_id")
-    private Long partyId;
+    /** FK → acc_chart_of_accounts_sub (CUSTOMER sub-type). */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "party_id")
+    private ChartOfAccountSub party;
 
     /** Soft FK → crm_leads. */
     @Column(name = "lead_id")
@@ -118,6 +120,10 @@ public class TrvBooking extends BaseEntity implements Serializable {
     @Builder.Default
     @OneToMany(mappedBy = "booking", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private List<TrvPassenger> passengers = new ArrayList<>();
+
+    @Builder.Default
+    @OneToMany(mappedBy = "booking", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    private List<TrvBookingReceipt> receipts = new ArrayList<>();
 
     @Builder.Default
     @OneToMany(mappedBy = "booking", fetch = FetchType.LAZY)

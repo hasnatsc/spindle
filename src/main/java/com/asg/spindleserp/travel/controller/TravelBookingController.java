@@ -126,6 +126,20 @@ public class TravelBookingController {
         return res;
     }
 
+    // ── REVERSE (confirmed booking → cancelled + GL reversal) ────────────────
+
+    @PostMapping("/bookings/reverse/{id}")
+    @ResponseBody
+    public Map<String, Object> reverse(@PathVariable Long id, @RequestParam(defaultValue = "") String reason) {
+        Map<String, Object> res = new HashMap<>();
+        try {
+            TrvBookingDTO dto = bookingService.reverse(id, reason);
+            res.put("success", true);
+            res.put("message", "Booking " + dto.getBookingNo() + " reversed successfully.");
+        } catch (Exception e) { res.put("success", false); res.put("message", e.getMessage()); }
+        return res;
+    }
+
     // ── CANCEL ────────────────────────────────────────────────────────────────
 
     @PostMapping("/bookings/cancel/{id}")
@@ -152,6 +166,13 @@ public class TravelBookingController {
     }
 
     // ── RECEIPT PREFILL  Booking → Receipt Voucher ───────────────────────────
+
+    @GetMapping("/bookings/print/{id}")
+    public String printBooking(@PathVariable Long id, Model model) {
+        TrvBookingDTO dto = bookingService.findById(id);
+        model.addAttribute("booking", dto);
+        return "travel/travel-booking-print";
+    }
 
     @GetMapping("/bookings/receipt-prefill")
     @ResponseBody

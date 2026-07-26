@@ -13,14 +13,14 @@ import java.util.*;
 
 /**
  * GlReportService — General Ledger, Trial Balance, P&L, Balance Sheet.
- *
+ * <p>
  * All four GL reports in one service; each method is independent.
- *
+ * <p>
  * Endpoints wired from GlReportController:
- *   GET /accounts/ledger/data?accountId=&startDate=&endDate=
- *   GET /accounts/trial-balance/data?asOfDate=&showZeroBalance=
- *   GET /accounts/profit-loss/data?startDate=&endDate=&compareStartDate=&compareEndDate=
- *   GET /accounts/balance-sheet/data?asOfDate=&compareDate=
+ * GET /accounts/ledger/data?accountId=&startDate=&endDate=
+ * GET /accounts/trial-balance/data?asOfDate=&showZeroBalance=
+ * GET /accounts/profit-loss/data?startDate=&endDate=&compareStartDate=&compareEndDate=
+ * GET /accounts/balance-sheet/data?asOfDate=&compareDate=
  */
 @Slf4j
 @Service
@@ -48,14 +48,14 @@ public class GlReportService {
         BigDecimal openingBalance = BigDecimal.ZERO;
         if (startDate != null && !startDate.isBlank()) {
             String obSql = """
-                SELECT
-                  COALESCE(SUM(CASE WHEN jel.entry_type='DEBIT'  THEN jel.amount ELSE 0 END)
-                         - SUM(CASE WHEN jel.entry_type='CREDIT' THEN jel.amount ELSE 0 END), 0) AS ob
-                FROM acc_journal_entry_lines jel
-                JOIN acc_journal_entry_master jem ON jem.id = jel.journal_entry_id
-                WHERE jel.account_id = ? AND jel.organization_id = ?
-                  AND jem.is_posted = true AND jem.voucher_date < ?::date
-                """;
+                    SELECT
+                      COALESCE(SUM(CASE WHEN jel.entry_type='DEBIT'  THEN jel.amount ELSE 0 END)
+                             - SUM(CASE WHEN jel.entry_type='CREDIT' THEN jel.amount ELSE 0 END), 0) AS ob
+                    FROM acc_journal_entry_lines jel
+                    JOIN acc_journal_entry_master jem ON jem.id = jel.journal_entry_id
+                    WHERE jel.account_id = ? AND jel.organization_id = ?
+                      AND jem.is_posted = true AND jem.voucher_date < ?::date
+                    """;
             List<Map<String, Object>> obRows = jdbc.queryForList(obSql, accountId, orgId, startDate);
             if (!obRows.isEmpty() && obRows.getFirst().get("ob") != null) {
                 openingBalance = toBD(obRows.getFirst(), "ob");
@@ -79,19 +79,19 @@ public class GlReportService {
         }
 
         String linesSql = """
-            SELECT
-                TO_CHAR(jem.voucher_date, 'DD-Mon-YYYY') AS voucher_date,
-                jem.voucher_no,
-                jem.voucher_type,
-                CASE WHEN jel.entry_type = 'DEBIT'  THEN jel.amount ELSE 0 END AS debit,
-                CASE WHEN jel.entry_type = 'CREDIT' THEN jel.amount ELSE 0 END AS credit,
-                jel.narration,
-                COALESCE(jem.reference_no, '—') AS reference_no
-            FROM acc_journal_entry_lines jel
-            JOIN acc_journal_entry_master jem ON jem.id = jel.journal_entry_id
-            """ + where + """
-            ORDER BY jem.voucher_date, jem.id, jel.line_number
-            """;
+                SELECT
+                    TO_CHAR(jem.voucher_date, 'DD-Mon-YYYY') AS voucher_date,
+                    jem.voucher_no,
+                    jem.voucher_type,
+                    CASE WHEN jel.entry_type = 'DEBIT'  THEN jel.amount ELSE 0 END AS debit,
+                    CASE WHEN jel.entry_type = 'CREDIT' THEN jel.amount ELSE 0 END AS credit,
+                    jel.narration,
+                    COALESCE(jem.reference_no, '—') AS reference_no
+                FROM acc_journal_entry_lines jel
+                JOIN acc_journal_entry_master jem ON jem.id = jel.journal_entry_id
+                """ + where + """
+                ORDER BY jem.voucher_date, jem.id, jel.line_number
+                """;
 
         List<Map<String, Object>> lines = jdbc.queryForList(linesSql, params);
 
@@ -109,12 +109,12 @@ public class GlReportService {
         }
 
         Map<String, Object> summary = new LinkedHashMap<>();
-        summary.put("openingBalance",  openingBalance);
-        summary.put("totalDebit",      totalDr);
-        summary.put("totalCredit",     totalCr);
-        summary.put("closingBalance",  running);
+        summary.put("openingBalance", openingBalance);
+        summary.put("totalDebit", totalDr);
+        summary.put("totalCredit", totalCr);
+        summary.put("closingBalance", running);
 
-        result.put("lines",   lines);
+        result.put("lines", lines);
         result.put("summary", summary);
         return result;
     }
@@ -129,23 +129,23 @@ public class GlReportService {
         String cutoff = (asOfDate != null && !asOfDate.isBlank()) ? asOfDate : LocalDate.now().toString();
 
         String sql = """
-            SELECT
-                coa.account_code,
-                coa.account_name,
-                coa.account_type,
-                coa.level,
-                COALESCE(SUM(CASE WHEN jel.entry_type = 'DEBIT'  THEN jel.amount ELSE 0 END), 0) AS total_debit,
-                COALESCE(SUM(CASE WHEN jel.entry_type = 'CREDIT' THEN jel.amount ELSE 0 END), 0) AS total_credit
-            FROM acc_chart_of_accounts coa
-            LEFT JOIN acc_journal_entry_lines jel   ON jel.account_id = coa.id
-            LEFT JOIN acc_journal_entry_master jem  ON jem.id = jel.journal_entry_id
-                AND jem.is_posted = true
-                AND jem.voucher_date <= ?::date
-            WHERE coa.organization_id = ? AND coa.is_active = true
-            GROUP BY coa.id, coa.account_code, coa.account_name, coa.account_type, coa.level
-            """ + (showZeroBalance ? "" : "HAVING COALESCE(SUM(jel.amount), 0) > 0 ") + """
-            ORDER BY coa.account_type, coa.account_code
-            """;
+                SELECT
+                    coa.account_code,
+                    coa.account_name,
+                    coa.account_type,
+                    coa.level,
+                    COALESCE(SUM(CASE WHEN jel.entry_type = 'DEBIT'  THEN jel.amount ELSE 0 END), 0) AS total_debit,
+                    COALESCE(SUM(CASE WHEN jel.entry_type = 'CREDIT' THEN jel.amount ELSE 0 END), 0) AS total_credit
+                FROM acc_chart_of_accounts coa
+                LEFT JOIN acc_journal_entry_lines jel   ON jel.account_id = coa.id
+                LEFT JOIN acc_journal_entry_master jem  ON jem.id = jel.journal_entry_id
+                    AND jem.is_posted = true
+                    AND jem.voucher_date <= ?::date
+                WHERE coa.organization_id = ? AND coa.is_active = true
+                GROUP BY coa.id, coa.account_code, coa.account_name, coa.account_type, coa.level
+                """ + (showZeroBalance ? "" : "HAVING COALESCE(SUM(jel.amount), 0) > 0 ") + """
+                ORDER BY coa.account_type, coa.account_code
+                """;
 
         List<Map<String, Object>> rows = jdbc.queryForList(sql, cutoff, orgId);
 
@@ -157,13 +157,13 @@ public class GlReportService {
         }
 
         Map<String, Object> summary = new LinkedHashMap<>();
-        summary.put("totalDebit",    totalDr);
-        summary.put("totalCredit",   totalCr);
-        summary.put("accountCount",  rows.size());
+        summary.put("totalDebit", totalDr);
+        summary.put("totalCredit", totalCr);
+        summary.put("accountCount", rows.size());
 
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("accounts", rows);
-        result.put("summary",  summary);
+        result.put("summary", summary);
         return result;
     }
 
@@ -172,32 +172,38 @@ public class GlReportService {
     //    Returns: { sections:[], summary:{totalRevenue, totalExpense, compareRevenue, compareExpense} }
     // =========================================================================
 
-    public Map<String, Object> profitAndLoss(String startDate, String endDate, String cmpStart,  String cmpEnd) {
+    public Map<String, Object> profitAndLoss(String startDate, String endDate, String cmpStart, String cmpEnd) {
         Long orgId = SecurityHelper.requireOrgId();
 
         List<Map<String, Object>> sections = _plQuery(orgId, startDate, endDate, cmpStart, cmpEnd, false);
 
         BigDecimal totalRevenue = BigDecimal.ZERO;
         BigDecimal totalExpense = BigDecimal.ZERO;
-        BigDecimal cmpRevenue   = BigDecimal.ZERO;
-        BigDecimal cmpExpense   = BigDecimal.ZERO;
+        BigDecimal cmpRevenue = BigDecimal.ZERO;
+        BigDecimal cmpExpense = BigDecimal.ZERO;
         for (Map<String, Object> r : sections) {
             String type = String.valueOf(r.getOrDefault("account_type", ""));
-            BigDecimal amt  = toBD(r, "amount");
+            BigDecimal amt = toBD(r, "amount");
             BigDecimal cAmt = toBD(r, "compare_amount");
-            if ("REVENUE".equals(type)) { totalRevenue = totalRevenue.add(amt); cmpRevenue = cmpRevenue.add(cAmt); }
-            if ("EXPENSE".equals(type)) { totalExpense = totalExpense.add(amt); cmpExpense = cmpExpense.add(cAmt); }
+            if ("REVENUE".equals(type)) {
+                totalRevenue = totalRevenue.add(amt);
+                cmpRevenue = cmpRevenue.add(cAmt);
+            }
+            if ("EXPENSE".equals(type)) {
+                totalExpense = totalExpense.add(amt);
+                cmpExpense = cmpExpense.add(cAmt);
+            }
         }
 
         Map<String, Object> summary = new LinkedHashMap<>();
-        summary.put("totalRevenue",  totalRevenue);
-        summary.put("totalExpense",  totalExpense);
+        summary.put("totalRevenue", totalRevenue);
+        summary.put("totalExpense", totalExpense);
         summary.put("compareRevenue", cmpRevenue);
         summary.put("compareExpense", cmpExpense);
 
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("sections", sections);
-        result.put("summary",  summary);
+        result.put("summary", summary);
         return result;
     }
 
@@ -208,35 +214,44 @@ public class GlReportService {
     // =========================================================================
 
     public Map<String, Object> balanceSheet(String asOfDate, String compareDate) {
-        Long   orgId  = SecurityHelper.requireOrgId();
+        Long orgId = SecurityHelper.requireOrgId();
         String cutoff = (asOfDate != null && !asOfDate.isBlank()) ? asOfDate : LocalDate.now().toString();
 
         List<Map<String, Object>> accounts = _bsQuery(orgId, cutoff, compareDate);
 
         BigDecimal totalAssets = BigDecimal.ZERO, totalLiab = BigDecimal.ZERO, totalEquity = BigDecimal.ZERO;
-        BigDecimal cmpAssets   = BigDecimal.ZERO, cmpLiab   = BigDecimal.ZERO, cmpEquity   = BigDecimal.ZERO;
+        BigDecimal cmpAssets = BigDecimal.ZERO, cmpLiab = BigDecimal.ZERO, cmpEquity = BigDecimal.ZERO;
         for (Map<String, Object> r : accounts) {
             String type = String.valueOf(r.getOrDefault("account_type", ""));
-            BigDecimal amt  = toBD(r, "amount");
+            BigDecimal amt = toBD(r, "amount");
             BigDecimal cAmt = toBD(r, "compare_amount");
             switch (type) {
-                case "ASSET"     -> { totalAssets = totalAssets.add(amt); cmpAssets = cmpAssets.add(cAmt); }
-                case "LIABILITY" -> { totalLiab   = totalLiab.add(amt);   cmpLiab   = cmpLiab.add(cAmt); }
-                case "EQUITY"    -> { totalEquity  = totalEquity.add(amt);  cmpEquity  = cmpEquity.add(cAmt); }
+                case "ASSET" -> {
+                    totalAssets = totalAssets.add(amt);
+                    cmpAssets = cmpAssets.add(cAmt);
+                }
+                case "LIABILITY" -> {
+                    totalLiab = totalLiab.add(amt);
+                    cmpLiab = cmpLiab.add(cAmt);
+                }
+                case "EQUITY" -> {
+                    totalEquity = totalEquity.add(amt);
+                    cmpEquity = cmpEquity.add(cAmt);
+                }
             }
         }
 
         Map<String, Object> summary = new LinkedHashMap<>();
-        summary.put("totalAssets",         totalAssets);
-        summary.put("totalLiabilities",    totalLiab);
-        summary.put("totalEquity",         totalEquity);
-        summary.put("compareAssets",       cmpAssets);
-        summary.put("compareLiabilities",  cmpLiab);
-        summary.put("compareEquity",       cmpEquity);
+        summary.put("totalAssets", totalAssets);
+        summary.put("totalLiabilities", totalLiab);
+        summary.put("totalEquity", totalEquity);
+        summary.put("compareAssets", cmpAssets);
+        summary.put("compareLiabilities", cmpLiab);
+        summary.put("compareEquity", cmpEquity);
 
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("accounts", accounts);
-        result.put("summary",  summary);
+        result.put("summary", summary);
         return result;
     }
 
@@ -245,36 +260,39 @@ public class GlReportService {
     // ─────────────────────────────────────────────────────────────────────────
 
     private List<Map<String, Object>> _plQuery(Long orgId, String s, String e,
-                                                String cs, String ce, boolean bsMode) {
+                                               String cs, String ce, boolean bsMode) {
         String typeFilter = bsMode ? "('ASSET','LIABILITY','EQUITY')" : "('REVENUE','EXPENSE')";
         boolean hasCompare = cs != null && !cs.isBlank() && ce != null && !ce.isBlank();
 
         String sql = """
-            SELECT
-                coa.account_code,
-                coa.account_name,
-                coa.account_type,
-                coa.level,
-                COALESCE(SUM(CASE WHEN jel.entry_type='CREDIT' AND coa.account_type='REVENUE' THEN jel.amount
-                                  WHEN jel.entry_type='DEBIT'  AND coa.account_type='EXPENSE' THEN jel.amount
-                                  ELSE 0 END) FILTER (WHERE jem.voucher_date BETWEEN ?::date AND ?::date), 0) AS amount,
+                SELECT
+                    coa.account_code,
+                    coa.account_name,
+                    coa.account_type,
+                    coa.level,
+                    COALESCE(SUM(CASE WHEN jel.entry_type='CREDIT' AND coa.account_type='REVENUE' THEN jel.amount
+                                      WHEN jel.entry_type='DEBIT'  AND coa.account_type='EXPENSE' THEN jel.amount
+                                      ELSE 0 END) FILTER (WHERE jem.voucher_date BETWEEN ?::date AND ?::date), 0) AS amount,
                 """ + (hasCompare ? """
                 COALESCE(SUM(CASE WHEN jel.entry_type='CREDIT' AND coa.account_type='REVENUE' THEN jel.amount
                                   WHEN jel.entry_type='DEBIT'  AND coa.account_type='EXPENSE' THEN jel.amount
                                   ELSE 0 END) FILTER (WHERE jem.voucher_date BETWEEN ?::date AND ?::date), 0) AS compare_amount
                 """ : " 0 AS compare_amount ") + """
-            FROM acc_chart_of_accounts coa
-            LEFT JOIN acc_journal_entry_lines jel   ON jel.account_id = coa.id
-            LEFT JOIN acc_journal_entry_master jem  ON jem.id = jel.journal_entry_id AND jem.is_posted = true
-            WHERE coa.organization_id = ? AND coa.is_active = true
-              AND coa.account_type IN """ + typeFilter + """
-            GROUP BY coa.id, coa.account_code, coa.account_name, coa.account_type, coa.level
-            HAVING COALESCE(SUM(jel.amount), 0) > 0
-            ORDER BY coa.account_type, coa.account_code
-            """;
+                FROM acc_chart_of_accounts coa
+                LEFT JOIN acc_journal_entry_lines jel   ON jel.account_id = coa.id
+                LEFT JOIN acc_journal_entry_master jem  ON jem.id = jel.journal_entry_id AND jem.is_posted = true
+                WHERE coa.organization_id = ? AND coa.is_active = true
+                  AND coa.account_type IN """ + typeFilter + """
+                GROUP BY coa.id, coa.account_code, coa.account_name, coa.account_type, coa.level
+                HAVING COALESCE(SUM(jel.amount), 0) > 0
+                ORDER BY coa.account_type, coa.account_code
+                """;
 
         List<Object> args = new ArrayList<>(Arrays.asList(s, e));
-        if (hasCompare) { args.add(cs); args.add(ce); }
+        if (hasCompare) {
+            args.add(cs);
+            args.add(ce);
+        }
         args.add(orgId);
         return jdbc.queryForList(sql, args.toArray());
     }
@@ -282,31 +300,33 @@ public class GlReportService {
     private List<Map<String, Object>> _bsQuery(Long orgId, String cutoff, String cmpDate) {
         boolean hasCompare = cmpDate != null && !cmpDate.isBlank();
         String sql = """
-            SELECT
-                coa.account_code,
-                coa.account_name,
-                coa.account_type,
-                coa.level,
-                COALESCE(SUM(CASE WHEN jel.entry_type='DEBIT'  THEN jel.amount ELSE 0 END
-                           - CASE WHEN jel.entry_type='CREDIT' THEN jel.amount ELSE 0 END)
-                    FILTER (WHERE jem.voucher_date <= ?::date), 0) AS amount,
+                SELECT
+                    coa.account_code,
+                    coa.account_name,
+                    coa.account_type,
+                    coa.level,
+                    COALESCE(SUM(CASE WHEN jel.entry_type='DEBIT'  THEN jel.amount ELSE 0 END
+                               - CASE WHEN jel.entry_type='CREDIT' THEN jel.amount ELSE 0 END)
+                        FILTER (WHERE jem.voucher_date <= ?::date), 0) AS amount,
                 """ + (hasCompare ? """
                 COALESCE(SUM(CASE WHEN jel.entry_type='DEBIT'  THEN jel.amount ELSE 0 END
                            - CASE WHEN jel.entry_type='CREDIT' THEN jel.amount ELSE 0 END)
                     FILTER (WHERE jem.voucher_date <= ?::date), 0) AS compare_amount\n
                 """ : "0 AS compare_amount\n") + """
-                FROM acc_chart_of_accounts coa
-            LEFT JOIN acc_journal_entry_lines jel   ON jel.account_id = coa.id
-            LEFT JOIN acc_journal_entry_master jem  ON jem.id = jel.journal_entry_id AND jem.is_posted = true
-            WHERE coa.organization_id = ? AND coa.is_active = true
-              AND coa.account_type IN ('ASSET','LIABILITY','EQUITY')
-            GROUP BY coa.id, coa.account_code, coa.account_name, coa.account_type, coa.level
-            HAVING ABS(COALESCE(SUM(jel.amount), 0)) > 0
-            ORDER BY coa.account_type, coa.account_code
-            """;
+                    FROM acc_chart_of_accounts coa
+                LEFT JOIN acc_journal_entry_lines jel   ON jel.account_id = coa.id
+                LEFT JOIN acc_journal_entry_master jem  ON jem.id = jel.journal_entry_id AND jem.is_posted = true
+                WHERE coa.organization_id = ? AND coa.is_active = true
+                  AND coa.account_type IN ('ASSET','LIABILITY','EQUITY')
+                GROUP BY coa.id, coa.account_code, coa.account_name, coa.account_type, coa.level
+                HAVING ABS(COALESCE(SUM(jel.amount), 0)) > 0
+                ORDER BY coa.account_type, coa.account_code
+                """;
 
         List<Object> args = new ArrayList<>(Collections.singletonList(cutoff));
-        if (hasCompare) { args.add(cmpDate); }
+        if (hasCompare) {
+            args.add(cmpDate);
+        }
         args.add(orgId);
         return jdbc.queryForList(sql, args.toArray());
     }
@@ -315,7 +335,7 @@ public class GlReportService {
         Object v = r.get(key);
         if (v == null) return BigDecimal.ZERO;
         if (v instanceof BigDecimal bd) return bd;
-        if (v instanceof Number n)    return BigDecimal.valueOf(n.doubleValue());
+        if (v instanceof Number n) return BigDecimal.valueOf(n.doubleValue());
         return BigDecimal.ZERO;
     }
 }

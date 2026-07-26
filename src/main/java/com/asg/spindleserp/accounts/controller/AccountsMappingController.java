@@ -15,14 +15,14 @@ import java.util.Map;
 
 /**
  * AccountsMappingController  /accounts/mapping
- *
+ * <p>
  * JS fn → endpoint:
- *   mapShow(id)   GET    /accounts/mapping/show/{id}
- *   mapEdit(id)   GET    /accounts/mapping/show/{id}
- *   mapToggle(id) POST   /accounts/mapping/toggle/{id}
- *   mapDelete(id) DELETE /accounts/mapping/delete/{id}
- *   (save)        POST   /accounts/mapping/save
- *   (search)      GET    /accounts/mapping/search
+ * mapShow(id)   GET    /accounts/mapping/show/{id}
+ * mapEdit(id)   GET    /accounts/mapping/show/{id}
+ * mapToggle(id) POST   /accounts/mapping/toggle/{id}
+ * mapDelete(id) DELETE /accounts/mapping/delete/{id}
+ * (save)        POST   /accounts/mapping/save
+ * (search)      GET    /accounts/mapping/search
  */
 @Slf4j
 @Controller
@@ -41,8 +41,8 @@ public class AccountsMappingController {
     @GetMapping("/list")
     @ResponseBody
     public DataTableResponse list(
-            @RequestParam(defaultValue = "1")  int draw,
-            @RequestParam(defaultValue = "0")  int start,
+            @RequestParam(defaultValue = "1") int draw,
+            @RequestParam(defaultValue = "0") int start,
             @RequestParam(defaultValue = "25") int length,
             @RequestParam(value = "search[value]", defaultValue = "") String search) {
         return mappingService.datatableList(draw, start, length, search);
@@ -52,8 +52,13 @@ public class AccountsMappingController {
     @ResponseBody
     public Map<String, Object> show(@PathVariable Long id) {
         Map<String, Object> res = new HashMap<>();
-        try { res.put("success", true); res.put("obj", Map.of("defaultData", mappingService.findById(id))); }
-        catch (Exception e) { res.put("success", false); res.put("message", e.getMessage()); }
+        try {
+            res.put("success", true);
+            res.put("obj", Map.of("defaultData", mappingService.findById(id)));
+        } catch (Exception e) {
+            res.put("success", false);
+            res.put("message", e.getMessage());
+        }
         return res;
     }
 
@@ -62,10 +67,18 @@ public class AccountsMappingController {
     public Map<String, Object> save(@RequestBody @Valid AccountsMappingDTO dto) {
         Map<String, Object> res = new HashMap<>();
         try {
-            if (dto.getId() != null) { mappingService.update(dto.getId(), dto); res.put("message", "Mapping updated."); }
-            else                     { mappingService.create(dto);              res.put("message", "Mapping created."); }
+            if (dto.getId() != null) {
+                mappingService.update(dto.getId(), dto);
+                res.put("message", "Mapping updated.");
+            } else {
+                mappingService.create(dto);
+                res.put("message", "Mapping created.");
+            }
             res.put("success", true);
-        } catch (Exception e) { res.put("success", false); res.put("message", e.getMessage()); }
+        } catch (Exception e) {
+            res.put("success", false);
+            res.put("message", e.getMessage());
+        }
         return res;
     }
 
@@ -77,7 +90,10 @@ public class AccountsMappingController {
             AccountsMappingDTO dto = mappingService.toggleStatus(id);
             res.put("success", true);
             res.put("message", "Mapping " + (Boolean.TRUE.equals(dto.getActive()) ? "activated" : "deactivated") + ".");
-        } catch (Exception e) { res.put("success", false); res.put("message", e.getMessage()); }
+        } catch (Exception e) {
+            res.put("success", false);
+            res.put("message", e.getMessage());
+        }
         return res;
     }
 
@@ -85,17 +101,23 @@ public class AccountsMappingController {
     @ResponseBody
     public Map<String, Object> delete(@PathVariable Long id) {
         Map<String, Object> res = new HashMap<>();
-        try { mappingService.delete(id); res.put("success", true); res.put("message", "Mapping deleted."); }
-        catch (Exception e) { res.put("success", false); res.put("message", e.getMessage()); }
+        try {
+            mappingService.delete(id);
+            res.put("success", true);
+            res.put("message", "Mapping deleted.");
+        } catch (Exception e) {
+            res.put("success", false);
+            res.put("message", e.getMessage());
+        }
         return res;
     }
 
     @GetMapping("/search")
     @ResponseBody
     public Map<String, Object> search(
-            @RequestParam(defaultValue = "")   String search,
-            @RequestParam(defaultValue = "1")  int    page,
-            @RequestParam(defaultValue = "30") int    pageSize) {
+            @RequestParam(defaultValue = "") String search,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "30") int pageSize) {
         return mappingService.search(search, page, pageSize);
     }
 }

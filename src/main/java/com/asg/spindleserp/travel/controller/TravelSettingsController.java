@@ -42,4 +42,33 @@ public class TravelSettingsController {
         catch (Exception e) { res.put("success", false); res.put("message", e.getMessage()); }
         return res;
     }
+
+    // ── Payment Mode → Account mapping ─────────────────────────────────────────
+
+    @GetMapping("/settings/payment-mode-accounts")
+    @ResponseBody
+    public Map<String, Object> getPaymentModeAccounts() {
+        Map<String, Object> res = new HashMap<>();
+        try { res.put("success", true); res.put("data", settingsService.getPaymentModeAccounts()); }
+        catch (Exception e) { res.put("success", false); res.put("message", e.getMessage()); }
+        return res;
+    }
+
+    /**
+     * Body: { paymentMode: "BKASH", subAccountId: 123 }
+     * Upserts the mapping for this org + payment mode.
+     */
+    @PostMapping("/settings/payment-mode-accounts")
+    @ResponseBody
+    public Map<String, Object> savePaymentModeAccount(@RequestBody Map<String, Object> body) {
+        Map<String, Object> res = new HashMap<>();
+        try {
+            String mode = (String) body.get("paymentMode");
+            Number subId = (Number) body.get("subAccountId");
+            settingsService.savePaymentModeAccount(mode, subId != null ? subId.longValue() : null);
+            res.put("success", true);
+            res.put("message", "Payment mode account saved.");
+        } catch (Exception e) { res.put("success", false); res.put("message", e.getMessage()); }
+        return res;
+    }
 }

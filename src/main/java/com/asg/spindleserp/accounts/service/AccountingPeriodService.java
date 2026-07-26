@@ -23,7 +23,9 @@ public interface AccountingPeriodService {
 
     AccountingPeriodDTO toggleStatus(Long id);
 
-    /** Close a period — sets isClosed=true, records closedBy + closedDate. */
+    /**
+     * Close a period — sets isClosed=true, records closedBy + closedDate.
+     */
     AccountingPeriodDTO closePeriod(Long id);
 
     void delete(Long id);

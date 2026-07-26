@@ -23,10 +23,10 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class AccountsPolicyServiceImpl implements AccountsPolicyService {
 
-    private final AccountsPolicyRepository  policyRepo;
+    private final AccountsPolicyRepository policyRepo;
     private final AccountsMappingRepository mappingRepo;
-    private final ChartOfAccountRepository  coaRepo;
-    private final JdbcTemplate              jdbcTemplate;
+    private final ChartOfAccountRepository coaRepo;
+    private final JdbcTemplate jdbcTemplate;
 
     // ── CREATE ────────────────────────────────────────────────────────────────
 
@@ -52,7 +52,9 @@ public class AccountsPolicyServiceImpl implements AccountsPolicyService {
 
     @Override
     @Transactional(readOnly = true)
-    public AccountsPolicyDTO findById(Long id) { return toDTO(findEntityById(id)); }
+    public AccountsPolicyDTO findById(Long id) {
+        return toDTO(findEntityById(id));
+    }
 
     @Override
     @Transactional(readOnly = true)
@@ -86,36 +88,36 @@ public class AccountsPolicyServiceImpl implements AccountsPolicyService {
         String where = "WHERE 1=1"
                 + (orgId != null ? " AND p.organization_id = " + orgId : "")
                 + CommonUtils.searchILike(search, Arrays.asList(
-                        "p.policy_code", "p.policy_name", "p.policy_type", "p.module_type"));
+                "p.policy_code", "p.policy_name", "p.policy_type", "p.module_type"));
 
         String sql = String.format("""
-            SELECT
-                ROW_NUMBER() OVER (ORDER BY p.id DESC)     AS sl,
-                COUNT(*)     OVER ()                       AS full_count,
-                p.id,
-                p.policy_code,
-                p.policy_name,
-                p.policy_type,
-                COALESCE(p.module_type, '—')              AS module_type,
-                COALESCE(p.voucher_prefix, '—')           AS voucher_prefix,
-                CASE WHEN p.is_default THEN '<span class="badge bg-info text-dark">Default</span>' ELSE '' END AS is_default_badge,
-                CASE WHEN p.is_system  THEN '<span class="badge bg-secondary">System</span>'        ELSE '' END AS is_system_badge,
-                TO_CHAR(p.created_at, 'DD-Mon-YYYY')      AS created_at,
-                CASE WHEN p.is_active
-                    THEN '<span class="badge bg-success">Active</span>'
-                    ELSE '<span class="badge bg-danger">Inactive</span>'
-                END AS status,
-                '<div class="btn-group">'
-                    || '<a href="javascript:;" onclick="policyShow('   || p.id || ')" class="btn btn-white btn-sm" title="View"><i class="fas fa-eye text-success"></i></a>'
-                    || '<a href="javascript:;" onclick="policyEdit('   || p.id || ')" class="btn btn-white btn-sm" title="Edit"><i class="fa-regular fa-pen-to-square text-warning"></i></a>'
-                    || '<a href="javascript:;" onclick="policyToggle(' || p.id || ')" class="btn btn-white btn-sm" title="Toggle"><i class="fa-regular fa-square-check text-primary"></i></a>'
-                    || '<a href="javascript:;" onclick="policyDelete(' || p.id || ')" class="btn btn-white btn-sm" title="Delete"><i class="fa-regular fa-trash-can text-danger"></i></a>'
-                    || '</div>'                            AS actions
-            FROM acc_policy p
-            %s
-            ORDER BY p.policy_code
-            OFFSET %d LIMIT %d
-            """, where, start, length);
+                SELECT
+                    ROW_NUMBER() OVER (ORDER BY p.id DESC)     AS sl,
+                    COUNT(*)     OVER ()                       AS full_count,
+                    p.id,
+                    p.policy_code,
+                    p.policy_name,
+                    p.policy_type,
+                    COALESCE(p.module_type, '—')              AS module_type,
+                    COALESCE(p.voucher_prefix, '—')           AS voucher_prefix,
+                    CASE WHEN p.is_default THEN '<span class="badge bg-info text-dark">Default</span>' ELSE '' END AS is_default_badge,
+                    CASE WHEN p.is_system  THEN '<span class="badge bg-secondary">System</span>'        ELSE '' END AS is_system_badge,
+                    TO_CHAR(p.created_at, 'DD-Mon-YYYY')      AS created_at,
+                    CASE WHEN p.is_active
+                        THEN '<span class="badge bg-success">Active</span>'
+                        ELSE '<span class="badge bg-danger">Inactive</span>'
+                    END AS status,
+                    '<div class="btn-group">'
+                        || '<a href="javascript:;" onclick="policyShow('   || p.id || ')" class="btn btn-white btn-sm" title="View"><i class="fas fa-eye text-success"></i></a>'
+                        || '<a href="javascript:;" onclick="policyEdit('   || p.id || ')" class="btn btn-white btn-sm" title="Edit"><i class="fa-regular fa-pen-to-square text-warning"></i></a>'
+                        || '<a href="javascript:;" onclick="policyToggle(' || p.id || ')" class="btn btn-white btn-sm" title="Toggle"><i class="fa-regular fa-square-check text-primary"></i></a>'
+                        || '<a href="javascript:;" onclick="policyDelete(' || p.id || ')" class="btn btn-white btn-sm" title="Delete"><i class="fa-regular fa-trash-can text-danger"></i></a>'
+                        || '</div>'                            AS actions
+                FROM acc_policy p
+                %s
+                ORDER BY p.policy_code
+                OFFSET %d LIMIT %d
+                """, where, start, length);
 
         List<Map<String, Object>> rows = jdbcTemplate.queryForList(sql);
         long total = rows.isEmpty() ? 0L : CommonUtils.toLong(rows.get(0).get("full_count"));

@@ -43,6 +43,10 @@ public class TrvSupplierCost extends BaseEntity implements Serializable {
     @Column(name = "supplier_id")
     private Long supplierId;
 
+    /** Soft FK → acc_journal_entry_master, set when cost is posted to GL. */
+    @Column(name = "journal_entry_id")
+    private Long journalEntryId;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "booking_service_id", insertable = false, updatable = false)
     @JsonIgnore

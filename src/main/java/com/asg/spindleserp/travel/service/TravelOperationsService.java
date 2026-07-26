@@ -33,6 +33,12 @@ public interface TravelOperationsService {
     void deleteSupplierCost(Long id);
     List<Map<String, Object>> listSupplierCosts(String search);
 
+    /**
+     * Posts a supplier cost to GL: creates a PAYMENT_VOUCHER (DR Cost of Service,
+     * CR Supplier Payable). Returns the updated DTO with journalEntryId set.
+     */
+    TrvSupplierCostDTO postSupplierCostToGl(Long id);
+
     // ── Lookups ───────────────────────────────────────────────────────────────
     /** Booking services (lines) still needing hotel/air fulfillment, filtered by type. */
     List<Map<String, Object>> unfulfilledServiceLines(String serviceType);

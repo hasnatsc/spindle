@@ -11,7 +11,11 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
-@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class TrvBookingDTO {
 
     private Long id;
@@ -47,13 +51,17 @@ public class TrvBookingDTO {
     private String remarks;
 
     // ── AJAX Select2 refs ──────────────────────────────────────────────────
-    private Long   partyId;         private String partyDisplay;
-    private Long   leadId;          private String leadDisplay;
-    private Long   opportunityId;   private String opportunityDisplay;
-    private Long   salesAgentId;    private String salesAgentDisplay;
+    private Long partyId;
+    private String partyDisplay;
+    private Long leadId;
+    private String leadDisplay;
+    private Long opportunityId;
+    private String opportunityDisplay;
+    private Long salesAgentId;
+    private String salesAgentDisplay;
 
-    private Long   approvalRequestId;
-    private Long   journalEntryId;
+    private Long approvalRequestId;
+    private Long journalEntryId;
 
     @Builder.Default
     @Valid
@@ -63,14 +71,22 @@ public class TrvBookingDTO {
     @Valid
     private List<PassengerDTO> passengers = new ArrayList<>();
 
+    @Builder.Default
+    private List<ReceiptLineDTO> receipts = new ArrayList<>();
+
     private String createdAt;
     private String updatedAt;
     private String createdBy;
 
-    @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
     public static class ServiceLineDTO {
         private Long id;
-        @NotBlank private String serviceType; // HOTEL | AIR | PACKAGE
+        @NotBlank
+        private String serviceType; // HOTEL | AIR | PACKAGE
         private Long referenceId;
         private String description;
         private BigDecimal quantity;
@@ -79,29 +95,55 @@ public class TrvBookingDTO {
         private BigDecimal discountAmount;
         private BigDecimal taxAmount;
         private BigDecimal lineTotal;
-        private Long costCenterId; private String costCenterDisplay;
+        private String patientCategory;
+        private Long costCenterId;
+        private String costCenterDisplay;
     }
 
-    @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
     public static class PassengerDTO {
         private Long id;
         private String title;
-        @NotBlank private String firstName;
+        @NotBlank
+        private String firstName;
         private String lastName;
         private LocalDate dateOfBirth;
         private String gender;
         private String passportNumber;
         private LocalDate passportExpiry;
         private String nationality;
-        @Builder.Default private String passengerType = "ADULT";
-        @Builder.Default private Boolean isLeadPassenger = false;
+        @Builder.Default
+        private String passengerType = "ADULT";
+        @Builder.Default
+        private Boolean isLeadPassenger = false;
         private String phone;
         private String email;
         private String remarks;
         private PreferenceDTO preference;
     }
 
-    @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class ReceiptLineDTO {
+        private String paymentMode;  // CASH | BANK | BKASH | NAGAD | CARD
+        private Long subAccountId;
+        private String subAccountText;
+        private String reference;
+        private BigDecimal amount;
+    }
+
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
     public static class PreferenceDTO {
         private Long id;
         private String mealPreference;

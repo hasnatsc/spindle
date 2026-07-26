@@ -23,7 +23,9 @@ public interface AccountsMappingService {
 
     DataTableResponse datatableList(int draw, int start, int length, String search);
 
-    /** AJAX Select2 — returns {items:[{id,text,code,name}], hasMore} */
+    /**
+     * AJAX Select2 — returns {items:[{id,text,code,name}], hasMore}
+     */
     Map<String, Object> search(String q, int page, int pageSize);
 
     AccountsMappingDTO toDTO(AccountsMapping entity);

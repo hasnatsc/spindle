@@ -196,6 +196,18 @@ public class TravelOperationsController {
         return res;
     }
 
+    @PostMapping("/supplier-costs/post-to-gl/{id}")
+    @ResponseBody
+    public Map<String, Object> scPostToGl(@PathVariable Long id) {
+        Map<String, Object> res = new HashMap<>();
+        try {
+            TrvSupplierCostDTO dto = opsService.postSupplierCostToGl(id);
+            res.put("success", true);
+            res.put("message", "Supplier cost posted to GL. Voucher ref: " + dto.getJournalEntryId());
+        } catch (Exception e) { res.put("success", false); res.put("message", e.getMessage()); }
+        return res;
+    }
+
     // ── LOOKUPS (Select2) ─────────────────────────────────────────────────────
 
     @PostMapping("/hotel-bookings/cancel/{id}")

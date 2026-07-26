@@ -23,8 +23,8 @@ import java.util.stream.Collectors;
 public class AccountsMappingServiceImpl implements AccountsMappingService {
 
     private final AccountsMappingRepository mappingRepo;
-    private final ChartOfAccountRepository  coaRepo;
-    private final JdbcTemplate              jdbcTemplate;
+    private final ChartOfAccountRepository coaRepo;
+    private final JdbcTemplate jdbcTemplate;
 
     // ── CREATE ────────────────────────────────────────────────────────────────
 
@@ -55,7 +55,9 @@ public class AccountsMappingServiceImpl implements AccountsMappingService {
 
     @Override
     @Transactional(readOnly = true)
-    public AccountsMappingDTO findById(Long id) { return toDTO(findEntityById(id)); }
+    public AccountsMappingDTO findById(Long id) {
+        return toDTO(findEntityById(id));
+    }
 
     @Override
     @Transactional(readOnly = true)
@@ -89,36 +91,36 @@ public class AccountsMappingServiceImpl implements AccountsMappingService {
         String where = "WHERE 1=1"
                 + (orgId != null ? " AND m.organization_id = " + orgId : "")
                 + CommonUtils.searchILike(search, Arrays.asList(
-                        "m.mapping_code", "m.mapping_name", "m.module_type", "m.transaction_type"));
+                "m.mapping_code", "m.mapping_name", "m.module_type", "m.transaction_type"));
 
         String sql = String.format("""
-            SELECT
-                ROW_NUMBER() OVER (ORDER BY m.id DESC)     AS sl,
-                COUNT(*)     OVER ()                       AS full_count,
-                m.id,
-                m.mapping_code,
-                m.mapping_name,
-                m.module_type,
-                m.transaction_type,
-                m.voucher_type,
-                COALESCE(m.voucher_prefix, '—')           AS voucher_prefix,
-                (SELECT COUNT(*) FROM acc_mapping_details d WHERE d.accounts_mapping_id = m.id) AS line_count,
-                TO_CHAR(m.created_at, 'DD-Mon-YYYY')      AS created_at,
-                CASE WHEN m.is_active
-                    THEN '<span class="badge bg-success">Active</span>'
-                    ELSE '<span class="badge bg-danger">Inactive</span>'
-                END AS status,
-                '<div class="btn-group">'
-                    || '<a href="javascript:;" onclick="mapShow('   || m.id || ')" class="btn btn-white btn-sm" title="View"><i class="fas fa-eye text-success"></i></a>'
-                    || '<a href="javascript:;" onclick="mapEdit('   || m.id || ')" class="btn btn-white btn-sm" title="Edit"><i class="fa-regular fa-pen-to-square text-warning"></i></a>'
-                    || '<a href="javascript:;" onclick="mapToggle(' || m.id || ')" class="btn btn-white btn-sm" title="Toggle"><i class="fa-regular fa-square-check text-primary"></i></a>'
-                    || '<a href="javascript:;" onclick="mapDelete(' || m.id || ')" class="btn btn-white btn-sm" title="Delete"><i class="fa-regular fa-trash-can text-danger"></i></a>'
-                    || '</div>'                            AS actions
-            FROM acc_mapping m
-            %s
-            ORDER BY m.mapping_code
-            OFFSET %d LIMIT %d
-            """, where, start, length);
+                SELECT
+                    ROW_NUMBER() OVER (ORDER BY m.id DESC)     AS sl,
+                    COUNT(*)     OVER ()                       AS full_count,
+                    m.id,
+                    m.mapping_code,
+                    m.mapping_name,
+                    m.module_type,
+                    m.transaction_type,
+                    m.voucher_type,
+                    COALESCE(m.voucher_prefix, '—')           AS voucher_prefix,
+                    (SELECT COUNT(*) FROM acc_mapping_details d WHERE d.accounts_mapping_id = m.id) AS line_count,
+                    TO_CHAR(m.created_at, 'DD-Mon-YYYY')      AS created_at,
+                    CASE WHEN m.is_active
+                        THEN '<span class="badge bg-success">Active</span>'
+                        ELSE '<span class="badge bg-danger">Inactive</span>'
+                    END AS status,
+                    '<div class="btn-group">'
+                        || '<a href="javascript:;" onclick="mapShow('   || m.id || ')" class="btn btn-white btn-sm" title="View"><i class="fas fa-eye text-success"></i></a>'
+                        || '<a href="javascript:;" onclick="mapEdit('   || m.id || ')" class="btn btn-white btn-sm" title="Edit"><i class="fa-regular fa-pen-to-square text-warning"></i></a>'
+                        || '<a href="javascript:;" onclick="mapToggle(' || m.id || ')" class="btn btn-white btn-sm" title="Toggle"><i class="fa-regular fa-square-check text-primary"></i></a>'
+                        || '<a href="javascript:;" onclick="mapDelete(' || m.id || ')" class="btn btn-white btn-sm" title="Delete"><i class="fa-regular fa-trash-can text-danger"></i></a>'
+                        || '</div>'                            AS actions
+                FROM acc_mapping m
+                %s
+                ORDER BY m.mapping_code
+                OFFSET %d LIMIT %d
+                """, where, start, length);
 
         List<Map<String, Object>> rows = jdbcTemplate.queryForList(sql);
         long total = rows.isEmpty() ? 0L : CommonUtils.toLong(rows.get(0).get("full_count"));
@@ -143,18 +145,18 @@ public class AccountsMappingServiceImpl implements AccountsMappingService {
         String query = q == null ? "" : q.trim().toLowerCase();
         List<AccountsMapping> filtered = query.isEmpty() ? all
                 : all.stream()
-                    .filter(m -> (m.getMappingCode() != null && m.getMappingCode().toLowerCase().contains(query))
-                              || (m.getMappingName() != null && m.getMappingName().toLowerCase().contains(query)))
-                    .collect(Collectors.toList());
+                  .filter(m -> (m.getMappingCode() != null && m.getMappingCode().toLowerCase().contains(query))
+                               || (m.getMappingName() != null && m.getMappingName().toLowerCase().contains(query)))
+                  .collect(Collectors.toList());
 
         int from = (page - 1) * pageSize;
-        int to   = Math.min(from + pageSize, filtered.size());
+        int to = Math.min(from + pageSize, filtered.size());
         boolean hasMore = to < filtered.size();
         List<AccountsMapping> paged = from >= filtered.size() ? List.of() : filtered.subList(from, to);
 
         List<Map<String, Object>> items = paged.stream().map(m -> {
             Map<String, Object> item = new LinkedHashMap<>();
-            item.put("id",   m.getId());
+            item.put("id", m.getId());
             item.put("text", m.getMappingCode() + " — " + m.getMappingName());
             item.put("code", m.getMappingCode());
             item.put("name", m.getMappingName());
@@ -201,17 +203,50 @@ public class AccountsMappingServiceImpl implements AccountsMappingService {
                 .updatedBy(e.getUpdatedBy())
                 .build();
         // COA FK displays
-        if (e.getDefaultDebitAccount()  != null) { d.setDefaultDebitAccountId(e.getDefaultDebitAccount().getId());  d.setDefaultDebitAccountDisplay(e.getDefaultDebitAccount().getAccountCode() + " — " + e.getDefaultDebitAccount().getAccountName()); }
-        if (e.getDefaultCreditAccount() != null) { d.setDefaultCreditAccountId(e.getDefaultCreditAccount().getId()); d.setDefaultCreditAccountDisplay(e.getDefaultCreditAccount().getAccountCode() + " — " + e.getDefaultCreditAccount().getAccountName()); }
-        if (e.getDiscountAccount()  != null) { d.setDiscountAccountId(e.getDiscountAccount().getId());  d.setDiscountAccountDisplay(e.getDiscountAccount().getAccountCode() + " — " + e.getDiscountAccount().getAccountName()); }
-        if (e.getFreightAccount()   != null) { d.setFreightAccountId(e.getFreightAccount().getId());   d.setFreightAccountDisplay(e.getFreightAccount().getAccountCode() + " — " + e.getFreightAccount().getAccountName()); }
-        if (e.getInputVatAccount()  != null) { d.setInputVatAccountId(e.getInputVatAccount().getId());  d.setInputVatAccountDisplay(e.getInputVatAccount().getAccountCode() + " — " + e.getInputVatAccount().getAccountName()); }
-        if (e.getOutputVatAccount() != null) { d.setOutputVatAccountId(e.getOutputVatAccount().getId()); d.setOutputVatAccountDisplay(e.getOutputVatAccount().getAccountCode() + " — " + e.getOutputVatAccount().getAccountName()); }
-        if (e.getForexGainAccount() != null) { d.setForexGainAccountId(e.getForexGainAccount().getId()); d.setForexGainAccountDisplay(e.getForexGainAccount().getAccountCode() + " — " + e.getForexGainAccount().getAccountName()); }
-        if (e.getForexLossAccount() != null) { d.setForexLossAccountId(e.getForexLossAccount().getId()); d.setForexLossAccountDisplay(e.getForexLossAccount().getAccountCode() + " — " + e.getForexLossAccount().getAccountName()); }
-        if (e.getTdsAccount()       != null) { d.setTdsAccountId(e.getTdsAccount().getId());       d.setTdsAccountDisplay(e.getTdsAccount().getAccountCode() + " — " + e.getTdsAccount().getAccountName()); }
-        if (e.getAitAccount()       != null) { d.setAitAccountId(e.getAitAccount().getId());       d.setAitAccountDisplay(e.getAitAccount().getAccountCode() + " — " + e.getAitAccount().getAccountName()); }
-        if (e.getRoundingAccount()  != null) { d.setRoundingAccountId(e.getRoundingAccount().getId()); d.setRoundingAccountDisplay(e.getRoundingAccount().getAccountCode() + " — " + e.getRoundingAccount().getAccountName()); }
+        if (e.getDefaultDebitAccount() != null) {
+            d.setDefaultDebitAccountId(e.getDefaultDebitAccount().getId());
+            d.setDefaultDebitAccountDisplay(e.getDefaultDebitAccount().getAccountCode() + " — " + e.getDefaultDebitAccount().getAccountName());
+        }
+        if (e.getDefaultCreditAccount() != null) {
+            d.setDefaultCreditAccountId(e.getDefaultCreditAccount().getId());
+            d.setDefaultCreditAccountDisplay(e.getDefaultCreditAccount().getAccountCode() + " — " + e.getDefaultCreditAccount().getAccountName());
+        }
+        if (e.getDiscountAccount() != null) {
+            d.setDiscountAccountId(e.getDiscountAccount().getId());
+            d.setDiscountAccountDisplay(e.getDiscountAccount().getAccountCode() + " — " + e.getDiscountAccount().getAccountName());
+        }
+        if (e.getFreightAccount() != null) {
+            d.setFreightAccountId(e.getFreightAccount().getId());
+            d.setFreightAccountDisplay(e.getFreightAccount().getAccountCode() + " — " + e.getFreightAccount().getAccountName());
+        }
+        if (e.getInputVatAccount() != null) {
+            d.setInputVatAccountId(e.getInputVatAccount().getId());
+            d.setInputVatAccountDisplay(e.getInputVatAccount().getAccountCode() + " — " + e.getInputVatAccount().getAccountName());
+        }
+        if (e.getOutputVatAccount() != null) {
+            d.setOutputVatAccountId(e.getOutputVatAccount().getId());
+            d.setOutputVatAccountDisplay(e.getOutputVatAccount().getAccountCode() + " — " + e.getOutputVatAccount().getAccountName());
+        }
+        if (e.getForexGainAccount() != null) {
+            d.setForexGainAccountId(e.getForexGainAccount().getId());
+            d.setForexGainAccountDisplay(e.getForexGainAccount().getAccountCode() + " — " + e.getForexGainAccount().getAccountName());
+        }
+        if (e.getForexLossAccount() != null) {
+            d.setForexLossAccountId(e.getForexLossAccount().getId());
+            d.setForexLossAccountDisplay(e.getForexLossAccount().getAccountCode() + " — " + e.getForexLossAccount().getAccountName());
+        }
+        if (e.getTdsAccount() != null) {
+            d.setTdsAccountId(e.getTdsAccount().getId());
+            d.setTdsAccountDisplay(e.getTdsAccount().getAccountCode() + " — " + e.getTdsAccount().getAccountName());
+        }
+        if (e.getAitAccount() != null) {
+            d.setAitAccountId(e.getAitAccount().getId());
+            d.setAitAccountDisplay(e.getAitAccount().getAccountCode() + " — " + e.getAitAccount().getAccountName());
+        }
+        if (e.getRoundingAccount() != null) {
+            d.setRoundingAccountId(e.getRoundingAccount().getId());
+            d.setRoundingAccountDisplay(e.getRoundingAccount().getAccountCode() + " — " + e.getRoundingAccount().getAccountName());
+        }
         // Details
         if (e.getDetails() != null) {
             d.setDetails(e.getDetails().stream().map(det -> {
@@ -241,7 +276,10 @@ public class AccountsMappingServiceImpl implements AccountsMappingService {
                 dd.setIsOptional(det.isOptional());
                 dd.setActive(det.isActive());
                 dd.setInheritCostCenter(det.isInheritCostCenter());
-                if (det.getAccount() != null) { dd.setAccountId(det.getAccount().getId()); dd.setAccountDisplay(det.getAccount().getAccountCode() + " — " + det.getAccount().getAccountName()); }
+                if (det.getAccount() != null) {
+                    dd.setAccountId(det.getAccount().getId());
+                    dd.setAccountDisplay(det.getAccount().getAccountCode() + " — " + det.getAccount().getAccountName());
+                }
                 return dd;
             }).toList());
         }

@@ -9,7 +9,7 @@ import java.util.Map;
 
 /**
  * ChartOfAccountService
- *
+ * <p>
  * CRUD + DataTable + AJAX search for Chart of Accounts.
  * Mirrors the BusinessUnitService canonical pattern.
  */

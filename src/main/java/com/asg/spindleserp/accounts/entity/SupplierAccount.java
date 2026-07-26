@@ -8,5 +8,7 @@ import lombok.Builder;
 @DiscriminatorValue("SUPPLIER")
 public class SupplierAccount extends ChartOfAccountSub {
     @Builder
-    public SupplierAccount() { super(); }
+    public SupplierAccount() {
+        super();
+    }
 }
