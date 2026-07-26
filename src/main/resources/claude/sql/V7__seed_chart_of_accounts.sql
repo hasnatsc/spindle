@@ -536,7 +536,7 @@ COMMIT;
 -- =============================================================================
 BEGIN;
 
--- ── BANK sub-accounts (under Cash in Hand, 1101) ──────────────────────────
+-- ── BANK sub-accounts (under Bank Accounts, 1102) ─────────────────────────
 INSERT INTO acc_chart_of_accounts_sub
 (sub_account_code, sub_account_name, sub_account_type, bank_account_code, bank_account_type,
  bank_name, branch_name, account_number, swift_code, account_title, currency,
@@ -545,7 +545,7 @@ INSERT INTO acc_chart_of_accounts_sub
 SELECT 'BANK-0001', 'City Bank PLC - Main A/C', 'BANK', 'BANK-0001', 'CURRENT',
        'City Bank PLC', 'Motijheel Branch', '1501234560001', 'CITYBDDH', 'Optimum ERP Ltd.', 'BDT',
        true, true, 1, m.id, 0.00, 0.00, NOW(), NOW(), 'system', 'system'
-FROM acc_chart_of_accounts m WHERE m.account_code = '1101' AND m.organization_id = 1
+FROM acc_chart_of_accounts m WHERE m.account_code = '1102' AND m.organization_id = 1
     ON CONFLICT ON CONSTRAINT ukjq8x73fw7yktf31iimaupoylw DO NOTHING;
 
 INSERT INTO acc_chart_of_accounts_sub
@@ -556,7 +556,7 @@ INSERT INTO acc_chart_of_accounts_sub
 SELECT 'BANK-0002', 'BRAC Bank PLC - Payroll', 'BANK', 'BANK-0002', 'CURRENT',
        'BRAC Bank PLC', 'Gulshan Branch', '1501234560002', 'BRACBDDH', 'Optimum ERP Ltd.', 'BDT',
        true, true, 1, m.id, 0.00, 0.00, NOW(), NOW(), 'system', 'system'
-FROM acc_chart_of_accounts m WHERE m.account_code = '1101' AND m.organization_id = 1
+FROM acc_chart_of_accounts m WHERE m.account_code = '1102' AND m.organization_id = 1
     ON CONFLICT ON CONSTRAINT ukjq8x73fw7yktf31iimaupoylw DO NOTHING;
 
 INSERT INTO acc_chart_of_accounts_sub
@@ -567,7 +567,7 @@ INSERT INTO acc_chart_of_accounts_sub
 SELECT 'BANK-0003', 'Dutch-Bangla Bank - Operational', 'BANK', 'BANK-0003', 'CURRENT',
        'Dutch-Bangla Bank Ltd.', 'Uttara Branch', '1501234560003', 'DBBLBDDH', 'Optimum ERP Ltd.', 'BDT',
        true, true, 1, m.id, 0.00, 0.00, NOW(), NOW(), 'system', 'system'
-FROM acc_chart_of_accounts m WHERE m.account_code = '1101' AND m.organization_id = 1
+FROM acc_chart_of_accounts m WHERE m.account_code = '1102' AND m.organization_id = 1
     ON CONFLICT ON CONSTRAINT ukjq8x73fw7yktf31iimaupoylw DO NOTHING;
 
 INSERT INTO acc_chart_of_accounts_sub
@@ -578,17 +578,64 @@ INSERT INTO acc_chart_of_accounts_sub
 SELECT 'BANK-0004', 'Eastern Bank PLC - Export USD', 'BANK', 'BANK-0004', 'CURRENT',
        'Eastern Bank PLC', 'Kawran Bazar Branch', '1501234560101', 'EBLDDBDH', 'Optimum ERP Ltd.', 'USD',
        true, true, 1, m.id, 0.00, 0.00, NOW(), NOW(), 'system', 'system'
-FROM acc_chart_of_accounts m WHERE m.account_code = '1101' AND m.organization_id = 1
+FROM acc_chart_of_accounts m WHERE m.account_code = '1102' AND m.organization_id = 1
     ON CONFLICT ON CONSTRAINT ukjq8x73fw7yktf31iimaupoylw DO NOTHING;
 
--- ── CASH sub-accounts (under Bank Accounts, 1102) ─────────────────────────
+-- ── MOBILE BANKING sub-accounts (under Bank Accounts, 1102) ──────────────
+INSERT INTO acc_chart_of_accounts_sub
+(sub_account_code, sub_account_name, sub_account_type, bank_account_code, bank_account_type,
+ bank_name, branch_name, account_number, account_title, currency,
+ is_active, requires_approval, organization_id, main_account_id, opening_balance, current_balance,
+ created_at, updated_at, created_by, updated_by)
+SELECT 'MOBILE-0001', 'bKash Merchant Account', 'MOBILE_BANKING', 'MOBILE-0001', 'MFS',
+       'bKash Ltd.', 'Digital', '01234567891', 'Optimum ERP Ltd.', 'BDT',
+       true, false, 1, m.id, 0.00, 0.00, NOW(), NOW(), 'system', 'system'
+FROM acc_chart_of_accounts m WHERE m.account_code = '1102' AND m.organization_id = 1
+    ON CONFLICT ON CONSTRAINT ukouab30ywmi6yp6tvn9ys37fvh DO NOTHING;
+
+INSERT INTO acc_chart_of_accounts_sub
+(sub_account_code, sub_account_name, sub_account_type, bank_account_code, bank_account_type,
+ bank_name, branch_name, account_number, account_title, currency,
+ is_active, requires_approval, organization_id, main_account_id, opening_balance, current_balance,
+ created_at, updated_at, created_by, updated_by)
+SELECT 'MOBILE-0002', 'Nagad Salary Wallet', 'MOBILE_BANKING', 'MOBILE-0002', 'MFS',
+       'Nagad Ltd.', 'Digital', '98765432109', 'Optimum ERP Ltd.', 'BDT',
+       true, false, 1, m.id, 0.00, 0.00, NOW(), NOW(), 'system', 'system'
+FROM acc_chart_of_accounts m WHERE m.account_code = '1102' AND m.organization_id = 1
+    ON CONFLICT ON CONSTRAINT ukouab30ywmi6yp6tvn9ys37fvh DO NOTHING;
+
+-- ── CARD sub-accounts (under Bank Accounts, 1102) ─────────────────────────
+INSERT INTO acc_chart_of_accounts_sub
+(sub_account_code, sub_account_name, sub_account_type, bank_account_code, bank_account_type,
+ bank_name, branch_name, account_number, account_title, currency,
+ is_active, requires_approval, organization_id, main_account_id, opening_balance, current_balance,
+ created_at, updated_at, created_by, updated_by)
+SELECT 'CARD-0001', 'City Bank Corporate Visa', 'CARD', 'CARD-0001', 'CREDIT',
+       'City Bank PLC', 'Motijheel Branch', '4567890123456789', 'Optimum ERP Ltd.', 'BDT',
+       true, true, 1, m.id, 0.00, 0.00, NOW(), NOW(), 'system', 'system'
+FROM acc_chart_of_accounts m WHERE m.account_code = '1102' AND m.organization_id = 1
+    ON CONFLICT ON CONSTRAINT ukouab30ywmi6yp6tvn9ys37fvh DO NOTHING;
+
+-- ── WALLET sub-accounts (under Bank Accounts, 1102) ───────────────────────
+INSERT INTO acc_chart_of_accounts_sub
+(sub_account_code, sub_account_name, sub_account_type, bank_account_code, bank_account_type,
+ bank_name, branch_name, account_number, account_title, currency,
+ is_active, requires_approval, organization_id, main_account_id, opening_balance, current_balance,
+ created_at, updated_at, created_by, updated_by)
+SELECT 'WALLET-0001', 'Rocket Digital Wallet', 'WALLET', 'WALLET-0001', 'MFS',
+       'Dutch-Bangla Bank Ltd.', 'Digital', '78901234567', 'Optimum ERP Ltd.', 'BDT',
+       true, false, 1, m.id, 0.00, 0.00, NOW(), NOW(), 'system', 'system'
+FROM acc_chart_of_accounts m WHERE m.account_code = '1102' AND m.organization_id = 1
+    ON CONFLICT ON CONSTRAINT ukouab30ywmi6yp6tvn9ys37fvh DO NOTHING;
+
+-- ── CASH sub-accounts (under Cash in Hand, 1101) ─────────────────────────
 INSERT INTO acc_chart_of_accounts_sub
 (sub_account_code, sub_account_name, sub_account_type, cash_account_code, cash_account_type,
  is_active, requires_approval, organization_id, main_account_id, opening_balance, current_balance,
  created_at, updated_at, created_by, updated_by)
 SELECT 'CASH-0001', 'Head Office Cash', 'CASH', 'CASH-0001', 'MAIN',
        true, false, 1, m.id, 0.00, 0.00, NOW(), NOW(), 'system', 'system'
-FROM acc_chart_of_accounts m WHERE m.account_code = '1102' AND m.organization_id = 1
+FROM acc_chart_of_accounts m WHERE m.account_code = '1101' AND m.organization_id = 1
     ON CONFLICT ON CONSTRAINT ukouab30ywmi6yp6tvn9ys37fvh DO NOTHING;
 
 INSERT INTO acc_chart_of_accounts_sub
@@ -597,10 +644,10 @@ INSERT INTO acc_chart_of_accounts_sub
  created_at, updated_at, created_by, updated_by)
 SELECT 'CASH-0002', 'Factory Cash', 'CASH', 'CASH-0002', 'PETTY',
        true, false, 1, m.id, 0.00, 0.00, NOW(), NOW(), 'system', 'system'
-FROM acc_chart_of_accounts m WHERE m.account_code = '1102' AND m.organization_id = 1
+FROM acc_chart_of_accounts m WHERE m.account_code = '1101' AND m.organization_id = 1
     ON CONFLICT ON CONSTRAINT ukouab30ywmi6yp6tvn9ys37fvh DO NOTHING;
 
--- ── CUSTOMER sub-accounts (under Accounts Receivable, 1106) ───────────────
+-- ── CUSTOMER sub-accounts (under Accounts Receivable, 1103) ───────────────
 INSERT INTO acc_chart_of_accounts_sub
 (sub_account_code, sub_account_name, sub_account_type, customer_code, customer_group,
  contact_person, contact_phone, contact_email, credit_limit, credit_days,
@@ -609,7 +656,7 @@ INSERT INTO acc_chart_of_accounts_sub
 SELECT 'CUST-0002', 'Green Textiles Ltd', 'CUSTOMER', 'CUST-0002', 'WHOLESALE',
        'Sajid Rahman', '+8801711000112', 'sajid@greentextiles.com', 500000.00, 30,
        true, false, 1, m.id, 0.00, 0.00, NOW(), NOW(), 'system', 'system'
-FROM acc_chart_of_accounts m WHERE m.account_code = '1106' AND m.organization_id = 1
+FROM acc_chart_of_accounts m WHERE m.account_code = '1103' AND m.organization_id = 1
     ON CONFLICT ON CONSTRAINT uk4jbleouqhrkuju9onykdx0r8x DO NOTHING;
 
 INSERT INTO acc_chart_of_accounts_sub
@@ -620,7 +667,7 @@ INSERT INTO acc_chart_of_accounts_sub
 SELECT 'CUST-0003', 'Bengal Garments', 'CUSTOMER', 'CUST-0003', 'RETAIL',
        'Tanvir Hasan', '+8801711000113', 'tanvir@bengalgarments.com', 350000.00, 30,
        true, false, 1, m.id, 0.00, 0.00, NOW(), NOW(), 'system', 'system'
-FROM acc_chart_of_accounts m WHERE m.account_code = '1106' AND m.organization_id = 1
+FROM acc_chart_of_accounts m WHERE m.account_code = '1103' AND m.organization_id = 1
     ON CONFLICT ON CONSTRAINT uk4jbleouqhrkuju9onykdx0r8x DO NOTHING;
 
 INSERT INTO acc_chart_of_accounts_sub
@@ -631,7 +678,7 @@ INSERT INTO acc_chart_of_accounts_sub
 SELECT 'CUST-0004', 'Dhaka Traders', 'CUSTOMER', 'CUST-0004', 'WHOLESALE',
        'Kamal Hossain', '+8801711000114', 'kamal@dhakatraders.com', 200000.00, 30,
        true, false, 1, m.id, 0.00, 0.00, NOW(), NOW(), 'system', 'system'
-FROM acc_chart_of_accounts m WHERE m.account_code = '1106' AND m.organization_id = 1
+FROM acc_chart_of_accounts m WHERE m.account_code = '1103' AND m.organization_id = 1
     ON CONFLICT ON CONSTRAINT uk4jbleouqhrkuju9onykdx0r8x DO NOTHING;
 
 INSERT INTO acc_chart_of_accounts_sub
@@ -642,7 +689,7 @@ INSERT INTO acc_chart_of_accounts_sub
 SELECT 'CUST-0005', 'International Fashions Ltd', 'CUSTOMER', 'CUST-0005', 'RETAIL',
        'Maria Akter', '+8801711000115', 'maria@intlfashions.com', 0.00, 30,
        true, false, 1, m.id, 0.00, 0.00, NOW(), NOW(), 'system', 'system'
-FROM acc_chart_of_accounts m WHERE m.account_code = '1106' AND m.organization_id = 1
+FROM acc_chart_of_accounts m WHERE m.account_code = '1103' AND m.organization_id = 1
     ON CONFLICT ON CONSTRAINT uk4jbleouqhrkuju9onykdx0r8x DO NOTHING;
 
 -- ── SUPPLIER sub-accounts (under Accounts Payable, 2101) ──────────────────

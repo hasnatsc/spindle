@@ -7,6 +7,7 @@ import lombok.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.Locale;
 
 @Entity
 @Table(name = "acc_chart_of_accounts_sub",
@@ -14,7 +15,8 @@ import java.time.LocalDate;
                 @Index(name = "idx_sub_org", columnList = "organization_id"),
                 @Index(name = "idx_sub_type", columnList = "sub_account_type"),
                 @Index(name = "idx_sub_main", columnList = "main_account_id"),
-                @Index(name = "idx_sub_bank", columnList = "bank_id")
+                @Index(name = "idx_sub_bank", columnList = "bank_id"),
+                @Index(name = "idx_sub_org_type", columnList = "organization_id,sub_account_type")
         })
 @Inheritance(strategy = InheritanceType.SINGLE_TABLE)
 @DiscriminatorColumn(name = "sub_account_type", discriminatorType = DiscriminatorType.STRING)
@@ -132,6 +134,63 @@ public abstract class ChartOfAccountSub extends BaseEntity {
     @Column(nullable = false)
     private boolean requiresApproval = false;
 
+    // ── MOBILE_BANKING-specific (bKash / Nagad / Rocket / Upay) ─────────────
+    /** BKASH | NAGAD | ROCKET | UPAY | TAP — free text so new MFS need no code change. */
+    @Column(length = 30)
+    private String mfsProvider;
+    /** Registered MSISDN, e.g. 01XXXXXXXXX. */
+    @Column(length = 20)
+    private String mfsAccountNumber;
+    /** PERSONAL | AGENT | MERCHANT | DISBURSEMENT. */
+    @Column(length = 20)
+    private String mfsAccountType;
+    /** Merchant / short code assigned by the MFS provider. */
+    @Column(length = 50)
+    private String merchantNumber;
+    @Column(length = 20)
+    private String mfsShortCode;
+    /** Cash-out / merchant charge as a percentage, e.g. 1.4900. */
+    @Column(precision = 8, scale = 4)
+    private BigDecimal mfsChargeRate;
+    @Column(precision = 18, scale = 2)
+    private BigDecimal dailyTransactionLimit;
+
+    // ── CARD-specific (POS acquiring) ───────────────────────────────────────
+    /** VISA | MASTERCARD | AMEX | NEXUS | UNIONPAY. */
+    @Column(length = 30)
+    private String cardNetwork;
+    /** Acquiring bank — stub FK, resolved at application layer. */
+    @Column(name = "card_acquirer_bank_id")
+    private Long cardAcquirerBankId;
+    @Column(length = 50)
+    private String terminalId;
+    @Column(length = 50)
+    private String merchantId;
+    @Column(length = 50)
+    private String posSerialNumber;
+    /** T+N days until the acquirer settles into the bank account. */
+    private Integer settlementDays;
+    /** Merchant Discount Rate as a percentage, e.g. 2.5000. */
+    @Column(precision = 8, scale = 4)
+    private BigDecimal mdrRate;
+
+    // ── WALLET-specific (closed-loop / store credit / gift card) ────────────
+    @Column(length = 50)
+    private String walletProvider;
+    @Column(length = 100)
+    private String walletIdentifier;
+    /** PREPAID | STORE_CREDIT | LOYALTY | GIFT_CARD. */
+    @Column(length = 30)
+    private String walletType;
+
+    /**
+     * Bank sub-account this instrument finally settles into (CARD acquiring,
+     * MFS merchant sweep). Stub FK to acc_chart_of_accounts_sub.id — resolved
+     * at application layer, mirroring the existing LC-block convention.
+     */
+    @Column(name = "settlement_account_id")
+    private Long settlementAccountId;
+
     // ── CUSTOMER-specific ───────────────────────────────────────────────────
     @Column(length = 50)
     private String customerCode;
@@ -206,13 +265,78 @@ public abstract class ChartOfAccountSub extends BaseEntity {
     private Long customerId;
     private Long supplierId;
 
+    /**
+     * The discriminator column mapped read-only. Two reasons this matters:
+     * <ol>
+     *   <li>It makes sub_account_type usable in JPQL and Spring Data derived
+     *       queries — {@code findByOrganizationIdAndSubAccountType("MOBILE_BANKING")} —
+     *       without a polymorphic {@code TYPE()} expression.</li>
+     *   <li>Reading the type off a LAZY proxy via {@code getClass()} returns the
+     *       proxy subclass, which carries no {@code @DiscriminatorValue}. This
+     *       column always holds the truth.</li>
+     * </ol>
+     * Length 31 matches Hibernate's default {@code @DiscriminatorColumn} width.
+     */
+    @Column(name = "sub_account_type", insertable = false, updatable = false, length = 31)
+    private String subAccountType;
+
+    /**
+     * Discriminator value for this row. Prefers the persisted column; falls back
+     * to the class annotation for entities not yet flushed to the DB.
+     */
+    @Transient
+    public String getSubAccountTypeCode() {
+        if (subAccountType != null && !subAccountType.isBlank()) {
+            return subAccountType;
+        }
+        DiscriminatorValue dv = this.getClass().getAnnotation(DiscriminatorValue.class);
+        return dv != null ? dv.value() : null;
+    }
+
+    /**
+     * Sub-ledger partitions. Names are the literal {@code @DiscriminatorValue}s
+     * stored in {@code acc_chart_of_accounts_sub.sub_account_type}.
+     * <p>
+     * GENERAL and INTER_COMPANY were already in use as discriminator values
+     * (GeneralSubAccount, InterCompanyAccount) but were missing from this enum —
+     * added here so the set is complete.
+     * <p>
+     * The first five names match {@code PaymentMode.AccountCategory} 1:1.
+     */
     @Getter
     public enum SubAccountType {
-        BANK,
-        CASH,
-        CUSTOMER,
-        SUPPLIER,
-        EMPLOYEE,
-        LC
+
+        CASH           ("Cash In Hand"),
+        BANK           ("Bank Accounts"),
+        MOBILE_BANKING ("Mobile Banking"),
+        CARD           ("Card Accounts"),
+        WALLET         ("Wallets"),
+        CUSTOMER       ("Customers"),
+        SUPPLIER       ("Suppliers"),
+        EMPLOYEE       ("Employees"),
+        LC             ("Letters of Credit"),
+        GENERAL        ("General"),
+        INTER_COMPANY  ("Inter Company");
+
+        private final String label;
+
+        SubAccountType(String label) {
+            this.label = label;
+        }
+
+        public static SubAccountType fromCode(String code) {
+            if (code == null) return null;
+            String k = code.trim().toUpperCase(Locale.ROOT).replace('-', '_').replace(' ', '_');
+            for (SubAccountType t : values()) {
+                if (t.name().equals(k)) return t;
+            }
+            return null;
+        }
+
+        /** True for the partitions a PaymentAccount is allowed to point at. */
+        public boolean isPaymentPartition() {
+            return this == CASH || this == BANK || this == MOBILE_BANKING
+                    || this == CARD || this == WALLET;
+        }
     }
 }

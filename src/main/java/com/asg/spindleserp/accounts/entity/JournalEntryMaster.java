@@ -1,6 +1,7 @@
 package com.asg.spindleserp.accounts.entity;
 
 import com.asg.spindleserp.BaseEntity;
+import com.asg.spindleserp.common.enums.PaymentMode;
 import com.asg.spindleserp.common.enums.VoucherType;
 import jakarta.persistence.*;
 import lombok.*;
@@ -25,6 +26,8 @@ import java.util.List;
  * Aging is computed in SQL using dueDate and the two stored columns above.
  * <p>
  * New columns added by V4__voucher_master_fields.sql migration.
+ * paymentMode converted to enum + paymentAccountId added by
+ * V310__payment_mode_and_payment_account.sql.
  */
 @Entity
 @Table(name = "acc_journal_entry_master",
@@ -37,7 +40,9 @@ import java.util.List;
                 @Index(name = "idx_jem_status", columnList = "voucher_status"),
                 @Index(name = "idx_jem_party", columnList = "organization_id,party_type,party_id"),
                 @Index(name = "idx_jem_due", columnList = "due_date"),
-                @Index(name = "idx_jem_allocated", columnList = "organization_id,voucher_type,voucher_status")
+                @Index(name = "idx_jem_allocated", columnList = "organization_id,voucher_type,voucher_status"),
+                @Index(name = "idx_jem_pay_account", columnList = "organization_id,payment_account_id"),
+                @Index(name = "idx_jem_pay_mode", columnList = "organization_id,payment_mode")
         })
 @Getter
 @Setter
@@ -155,22 +160,50 @@ public class JournalEntryMaster extends BaseEntity {
      * For PAYMENT_VOUCHER : the bank/cash account being credited (money going out).
      * For RECEIPT_VOUCHER : the bank/cash account being debited (money coming in).
      * For CONTRA_VOUCHER  : the FROM account (DR side).
+     * <p>
+     * LEGACY — retained for existing vouchers and reports. New code should set
+     * paymentAccountId instead and let PaymentAccountResolver produce the ledger.
      */
     private Long bankAccountId;
 
     /**
      * For CONTRA_VOUCHER  : the TO account (CR side).
      * For CASH PAYMENT    : the cash account when mode = CASH.
+     * <p>
+     * LEGACY — see bankAccountId.
      */
     private Long cashAccountId;
 
     // ── Payment instrument details ────────────────────────────────────────────
 
     /**
-     * BANK_TRANSFER | CHEQUE | CASH | ONLINE
+     * CASH | BANK | BKASH | NAGAD | ROCKET | CARD | CHEQUE | ONLINE_TRANSFER | WALLET
+     * <p>
+     * Was a free-text String until V310; legacy values were remapped in that
+     * migration ("BANK_TRANSFER" → BANK, "ONLINE" → ONLINE_TRANSFER).
+     * A payment mode never identifies a ledger on its own — see paymentAccountId.
      */
-    @Column(length = 30)
-    private String paymentMode;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "payment_mode", length = 30)
+    private PaymentMode paymentMode;
+
+    /**
+     * FK to acc_payment_accounts.id — THE posting target for this voucher.
+     * Stored as plain Long (no @ManyToOne) to match the partyId / bankAccountId
+     * convention and keep this entity serializable.
+     * <p>
+     * Resolve to a ledger with PaymentAccountResolver.resolve(orgId, paymentMode,
+     * paymentAccountId) rather than reading paymentMode directly. ★
+     */
+    @Column(name = "payment_account_id")
+    private Long paymentAccountId;
+
+    /**
+     * Instrument reference: MFS TrxID, card authorisation code, online transfer
+     * reference. Cheques use chequeNumber / chequeDate below.
+     */
+    @Column(length = 100)
+    private String paymentReference;
 
     @Column(length = 50)
     private String chequeNumber;
@@ -204,4 +237,25 @@ public class JournalEntryMaster extends BaseEntity {
     @Builder.Default
     @OneToMany(mappedBy = "journalEntry", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<JournalEntryLine> lines = new ArrayList<>();
+
+    // ── Backward-compatible String accessors ──────────────────────────────────
+    // Existing DTOs, Thymeleaf expressions and JSON payloads that treat
+    // paymentMode as a String keep working through these two methods. ★
+
+    /**
+     * @return the enum name, or null. Safe for th:text / JSON serialisation.
+     */
+    @Transient
+    public String getPaymentModeCode() {
+        return paymentMode == null ? null : paymentMode.name();
+    }
+
+    /**
+     * Accepts legacy free-text values ("BANK_TRANSFER", "ONLINE", "bkash", ...).
+     * Unmappable input sets null rather than throwing — validate in the service
+     * layer where a proper message can be returned to the user.
+     */
+    public void setPaymentModeCode(String code) {
+        this.paymentMode = PaymentMode.fromCode(code);
+    }
 }

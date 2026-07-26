@@ -23,6 +23,9 @@
     <li class="nav-item"><a class="nav-link active" href="javascript:;" data-type="" onclick="switchType('')">All</a></li>
     <li class="nav-item"><a class="nav-link" href="javascript:;" data-type="BANK"     onclick="switchType('BANK')"><i class="fas fa-building-columns me-1"></i>Bank</a></li>
     <li class="nav-item"><a class="nav-link" href="javascript:;" data-type="CASH"     onclick="switchType('CASH')"><i class="fas fa-vault me-1"></i>Cash</a></li>
+    <li class="nav-item"><a class="nav-link" href="javascript:;" data-type="MOBILE_BANKING" onclick="switchType('MOBILE_BANKING')"><i class="fas fa-mobile-screen me-1"></i>Mobile Banking</a></li>
+    <li class="nav-item"><a class="nav-link" href="javascript:;" data-type="CARD"     onclick="switchType('CARD')"><i class="fas fa-credit-card me-1"></i>Card</a></li>
+    <li class="nav-item"><a class="nav-link" href="javascript:;" data-type="WALLET"   onclick="switchType('WALLET')"><i class="fas fa-wallet me-1"></i>Wallet</a></li>
     <li class="nav-item"><a class="nav-link" href="javascript:;" data-type="CUSTOMER" onclick="switchType('CUSTOMER')"><i class="fas fa-user-tie me-1"></i>Customer</a></li>
     <li class="nav-item"><a class="nav-link" href="javascript:;" data-type="SUPPLIER" onclick="switchType('SUPPLIER')"><i class="fas fa-truck me-1"></i>Supplier</a></li>
     <li class="nav-item"><a class="nav-link" href="javascript:;" data-type="EMPLOYEE" onclick="switchType('EMPLOYEE')"><i class="fas fa-id-badge me-1"></i>Employee</a></li>
@@ -77,6 +80,9 @@
                       <option value="">— Sub-Account Type —</option>
                       <option value="BANK">BANK</option>
                       <option value="CASH">CASH</option>
+                      <option value="MOBILE_BANKING">MOBILE BANKING</option>
+                      <option value="CARD">CARD</option>
+                      <option value="WALLET">WALLET</option>
                       <option value="CUSTOMER">CUSTOMER</option>
                       <option value="SUPPLIER">SUPPLIER</option>
                       <option value="EMPLOYEE">EMPLOYEE</option>
@@ -459,7 +465,8 @@
         columns: [
           { data: 'sl', orderable: false, width: '40px' },
           { data: 'sub_account_type', render: function (d) {
-            var icons = { BANK:'building-columns', CASH:'vault', CUSTOMER:'user-tie', SUPPLIER:'truck',
+            var icons = { BANK:'building-columns', CASH:'vault', MOBILE_BANKING:'mobile-screen',
+                          CARD:'credit-card', WALLET:'wallet', CUSTOMER:'user-tie', SUPPLIER:'truck',
                           EMPLOYEE:'id-badge', LC:'file-contract', GENERAL:'circle-nodes', INTER_COMPANY:'network-wired' };
             return '<i class="fas fa-' + (icons[d]||'circle') + ' me-1"></i>' + (d||'');
           }},
@@ -494,8 +501,9 @@
 
     window.onTypeChange = function (type) {
       document.querySelectorAll('.type-section').forEach(function (el) { el.classList.add('d-none'); });
-      var map = { BANK: 'bankSection', CASH: 'cashSection', CUSTOMER: 'customerSection',
-                  SUPPLIER: 'supplierSection', LC: 'lcSection' };
+      var map = { BANK:'bankSection', MOBILE_BANKING:'bankSection', CARD:'bankSection', WALLET:'bankSection',
+                  CASH:'cashSection', CUSTOMER:'customerSection',
+                  SUPPLIER:'supplierSection', LC:'lcSection' };
       if (map[type]) document.getElementById(map[type]).classList.remove('d-none');
     };
 
@@ -613,8 +621,9 @@
         document.getElementById('subActive').checked        = o.active !== false;
         _initMainAccS2(o.mainAccountId, o.mainAccountDisplay);
         onTypeChange(o.subAccountType || '');
-        // Type-specific
-        if (o.subAccountType === 'BANK') {
+        // Type-specific (MOBILE_BANKING / CARD / WALLET use the same bank fields)
+        if (o.subAccountType === 'BANK' || o.subAccountType === 'MOBILE_BANKING'
+            || o.subAccountType === 'CARD' || o.subAccountType === 'WALLET') {
           _initBankS2(o.bankId, o.bankName);
           document.getElementById('subAccountNumber').value = o.accountNumber || '';
           document.getElementById('subAccountTitle').value  = o.accountTitle  || '';
@@ -671,9 +680,11 @@
 
     // ── Toggle / Delete ───────────────────────────────────────────────────
 
-    window.bankToggle = window.cashToggle = window.custToggle = window.suppToggle =
+    window.bankToggle = window.cashToggle = window.mobileBankingToggle = window.cardToggle =
+    window.walletToggle = window.custToggle = window.suppToggle =
     window.empToggle  = window.lcToggle   = window.subToggle  = function (id) { hsChangeStatus(BASE + '/toggle/' + id, dt); };
-    window.bankDelete = window.cashDelete = window.custDelete = window.suppDelete =
+    window.bankDelete = window.cashDelete = window.mobileBankingDelete = window.cardDelete =
+    window.walletDelete = window.custDelete = window.suppDelete =
     window.empDelete  = window.lcDelete   = window.subDelete  = function (id) { hsConfirmDelete(BASE + '/delete/' + id, dt); };
 
     // ── Submit ────────────────────────────────────────────────────────────
@@ -705,7 +716,7 @@
         active         : document.getElementById('subActive').checked
       };
 
-      if (type === 'BANK') {
+      if (type === 'BANK' || type === 'MOBILE_BANKING' || type === 'CARD' || type === 'WALLET') {
         Object.assign(payload, {
           bankId         : $('#subBankId').val() || null,
           accountNumber  : document.getElementById('subAccountNumber').value || null,

@@ -174,6 +174,11 @@ public class ChartOfAccountSubServiceImpl implements ChartOfAccountSubService {
                         if ("LC".equalsIgnoreCase(subAccountType)) return s instanceof LetterOfCredit;
                         if ("GENERAL".equalsIgnoreCase(subAccountType)) return s instanceof GeneralSubAccount;
                         if ("INTER_COMPANY".equalsIgnoreCase(subAccountType)) return s instanceof InterCompanyAccount;
+                        // PaymentAccount category types that route to BANK sub-accounts
+                        if ("MOBILE_BANKING".equalsIgnoreCase(subAccountType)
+                                || "CARD".equalsIgnoreCase(subAccountType)
+                                || "WALLET".equalsIgnoreCase(subAccountType))
+                            return s instanceof BankAccount;
                         return true;
                     })
                     .collect(Collectors.toList());

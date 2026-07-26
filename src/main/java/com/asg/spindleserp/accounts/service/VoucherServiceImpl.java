@@ -6,6 +6,7 @@ import com.asg.spindleserp.accounts.repository.*;
 import com.asg.spindleserp.approval.dto.ApprovalRequestDTO;
 import com.asg.spindleserp.approval.service.ApprovalService;
 import com.asg.spindleserp.common.dto.DataTableResponse;
+import com.asg.spindleserp.common.enums.PaymentMode;
 import com.asg.spindleserp.common.enums.VoucherType;
 import com.asg.spindleserp.common.util.CommonUtils;
 import com.asg.spindleserp.security.auth.ContextProvider;
@@ -633,7 +634,7 @@ public class VoucherServiceImpl implements VoucherService {
                 .partyId(e.getPartyId())
                 .bankAccountId(e.getBankAccountId())
                 .cashAccountId(e.getCashAccountId())
-                .paymentMode(e.getPaymentMode())
+                .paymentMode(String.valueOf(e.getPaymentMode()))
                 .chequeNumber(e.getChequeNumber())
                 .chequeDate(e.getChequeDate())
                 .reversedVoucherId(e.getReversedVoucherId())
@@ -768,7 +769,7 @@ public class VoucherServiceImpl implements VoucherService {
 
         e.setPartyType(dto.getPartyType());
         e.setPartyId(dto.getPartyId());
-        e.setPaymentMode(dto.getPaymentMode());
+        e.setPaymentMode(PaymentMode.valueOf(dto.getPaymentMode()));
         e.setChequeNumber(dto.getChequeNumber());
         e.setChequeDate(dto.getChequeDate());
 

@@ -951,6 +951,12 @@ public class TravelBookingServiceImpl implements TravelBookingService {
         rv.setCreatedBy(user);
         rv.setUpdatedBy(user);
 
+        // Set payment mode from first receipt's mode (convert travel PaymentMode → common PaymentMode)
+        rv.setPaymentMode(booking.getReceipts().stream()
+            .findFirst()
+            .map(r -> com.asg.spindleserp.common.enums.PaymentMode.fromCode(r.getPaymentMode().name()))
+            .orElse(null));
+
         // DR: each receipt line's sub-account (bank/cash)
         int lineNo = 1;
         for (TrvBookingReceipt rcpt : booking.getReceipts()) {
