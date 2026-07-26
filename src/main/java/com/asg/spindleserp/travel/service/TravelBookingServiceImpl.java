@@ -705,11 +705,20 @@ public class TravelBookingServiceImpl implements TravelBookingService {
                 d.setSalesAgentDisplay(u.getFullName()));
         }
 
-        d.setServices(e.getServices().stream().map(s -> TrvBookingDTO.ServiceLineDTO.builder()
+        d.setServices(e.getServices().stream().map(s -> {
+            String vendorDisplay = null;
+            if (s.getVendorId() != null) {
+                vendorDisplay = subRepo.findById(s.getVendorId())
+                    .map(v -> v.getSubAccountCode() + " — " + v.getSubAccountName())
+                    .orElse(null);
+            }
+            return TrvBookingDTO.ServiceLineDTO.builder()
             .id(s.getId())
             .serviceType(s.getServiceType() != null ? s.getServiceType().name() : null)
             .referenceId(s.getReferenceId())
             .description(s.getDescription())
+            .vendorId(s.getVendorId())
+            .vendorDisplay(vendorDisplay)
             .quantity(s.getQuantity())
             .unitCost(s.getUnitCost())
             .unitPrice(s.getUnitPrice())
@@ -719,7 +728,8 @@ public class TravelBookingServiceImpl implements TravelBookingService {
             .patientCategory(s.getPatientCategory() != null ? s.getPatientCategory().name() : null)
             .costCenterId(s.getCostCenterId())
             .pnr(s.getPnr())
-            .build()).collect(Collectors.toList()));
+            .build();
+        }).collect(Collectors.toList()));
 
         d.setPassengers(e.getPassengers().stream().map(p -> {
             TrvBookingDTO.PassengerDTO pd = TrvBookingDTO.PassengerDTO.builder()
@@ -793,53 +803,122 @@ public class TravelBookingServiceImpl implements TravelBookingService {
     }
 
     private void syncServices(TrvBookingDTO dto, TrvBooking parent) {
-        parent.getServices().clear();
-        if (dto.getServices() == null) return;
-        for (TrvBookingDTO.ServiceLineDTO sd : dto.getServices()) {
-            if (sd.getServiceType() == null) continue;
-            parent.getServices().add(TrvBookingService.builder()
-                .serviceType(TrvBookingService.ServiceType.valueOf(sd.getServiceType()))
-                .referenceId(sd.getReferenceId())
-                .description(sd.getDescription())
-                .quantity(sd.getQuantity() != null ? sd.getQuantity() : BigDecimal.ONE)
-                .unitCost(sd.getUnitCost() != null ? sd.getUnitCost() : BigDecimal.ZERO)
-                .unitPrice(sd.getUnitPrice() != null ? sd.getUnitPrice() : BigDecimal.ZERO)
-                .discountAmount(sd.getDiscountAmount() != null ? sd.getDiscountAmount() : BigDecimal.ZERO)
-                .taxAmount(sd.getTaxAmount() != null ? sd.getTaxAmount() : BigDecimal.ZERO)
-                .lineTotal(sd.getLineTotal() != null ? sd.getLineTotal() : BigDecimal.ZERO)
-                .patientCategory(sd.getPatientCategory() != null
-                    ? TrvPassenger.PassengerType.valueOf(sd.getPatientCategory()) : null)
-                .costCenterId(sd.getCostCenterId())
-                .pnr(sd.getPnr())
-                .booking(parent)
-                .build());
+        // Index existing services by ID
+        Map<Long, TrvBookingService> existing = parent.getServices().stream()
+            .filter(s -> s.getId() != null)
+            .collect(Collectors.toMap(TrvBookingService::getId, s -> s, (a, b) -> a));
+
+        Set<Long> keepIds = new HashSet<>();
+        List<TrvBookingService> toAdd = new ArrayList<>();
+
+        if (dto.getServices() != null) {
+            for (TrvBookingDTO.ServiceLineDTO sd : dto.getServices()) {
+                if (sd.getServiceType() == null) continue;
+
+                TrvBookingService s;
+                if (sd.getId() != null && existing.containsKey(sd.getId())) {
+                    s = existing.get(sd.getId());
+                    keepIds.add(sd.getId());
+                } else {
+                    s = TrvBookingService.builder().booking(parent).build();
+                }
+
+                s.setServiceType(TrvBookingService.ServiceType.valueOf(sd.getServiceType()));
+                s.setReferenceId(sd.getReferenceId());
+                s.setDescription(sd.getDescription());
+                s.setVendorId(sd.getVendorId());
+                s.setQuantity(sd.getQuantity() != null ? sd.getQuantity() : BigDecimal.ONE);
+                s.setUnitCost(sd.getUnitCost() != null ? sd.getUnitCost() : BigDecimal.ZERO);
+                s.setUnitPrice(sd.getUnitPrice() != null ? sd.getUnitPrice() : BigDecimal.ZERO);
+                s.setDiscountAmount(sd.getDiscountAmount() != null ? sd.getDiscountAmount() : BigDecimal.ZERO);
+                s.setTaxAmount(sd.getTaxAmount() != null ? sd.getTaxAmount() : BigDecimal.ZERO);
+                s.setLineTotal(sd.getLineTotal() != null ? sd.getLineTotal() : BigDecimal.ZERO);
+                s.setPatientCategory(sd.getPatientCategory() != null
+                    ? TrvPassenger.PassengerType.valueOf(sd.getPatientCategory()) : null);
+                s.setCostCenterId(sd.getCostCenterId());
+                s.setPnr(sd.getPnr());
+
+                if (sd.getId() == null || !existing.containsKey(sd.getId())) {
+                    toAdd.add(s);
+                }
+            }
         }
+
+        // Remove services that were deleted from UI AND have no references
+        parent.getServices().removeIf(s ->
+            s.getId() != null && !keepIds.contains(s.getId())
+                && !serviceHasReferences(s.getId()));
+
+        parent.getServices().addAll(toAdd);
+    }
+
+    /** Check if any child record references this service line (air tickets, hotels, etc.). */
+    private boolean serviceHasReferences(Long serviceId) {
+        Integer count = jdbcTemplate.queryForObject(
+            "SELECT COUNT(*) FROM ( " +
+            "  SELECT id FROM trv_air_tickets WHERE booking_service_id = ? UNION ALL " +
+            "  SELECT id FROM trv_hotel_bookings WHERE booking_service_id = ? UNION ALL " +
+            "  SELECT id FROM trv_package_bookings WHERE booking_service_id = ? UNION ALL " +
+            "  SELECT id FROM trv_tour_bookings WHERE booking_service_id = ? UNION ALL " +
+            "  SELECT id FROM trv_visa_applications WHERE booking_service_id = ? UNION ALL " +
+            "  SELECT id FROM trv_supplier_costs WHERE booking_service_id = ?" +
+            ") refs",
+            Integer.class, serviceId, serviceId, serviceId, serviceId, serviceId, serviceId);
+        return count != null && count > 0;
     }
 
     private void syncPassengers(TrvBookingDTO dto, TrvBooking parent) {
-        parent.getPassengers().clear();
-        if (dto.getPassengers() == null) return;
-        for (TrvBookingDTO.PassengerDTO pd : dto.getPassengers()) {
-            if (pd.getFirstName() == null || pd.getFirstName().isBlank()) continue;
-            TrvPassenger passenger = TrvPassenger.builder()
-                .title(pd.getTitle())
-                .firstName(pd.getFirstName())
-                .lastName(pd.getLastName())
-                .dateOfBirth(pd.getDateOfBirth())
-                .gender(pd.getGender() != null ? TrvPassenger.Gender.valueOf(pd.getGender()) : null)
-                .passportNumber(pd.getPassportNumber())
-                .passportExpiry(pd.getPassportExpiry())
-                .nationality(pd.getNationality())
-                .passengerType(pd.getPassengerType() != null
-                    ? TrvPassenger.PassengerType.valueOf(pd.getPassengerType()) : TrvPassenger.PassengerType.ADULT)
-                .isLeadPassenger(Boolean.TRUE.equals(pd.getIsLeadPassenger()))
-                .phone(pd.getPhone())
-                .email(pd.getEmail())
-                .remarks(pd.getRemarks())
-                .booking(parent)
-                .build();
-            parent.getPassengers().add(passenger);
+        // Index existing passengers by ID
+        Map<Long, TrvPassenger> existing = parent.getPassengers().stream()
+            .filter(p -> p.getId() != null)
+            .collect(Collectors.toMap(TrvPassenger::getId, p -> p, (a, b) -> a));
+
+        Set<Long> keepIds = new HashSet<>();
+        List<TrvPassenger> toAdd = new ArrayList<>();
+
+        if (dto.getPassengers() != null) {
+            for (TrvBookingDTO.PassengerDTO pd : dto.getPassengers()) {
+                if (pd.getFirstName() == null || pd.getFirstName().isBlank()) continue;
+
+                TrvPassenger p;
+                if (pd.getId() != null && existing.containsKey(pd.getId())) {
+                    // Update existing — JPA merge, no DELETE
+                    p = existing.get(pd.getId());
+                    keepIds.add(pd.getId());
+                } else {
+                    // New passenger
+                    p = TrvPassenger.builder().booking(parent).build();
+                }
+
+                p.setTitle(pd.getTitle());
+                p.setFirstName(pd.getFirstName());
+                p.setLastName(pd.getLastName());
+                p.setDateOfBirth(pd.getDateOfBirth());
+                p.setGender(pd.getGender() != null ? TrvPassenger.Gender.valueOf(pd.getGender()) : null);
+                p.setPassportNumber(pd.getPassportNumber());
+                p.setPassportExpiry(pd.getPassportExpiry());
+                p.setNationality(pd.getNationality());
+                p.setPassengerType(pd.getPassengerType() != null
+                    ? TrvPassenger.PassengerType.valueOf(pd.getPassengerType()) : TrvPassenger.PassengerType.ADULT);
+                p.setIsLeadPassenger(Boolean.TRUE.equals(pd.getIsLeadPassenger()));
+                p.setPhone(pd.getPhone());
+                p.setEmail(pd.getEmail());
+                p.setRemarks(pd.getRemarks());
+
+                if (pd.getId() == null || !existing.containsKey(pd.getId())) {
+                    toAdd.add(p);
+                }
+            }
         }
+
+        // Remove passengers that were deleted from UI AND have no tickets
+        parent.getPassengers().removeIf(p ->
+            p.getId() != null
+                && !keepIds.contains(p.getId())
+                && (p.getTickets() == null || p.getTickets().isEmpty()));
+
+        // Add new passengers
+        parent.getPassengers().addAll(toAdd);
     }
 
     /** Persists preferences after passengers get their generated IDs (post-save pass). */

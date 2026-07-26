@@ -31,12 +31,19 @@ import java.util.Map;
  *    digits BEFORE extraction. This alone fixes the overwhelming majority of
  *    real-world scan errors (0/O, 1/I, 5/S, 8/B, 2/Z, 6/G).
  *
- * 3. Every ICAO check digit is recomputed. A mismatch never aborts the parse —
- *    the value is still returned, but a human-readable warning is attached so
- *    the operator knows which specific field to eyeball before saving.
+ * 3. Line 2 is protected by five ICAO check digits, all recomputed here. A
+ *    mismatch never aborts the parse — the value is still returned, but a
+ *    human-readable warning is attached so the operator knows which specific
+ *    field to eyeball before saving.
  *
- * Verified against a live Bangladeshi e-passport (BGD / TD3): all five check
- * digits — document number, DOB, expiry, personal number, composite — match.
+ * 4. Line 1 has NO check digit of its own, and at low resolution OCR reads its
+ *    '<' fillers as look-alike letters (K above all). repairNameField() puts
+ *    that right using the field's known structure — measured against a real
+ *    595px WhatsApp scan of a Bangladeshi e-passport, it recovers the exact
+ *    "ADNAN / H M" split from a read like "ADNAN<K<H<M<<<KSKKKK…".
+ *
+ * Verified against that live BGD e-passport (TD3): all five check digits —
+ * document number, DOB, expiry, personal number, composite — match.
  */
 public final class MrzParser {
 
@@ -274,12 +281,12 @@ public final class MrzParser {
     }
 
     // =========================================================================
-    // SHARED FIELD LOGIC
+    // NAME FIELD — extraction + structural repair
     // =========================================================================
 
-    /** Splits the ICAO name field: SURNAME&lt;&lt;GIVEN&lt;NAMES. */
+    /** Splits the ICAO name field: SURNAME&lt;&lt;GIVEN&lt;NAMES, repairing OCR damage first. */
     private static void applyNames(PassportScanDTO out, String nameField) {
-        String field = alpha(nameField);
+        String field = repairNameField(alpha(nameField), out);
         int sep = field.indexOf("<<");
         String surname, given;
         if (sep >= 0) {
@@ -288,12 +295,74 @@ public final class MrzParser {
         } else {
             surname = field;
             given   = "";
+            out.setNamesUncertain(true);
+            out.getWarnings().add("No surname/given-name separator could be found — the whole name "
+                    + "landed in Last Name. Please split it by hand.");
         }
         out.setSurname(tidyName(surname));
         out.setGivenNames(tidyName(given));
 
-        if (out.getSurname().isEmpty() && out.getGivenNames().isEmpty())
+        if (out.getGivenNames().isEmpty() && !out.getSurname().isEmpty()) out.setNamesUncertain(true);
+        if (out.getSurname().isEmpty() && out.getGivenNames().isEmpty()) {
+            out.setNamesUncertain(true);
             out.getWarnings().add("The name field came back empty — re-scan or type the name in manually.");
+        }
+    }
+
+    /**
+     * Structural repair of the ICAO name field.
+     *
+     * Line 1 carries no check digit, and at low resolution OCR reads isolated
+     * '&lt;' fillers as look-alike letters (K, E, R, C, S, G). Two facts about
+     * the field's structure let us undo most of that damage safely:
+     *
+     *   (a) A real name field always ENDS in one unbroken run of fillers, and
+     *       '&lt;&lt;&lt;' never occurs before that terminal run (names are
+     *       separated by single '&lt;', surname from given by exactly
+     *       '&lt;&lt;'). So everything from the FIRST '&lt;&lt;&lt;' onward is
+     *       filler, whatever OCR printed there.
+     *
+     *   (b) OCR turns fillers into letters, essentially never letters into
+     *       fillers. So when no usable '&lt;&lt;' separator exists but a
+     *       lone letter sits BETWEEN two fillers ('&lt;K&lt;'), that letter is
+     *       almost certainly the mangled second half of the separator — unless
+     *       a real separator with a non-empty given side already exists, in
+     *       which case the lone letter is a genuine initial and is left alone.
+     *
+     * Measured effect on the live sample scan: "ADNAN&lt;K&lt;H&lt;M&lt;&lt;&lt;KSKKKK…"
+     * repairs to surname ADNAN, given "H M" — exactly the passport.
+     */
+    private static String repairNameField(String nf, PassportScanDTO out) {
+        int len = nf.length();
+
+        // (a) terminal-run truncation
+        int junkStart = nf.indexOf("<<<");
+        if (junkStart >= 0) {
+            nf = nf.substring(0, junkStart) + "<".repeat(len - junkStart);
+        }
+
+        // (b) separator recovery — only when the natural parse yields no given names
+        int sep = nf.indexOf("<<");
+        boolean givenEmpty = sep < 0 || nf.substring(sep + 2).replace("<", "").isBlank();
+        if (givenEmpty) {
+            int j = indexOfLoneLetterBetweenFillers(nf);
+            if (j >= 0 && (sep < 0 || j < sep)) {
+                nf = nf.substring(0, j) + '<' + nf.substring(j + 1);
+                out.setNamesUncertain(true);
+                out.getWarnings().add("The surname/given-name separator was reconstructed from a noisy "
+                        + "read — double-check the name split before saving.");
+            }
+        }
+        return nf;
+    }
+
+    /** Index of the letter in the first '&lt;X&lt;' pattern, or -1. */
+    private static int indexOfLoneLetterBetweenFillers(String s) {
+        for (int i = 1; i + 1 < s.length(); i++) {
+            if (s.charAt(i - 1) == '<' && s.charAt(i + 1) == '<'
+                    && s.charAt(i) >= 'A' && s.charAt(i) <= 'Z') return i;
+        }
+        return -1;
     }
 
     /** Turns FILLER-separated MRZ names into "Title Case Words". */
@@ -311,6 +380,10 @@ public final class MrzParser {
         }
         return sb.toString();
     }
+
+    // =========================================================================
+    // SHARED FIELD LOGIC
+    // =========================================================================
 
     /**
      * YYMMDD to LocalDate.
@@ -373,6 +446,26 @@ public final class MrzParser {
 
     private static PassportScanDTO finish(PassportScanDTO out) {
         out.setSuccess(true);
+
+        // ── Country / nationality cross-repair ────────────────────────────────
+        // Neither field is protected by a check digit, so fold digit misreads
+        // to letters and, where one of the pair is still unrecognised, borrow
+        // the other — on a passport the issuing state and the holder's
+        // nationality match in the overwhelming majority of cases.
+        String issuing = repairCountryCode(out.getIssuingCountry());
+        String nation  = repairCountryCode(out.getNationality());
+        if (!CountryCodes.isKnown(issuing) && CountryCodes.isKnown(nation)) {
+            issuing = nation;
+            out.getWarnings().add("The issuing-country letters were unreadable — assumed the same as the "
+                    + "nationality (" + nation + "). Verify against the printed page.");
+        } else if (!CountryCodes.isKnown(nation) && CountryCodes.isKnown(issuing)) {
+            nation = issuing;
+            out.getWarnings().add("The nationality letters were unreadable — assumed the same as the "
+                    + "issuing country (" + issuing + "). Verify against the printed page.");
+        }
+        out.setIssuingCountry(issuing);
+        out.setNationality(nation);
+
         out.setIssuingCountryName(CountryCodes.countryName(out.getIssuingCountry()));
         out.setNationalityName(CountryCodes.nationality(out.getNationality()));
 
@@ -410,6 +503,14 @@ public final class MrzParser {
         return out;
     }
 
+    /** Digit-to-letter fold for a three-letter code that arrived with misreads. */
+    private static String repairCountryCode(String code) {
+        if (code == null) return null;
+        StringBuilder sb = new StringBuilder(code.length());
+        for (char c : code.toCharArray()) sb.append(TO_LETTER.getOrDefault(c, c));
+        return sb.toString();
+    }
+
     // =========================================================================
     // TEXT NORMALISATION
     // =========================================================================
@@ -417,7 +518,7 @@ public final class MrzParser {
     /**
      * Extracts the plausible MRZ lines from arbitrary OCR output: upper-cases,
      * folds look-alike filler glyphs to '&lt;', drops whitespace and keeps only
-     * lines that are long enough and made mostly of the MRZ alphabet.
+     * the lines that look most like an MRZ.
      */
     private static List<String> candidateLines(String raw) {
         // Normalise every line once, keeping document order — line 1 of the MRZ

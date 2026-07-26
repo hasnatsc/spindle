@@ -52,6 +52,21 @@ public interface TravelPassengerService {
     PassportScanDTO parseMrz(String mrzText);
 
     /**
+     * As above, plus best-effort harvesting of the printed page (VIZ): issue
+     * date, issuing authority, place of birth, father's / mother's name,
+     * permanent address and emergency contact. {@code vizText} is the raw
+     * output of an unconstrained OCR pass and may be null.
+     */
+    PassportScanDTO parseMrz(String mrzText, String vizText);
+
+    /**
+     * Printed-zone extraction on its own — the browser calls this after the
+     * MRZ result is already on screen, so the slow full-page pass never
+     * delays the check-digit-verified fields. Dates are ISO strings.
+     */
+    Map<String, String> extractViz(String vizText, String dateOfBirth, String passportExpiry);
+
+    /**
      * Server-side scan of an uploaded passport image. Only works when a
      * PassportOcrEngine bean is registered; otherwise returns success=false
      * with a message telling the UI to use browser OCR instead.

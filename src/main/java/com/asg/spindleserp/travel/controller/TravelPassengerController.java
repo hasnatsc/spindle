@@ -213,12 +213,35 @@ public class TravelPassengerController {
         Map<String, Object> res = new HashMap<>();
         try {
             String text = body.getOrDefault("mrzText", body.get("text"));
-            PassportScanDTO scan = passengerService.parseMrz(text);
+            PassportScanDTO scan = passengerService.parseMrz(text, body.get("vizText"));
             if (body.get("source") != null) scan.setSource(body.get("source"));
             res.put("success", scan.isSuccess());
             res.put("message", scan.getMessage());
             res.put("obj", Map.of("defaultData", scan));
             res.put("data", scan);
+        } catch (Exception e) {
+            res.put("success", false);
+            res.put("message", e.getMessage());
+        }
+        return res;
+    }
+
+    /**
+     * Printed-zone (VIZ) extraction on its own. The browser shows the
+     * check-digit-verified MRZ fields first, then runs the slower full-page
+     * OCR pass and posts its raw text here; the response appends issue date,
+     * authority, family and emergency-contact fields to the result table.
+     * dateOfBirth / passportExpiry (ISO) anchor the issue-date heuristic.
+     */
+    @PostMapping("/passengers/passport/viz")
+    @ResponseBody
+    public Map<String, Object> extractViz(@RequestBody Map<String, String> body) {
+        Map<String, Object> res = new HashMap<>();
+        try {
+            Map<String, String> fields = passengerService.extractViz(
+                    body.get("vizText"), body.get("dateOfBirth"), body.get("passportExpiry"));
+            res.put("success", true);
+            res.put("fields", fields);
         } catch (Exception e) {
             res.put("success", false);
             res.put("message", e.getMessage());

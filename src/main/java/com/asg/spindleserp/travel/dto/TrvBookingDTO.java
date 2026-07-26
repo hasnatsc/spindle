@@ -89,6 +89,8 @@ public class TrvBookingDTO {
         private String serviceType; // HOTEL | AIR | PACKAGE
         private Long referenceId;
         private String description;
+        private Long vendorId;
+        private String vendorDisplay;
         private BigDecimal quantity;
         private BigDecimal unitCost;
         private BigDecimal unitPrice;

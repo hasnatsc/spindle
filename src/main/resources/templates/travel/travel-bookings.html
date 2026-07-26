@@ -2,7 +2,7 @@
 <!--
   travel/travel-bookings.html    GET /travel/bookings
   JS prefix: bkg*
-  Sale → Receipt Voucher bridge: createReceiptFromBooking(id)
+  Sales → Receipt Voucher bridge: createReceiptFromBooking(id)
 -->
 <html th:replace="~{layout/base :: layout('Sales', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
 <section>
@@ -29,7 +29,7 @@
     <div class="panel-heading">
       <div class="panel-title d-flex gap-2 align-items-center flex-wrap">
         <a href="javascript:;" onclick="bkgOpenCreate()">
-          <span class="badge btn btn-outline-success"><i class="fa fa-plus me-1"></i> New Sale</span>
+          <span class="badge btn btn-outline-success"><i class="fa fa-plus me-1"></i> New Sales</span>
         </a>
         <select id="bkgStatusFilter" class="form-select form-select-sm" style="width:170px" onchange="_bkgReload()">
           <option value="">All Status</option>
@@ -49,7 +49,7 @@
     <div class="panel-body">
       <table id="bkgTable" width="100%" class="table table-striped table-bordered align-middle">
         <thead><tr>
-          <th width="1%">SL</th><th>Sale No</th><th>Type</th><th>Date</th><th>Departs</th>
+          <th width="1%">SL</th><th>Sales No</th><th>Type</th><th>Date</th><th>Departs</th>
           <th>Customer</th><th>Agent</th><th class="text-center">Pax</th>
           <th class="text-end">Total</th><th class="text-end">Due</th>
           <th class="text-center">Status</th><th class="text-center" width="18%">Actions</th>
@@ -60,10 +60,10 @@
 
     <!-- BOOKING MODAL -->
     <div tabindex="-1" id="bkgModal" class="modal fade">
-      <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
+      <div class="modal-dialog modal-dialog-centered modal-xxl modal-dialog-scrollable">
         <div class="modal-content">
           <div class="modal-header">
-            <h5 class="modal-title" id="bkgModalTitle"><i class="fa fa-ticket-alt me-1 text-success"></i> New Sale</h5>
+            <h5 class="modal-title" id="bkgModalTitle"><i class="fa fa-ticket-alt me-1 text-success"></i> New Sales</h5>
             <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
           </div>
           <form id="bkgForm" novalidate>
@@ -73,7 +73,7 @@
                 <div class="row g-2 mb-3">
                   <div class="col-md-4 view-group">
                     <input id="bkgNo" type="text" class="form-control hs_span_view bg-light" readonly placeholder="Auto-generated">
-                    <label class="input-label">Sale No</label>
+                    <label class="input-label">Sales No</label>
                   </div>
                   <div class="col-md-4 view-group">
                     <select id="bkgType" class="form-select hs_span_view" required>
@@ -82,11 +82,11 @@
                       <option value="AIR">Air</option>
                       <option value="COMBINED">Combined</option>
                     </select>
-                    <label class="input-label">Sale Type <span class="text-danger">*</span></label>
+                    <label class="input-label">Sales Type <span class="text-danger">*</span></label>
                   </div>
                   <div class="col-md-4 view-group">
                     <input id="bkgDate" type="date" class="form-control hs_span_view" required>
-                    <label class="input-label">Sale Date <span class="text-danger">*</span></label>
+                    <label class="input-label">Sales Date <span class="text-danger">*</span></label>
                   </div>
                 </div>
                 <div class="row g-2 mb-3">
@@ -111,20 +111,22 @@
                 <div class="table-responsive mb-3">
                   <table class="table table-sm table-bordered">
                     <thead class="table-light"><tr>
-                      <th width="10%">Type</th><th width="16%">Description</th><th>PNR</th><th width="10%">Patient Cat.</th>
+                      <th width="10%">Type</th><th width="16%">Description</th><th style="width:150px">Vendor</th><th>PNR</th><th width="10%">Patient Cat.</th>
                       <th>Qty</th><th>Unit Cost</th><th>Unit Price</th><th>Tax</th><th>Amount</th><th></th>
                     </tr></thead>
                     <tbody id="bkgServiceBody"></tbody>
                     <tfoot><tr class="fw-bold bg-light">
-                      <td colspan="7" class="text-end">Subtotal:</td>
+                      <td colspan="9" class="text-end">Subtotal:</td>
                       <td id="bkgSubtotal" class="text-end">0.00</td><td></td>
                     </tr>
                     <tr class="fw-bold bg-light">
-                      <td colspan="7" class="text-end">Discount:</td>
+                      <td colspan="9" class="text-end">Discount:</td>
                       <td><input id="bkgDiscount" type="number" step="0.01" class="form-control form-control-sm text-end border-0 fw-bold p-0" value="0" oninput="bkgRecalcTotal()" style="height:auto;box-shadow:none"></td><td></td>
                     </tr>
-                    <tr class="fw-bold bg-light">
-                      <td colspan="7" class="text-end">Total (after discount + tax):</td>
+                    <tr><td colspan="11" style="height:0.5rem"></td></tr>
+                    <tr><td colspan="11" style="height:0.5rem"></td></tr>
+                    <tr class="fw-bold" style="border-top:2px solid #dee2e6">
+                      <td colspan="9" class="text-end">Total (after discount + tax):</td>
                       <td id="bkgTotal" class="text-end">0.00</td><td></td>
                     </tr></tfoot>
                   </table>
@@ -159,7 +161,7 @@
                   </div>
                   <div class="col-md-3 d-flex align-items-end justify-content-end pb-1">
                     <span id="bkgDocBtnWrap" style="display:none">
-                      <button type="button" class="btn btn-sm btn-outline-secondary" onclick="trvOpenDocuments('BOOKING', parseInt(document.getElementById('bkgId').value), 'Sale ' + (document.getElementById('bkgNo').value || '#' + document.getElementById('bkgId').value), ['PASSPORT','VISA','TICKET','INVOICE','CONFIRMATION','RECEIPT','OTHER'])">
+                      <button type="button" class="btn btn-sm btn-outline-secondary" onclick="trvOpenDocuments('BOOKING', parseInt(document.getElementById('bkgId').value), 'Sales ' + (document.getElementById('bkgNo').value || '#' + document.getElementById('bkgId').value), ['PASSPORT','VISA','TICKET','INVOICE','CONFIRMATION','RECEIPT','OTHER'])">
                         <i class="fa fa-paperclip me-1"></i> Documents
                       </button>
                     </span>
@@ -183,7 +185,7 @@
     <div tabindex="-1" id="bkgViewModal" class="modal fade">
       <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
         <div class="modal-content">
-          <div class="modal-header"><h5 class="modal-title"><i class="fa fa-ticket-alt me-1 text-primary"></i> Sale Details</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+          <div class="modal-header"><h5 class="modal-title"><i class="fa fa-ticket-alt me-1 text-primary"></i> Sales Details</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
           <div class="modal-body" id="bkgViewBody"></div>
           <div class="modal-footer">
             <button type="button" class="btn btn-sm btn-outline-primary travel-no-print" id="bkgPrintBtn" style="display:none"><i class="fa fa-print me-1"></i> Print</button>
@@ -265,7 +267,7 @@
 
     window.bkgOpenCreate = function () {
       _resetForm();
-      document.getElementById('bkgModalTitle').innerHTML = '<i class="fa fa-plus me-1 text-success"></i> New Sale';
+      document.getElementById('bkgModalTitle').innerHTML = '<i class="fa fa-plus me-1 text-success"></i> New Sales';
       document.getElementById('bkgBtnText').textContent = 'Save Draft';
       bkgAddService(); bkgAddReceiptLine();
       bootstrap.Modal.getOrCreateInstance(document.getElementById('bkgModal')).show();
@@ -283,6 +285,7 @@
           + '<option value="VISA"' + (data && data.serviceType === 'VISA' ? ' selected' : '') + '>Visa</option>'
           + '</select></td>'
         + '<td><input type="text" class="form-control form-control-sm" data-field="description" value="' + (data ? (data.description || '') : '') + '"></td>'
+        + '<td><select id="bkgVendor_' + n + '" class="form-select form-select-sm" data-field="vendorId"></select></td>'
         + '<td><input type="text" class="form-control form-control-sm" data-field="pnr" maxlength="20" value="' + (data ? (data.pnr || '') : '') + '" placeholder="PNR" oninput="this.value=this.value.toUpperCase().replace(/\\s+/g,\'\')"></td>'
         + '<td><select class="form-select form-select-sm" data-field="patientCategory">'
           + '<option value="">—</option>'
@@ -290,7 +293,7 @@
               return '<option value="' + e.value + '"' + (data && data.patientCategory === e.value ? ' selected' : '') + '>' + e.display + '</option>';
             }).join('')
           + '</select></td>'
-        + '<td><input type="number" step="0.001" class="form-control form-control-sm text-end" data-field="quantity" value="' + (data ? data.quantity || 1 : 1) + '" oninput="bkgCalcService(this.closest(\'tr\'))"></td>'
+        + '<td><input type="number" step="1" class="form-control form-control-sm text-end" data-field="quantity" value="' + (data ? data.quantity || 1 : 1) + '" oninput="bkgCalcService(this.closest(\'tr\'))"></td>'
         + '<td><input type="number" step="0.01" class="form-control form-control-sm text-end" data-field="unitCost" value="' + (data ? data.unitCost || 0 : 0) + '"></td>'
         + '<td><input type="number" step="0.01" class="form-control form-control-sm text-end" data-field="unitPrice" value="' + (data ? data.unitPrice || 0 : 0) + '" oninput="bkgCalcService(this.closest(\'tr\'))"></td>'
         + '<td><input type="number" step="0.01" class="form-control form-control-sm text-end" data-field="taxAmount" value="' + (data ? data.taxAmount || 0 : 0) + '" oninput="bkgCalcService(this.closest(\'tr\'))"></td>'
@@ -298,6 +301,7 @@
         + '<td><button type="button" class="btn btn-sm btn-outline-danger" onclick="bkgRemoveService(' + n + ')"><i class="fa fa-times"></i></button></td>'
         + '</tr>';
       document.getElementById('bkgServiceBody').insertAdjacentHTML('beforeend', html);
+      _initVendorS2(n, data ? data.vendorId : null, data ? data.vendorDisplay : null);
     };
     window.bkgRemoveService = function (n) { var r = document.getElementById('bkgSvc_' + n); if (r) r.remove(); bkgRecalcTotal(); };
     window.bkgCalcService = function (tr) {
@@ -392,18 +396,34 @@
       if (preId) $el.append(new Option(preText || '', preId, true, true)).trigger('change');
     }
 
+    function _initVendorS2(n, preId, preText) {
+      var $el = $('#bkgVendor_' + n);
+      if (!$el.length) return;
+      if ($el.hasClass('select2-hidden-accessible')) $el.select2('destroy');
+      $el.select2({
+        dropdownParent: $('#bkgModal'), width: '100%', placeholder: '— Search Supplier —', allowClear: true, minimumInputLength: 0,
+        ajax: { url: '/accounts/sub-accounts/search', dataType: 'json', delay: 250,
+          data: function (p) { return { search: p.term || '', subAccountType: 'SUPPLIER', page: p.page || 1 }; },
+          processResults: function (data, p) { p.page = p.page || 1; return { results: (data.items || []).map(function (i) { return { id: i.id, text: i.text }; }), pagination: { more: data.hasMore || false } }; },
+          cache: false },
+        templateResult: function (d) { if (!d.id) return d.text; return $('<span>' + d.text + '</span>'); },
+        templateSelection: function (d) { return d.text; }
+      });
+      if (preId) $el.append(new Option(preText || '', preId, true, true)).trigger('change');
+    }
+
     window.bkgShow = function (id) {
       secureFetch(BASE + '/show/' + id).then(function (res) {
         if (!res.success) { Swal.fire('Error', res.message, 'error'); return; }
         var o = res.obj.defaultData;
         var html = '<div class="hs-box"><div class="row g-2">'
-          + travel.viewField('Sale No', o.bookingNo) + travel.viewField('Type', o.bookingType) + travel.viewField('Status', travel.statusBadge(o.status))
-          + travel.viewField('Customer', o.partyDisplay || '—') + travel.viewField('Sale Date', o.bookingDate)
+          + travel.viewField('Sales No', o.bookingNo) + travel.viewField('Type', o.bookingType) + travel.viewField('Status', travel.statusBadge(o.status))
+          + travel.viewField('Customer', o.partyDisplay || '—') + travel.viewField('Sales Date', o.bookingDate)
           + travel.viewField('Total', parseFloat(o.totalAmount || 0).toFixed(2)) + travel.viewField('Due', bkgDueTotal(o.dueAmount))
           + travel.viewField('Narration', o.remarks || '')
           + '</div><h6 class="mt-3">Services</h6><table class="table table-sm table-bordered"><thead class="table-light"><tr>'
-          + '<th>Type</th><th>Description</th><th>PNR</th><th>Patient Cat.</th><th class="text-end">Qty</th><th class="text-end">Price</th><th class="text-end">Amount</th></tr></thead><tbody>';
-        (o.services || []).forEach(function (s) { html += '<tr><td>' + travel.typeChip(s.serviceType) + '</td><td>' + travel.esc(s.description || '—') + '</td><td>' + travel.esc(s.pnr || '—') + '</td><td class="text-nowrap">' + (s.patientCategory || '—') + '</td><td class="text-end">' + s.quantity + '</td><td class="text-end">' + parseFloat(s.unitPrice || 0).toFixed(2) + '</td><td class="text-end">' + parseFloat(s.lineTotal || 0).toFixed(2) + '</td></tr>'; });
+          + '<th>Type</th><th>Description</th><th>Vendor</th><th>PNR</th><th>Patient Cat.</th><th class="text-end">Qty</th><th class="text-end">Price</th><th class="text-end">Amount</th></tr></thead><tbody>';
+        (o.services || []).forEach(function (s) { html += '<tr><td>' + travel.typeChip(s.serviceType) + '</td><td>' + travel.esc(s.description || '—') + '</td><td>' + travel.esc(s.vendorDisplay || '—') + '</td><td>' + travel.esc(s.pnr || '—') + '</td><td class="text-nowrap">' + (s.patientCategory || '—') + '</td><td class="text-end">' + s.quantity + '</td><td class="text-end">' + parseFloat(s.unitPrice || 0).toFixed(2) + '</td><td class="text-end">' + parseFloat(s.lineTotal || 0).toFixed(2) + '</td></tr>'; });
         html += '</tbody></table><h6 class="mt-3">Receipts</h6><table class="table table-sm table-bordered"><thead class="table-light"><tr><th>Mode</th><th>Sub Account</th><th>Reference</th><th class="text-end">Amount</th></tr></thead><tbody>';
         var rcptTotal = 0;
         (o.receipts || []).forEach(function (r) { rcptTotal += parseFloat(r.amount || 0); html += '<tr><td>' + r.paymentMode + '</td><td>' + (r.subAccountText || '—') + '</td><td>' + travel.esc(r.reference || '—') + '</td><td class="text-end">' + parseFloat(r.amount || 0).toFixed(2) + '</td></tr>'; });
@@ -419,7 +439,7 @@
         // ── Documents section ──
         html += '<h6 class="mt-3 d-flex justify-content-between align-items-center">'
           + '<span><i class="fa fa-paperclip me-1 text-muted"></i> Documents</span>'
-          + '<button type="button" class="btn btn-sm btn-outline-primary" onclick="trvOpenDocuments(\'BOOKING\',' + o.id + ',\'Sale ' + (o.bookingNo || '#' + o.id) + '\')"><i class="fa fa-upload me-1"></i> Attach</button>'
+          + '<button type="button" class="btn btn-sm btn-outline-primary" onclick="trvOpenDocuments(\'BOOKING\',' + o.id + ',\'Sales ' + (o.bookingNo || '#' + o.id) + '\')"><i class="fa fa-upload me-1"></i> Attach</button>'
           + '</h6><div id="bkgViewDocs"><p class="text-muted small mb-0"><em>Loading…</em></p></div>';
 
         html += '</div>';
@@ -500,7 +520,7 @@
         (o.receipts || []).forEach(function (r) { bkgAddReceiptLine(r); });
         bkgCalcReceipt();
         bkgRecalcTotal();
-        document.getElementById('bkgModalTitle').innerHTML = '<i class="fa fa-pencil me-1 text-warning"></i> Edit Sale';
+        document.getElementById('bkgModalTitle').innerHTML = '<i class="fa fa-pencil me-1 text-warning"></i> Edit Sales';
         document.getElementById('bkgBtnText').textContent = 'Update';
         document.getElementById('bkgDocBtnWrap').style.display = '';
         bootstrap.Modal.getOrCreateInstance(document.getElementById('bkgModal')).show();
@@ -508,7 +528,7 @@
     };
 
     window.bkgConfirm = function (id) {
-      Swal.fire({ title: 'Confirm Sale?', text: 'This posts a Sales Voucher to accounts and cannot be edited afterward.', icon: 'warning', showCancelButton: true, confirmButtonText: 'Yes, Confirm', confirmButtonColor: '#0d6efd' })
+      Swal.fire({ title: 'Confirm Sales?', text: 'This posts a Sales Voucher to accounts and cannot be edited afterward.', icon: 'warning', showCancelButton: true, confirmButtonText: 'Yes, Confirm', confirmButtonColor: '#0d6efd' })
         .then(function (r) { if (!r.isConfirmed) return;
           secureFetch(BASE + '/confirm/' + id, { method: 'POST' }).then(function (d) {
             if (d.success) { Swal.fire({ icon: 'success', title: 'Confirmed!', text: d.message, timer: 1800, showConfirmButton: false }); dt.ajax.reload(null, false); }
@@ -516,7 +536,7 @@
     };
 
     window.bkgCancel = function (id) {
-      Swal.fire({ title: 'Cancel Sale?', icon: 'warning', showCancelButton: true, confirmButtonColor: '#dc3545', confirmButtonText: 'Cancel Sale' })
+      Swal.fire({ title: 'Cancel Sales?', icon: 'warning', showCancelButton: true, confirmButtonColor: '#dc3545', confirmButtonText: 'Cancel Sales' })
         .then(function (r) { if (!r.isConfirmed) return;
           secureFetch(BASE + '/cancel/' + id, { method: 'POST' }).then(function (d) {
             if (d.success) { Swal.fire({ icon: 'success', timer: 1400, title: 'Cancelled', text: d.message, showConfirmButton: false }); dt.ajax.reload(null, false); }
@@ -551,6 +571,7 @@
         services.push({
           serviceType: tr.querySelector('[data-field="serviceType"]').value,
           description: tr.querySelector('[data-field="description"]').value || null,
+          vendorId: tr.querySelector('[data-field="vendorId"]').value || null,
           pnr: tr.querySelector('[data-field="pnr"]').value || null,
           patientCategory: tr.querySelector('[data-field="patientCategory"]').value || null,
           quantity: parseFloat(tr.querySelector('[data-field="quantity"]').value) || 1,

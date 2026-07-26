@@ -115,11 +115,17 @@
 
         <!-- detail row -->
         <div class="row g-2 align-items-end">
-          <div class="col-md-6">
+          <div class="col-md-4">
             <label class="form-label">Description</label>
             <input type="text" id="fdLineDesc" class="form-control" placeholder="e.g. Deluxe room × 2 nights">
           </div>
-          <div class="col-md-2">
+          <div class="col-md-3">
+            <label class="form-label">Vendor / Supplier</label>
+            <select id="fdVendorId" class="form-select">
+              <option value="">— Select —</option>
+            </select>
+          </div>
+          <div class="col-md-1">
             <label class="form-label">Qty</label>
             <input type="number" id="fdLineQty" class="form-control" value="1" min="0.001" step="1">
           </div>
@@ -142,6 +148,7 @@
             <tr>
               <th style="width:90px">Type</th>
               <th>Description</th>
+              <th style="width:150px">Vendor</th>
               <th class="text-end" style="width:70px">Qty</th>
               <th class="text-end" style="width:130px">Unit Price</th>
               <th class="text-end" style="width:140px">Line Total</th>
@@ -149,7 +156,7 @@
             </tr>
             </thead>
             <tbody id="fdCartBody">
-            <tr id="fdCartEmpty"><td colspan="6" class="text-center text-muted py-4">No services added yet.</td></tr>
+            <tr id="fdCartEmpty"><td colspan="7" class="text-center text-muted py-4">No services added yet.</td></tr>
             </tbody>
           </table>
         </div>
@@ -269,6 +276,7 @@
       decorateTabs();
       initCustomerSelect2();
       initRefSelect2('HOTEL');
+      initVendorSelect2();
       renderCart();
       loadRecentActivity();
     });
@@ -360,6 +368,32 @@
       }
     }
 
+    function initVendorSelect2() {
+      var url = '/accounts/sub-accounts/search?subAccountType=SUPPLIER';
+      if (typeof S2HSHelper !== 'undefined' && S2HSHelper.init) {
+        S2HSHelper.init('#fdVendorId', url, 'Search supplier…');
+        return;
+      }
+      var $sel = window.jQuery ? jQuery('#fdVendorId') : null;
+      if ($sel && jQuery.fn.select2) {
+        $sel.select2({
+          width: '100%',
+          placeholder: 'Search supplier…',
+          allowClear: true,
+          minimumInputLength: 1,
+          ajax: {
+            url: url,
+            dataType: 'json',
+            delay: 250,
+            data: function (params) { return { search: params.term, subAccountType: 'SUPPLIER' }; },
+            processResults: function (data) {
+              return { results: (data.items || []).map(function (it) { return { id: it.id, text: it.text }; }) };
+            }
+          }
+        });
+      }
+    }
+
     // ── CUSTOMER MODE TOGGLE ────────────────────────────────────────────────
     window.fdSetCustomerMode = function (mode) {
       state.customerMode = mode;
@@ -434,10 +468,18 @@
         }
       }
 
+      var vendorSel = document.getElementById('fdVendorId');
+      var vendorId = vendorSel ? vendorSel.value || null : null;
+      var vendorText = null;
+      if (vendorId && vendorSel.options[vendorSel.selectedIndex]) {
+        vendorText = vendorSel.options[vendorSel.selectedIndex].text;
+      }
+
       state.lines.push({
         key: ++state.lineSeq,
         type: type, refId: refId, refText: refText,
-        desc: desc, qty: qty, price: price
+        desc: desc, qty: qty, price: price,
+        vendorId: vendorId, vendorText: vendorText
       });
 
       renderCart();
@@ -474,6 +516,7 @@
                 '<span class="fd-line-desc">' + esc(line.desc) + '</span>' +
                 (line.refText ? '<span class="fd-line-ref">' + esc(line.refText) + '</span>' : '') +
                 '</td>' +
+                '<td>' + (line.vendorText ? esc(line.vendorText) : '<span class="text-muted">—</span>') + '</td>' +
                 '<td class="text-end">' + line.qty + '</td>' +
                 '<td class="text-end">' + fdMoney(line.price) + '</td>' +
                 '<td class="text-end fd-line-total">' + fdMoney(total) + '</td>' +
@@ -520,6 +563,7 @@
             serviceType: l.type,
             referenceId: l.refId,
             description: l.desc,
+            vendorId: l.vendorId,
             qty: l.qty,
             unitPrice: l.price
           };
@@ -640,6 +684,14 @@
       if (hotelTab) window.fdSwitchTab(hotelTab);
 
       document.getElementById('fdLineDesc').value = '';
+      var vendorSel = document.getElementById('fdVendorId');
+      if (vendorSel) {
+        if (window.jQuery && jQuery(vendorSel).data('select2')) {
+          jQuery(vendorSel).val(null).trigger('change');
+        } else {
+          vendorSel.value = '';
+        }
+      }
       document.getElementById('fdLineQty').value = '1';
       document.getElementById('fdLinePrice').value = '0';
       document.getElementById('fdRemarks').value = '';

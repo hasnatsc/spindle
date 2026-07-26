@@ -69,6 +69,31 @@ public class PassportScanDTO implements Serializable {
     /** National ID / personal number carried in the optional MRZ field. */
     private String personalNumber;
 
+    // ── Printed-zone (VIZ) fields — best-effort OCR of the visible page ──────
+    // These are NOT in the MRZ and carry no check digits: they are harvested by
+    // VizExtractor from a plain OCR pass over the printed page, so treat them
+    // as pre-fill suggestions, never as verified data.
+    @JsonFormat(pattern = "yyyy-MM-dd")
+    private LocalDate passportIssueDate;
+
+    /** e.g. DIP/DHAKA. */
+    private String passportIssuingAuthority;
+
+    private String placeOfBirth;
+    private String fatherName;
+    private String motherName;
+    private String permanentAddress;
+    private String emergencyContactName;
+    private String emergencyContactRelation;
+    private String emergencyContactPhone;
+
+    /**
+     * True when the MRZ name split had to be repaired or failed — tells
+     * VizExtractor it may override the names from the printed zone.
+     */
+    @Builder.Default
+    private boolean namesUncertain = false;
+
     // ── Derived conveniences ─────────────────────────────────────────────────
     private Integer age;
 

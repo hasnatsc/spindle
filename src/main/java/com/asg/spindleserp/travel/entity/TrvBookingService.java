@@ -38,6 +38,10 @@ public class TrvBookingService implements Serializable {
     @Column(name = "description", length = 500)
     private String description;
 
+    /** Soft FK → accounts_sub_accounts (SUPPLIER type). */
+    @Column(name = "vendor_id")
+    private Long vendorId;
+
     @Builder.Default
     @Column(name = "quantity", nullable = false, precision = 12, scale = 3)
     private BigDecimal quantity = BigDecimal.ONE;

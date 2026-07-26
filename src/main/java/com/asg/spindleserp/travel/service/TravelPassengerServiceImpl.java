@@ -1,6 +1,7 @@
 package com.asg.spindleserp.travel.service;
 
 import com.asg.spindleserp.common.util.MrzParser;
+import com.asg.spindleserp.common.util.VizExtractor;
 import com.asg.spindleserp.security.auth.SecurityHelper;
 import com.asg.spindleserp.travel.dto.PassportScanDTO;
 import com.asg.spindleserp.travel.dto.TrvDocumentDTO;
@@ -367,9 +368,34 @@ public class TravelPassengerServiceImpl implements TravelPassengerService {
     @Override
     @Transactional(readOnly = true)
     public PassportScanDTO parseMrz(String mrzText) {
+        return parseMrz(mrzText, null);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PassportScanDTO parseMrz(String mrzText, String vizText) {
         PassportScanDTO result = MrzParser.parse(mrzText);
         if (result.getSource() == null) result.setSource("MRZ_MANUAL");
+        if (vizText != null && !vizText.isBlank()) {
+            VizExtractor.apply(result, vizText);
+        }
         return result;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Map<String, String> extractViz(String vizText, String dateOfBirth, String passportExpiry) {
+        return VizExtractor.extract(vizText, safeDate(dateOfBirth), safeDate(passportExpiry));
+    }
+
+    /** Lenient ISO parse — the browser sends back what the scan gave it. */
+    private static LocalDate safeDate(String iso) {
+        if (iso == null || iso.isBlank()) return null;
+        try {
+            return LocalDate.parse(iso.trim());
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     @Override
@@ -392,6 +418,9 @@ public class TravelPassengerServiceImpl implements TravelPassengerService {
         try {
             String text = ocrEngine.get().extractText(file);
             PassportScanDTO dto = MrzParser.parse(text);
+            // The engine returns full-page text, so the same pass also carries
+            // the printed zone — harvest it for the MRZ-less fields.
+            VizExtractor.apply(dto, text);
             dto.setSource("OCR_SERVER");
             return dto;
         } catch (Exception ex) {

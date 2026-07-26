@@ -202,6 +202,7 @@
       <th style="width:4%" class="text-center">#</th>
       <th style="width:13%">Type</th>
       <th>Description</th>
+      <th style="width:13%">Vendor</th>
       <th style="width:7%" class="text-center">Qty</th>
       <th style="width:13%" class="text-end">Unit Price</th>
       <th style="width:14%" class="text-end">Amount</th>
@@ -211,12 +212,13 @@
         <td class="text-center num" th:text="${it.count}">1</td>
         <td th:text="${s.serviceType}">—</td>
         <td th:text="${s.description ?: '—'}">—</td>
+        <td th:text="${s.vendorDisplay ?: (s.vendorId ?: '—')}">—</td>
         <td class="text-center num" th:text="${s.quantity}">0</td>
         <td class="text-end num" th:text="${#numbers.formatDecimal(s.unitPrice ?: 0, 1, 'COMMA', 2, 'POINT')}">0.00</td>
         <td class="text-end num amt" th:text="${#numbers.formatDecimal(s.lineTotal ?: 0, 1, 'COMMA', 2, 'POINT')}">0.00</td>
       </tr>
       <tr th:if="${booking.services == null or #lists.isEmpty(booking.services)}">
-        <td colspan="6" class="empty">No service lines.</td>
+        <td colspan="7" class="empty">No service lines.</td>
       </tr>
     </tbody>
   </table>
