@@ -239,4 +239,19 @@ public class TravelOperationsController {
     public Map<String, Object> passengersForLine(@PathVariable Long id) {
         return Map.of("items", opsService.passengersForServiceLine(id));
     }
+
+    @PostMapping("/service-lines/{id}/passengers")
+    @ResponseBody
+    public Map<String, Object> createPassenger(@PathVariable Long id, @RequestBody Map<String, Object> body) {
+        Map<String, Object> res = new HashMap<>();
+        try {
+            res.put("success", true);
+            res.put("passenger", opsService.createPassenger(id, body));
+            res.put("message", "Passenger added.");
+        } catch (Exception e) {
+            res.put("success", false);
+            res.put("message", e.getMessage());
+        }
+        return res;
+    }
 }

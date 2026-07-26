@@ -64,71 +64,25 @@
                   </div>
                 </div>
 
-                <!-- Ticket & Fare Info (new collapsible) -->
+                <!-- Ticket & Fare Info -->
                 <div class="card mb-3 border">
                   <div class="card-header py-2 px-3 d-flex justify-content-between align-items-center" style="cursor:pointer" data-bs-toggle="collapse" data-bs-target="#atFareBody">
-                    <strong class="small"><i class="fa fa-ticket me-1"></i> Ticket &amp; Fare Details</strong>
+                    <strong class="small"><i class="fa fa-ticket me-1"></i> Ticket Details</strong>
                     <i class="fa fa-chevron-down small"></i>
                   </div>
                   <div id="atFareBody" class="collapse show p-3">
                     <div class="row g-2">
-                      <div class="col-md-3 view-group">
+                      <div class="col-md-4 view-group">
                         <input id="atTicketNumber" type="text" class="form-control hs_span_view" maxlength="30">
                         <label class="input-label">Ticket / E-Ticket No</label>
                       </div>
-                      <div class="col-md-2 view-group">
-                        <input id="atValidatingCarrier" type="text" class="form-control hs_span_view" maxlength="3" placeholder="e.g. BG">
-                        <label class="input-label">Validating Carrier</label>
-                      </div>
-                      <div class="col-md-2 view-group">
-                        <input id="atFareBasis" type="text" class="form-control hs_span_view" maxlength="20" placeholder="e.g. Q14NR">
-                        <label class="input-label">Fare Basis</label>
-                      </div>
-                      <div class="col-md-2 view-group">
-                        <input id="atTourCode" type="text" class="form-control hs_span_view" maxlength="50">
-                        <label class="input-label">Tour Code</label>
-                      </div>
-                      <div class="col-md-3 view-group">
+                      <div class="col-md-4 view-group">
                         <input id="atTicketTimeLimit" type="datetime-local" class="form-control hs_span_view">
                         <label class="input-label">Ticket Time Limit</label>
                       </div>
-
-                      <!-- Fare breakdown row -->
-                      <div class="col-md-2 view-group">
-                        <input id="atFareAmount" type="number" step="0.01" class="form-control hs_span_view" value="0" oninput="atRecalcTotal()">
-                        <label class="input-label">Base Fare</label>
-                      </div>
-                      <div class="col-md-2 view-group">
-                        <input id="atTaxAmount" type="number" step="0.01" class="form-control hs_span_view" value="0" oninput="atRecalcTotal()">
-                        <label class="input-label">Tax / Surcharges</label>
-                      </div>
-                      <div class="col-md-2 view-group">
-                        <input id="atCommissionAmount" type="number" step="0.01" class="form-control hs_span_view" value="0" oninput="atRecalcTotal()">
-                        <label class="input-label">Commission</label>
-                      </div>
-                      <div class="col-md-2 view-group">
-                        <input id="atCommissionRate" type="number" step="0.01" class="form-control hs_span_view" placeholder="%">
-                        <label class="input-label">Commission Rate %</label>
-                      </div>
-                      <div class="col-md-2 view-group">
-                        <input id="atNetFare" type="number" step="0.01" class="form-control hs_span_view bg-light" value="0" readonly>
-                        <label class="input-label">Net Fare</label>
-                      </div>
-                      <div class="col-md-2 view-group">
-                        <input id="atServiceFeeAmount" type="number" step="0.01" class="form-control hs_span_view" value="0" oninput="atRecalcTotal()">
-                        <label class="input-label">Service Fee</label>
-                      </div>
-                      <div class="col-md-3 view-group">
-                        <input id="atTotalAmount" type="number" step="0.01" class="form-control hs_span_view bg-light" readonly>
-                        <label class="input-label">Total (Fare + Tax + Fee - Comm)</label>
-                      </div>
-                      <div class="col-md-3 view-group">
+                      <div class="col-md-4 view-group">
                         <input id="atSupplierReference" type="text" class="form-control hs_span_view" maxlength="100">
                         <label class="input-label">Supplier Ref</label>
-                      </div>
-                      <div class="col-12 view-group">
-                        <textarea id="atEndorsementRestrictions" class="form-control hs_span_view" rows="1" maxlength="500" placeholder="Endorsements / restrictions printed on ticket"></textarea>
-                        <label class="input-label">Endorsements / Restrictions</label>
                       </div>
                     </div>
                   </div>
@@ -195,8 +149,8 @@
                 <div class="table-responsive">
                   <table class="table table-sm table-bordered">
                     <thead class="table-light"><tr>
-                      <th width="25%">Passenger</th><th>Ticket No</th><th>Seat</th><th>Baggage</th>
-                      <th>Fare</th><th>Tax</th><th></th>
+                      <th style="min-width:250px">Passenger</th><th>Ticket No</th><th>Seat</th>
+                      <th>Fare</th><th></th>
                     </tr></thead>
                     <tbody id="atPaxBody"></tbody>
                   </table>
@@ -227,6 +181,55 @@
     </div>
   </div>
 
+  <!-- ── CREATE PASSENGER MODAL ─────────────────────────────────────────── -->
+  <div tabindex="-1" id="atPaxModal" class="modal fade">
+    <div class="modal-dialog modal-dialog-centered modal-md">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title"><i class="fa fa-user-plus me-1 text-success"></i> New Passenger</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <form id="atPaxForm" novalidate>
+          <div class="modal-body">
+            <div class="row g-2">
+              <div class="col-md-6 view-group">
+                <input id="apFirstName" type="text" class="form-control" maxlength="100" required placeholder="First name">
+                <label class="input-label">First Name <span class="text-danger">*</span></label>
+              </div>
+              <div class="col-md-6 view-group">
+                <input id="apLastName" type="text" class="form-control" maxlength="100" placeholder="Last name">
+                <label class="input-label">Last Name</label>
+              </div>
+              <div class="col-md-6 view-group">
+                <input id="apDob" type="date" class="form-control">
+                <label class="input-label">Date of Birth</label>
+              </div>
+              <div class="col-md-6 view-group">
+                <input id="apPassportNo" type="text" class="form-control" maxlength="50" placeholder="Passport number">
+                <label class="input-label">Passport No</label>
+              </div>
+              <div class="col-md-6 view-group">
+                <input id="apPassportExp" type="date" class="form-control">
+                <label class="input-label">Passport Expiry</label>
+              </div>
+              <div class="col-md-6 view-group">
+                <input id="apNationality" type="text" class="form-control" maxlength="100" placeholder="Nationality">
+                <label class="input-label">Nationality</label>
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-success" type="submit" id="apSubmitBtn">
+              <span class="spinner-border spinner-border-sm me-2 d-none" id="apSpinner"></span>
+              <span id="apBtnText">Save Passenger</span>
+            </button>
+            <button type="button" class="btn btn-white" data-bs-dismiss="modal">Cancel</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
   <script th:inline="none">
   (function () {
     'use strict';
@@ -236,6 +239,7 @@
 
     document.addEventListener('DOMContentLoaded', function () {
       document.getElementById('atForm').addEventListener('submit', _onSubmit);
+      document.getElementById('atPaxForm').addEventListener('submit', _onPaxSubmit);
       atReload();
     });
 
@@ -262,7 +266,22 @@
       secureFetch('/travel/service-lines/search?serviceType=AIR').then(function (res) {
         var sel = document.getElementById('atServiceLineId');
         sel.innerHTML = '<option value="">— Select Service Line —</option>';
-        (res.items || []).forEach(function (i) { sel.insertAdjacentHTML('beforeend', '<option value="' + i.id + '">' + i.text + '</option>'); });
+        // Group by PNR
+        var groups = {};
+        (res.items || []).forEach(function (i) {
+          var key = i.pnr || 'NO_PNR';
+          if (!groups[key]) groups[key] = [];
+          groups[key].push(i);
+        });
+        Object.keys(groups).sort().forEach(function (pnr) {
+          var lines = groups[pnr];
+          var label = pnr === 'NO_PNR' ? '— No PNR —' : 'PNR: ' + pnr + ' (' + lines.length + ' seg' + (lines.length > 1 ? 's' : '') + ')';
+          sel.insertAdjacentHTML('beforeend', '<option value="" disabled style="font-weight:700;background:#f0f4f8">' + label + '</option>');
+          lines.forEach(function (i) {
+            var paxInfo = i.pax_count ? ' <span class="text-muted">[' + i.pax_count + ' pax]</span>' : '';
+            sel.insertAdjacentHTML('beforeend', '<option value="' + i.id + '" data-pnr="' + (i.pnr || '') + '" data-pax="' + (i.pax_count || 0) + '">&nbsp;&nbsp;' + i.text + paxInfo + '</option>');
+          });
+        });
         if (preId) { sel.value = preId; _loadPassengersForLine(preId); }
       });
       document.getElementById('atServiceLineId').onchange = function () { _loadPassengersForLine(this.value); };
@@ -273,6 +292,12 @@
       if (!serviceLineId) { _linePassengers = []; return; }
       secureFetch('/travel/service-lines/' + serviceLineId + '/passengers').then(function (res) {
         _linePassengers = res.items || [];
+        // Auto-populate passenger ticket rows for each passenger
+        document.getElementById('atPaxBody').innerHTML = '';
+        _paxTicketCount = 0;
+        (_linePassengers || []).forEach(function (p) {
+          atAddPaxTicket({ passengerId: p.id, text: p.text });
+        });
       });
     }
 
@@ -344,32 +369,82 @@
     /* ── Passenger ticket rows ────────────────────────────────────────── */
     window.atAddPaxTicket = function (data) {
       _paxTicketCount++; var n = _paxTicketCount;
-      var options = '<option value="">— Select Passenger —</option>' + _linePassengers.map(function (p) {
-        return '<option value="' + p.id + '"' + (data && data.passengerId == p.id ? ' selected' : '') + '>' + p.text + '</option>';
-      }).join('');
+      var docBtn = data && data.id
+        ? '<button type="button" class="btn btn-sm btn-outline-info" onclick="trvOpenDocuments(\'AIR_TICKET_PAX\',' + data.id + ')"><i class="fa fa-paperclip"></i></button>'
+        : '';
       var html = '<tr id="atPax_' + n + '">'
-        + '<td><select class="form-select form-select-sm" data-field="passengerId">' + options + '</select></td>'
-        + '<td><input type="text" class="form-control form-control-sm" data-field="ticketNumber" value="' + (data ? data.ticketNumber || '' : '') + '"></td>'
-        + '<td><input type="text" class="form-control form-control-sm" data-field="seatNumber" value="' + (data ? data.seatNumber || '' : '') + '"></td>'
-        + '<td><input type="text" class="form-control form-control-sm" data-field="baggageAllowance" value="' + (data ? data.baggageAllowance || '' : '') + '" placeholder="e.g. 30kg"></td>'
-        + '<td><input type="number" step="0.01" class="form-control form-control-sm text-end" data-field="farePortion" value="' + (data ? data.farePortion || 0 : 0) + '"></td>'
-        + '<td><input type="number" step="0.01" class="form-control form-control-sm text-end" data-field="taxPortion" value="' + (data ? data.taxPortion || 0 : 0) + '"></td>'
-        + '<td><button type="button" class="btn btn-sm btn-outline-danger" onclick="atRemovePaxTicket(' + n + ')"><i class="fa fa-times"></i></button></td>'
+        + '<td style="display:flex;align-items:center;gap:4px">'
+          + '<select id="atPaxSel_' + n + '" class="form-select form-select-sm" style="flex:1;min-width:180px" data-field="passengerId"></select>'
+          + '<button type="button" class="btn btn-sm btn-outline-success flex-shrink-0" onclick="atOpenCreatePax()" title="New Passenger"><i class="fa fa-plus"></i></button>'
+        + '</td>'
+        + '<td><input type="text" class="form-control form-control-sm" data-field="ticketNumber" value="' + (data ? data.ticketNumber || '' : '') + '" oninput="this.value=this.value.toUpperCase()"></td>'
+        + '<td><input type="text" class="form-control form-control-sm" style="width:70px" data-field="seatNumber" value="' + (data ? data.seatNumber || '' : '') + '"></td>'
+        + '<td><input type="number" step="0.01" class="form-control form-control-sm text-end" style="width:80px" data-field="farePortion" value="' + (data ? data.farePortion || 0 : 0) + '"></td>'
+        + '<td class="text-center">'
+          + '<button type="button" class="btn btn-sm btn-outline-danger" onclick="atRemovePaxTicket(' + n + ')" title="Remove"><i class="fa fa-times"></i></button>'
+          + docBtn
+        + '</td>'
         + '</tr>';
       document.getElementById('atPaxBody').insertAdjacentHTML('beforeend', html);
+      // Init Select2 with AJAX on passenger dropdown
+      var $sel = $('#atPaxSel_' + n);
+      $sel.select2({
+        width: '100%', placeholder: '— Search Passenger —', allowClear: true, minimumInputLength: 0,
+        dropdownParent: $('#atModal'),
+        ajax: {
+          url: function () {
+            var slId = document.getElementById('atServiceLineId').value;
+            return slId ? '/travel/service-lines/' + slId + '/passengers' : '/travel/service-lines/0/passengers';
+          }, dataType: 'json', delay: 250,
+          data: function (p) { return { page: p.page || 1 }; },
+          processResults: function (data, p) {
+            p.page = p.page || 1;
+            return { results: (data.items || []).map(function (i) { return { id: i.id, text: i.text }; }), pagination: { more: data.hasMore || false } };
+          }, cache: true
+        }
+      });
+      if (data && data.passengerId) {
+        $sel.append(new Option(data.passengerName || data.text || '', data.passengerId, true, true)).trigger('change');
+      }
     };
     window.atRemovePaxTicket = function (n) { var r = document.getElementById('atPax_' + n); if (r) r.remove(); };
 
-    /* ── Recalc total ─────────────────────────────────────────────────── */
-    window.atRecalcTotal = function () {
-      var fare = parseFloat(document.getElementById('atFareAmount').value) || 0;
-      var tax = parseFloat(document.getElementById('atTaxAmount').value) || 0;
-      var comm = parseFloat(document.getElementById('atCommissionAmount').value) || 0;
-      var fee = parseFloat(document.getElementById('atServiceFeeAmount').value) || 0;
-      var net = fare - comm;
-      document.getElementById('atNetFare').value = net.toFixed(2);
-      document.getElementById('atTotalAmount').value = (net + tax + fee).toFixed(2);
+    /* ── Create Passenger modal ───────────────────────────────────────── */
+    var _currentServiceLineId = null;
+
+    window.atOpenCreatePax = function () {
+      var sel = document.getElementById('atServiceLineId');
+      _currentServiceLineId = sel ? sel.value : null;
+      if (!_currentServiceLineId) { Swal.fire('Info', 'Select a service line first.', 'info'); return; }
+      document.getElementById('atPaxForm').reset();
+      document.getElementById('apBtnText').textContent = 'Save Passenger';
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('atPaxModal')).show();
     };
+
+    function _onPaxSubmit(e) {
+      e.preventDefault();
+      var sb = document.getElementById('apSubmitBtn'), sp = document.getElementById('apSpinner'), bt = document.getElementById('apBtnText');
+      hsDisableButton(sb, sp, bt);
+      var body = {
+        firstName: document.getElementById('apFirstName').value,
+        lastName: document.getElementById('apLastName').value || null,
+        dateOfBirth: document.getElementById('apDob').value || null,
+        passportNumber: document.getElementById('apPassportNo').value || null,
+        passportExpiry: document.getElementById('apPassportExp').value || null,
+        nationality: document.getElementById('apNationality').value || null
+      };
+      secureFetch('/travel/service-lines/' + _currentServiceLineId + '/passengers', { method: 'POST', body: JSON.stringify(body) }).then(function (d) {
+        if (d.success) {
+          Swal.fire({ icon: 'success', timer: 1200, showConfirmButton: false, title: d.message });
+          bootstrap.Modal.getOrCreateInstance(document.getElementById('atPaxModal')).hide();
+          var newId = d.passenger ? d.passenger.id : null;
+          // Refresh Select2 dropdowns by re-fetching passengers
+          _loadPassengersForLine(_currentServiceLineId, newId);
+        } else {
+          Swal.fire('Error', d.message, 'error');
+        }
+      }).finally(function () { hsEnableButton(sb, sp, bt); });
+    }
 
     /* ── Open Create ──────────────────────────────────────────────────── */
     window.atOpenCreate = function () {
@@ -582,15 +657,16 @@
       // Collect passenger tickets
       var passengerTickets = [];
       document.querySelectorAll('#atPaxBody tr').forEach(function (tr) {
-        var passengerId = tr.querySelector('[data-field="passengerId"]').value;
+        var passengerId = $('#atPaxSel_0').length ? null : null; // placeholder
+        // Get passenger ID from the Select2
+        var $sel = $(tr).find('select[data-field="passengerId"]');
+        passengerId = $sel.val ? $sel.val() : null;
         if (!passengerId) return;
         passengerTickets.push({
           passengerId: passengerId,
           ticketNumber: tr.querySelector('[data-field="ticketNumber"]').value || null,
           seatNumber: tr.querySelector('[data-field="seatNumber"]').value || null,
-          baggageAllowance: tr.querySelector('[data-field="baggageAllowance"]').value || null,
-          farePortion: parseFloat(tr.querySelector('[data-field="farePortion"]').value) || 0,
-          taxPortion: parseFloat(tr.querySelector('[data-field="taxPortion"]').value) || 0
+          farePortion: parseFloat(tr.querySelector('[data-field="farePortion"]').value) || 0
         });
       });
 
@@ -599,24 +675,13 @@
         bookingServiceId: document.getElementById('atServiceLineId').value || null,
         pnr: document.getElementById('atPnr').value || null,
         ticketNumber: document.getElementById('atTicketNumber').value || null,
-        validatingCarrier: document.getElementById('atValidatingCarrier').value || null,
-        fareBasis: document.getElementById('atFareBasis').value || null,
-        tourCode: document.getElementById('atTourCode').value || null,
         ticketTimeLimit: document.getElementById('atTicketTimeLimit').value || null,
-        endorsementRestrictions: document.getElementById('atEndorsementRestrictions').value || null,
         issueDate: document.getElementById('atIssueDate').value || null,
         bookingReference: document.getElementById('atBookingReference').value || null,
         agentVendorName: document.getElementById('atAgentVendorName').value || null,
         agentVendorAddress: document.getElementById('atAgentVendorAddress').value || null,
         agentVendorEmail: document.getElementById('atAgentVendorEmail').value || null,
         agentVendorMocatNo: document.getElementById('atAgentVendorMocatNo').value || null,
-        fareAmount: parseFloat(document.getElementById('atFareAmount').value) || 0,
-        taxAmount: parseFloat(document.getElementById('atTaxAmount').value) || 0,
-        commissionAmount: parseFloat(document.getElementById('atCommissionAmount').value) || 0,
-        commissionRate: parseFloat(document.getElementById('atCommissionRate').value) || null,
-        serviceFeeAmount: parseFloat(document.getElementById('atServiceFeeAmount').value) || 0,
-        netFare: parseFloat(document.getElementById('atNetFare').value) || 0,
-        totalAmount: parseFloat(document.getElementById('atTotalAmount').value) || 0,
         supplierReference: document.getElementById('atSupplierReference').value || null,
         segments: segments,
         passengerTickets: passengerTickets

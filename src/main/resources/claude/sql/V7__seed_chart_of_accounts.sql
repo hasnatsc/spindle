@@ -235,6 +235,105 @@ SELECT '5106', 'Foreign Exchange Gain/Loss', 'EXPENSE', 'DEBIT', 3, true, true, 
 FROM acc_chart_of_accounts p WHERE p.account_code = '5100' AND p.organization_id = 1
     ON CONFLICT ON CONSTRAINT uq_coa_org_code DO NOTHING;
 
+-- ── Additional leaf accounts referenced by V13 operational seed ─────────────
+-- Cash & Bank (under Current Assets, 1100)
+INSERT INTO acc_chart_of_accounts (account_code, account_name, account_type, account_nature, level, is_active, is_system, is_control_account, allow_manual_entry, currency, opening_balance, current_balance, organization_id, parent_account_id, created_at, updated_at, created_by, updated_by)
+SELECT '1111', 'Cash on Hand', 'ASSET', 'DEBIT', 3, true, false, false, true, 'BDT', 0.00, 0.00, 1, p.id, NOW(), NOW(), 'system', 'system'
+FROM acc_chart_of_accounts p WHERE p.account_code = '1100' AND p.organization_id = 1 ON CONFLICT ON CONSTRAINT uq_coa_org_code DO NOTHING;
+INSERT INTO acc_chart_of_accounts (account_code, account_name, account_type, account_nature, level, is_active, is_system, is_control_account, allow_manual_entry, currency, opening_balance, current_balance, organization_id, parent_account_id, created_at, updated_at, created_by, updated_by)
+SELECT '1112', 'Petty Cash', 'ASSET', 'DEBIT', 3, true, false, false, true, 'BDT', 0.00, 0.00, 1, p.id, NOW(), NOW(), 'system', 'system'
+FROM acc_chart_of_accounts p WHERE p.account_code = '1100' AND p.organization_id = 1 ON CONFLICT ON CONSTRAINT uq_coa_org_code DO NOTHING;
+INSERT INTO acc_chart_of_accounts (account_code, account_name, account_type, account_nature, level, is_active, is_system, is_control_account, allow_manual_entry, currency, opening_balance, current_balance, organization_id, parent_account_id, created_at, updated_at, created_by, updated_by)
+SELECT '1115', 'Bank Account Main', 'ASSET', 'DEBIT', 3, true, false, true, false, 'BDT', 0.00, 0.00, 1, p.id, NOW(), NOW(), 'system', 'system'
+FROM acc_chart_of_accounts p WHERE p.account_code = '1100' AND p.organization_id = 1 ON CONFLICT ON CONSTRAINT uq_coa_org_code DO NOTHING;
+INSERT INTO acc_chart_of_accounts (account_code, account_name, account_type, account_nature, level, is_active, is_system, is_control_account, allow_manual_entry, currency, opening_balance, current_balance, organization_id, parent_account_id, created_at, updated_at, created_by, updated_by)
+SELECT '1116', 'Bank Payroll Account', 'ASSET', 'DEBIT', 3, true, false, false, true, 'BDT', 0.00, 0.00, 1, p.id, NOW(), NOW(), 'system', 'system'
+FROM acc_chart_of_accounts p WHERE p.account_code = '1100' AND p.organization_id = 1 ON CONFLICT ON CONSTRAINT uq_coa_org_code DO NOTHING;
+INSERT INTO acc_chart_of_accounts (account_code, account_name, account_type, account_nature, level, is_active, is_system, is_control_account, allow_manual_entry, currency, opening_balance, current_balance, organization_id, parent_account_id, created_at, updated_at, created_by, updated_by)
+SELECT '1151', 'Input VAT Local', 'ASSET', 'DEBIT', 3, true, false, false, true, 'BDT', 0.00, 0.00, 1, p.id, NOW(), NOW(), 'system', 'system'
+FROM acc_chart_of_accounts p WHERE p.account_code = '1100' AND p.organization_id = 1 ON CONFLICT ON CONSTRAINT uq_coa_org_code DO NOTHING;
+INSERT INTO acc_chart_of_accounts (account_code, account_name, account_type, account_nature, level, is_active, is_system, is_control_account, allow_manual_entry, currency, opening_balance, current_balance, organization_id, parent_account_id, created_at, updated_at, created_by, updated_by)
+SELECT '1180', 'LC Margin Account', 'ASSET', 'DEBIT', 3, true, false, true, false, 'BDT', 0.00, 0.00, 1, p.id, NOW(), NOW(), 'system', 'system'
+FROM acc_chart_of_accounts p WHERE p.account_code = '1100' AND p.organization_id = 1 ON CONFLICT ON CONSTRAINT uq_coa_org_code DO NOTHING;
+
+-- Inventory accounts (under Current Assets, 1100)
+INSERT INTO acc_chart_of_accounts (account_code, account_name, account_type, account_nature, level, is_active, is_system, is_control_account, allow_manual_entry, currency, opening_balance, current_balance, organization_id, parent_account_id, created_at, updated_at, created_by, updated_by)
+SELECT '1310', 'Raw Materials', 'ASSET', 'DEBIT', 3, true, false, true, false, 'BDT', 0.00, 0.00, 1, p.id, NOW(), NOW(), 'system', 'system'
+FROM acc_chart_of_accounts p WHERE p.account_code = '1100' AND p.organization_id = 1 ON CONFLICT ON CONSTRAINT uq_coa_org_code DO NOTHING;
+INSERT INTO acc_chart_of_accounts (account_code, account_name, account_type, account_nature, level, is_active, is_system, is_control_account, allow_manual_entry, currency, opening_balance, current_balance, organization_id, parent_account_id, created_at, updated_at, created_by, updated_by)
+SELECT '1320', 'Work in Progress', 'ASSET', 'DEBIT', 3, true, false, true, false, 'BDT', 0.00, 0.00, 1, p.id, NOW(), NOW(), 'system', 'system'
+FROM acc_chart_of_accounts p WHERE p.account_code = '1100' AND p.organization_id = 1 ON CONFLICT ON CONSTRAINT uq_coa_org_code DO NOTHING;
+INSERT INTO acc_chart_of_accounts (account_code, account_name, account_type, account_nature, level, is_active, is_system, is_control_account, allow_manual_entry, currency, opening_balance, current_balance, organization_id, parent_account_id, created_at, updated_at, created_by, updated_by)
+SELECT '1330', 'Finished Goods', 'ASSET', 'DEBIT', 3, true, false, true, false, 'BDT', 0.00, 0.00, 1, p.id, NOW(), NOW(), 'system', 'system'
+FROM acc_chart_of_accounts p WHERE p.account_code = '1100' AND p.organization_id = 1 ON CONFLICT ON CONSTRAINT uq_coa_org_code DO NOTHING;
+
+-- Non-current assets (under Fixed Assets, 1200)
+INSERT INTO acc_chart_of_accounts (account_code, account_name, account_type, account_nature, level, is_active, is_system, is_control_account, allow_manual_entry, currency, opening_balance, current_balance, organization_id, parent_account_id, created_at, updated_at, created_by, updated_by)
+SELECT '1500', 'Advances to Suppliers', 'ASSET', 'DEBIT', 3, true, false, false, true, 'BDT', 0.00, 0.00, 1, p.id, NOW(), NOW(), 'system', 'system'
+FROM acc_chart_of_accounts p WHERE p.account_code = '1200' AND p.organization_id = 1 ON CONFLICT ON CONSTRAINT uq_coa_org_code DO NOTHING;
+INSERT INTO acc_chart_of_accounts (account_code, account_name, account_type, account_nature, level, is_active, is_system, is_control_account, allow_manual_entry, currency, opening_balance, current_balance, organization_id, parent_account_id, created_at, updated_at, created_by, updated_by)
+SELECT '1630', 'Machinery & Equipment', 'ASSET', 'DEBIT', 3, true, false, false, true, 'BDT', 0.00, 0.00, 1, p.id, NOW(), NOW(), 'system', 'system'
+FROM acc_chart_of_accounts p WHERE p.account_code = '1200' AND p.organization_id = 1 ON CONFLICT ON CONSTRAINT uq_coa_org_code DO NOTHING;
+INSERT INTO acc_chart_of_accounts (account_code, account_name, account_type, account_nature, level, is_active, is_system, is_control_account, allow_manual_entry, currency, opening_balance, current_balance, organization_id, parent_account_id, created_at, updated_at, created_by, updated_by)
+SELECT '1631', 'Accum. Depreciation — Machinery', 'ASSET', 'CREDIT', 3, true, false, false, true, 'BDT', 0.00, 0.00, 1, p.id, NOW(), NOW(), 'system', 'system'
+FROM acc_chart_of_accounts p WHERE p.account_code = '1200' AND p.organization_id = 1 ON CONFLICT ON CONSTRAINT uq_coa_org_code DO NOTHING;
+
+-- Liabilities (under Current Liabilities, 2100)
+INSERT INTO acc_chart_of_accounts (account_code, account_name, account_type, account_nature, level, is_active, is_system, is_control_account, allow_manual_entry, currency, opening_balance, current_balance, organization_id, parent_account_id, created_at, updated_at, created_by, updated_by)
+SELECT '2110', 'Accounts Payable Control', 'LIABILITY', 'CREDIT', 3, true, false, true, false, 'BDT', 0.00, 0.00, 1, p.id, NOW(), NOW(), 'system', 'system'
+FROM acc_chart_of_accounts p WHERE p.account_code = '2100' AND p.organization_id = 1 ON CONFLICT ON CONSTRAINT uq_coa_org_code DO NOTHING;
+INSERT INTO acc_chart_of_accounts (account_code, account_name, account_type, account_nature, level, is_active, is_system, is_control_account, allow_manual_entry, currency, opening_balance, current_balance, organization_id, parent_account_id, created_at, updated_at, created_by, updated_by)
+SELECT '2210', 'Salaries Payable', 'LIABILITY', 'CREDIT', 3, true, false, false, true, 'BDT', 0.00, 0.00, 1, p.id, NOW(), NOW(), 'system', 'system'
+FROM acc_chart_of_accounts p WHERE p.account_code = '2100' AND p.organization_id = 1 ON CONFLICT ON CONSTRAINT uq_coa_org_code DO NOTHING;
+INSERT INTO acc_chart_of_accounts (account_code, account_name, account_type, account_nature, level, is_active, is_system, is_control_account, allow_manual_entry, currency, opening_balance, current_balance, organization_id, parent_account_id, created_at, updated_at, created_by, updated_by)
+SELECT '2230', 'TDS / Employee Income Tax Payable', 'LIABILITY', 'CREDIT', 3, true, false, false, true, 'BDT', 0.00, 0.00, 1, p.id, NOW(), NOW(), 'system', 'system'
+FROM acc_chart_of_accounts p WHERE p.account_code = '2100' AND p.organization_id = 1 ON CONFLICT ON CONSTRAINT uq_coa_org_code DO NOTHING;
+INSERT INTO acc_chart_of_accounts (account_code, account_name, account_type, account_nature, level, is_active, is_system, is_control_account, allow_manual_entry, currency, opening_balance, current_balance, organization_id, parent_account_id, created_at, updated_at, created_by, updated_by)
+SELECT '2311', 'Output VAT Local', 'LIABILITY', 'CREDIT', 3, true, false, false, true, 'BDT', 0.00, 0.00, 1, p.id, NOW(), NOW(), 'system', 'system'
+FROM acc_chart_of_accounts p WHERE p.account_code = '2100' AND p.organization_id = 1 ON CONFLICT ON CONSTRAINT uq_coa_org_code DO NOTHING;
+INSERT INTO acc_chart_of_accounts (account_code, account_name, account_type, account_nature, level, is_active, is_system, is_control_account, allow_manual_entry, currency, opening_balance, current_balance, organization_id, parent_account_id, created_at, updated_at, created_by, updated_by)
+SELECT '2500', 'Unearned Revenue', 'LIABILITY', 'CREDIT', 3, true, false, false, true, 'BDT', 0.00, 0.00, 1, p.id, NOW(), NOW(), 'system', 'system'
+FROM acc_chart_of_accounts p WHERE p.account_code = '2100' AND p.organization_id = 1 ON CONFLICT ON CONSTRAINT uq_coa_org_code DO NOTHING;
+
+-- Equity
+INSERT INTO acc_chart_of_accounts (account_code, account_name, account_type, account_nature, level, is_active, is_system, is_control_account, allow_manual_entry, currency, opening_balance, current_balance, organization_id, parent_account_id, created_at, updated_at, created_by, updated_by)
+SELECT '3300', 'Retained Earnings Control', 'EQUITY', 'CREDIT', 2, true, true, true, false, 'BDT', 0.00, 0.00, 1, p.id, NOW(), NOW(), 'system', 'system'
+FROM acc_chart_of_accounts p WHERE p.account_code = '3000' AND p.organization_id = 1 ON CONFLICT ON CONSTRAINT uq_coa_org_code DO NOTHING;
+INSERT INTO acc_chart_of_accounts (account_code, account_name, account_type, account_nature, level, is_active, is_system, is_control_account, allow_manual_entry, currency, opening_balance, current_balance, organization_id, parent_account_id, created_at, updated_at, created_by, updated_by)
+SELECT '3310', 'Current Year Earnings', 'EQUITY', 'CREDIT', 2, true, true, false, false, 'BDT', 0.00, 0.00, 1, p.id, NOW(), NOW(), 'system', 'system'
+FROM acc_chart_of_accounts p WHERE p.account_code = '3000' AND p.organization_id = 1 ON CONFLICT ON CONSTRAINT uq_coa_org_code DO NOTHING;
+
+-- Revenue
+INSERT INTO acc_chart_of_accounts (account_code, account_name, account_type, account_nature, level, is_active, is_system, is_control_account, allow_manual_entry, currency, opening_balance, current_balance, organization_id, parent_account_id, created_at, updated_at, created_by, updated_by)
+SELECT '4110', 'Sales Revenue Main', 'REVENUE', 'CREDIT', 2, true, false, false, true, 'BDT', 0.00, 0.00, 1, p.id, NOW(), NOW(), 'system', 'system'
+FROM acc_chart_of_accounts p WHERE p.account_code = '4000' AND p.organization_id = 1 ON CONFLICT ON CONSTRAINT uq_coa_org_code DO NOTHING;
+INSERT INTO acc_chart_of_accounts (account_code, account_name, account_type, account_nature, level, is_active, is_system, is_control_account, allow_manual_entry, currency, opening_balance, current_balance, organization_id, parent_account_id, created_at, updated_at, created_by, updated_by)
+SELECT '4230', 'Sales Discount', 'REVENUE', 'DEBIT', 2, true, false, false, true, 'BDT', 0.00, 0.00, 1, p.id, NOW(), NOW(), 'system', 'system'
+FROM acc_chart_of_accounts p WHERE p.account_code = '4000' AND p.organization_id = 1 ON CONFLICT ON CONSTRAINT uq_coa_org_code DO NOTHING;
+INSERT INTO acc_chart_of_accounts (account_code, account_name, account_type, account_nature, level, is_active, is_system, is_control_account, allow_manual_entry, currency, opening_balance, current_balance, organization_id, parent_account_id, created_at, updated_at, created_by, updated_by)
+SELECT '4330', 'Freight Out (Revenue)', 'REVENUE', 'CREDIT', 2, true, false, false, true, 'BDT', 0.00, 0.00, 1, p.id, NOW(), NOW(), 'system', 'system'
+FROM acc_chart_of_accounts p WHERE p.account_code = '4000' AND p.organization_id = 1 ON CONFLICT ON CONSTRAINT uq_coa_org_code DO NOTHING;
+
+-- Expenses
+INSERT INTO acc_chart_of_accounts (account_code, account_name, account_type, account_nature, level, is_active, is_system, is_control_account, allow_manual_entry, currency, opening_balance, current_balance, organization_id, parent_account_id, created_at, updated_at, created_by, updated_by)
+SELECT '5110', 'Cost of Goods Sold', 'EXPENSE', 'DEBIT', 3, true, false, true, false, 'BDT', 0.00, 0.00, 1, p.id, NOW(), NOW(), 'system', 'system'
+FROM acc_chart_of_accounts p WHERE p.account_code = '5100' AND p.organization_id = 1 ON CONFLICT ON CONSTRAINT uq_coa_org_code DO NOTHING;
+INSERT INTO acc_chart_of_accounts (account_code, account_name, account_type, account_nature, level, is_active, is_system, is_control_account, allow_manual_entry, currency, opening_balance, current_balance, organization_id, parent_account_id, created_at, updated_at, created_by, updated_by)
+SELECT '5130', 'Purchase Discount', 'EXPENSE', 'CREDIT', 3, true, false, false, true, 'BDT', 0.00, 0.00, 1, p.id, NOW(), NOW(), 'system', 'system'
+FROM acc_chart_of_accounts p WHERE p.account_code = '5100' AND p.organization_id = 1 ON CONFLICT ON CONSTRAINT uq_coa_org_code DO NOTHING;
+INSERT INTO acc_chart_of_accounts (account_code, account_name, account_type, account_nature, level, is_active, is_system, is_control_account, allow_manual_entry, currency, opening_balance, current_balance, organization_id, parent_account_id, created_at, updated_at, created_by, updated_by)
+SELECT '5140', 'Freight In', 'EXPENSE', 'DEBIT', 3, true, false, false, true, 'BDT', 0.00, 0.00, 1, p.id, NOW(), NOW(), 'system', 'system'
+FROM acc_chart_of_accounts p WHERE p.account_code = '5100' AND p.organization_id = 1 ON CONFLICT ON CONSTRAINT uq_coa_org_code DO NOTHING;
+INSERT INTO acc_chart_of_accounts (account_code, account_name, account_type, account_nature, level, is_active, is_system, is_control_account, allow_manual_entry, currency, opening_balance, current_balance, organization_id, parent_account_id, created_at, updated_at, created_by, updated_by)
+SELECT '5200', 'Operating Expenses', 'EXPENSE', 'DEBIT', 2, true, true, true, false, 'BDT', 0.00, 0.00, 1, p.id, NOW(), NOW(), 'system', 'system'
+FROM acc_chart_of_accounts p WHERE p.account_code = '5000' AND p.organization_id = 1 ON CONFLICT ON CONSTRAINT uq_coa_org_code DO NOTHING;
+INSERT INTO acc_chart_of_accounts (account_code, account_name, account_type, account_nature, level, is_active, is_system, is_control_account, allow_manual_entry, currency, opening_balance, current_balance, organization_id, parent_account_id, created_at, updated_at, created_by, updated_by)
+SELECT '5211', 'Salaries & Wages', 'EXPENSE', 'DEBIT', 3, true, false, false, true, 'BDT', 0.00, 0.00, 1, p.id, NOW(), NOW(), 'system', 'system'
+FROM acc_chart_of_accounts p WHERE p.account_code = '5200' AND p.organization_id = 1 ON CONFLICT ON CONSTRAINT uq_coa_org_code DO NOTHING;
+INSERT INTO acc_chart_of_accounts (account_code, account_name, account_type, account_nature, level, is_active, is_system, is_control_account, allow_manual_entry, currency, opening_balance, current_balance, organization_id, parent_account_id, created_at, updated_at, created_by, updated_by)
+SELECT '5510', 'Depreciation Expense', 'EXPENSE', 'DEBIT', 3, true, false, false, true, 'BDT', 0.00, 0.00, 1, p.id, NOW(), NOW(), 'system', 'system'
+FROM acc_chart_of_accounts p WHERE p.account_code = '5200' AND p.organization_id = 1 ON CONFLICT ON CONSTRAINT uq_coa_org_code DO NOTHING;
+
 
 -- =============================================================================
 -- 2. CHART OF ACCOUNTS — SUB-ACCOUNTS (CUSTOMER / SUPPLIER / BANK / CASH examples)

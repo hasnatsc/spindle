@@ -24,6 +24,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
@@ -233,19 +234,19 @@ public class TravelOperationsServiceImpl implements TravelOperationsService {
         e.setDepartureTime(dto.getDepartureTime());
         e.setArrivalDate(dto.getArrivalDate());
         e.setArrivalTime(dto.getArrivalTime());
-        e.setFareAmount(dto.getFareAmount());
-        e.setTaxAmount(dto.getTaxAmount());
-        e.setTotalAmount(dto.getTotalAmount());
+        e.setFareAmount(dto.getFareAmount() != null ? dto.getFareAmount() : BigDecimal.ZERO);
+        e.setTaxAmount(dto.getTaxAmount() != null ? dto.getTaxAmount() : BigDecimal.ZERO);
+        e.setTotalAmount(dto.getTotalAmount() != null ? dto.getTotalAmount() : BigDecimal.ZERO);
         e.setSupplierReference(dto.getSupplierReference());
 
         // ── Ticket-level fields ────────────────────────────────────────────────
         e.setTicketNumber(dto.getTicketNumber());
         e.setValidatingCarrier(dto.getValidatingCarrier());
         e.setFareBasis(dto.getFareBasis());
-        e.setCommissionAmount(dto.getCommissionAmount());
+        e.setCommissionAmount(dto.getCommissionAmount() != null ? dto.getCommissionAmount() : BigDecimal.ZERO);
         e.setCommissionRate(dto.getCommissionRate());
-        e.setNetFare(dto.getNetFare());
-        e.setServiceFeeAmount(dto.getServiceFeeAmount());
+        e.setNetFare(dto.getNetFare() != null ? dto.getNetFare() : BigDecimal.ZERO);
+        e.setServiceFeeAmount(dto.getServiceFeeAmount() != null ? dto.getServiceFeeAmount() : BigDecimal.ZERO);
         e.setTourCode(dto.getTourCode());
         e.setEndorsementRestrictions(dto.getEndorsementRestrictions());
         e.setTicketTimeLimit(dto.getTicketTimeLimit());
@@ -658,25 +659,55 @@ public class TravelOperationsServiceImpl implements TravelOperationsService {
             case "VISA" -> "trv_visa_applications";
             default -> throw new IllegalArgumentException("Unknown service type: " + serviceType);
         };
+        String selectCols = "AIR".equals(serviceType)
+            ? "bs.id, b.booking_no, bs.pnr, bs.description, b.booking_no || ' — ' || bs.description AS text,"
+              + " (SELECT COUNT(*) FROM trv_passengers p WHERE p.booking_id = b.id) AS pax_count"
+            : "bs.id, b.booking_no || ' — ' || bs.description AS text";
         return jdbcTemplate.queryForList(String.format("""
-            SELECT bs.id, b.booking_no || ' — ' || bs.description AS text
+            SELECT %s
             FROM   trv_booking_services bs
             JOIN   trv_bookings b ON b.id = bs.booking_id
             WHERE  bs.service_type = ? AND b.organization_id = ?
               AND  bs.id NOT IN (SELECT booking_service_id FROM %s)
             ORDER  BY bs.id DESC LIMIT 30
-            """, join), serviceType, SecurityHelper.requireOrgId());
+            """, selectCols, join), serviceType, SecurityHelper.requireOrgId());
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<Map<String, Object>> passengersForServiceLine(Long bookingServiceId) {
         return jdbcTemplate.queryForList("""
-            SELECT p.id, p.first_name || COALESCE(' ' || p.last_name, '') AS text
+            SELECT p.id, p.first_name || COALESCE(' ' || p.last_name, '') AS text,
+                   p.date_of_birth, p.passport_expiry, p.passport_number, p.nationality
             FROM   trv_passengers p
             JOIN   trv_booking_services bs ON bs.booking_id = p.booking_id
             WHERE  bs.id = ?
             ORDER  BY p.id
             """, bookingServiceId);
+    }
+
+    @Override
+    public Map<String, Object> createPassenger(Long bookingServiceId, Map<String, Object> data) {
+        TrvBookingService svc = bookingServiceRepo.findById(bookingServiceId)
+            .orElseThrow(() -> new IllegalArgumentException("Service line #" + bookingServiceId + " not found."));
+        TrvPassenger p = TrvPassenger.builder()
+            .firstName((String) data.getOrDefault("firstName", ""))
+            .lastName((String) data.get("lastName"))
+            .dateOfBirth(data.get("dateOfBirth") != null ? LocalDate.parse((String) data.get("dateOfBirth")) : null)
+            .passportNumber((String) data.get("passportNumber"))
+            .passportExpiry(data.get("passportExpiry") != null ? LocalDate.parse((String) data.get("passportExpiry")) : null)
+            .nationality((String) data.get("nationality"))
+            .passengerType(TrvPassenger.PassengerType.ADULT)
+            .booking(svc.getBooking())
+            .build();
+        TrvPassenger saved = passengerRepo.save(p);
+        return Map.of(
+            "id", saved.getId(),
+            "text", saved.getFirstName() + (saved.getLastName() != null ? " " + saved.getLastName() : ""),
+            "date_of_birth", saved.getDateOfBirth() != null ? saved.getDateOfBirth().toString() : null,
+            "passport_expiry", saved.getPassportExpiry() != null ? saved.getPassportExpiry().toString() : null,
+            "passport_number", saved.getPassportNumber(),
+            "nationality", saved.getNationality()
+        );
     }
 }

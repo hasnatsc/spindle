@@ -45,4 +45,7 @@ public interface TravelOperationsService {
 
     /** Passengers on the booking that owns the given booking-service line. */
     List<Map<String, Object>> passengersForServiceLine(Long bookingServiceId);
+
+    /** Create a new passenger on the booking for the given service line. */
+    Map<String, Object> createPassenger(Long bookingServiceId, Map<String, Object> data);
 }

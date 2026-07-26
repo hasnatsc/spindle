@@ -342,7 +342,8 @@
         + '</tr>';
       document.getElementById('bkgReceiptBody').insertAdjacentHTML('beforeend', html);
       // Init sub-account select2 for this row based on initial payment mode
-      _initRcptSubS2(n, data ? data.subAccountId : null, data ? data.subAccountText : null);
+      var firstMode = (_ENUMS.paymentMode || [])[0];
+      _initRcptSubS2(n, data ? data.subAccountId : null, data ? data.subAccountText : null, data ? data.paymentMode : (firstMode ? firstMode.value : null));
     };
     window.bkgRemoveReceipt = function (n) { var r = document.getElementById('bkgRcpt_' + n); if (r) r.remove(); bkgCalcReceipt(); };
     window.bkgCalcReceipt = function () {
