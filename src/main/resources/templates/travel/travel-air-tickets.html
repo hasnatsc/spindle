@@ -191,6 +191,15 @@
         </div>
         <form id="atPaxForm" novalidate>
           <div class="modal-body">
+            <!-- Scan Passport button row -->
+            <div class="row g-2 mb-3">
+              <div class="col-12">
+                <button type="button" class="btn btn-outline-info btn-sm" id="apScanBtn">
+                  <i class="fa fa-passport me-1"></i> Scan Passport
+                </button>
+                <small class="text-muted ms-2">Upload a passport image to auto-fill fields</small>
+              </div>
+            </div>
             <div class="row g-2">
               <div class="col-md-6 view-group">
                 <input id="apFirstName" type="text" class="form-control" maxlength="100" required placeholder="First name">
@@ -240,6 +249,17 @@
     document.addEventListener('DOMContentLoaded', function () {
       document.getElementById('atForm').addEventListener('submit', _onSubmit);
       document.getElementById('atPaxForm').addEventListener('submit', _onPaxSubmit);
+      // Wire up Scan Passport button
+      document.getElementById('apScanBtn').addEventListener('click', function () {
+        scanPassport({
+          firstName:     'apFirstName',
+          lastName:      'apLastName',
+          dateOfBirth:   'apDob',
+          passportNumber:'apPassportNo',
+          passportExpiry:'apPassportExp',
+          nationality:   'apNationality'
+        }, { scanBtn: document.getElementById('apScanBtn') });
+      });
       atReload();
     });
 

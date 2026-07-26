@@ -39,7 +39,13 @@ function getCsrfHeader() {
  */
 function secureFetch(url, options = {}) {
   const method  = (options.method || 'GET').toUpperCase();
-  const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
+  const isFormData = options.body instanceof FormData;
+  const headers = { ...(options.headers || {}) };
+
+  // Only set Content-Type for JSON payloads; let the browser set it for FormData
+  if (!isFormData) {
+    headers['Content-Type'] = 'application/json';
+  }
 
   const token = getCsrfToken();
   if (token && method !== 'GET') {
@@ -53,7 +59,9 @@ function secureFetch(url, options = {}) {
         return Promise.reject(new Error('Session expired. Redirecting to login…'));
       }
       if (!res.ok) return Promise.reject(new Error(`HTTP ${res.status}: ${res.statusText}`));
-      return res.json();
+      const ct = (res.headers.get('content-type') || '').toLowerCase();
+      if (ct.includes('application/json')) return res.json();
+      return res.text();
     });
 }
 
