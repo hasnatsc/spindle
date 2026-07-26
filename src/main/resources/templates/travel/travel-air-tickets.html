@@ -15,6 +15,7 @@
 
   <div class="travel-nav">
     <a th:href="@{/travel/bookings}"       class="btn btn-outline-primary btn-sm"><i class="fa fa-ticket-alt"></i> Bookings</a>
+    <a th:href="@{/travel/passengers}"     class="btn btn-outline-primary btn-sm"><i class="fa fa-users"></i> Passengers</a>
     <a th:href="@{/travel/hotel-bookings}" class="btn btn-outline-primary btn-sm"><i class="fa fa-bed"></i> Hotel Bookings</a>
     <a th:href="@{/travel/air-tickets}"    class="btn btn-primary btn-sm"><i class="fa fa-plane-departure"></i> Air Tickets</a>
     <a th:href="@{/travel/tours}"          class="btn btn-outline-primary btn-sm"><i class="fa fa-route"></i> Tours</a>
@@ -186,19 +187,25 @@
     <div class="modal-dialog modal-dialog-centered modal-lg">
       <div class="modal-content">
         <div class="modal-header">
-          <h5 class="modal-title"><i class="fa fa-user-plus me-1 text-success"></i> New Passenger</h5>
+          <h5 class="modal-title" id="apModalTitle"><i class="fa fa-user-plus me-1 text-success"></i> New Passenger</h5>
+          <button type="button" class="btn btn-sm btn-outline-secondary d-none me-2" id="apDocBtn" title="Passenger Documents"><i class="fa fa-paperclip"></i> Documents</button>
           <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
         </div>
         <form id="atPaxForm" novalidate>
           <div class="modal-body">
+            <input type="hidden" id="apId">
+            <input type="hidden" id="apMrz1">
+            <input type="hidden" id="apMrz2">
+            <input type="hidden" id="apMrz3">
             <!-- Scan Passport button row -->
-            <div class="row g-2 mb-3">
-              <div class="col-12">
-                <button type="button" class="btn btn-outline-info btn-sm" id="apScanBtn">
+            <div class="d-flex align-items-center justify-content-between mb-3 p-2 rounded" style="background:rgba(13,202,240,.08)">
+              <div>
+                <button type="button" class="btn btn-info btn-sm" id="apScanBtn">
                   <i class="fa fa-passport me-1"></i> Scan Passport
                 </button>
-                <small class="text-muted ms-2">Upload a passport image to auto-fill fields</small>
+                <small class="text-muted ms-2">Reads the machine-readable zone and fills the fields below</small>
               </div>
+              <span id="apMrzBadge" class="badge bg-success d-none"><i class="fa fa-shield-halved me-1"></i> MRZ verified</span>
             </div>
             <div class="row g-2">
               <div class="col-md-2 view-group">
@@ -245,13 +252,21 @@
               </div>
             </div>
             <div class="row g-2">
-              <div class="col-md-6 view-group">
-                <input id="apPassportNo" type="text" class="form-control" maxlength="50" placeholder="Passport number">
+              <div class="col-md-4 view-group">
+                <input id="apPassportNo" type="text" class="form-control" maxlength="50" placeholder="Passport number" oninput="this.value=this.value.toUpperCase()">
                 <label class="input-label">Passport No</label>
               </div>
-              <div class="col-md-6 view-group">
+              <div class="col-md-2 view-group">
+                <input id="apPassportCountry" type="text" class="form-control" maxlength="3" placeholder="BGD" oninput="this.value=this.value.toUpperCase()">
+                <label class="input-label">Issuing Country</label>
+              </div>
+              <div class="col-md-3 view-group">
                 <input id="apPassportExp" type="date" class="form-control">
                 <label class="input-label">Passport Expiry</label>
+              </div>
+              <div class="col-md-3 view-group">
+                <input id="apPersonalNo" type="text" class="form-control" maxlength="30" placeholder="NID / personal no">
+                <label class="input-label">Personal No</label>
               </div>
             </div>
             <div class="row g-2">
@@ -281,12 +296,34 @@
     </div>
   </div>
 
+  <script th:src="@{/js/travel-passport-scan.js}"></script>
   <script th:inline="none">
   (function () {
     'use strict';
     const BASE = '/travel/air-tickets';
     var _paxTicketCount = 0;
     var _segCount = 0;
+
+    /* Logical field name -> element id. The scanner only touches keys it finds,
+       so this map can grow without breaking anything. */
+    const PAX_SCAN_MAP = {
+      title:           'apTitle',
+      firstName:       'apFirstName',
+      lastName:        'apLastName',
+      dateOfBirth:     'apDob',
+      gender:          'apGender',
+      passengerType:   'apPaxType',
+      passportNumber:  'apPassportNo',
+      passportExpiry:  'apPassportExp',
+      passportCountry: 'apPassportCountry',
+      personalNumber:  'apPersonalNo',
+      nationality:     'apNationality',
+      phone:           'apPhone',
+      email:           'apEmail',
+      mrzLine1:        'apMrz1',
+      mrzLine2:        'apMrz2',
+      mrzLine3:        'apMrz3'
+    };
 
     // ── DOM value helpers (null-safe) ──────────────────────────────────────
     /** Set value on an element that MUST exist (throws if not found). */
@@ -299,17 +336,12 @@
       document.getElementById('atPaxForm').addEventListener('submit', _onPaxSubmit);
       // Wire up Scan Passport button
       document.getElementById('apScanBtn').addEventListener('click', function () {
-        scanPassport({
-          firstName:     'apFirstName',
-          lastName:      'apLastName',
-          dateOfBirth:   'apDob',
-          passportNumber:'apPassportNo',
-          passportExpiry:'apPassportExp',
-          nationality:   'apNationality',
-          gender:        'apGender',
-          phone:         'apPhone',
-          email:         'apEmail'
-        }, { scanBtn: document.getElementById('apScanBtn') });
+        scanPassport(PAX_SCAN_MAP, {
+          scanBtn: document.getElementById('apScanBtn'),
+          onApply: function (scan) {
+            document.getElementById('apMrzBadge').classList.toggle('d-none', !scan.checkDigitsValid);
+          }
+        });
       });
       atReload();
     });
@@ -333,7 +365,7 @@
       });
     };
 
-    function _loadServiceLines(preId) {
+    function _loadServiceLines(preId, opts) {
       secureFetch('/travel/service-lines/search?serviceType=AIR').then(function (res) {
         var sel = document.getElementById('atServiceLineId');
         sel.innerHTML = '<option value="">— Select Service Line —</option>';
@@ -353,17 +385,30 @@
             sel.insertAdjacentHTML('beforeend', '<option value="' + i.id + '" data-pnr="' + (i.pnr || '') + '" data-pax="' + (i.pax_count || 0) + '">&nbsp;&nbsp;' + i.text + paxInfo + '</option>');
           });
         });
-        if (preId) { sel.value = preId; _loadPassengersForLine(preId); }
+        if (preId) { sel.value = preId; _loadPassengersForLine(preId, opts); }
       });
       document.getElementById('atServiceLineId').onchange = function () { _loadPassengersForLine(this.value); };
     }
 
     var _linePassengers = [];
-    function _loadPassengersForLine(serviceLineId) {
+
+    /**
+     * Loads the passengers behind a service line.
+     *
+     * opts.autoPopulate  false when editing — the saved passengerTickets are
+     *                    about to be rendered, and rebuilding rows from the
+     *                    booking's passenger list as well produced a duplicate
+     *                    row per passenger.
+     * opts.selectId      id of a passenger just created, so the caller can
+     *                    drop it straight into the first empty row.
+     */
+    function _loadPassengersForLine(serviceLineId, opts) {
+      opts = opts || {};
       if (!serviceLineId) { _linePassengers = []; return; }
       secureFetch('/travel/service-lines/' + serviceLineId + '/passengers').then(function (res) {
         _linePassengers = res.items || [];
-        // Auto-populate passenger ticket rows for each passenger
+        if (opts.autoPopulate === false) return;
+
         document.getElementById('atPaxBody').innerHTML = '';
         _paxTicketCount = 0;
         (_linePassengers || []).forEach(function (p) {
@@ -447,6 +492,7 @@
         + '<td style="display:flex;align-items:center;gap:4px">'
           + '<select id="atPaxSel_' + n + '" class="form-select form-select-sm" style="flex:1;min-width:180px" data-field="passengerId"></select>'
           + '<button type="button" class="btn btn-sm btn-outline-success flex-shrink-0" onclick="atOpenCreatePax()" title="New Passenger"><i class="fa fa-plus"></i></button>'
+          + '<button type="button" class="btn btn-sm btn-outline-warning flex-shrink-0" onclick="atEditPax(' + n + ')" title="Edit this passenger"><i class="fa fa-pencil"></i></button>'
         + '</td>'
         + '<td><input type="text" class="form-control form-control-sm" data-field="ticketNumber" value="' + (data ? data.ticketNumber || '' : '') + '" oninput="this.value=this.value.toUpperCase()"></td>'
         + '<td><input type="text" class="form-control form-control-sm" style="width:70px" data-field="seatNumber" value="' + (data ? data.seatNumber || '' : '') + '"></td>'
@@ -480,45 +526,132 @@
     };
     window.atRemovePaxTicket = function (n) { var r = document.getElementById('atPax_' + n); if (r) r.remove(); };
 
-    /* ── Create Passenger modal ───────────────────────────────────────── */
+    /* ── Passenger modal — create AND edit ────────────────────────────── */
     var _currentServiceLineId = null;
+
+    function _apSet(id, val) { var el = document.getElementById(id); if (el) el.value = (val == null ? '' : val); }
+    function _apVal(id)      { var el = document.getElementById(id); return el ? el.value : ''; }
+
+    function _resetPaxForm() {
+      document.getElementById('atPaxForm').reset();
+      _apSet('apId', ''); _apSet('apMrz1', ''); _apSet('apMrz2', ''); _apSet('apMrz3', '');
+      document.getElementById('apMrzBadge').classList.add('d-none');
+      document.getElementById('apDocBtn').classList.add('d-none');
+      window.__trvPendingPassportFile = null;
+    }
 
     window.atOpenCreatePax = function () {
       var sel = document.getElementById('atServiceLineId');
       _currentServiceLineId = sel ? sel.value : null;
       if (!_currentServiceLineId) { Swal.fire('Info', 'Select a service line first.', 'info'); return; }
-      document.getElementById('atPaxForm').reset();
+      _resetPaxForm();
+      document.getElementById('apModalTitle').innerHTML = '<i class="fa fa-user-plus me-1 text-success"></i> New Passenger';
       document.getElementById('apBtnText').textContent = 'Save Passenger';
       bootstrap.Modal.getOrCreateInstance(document.getElementById('atPaxModal')).show();
+    };
+
+    /** Opens the same modal on the passenger already chosen in row n. */
+    window.atEditPax = function (n) {
+      var id = $('#atPaxSel_' + n).val();
+      if (!id) { Swal.fire('Info', 'Choose a passenger in this row first.', 'info'); return; }
+      var sel = document.getElementById('atServiceLineId');
+      _currentServiceLineId = sel ? sel.value : null;
+
+      secureFetch('/travel/passengers/show/' + id).then(function (res) {
+        if (!res.success) { Swal.fire('Error', res.message, 'error'); return; }
+        var o = res.obj.defaultData;
+        _resetPaxForm();
+        _apSet('apId', o.id);
+        _apSet('apTitle', o.title);
+        _apSet('apFirstName', o.firstName);
+        _apSet('apLastName', o.lastName);
+        _apSet('apDob', o.dateOfBirth);
+        _apSet('apGender', o.gender);
+        _apSet('apPaxType', o.passengerType || 'ADULT');
+        _apSet('apPassportNo', o.passportNumber);
+        _apSet('apPassportCountry', o.passportCountry);
+        _apSet('apPassportExp', o.passportExpiry);
+        _apSet('apPersonalNo', o.personalNumber);
+        _apSet('apNationality', o.nationality);
+        _apSet('apPhone', o.phone);
+        _apSet('apEmail', o.email);
+        _apSet('apMrz1', o.mrzLine1);
+        _apSet('apMrz2', o.mrzLine2);
+        _apSet('apMrz3', o.mrzLine3);
+        document.getElementById('apMrzBadge').classList.toggle('d-none', !o.mrzLine2);
+
+        var docBtn = document.getElementById('apDocBtn');
+        docBtn.classList.remove('d-none');
+        docBtn.onclick = function () { trvOpenDocuments('PASSENGER', o.id, o.fullName); };
+
+        document.getElementById('apModalTitle').innerHTML = '<i class="fa fa-pencil me-1 text-warning"></i> Edit Passenger';
+        document.getElementById('apBtnText').textContent = 'Update Passenger';
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('atPaxModal')).show();
+      });
     };
 
     function _onPaxSubmit(e) {
       e.preventDefault();
       var sb = document.getElementById('apSubmitBtn'), sp = document.getElementById('apSpinner'), bt = document.getElementById('apBtnText');
+
+      if (!_apVal('apFirstName').trim()) { Swal.fire('Info', 'First name is required.', 'info'); return; }
       hsDisableButton(sb, sp, bt);
+
+      var editId = _apVal('apId');
       var body = {
-        title: document.getElementById('apTitle').value || null,
-        firstName: document.getElementById('apFirstName').value,
-        lastName: document.getElementById('apLastName').value || null,
-        dateOfBirth: document.getElementById('apDob').value || null,
-        gender: document.getElementById('apGender').value || null,
-        passengerType: document.getElementById('apPaxType').value || 'ADULT',
-        passportNumber: document.getElementById('apPassportNo').value || null,
-        passportExpiry: document.getElementById('apPassportExp').value || null,
-        nationality: document.getElementById('apNationality').value || null,
-        phone: document.getElementById('apPhone').value || null,
-        email: document.getElementById('apEmail').value || null
+        id: editId || null,
+        title: _apVal('apTitle') || null,
+        firstName: _apVal('apFirstName').trim(),
+        lastName: _apVal('apLastName') || null,
+        dateOfBirth: _apVal('apDob') || null,
+        gender: _apVal('apGender') || null,
+        passengerType: _apVal('apPaxType') || 'ADULT',
+        passportNumber: _apVal('apPassportNo') || null,
+        passportCountry: _apVal('apPassportCountry') || null,
+        passportExpiry: _apVal('apPassportExp') || null,
+        personalNumber: _apVal('apPersonalNo') || null,
+        nationality: _apVal('apNationality') || null,
+        phone: _apVal('apPhone') || null,
+        email: _apVal('apEmail') || null,
+        mrzLine1: _apVal('apMrz1') || null,
+        mrzLine2: _apVal('apMrz2') || null,
+        mrzLine3: _apVal('apMrz3') || null
       };
-      secureFetch('/travel/service-lines/' + _currentServiceLineId + '/passengers', { method: 'POST', body: JSON.stringify(body) }).then(function (d) {
-        if (d.success) {
-          Swal.fire({ icon: 'success', timer: 1200, showConfirmButton: false, title: d.message });
+
+      // Update goes to the passenger endpoint; create goes through the service
+      // line so the booking is resolved server-side.
+      var url    = editId ? '/travel/passengers/save'
+                          : '/travel/service-lines/' + _currentServiceLineId + '/passengers';
+
+      secureFetch(url, { method: 'POST', body: JSON.stringify(body) }).then(function (d) {
+        if (!d.success) { Swal.fire('Error', d.message, 'error'); return; }
+        var savedId = (d.passenger && d.passenger.id) || d.id || editId;
+
+        return trvAttachPassportImage(savedId).then(function () {
+          Swal.fire({ icon: 'success', timer: 1300, showConfirmButton: false, title: d.message });
           bootstrap.Modal.getOrCreateInstance(document.getElementById('atPaxModal')).hide();
-          var newId = d.passenger ? d.passenger.id : null;
-          // Refresh Select2 dropdowns by re-fetching passengers
-          _loadPassengersForLine(_currentServiceLineId, newId);
-        } else {
-          Swal.fire('Error', d.message, 'error');
-        }
+
+          if (editId) {
+            // Refresh the label on every Select2 already showing this passenger.
+            var label = (d.passenger && d.passenger.fullName) || _apVal('apFirstName');
+            document.querySelectorAll('#atPaxBody select[data-field="passengerId"]').forEach(function (s) {
+              if (String(s.value) === String(editId)) {
+                $(s).empty().append(new Option(label, editId, true, true)).trigger('change');
+              }
+            });
+          } else {
+            // Drop the new passenger into the first empty row, or add one.
+            var placed = false;
+            document.querySelectorAll('#atPaxBody select[data-field="passengerId"]').forEach(function (s) {
+              if (!placed && !s.value) {
+                $(s).append(new Option((d.passenger && d.passenger.fullName) || 'Passenger', savedId, true, true)).trigger('change');
+                placed = true;
+              }
+            });
+            if (!placed) atAddPaxTicket({ passengerId: savedId, text: (d.passenger && d.passenger.fullName) || 'Passenger' });
+            _loadPassengersForLine(_currentServiceLineId, { autoPopulate: false });
+          }
+        });
       }).finally(function () { hsEnableButton(sb, sp, bt); });
     }
 
@@ -613,7 +746,9 @@
         if (!res.success) { Swal.fire('Error', res.message, 'error'); return; }
         var o = res.obj.defaultData; _resetForm();
         document.getElementById('atId').value = o.id;
-        _loadServiceLines(o.bookingServiceId);
+        // autoPopulate:false — the saved passengerTickets below are the source
+        // of truth when editing, so do not rebuild rows from the booking too.
+        _loadServiceLines(o.bookingServiceId, { autoPopulate: false });
 
         // Ticket-level fields
         _setVal('atPnr', o.pnr);

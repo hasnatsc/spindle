@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<!--
+  travel/travel-passengers.html    GET /travel/passengers
+  JS prefix: pg*
+  Passenger master with ICAO 9303 passport reading.
+-->
+<html th:replace="~{layout/base :: layout('Passengers', ~{::section})}" xmlns:th="http://www.thymeleaf.org">
+<section>
+
+  <ol class="breadcrumb float-xl-end">
+    <li class="breadcrumb-item"><a th:href="@{/dashboard}">Home</a></li>
+    <li class="breadcrumb-item">Travel</li>
+    <li class="breadcrumb-item active">Passengers</li>
+  </ol>
+  <h1 class="page-header">Passengers <small>passenger master, passport capture &amp; document validity</small></h1>
+
+  <div class="travel-nav">
+    <a th:href="@{/travel/bookings}"       class="btn btn-outline-primary btn-sm"><i class="fa fa-ticket-alt"></i> Bookings</a>
+    <a th:href="@{/travel/passengers}"     class="btn btn-primary btn-sm"><i class="fa fa-users"></i> Passengers</a>
+    <a th:href="@{/travel/hotel-bookings}" class="btn btn-outline-primary btn-sm"><i class="fa fa-bed"></i> Hotel Bookings</a>
+    <a th:href="@{/travel/air-tickets}"    class="btn btn-outline-primary btn-sm"><i class="fa fa-plane-departure"></i> Air Tickets</a>
+    <a th:href="@{/travel/tours}"          class="btn btn-outline-primary btn-sm"><i class="fa fa-route"></i> Tours</a>
+    <a th:href="@{/travel/packages}"       class="btn btn-outline-primary btn-sm"><i class="fa fa-suitcase-rolling"></i> Packages</a>
+    <a th:href="@{/travel/supplier-costs}" class="btn btn-outline-primary btn-sm"><i class="fa fa-file-invoice-dollar"></i> Supplier Costs</a>
+  </div>
+
+  <div class="panel panel-inverse">
+    <div class="panel-heading">
+      <div class="panel-title">
+        <a href="javascript:;" onclick="pgOpenCreate()"><span class="badge btn btn-outline-success travel-no-print"><i class="fa fa-user-plus me-1"></i> New Passenger</span></a>
+      </div>
+    </div>
+    <div class="panel-body">
+
+      <div class="row g-2 mb-3">
+        <div class="col-md-6">
+          <input type="text" id="pgSearch" class="form-control" placeholder="Search name, passport no, phone, email, booking no…" oninput="pgReload()">
+        </div>
+        <div class="col-md-3">
+          <select id="pgExpiryFilter" class="form-select" onchange="pgReload()">
+            <option value="">All passport statuses</option>
+            <option value="SOON">Expiring within 6 months</option>
+            <option value="EXPIRED">Already expired</option>
+            <option value="MISSING">No passport recorded</option>
+          </select>
+        </div>
+        <div class="col-md-3">
+          <select id="pgBookingFilter" class="form-select"></select>
+        </div>
+      </div>
+
+      <div class="table-responsive">
+        <table class="table table-striped table-bordered align-middle">
+          <thead><tr>
+            <th width="1%">SL</th><th>Booking</th><th>Passenger</th><th>Passport No</th>
+            <th>Nationality</th><th>Date of Birth</th><th>Expiry</th>
+            <th class="text-center">Type</th><th class="text-center">Passport</th>
+            <th class="text-center" width="16%">Actions</th>
+          </tr></thead>
+          <tbody id="pgBody"></tbody>
+        </table>
+      </div>
+      <div class="small text-muted" id="pgCount"></div>
+    </div>
+  </div>
+
+  <!-- ── PASSENGER FORM MODAL ───────────────────────────────────────────── -->
+  <div tabindex="-1" id="pgModal" class="modal fade">
+    <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="pgModalTitle"><i class="fa fa-user-plus me-1 text-success"></i> New Passenger</h5>
+          <button type="button" class="btn btn-sm btn-outline-secondary d-none me-2" id="pgDocBtn" title="Passenger Documents"><i class="fa fa-paperclip"></i> Documents</button>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <form id="pgForm" novalidate>
+          <div class="modal-body">
+            <div class="hs-box">
+              <input type="hidden" id="pgId">
+              <input type="hidden" id="pgMrz1">
+              <input type="hidden" id="pgMrz2">
+              <input type="hidden" id="pgMrz3">
+              <input type="hidden" id="pgPassportDocId">
+
+              <!-- Scan bar -->
+              <div class="d-flex align-items-center justify-content-between mb-3 p-2 rounded" style="background:rgba(13,202,240,.08)">
+                <div>
+                  <button type="button" class="btn btn-info btn-sm" id="pgScanBtn">
+                    <i class="fa fa-passport me-1"></i> Scan Passport
+                  </button>
+                  <small class="text-muted ms-2">Reads the machine-readable zone and fills the form. The image stays on this machine.</small>
+                </div>
+                <span id="pgMrzBadge" class="badge bg-success d-none"><i class="fa fa-shield-halved me-1"></i> MRZ verified</span>
+              </div>
+
+              <div class="row g-2 mb-2">
+                <div class="col-md-6 view-group">
+                  <select id="pgBookingId" class="form-select hs_span_view"></select>
+                  <label class="input-label">Booking <span class="text-danger">*</span></label>
+                </div>
+                <div class="col-md-3 view-group">
+                  <select id="pgPaxType" class="form-select hs_span_view">
+                    <option value="ADULT">Adult</option>
+                    <option value="CHILD">Child</option>
+                    <option value="INFANT">Infant</option>
+                  </select>
+                  <label class="input-label">Type</label>
+                </div>
+                <div class="col-md-3 d-flex align-items-center">
+                  <div class="form-check form-switch mt-3">
+                    <input class="form-check-input" type="checkbox" id="pgIsLead">
+                    <label class="form-check-label small" for="pgIsLead">Lead passenger</label>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Identity -->
+              <div class="card mb-3 border">
+                <div class="card-header py-2 px-3 d-flex justify-content-between align-items-center" style="cursor:pointer" data-bs-toggle="collapse" data-bs-target="#pgIdentityBody">
+                  <strong class="small"><i class="fa fa-id-card me-1"></i> Identity</strong>
+                  <i class="fa fa-chevron-down small"></i>
+                </div>
+                <div id="pgIdentityBody" class="collapse show p-3">
+                  <div class="row g-2">
+                    <div class="col-md-2 view-group">
+                      <select id="pgTitle" class="form-select hs_span_view">
+                        <option value="">—</option>
+                        <option value="Mr">Mr</option>
+                        <option value="Mrs">Mrs</option>
+                        <option value="Ms">Ms</option>
+                        <option value="Dr">Dr</option>
+                        <option value="Md">Md</option>
+                      </select>
+                      <label class="input-label">Title</label>
+                    </div>
+                    <div class="col-md-5 view-group">
+                      <input id="pgFirstName" type="text" class="form-control hs_span_view" maxlength="100" required placeholder="Given names">
+                      <label class="input-label">First Name <span class="text-danger">*</span></label>
+                    </div>
+                    <div class="col-md-5 view-group">
+                      <input id="pgLastName" type="text" class="form-control hs_span_view" maxlength="100" placeholder="Surname">
+                      <label class="input-label">Last Name</label>
+                    </div>
+                    <div class="col-md-3 view-group">
+                      <input id="pgDob" type="date" class="form-control hs_span_view">
+                      <label class="input-label">Date of Birth</label>
+                    </div>
+                    <div class="col-md-3 view-group">
+                      <select id="pgGender" class="form-select hs_span_view">
+                        <option value="">—</option>
+                        <option value="MALE">Male</option>
+                        <option value="FEMALE">Female</option>
+                        <option value="OTHER">Other</option>
+                      </select>
+                      <label class="input-label">Gender</label>
+                    </div>
+                    <div class="col-md-3 view-group">
+                      <input id="pgPlaceOfBirth" type="text" class="form-control hs_span_view" maxlength="120" placeholder="Place of birth">
+                      <label class="input-label">Place of Birth</label>
+                    </div>
+                    <div class="col-md-3 view-group">
+                      <input id="pgNationality" type="text" class="form-control hs_span_view" maxlength="100" placeholder="Nationality">
+                      <label class="input-label">Nationality</label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Passport -->
+              <div class="card mb-3 border">
+                <div class="card-header py-2 px-3 d-flex justify-content-between align-items-center" style="cursor:pointer" data-bs-toggle="collapse" data-bs-target="#pgPassportBody">
+                  <strong class="small"><i class="fa fa-passport me-1"></i> Passport / Travel Document</strong>
+                  <i class="fa fa-chevron-down small"></i>
+                </div>
+                <div id="pgPassportBody" class="collapse show p-3">
+                  <div class="row g-2">
+                    <div class="col-md-4 view-group">
+                      <input id="pgPassportNo" type="text" class="form-control hs_span_view" maxlength="50" placeholder="Passport number" oninput="this.value=this.value.toUpperCase()">
+                      <label class="input-label">Passport No</label>
+                    </div>
+                    <div class="col-md-2 view-group">
+                      <input id="pgPassportCountry" type="text" class="form-control hs_span_view" maxlength="3" placeholder="BGD" oninput="this.value=this.value.toUpperCase()">
+                      <label class="input-label">Issuing Country</label>
+                    </div>
+                    <div class="col-md-3 view-group">
+                      <input id="pgPassportIssue" type="date" class="form-control hs_span_view">
+                      <label class="input-label">Date of Issue</label>
+                    </div>
+                    <div class="col-md-3 view-group">
+                      <input id="pgPassportExp" type="date" class="form-control hs_span_view" onchange="pgExpiryHint()">
+                      <label class="input-label">Date of Expiry</label>
+                    </div>
+                    <div class="col-md-4 view-group">
+                      <input id="pgIssuingAuthority" type="text" class="form-control hs_span_view" maxlength="100" placeholder="DIP/DHAKA">
+                      <label class="input-label">Issuing Authority</label>
+                    </div>
+                    <div class="col-md-4 view-group">
+                      <input id="pgPersonalNo" type="text" class="form-control hs_span_view" maxlength="30" placeholder="National ID / personal no">
+                      <label class="input-label">Personal / NID No</label>
+                    </div>
+                    <div class="col-md-4 d-flex align-items-center">
+                      <div id="pgExpiryHintBox" class="small mt-3"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Contact -->
+              <div class="card mb-3 border">
+                <div class="card-header py-2 px-3 d-flex justify-content-between align-items-center" style="cursor:pointer" data-bs-toggle="collapse" data-bs-target="#pgContactBody">
+                  <strong class="small"><i class="fa fa-address-book me-1"></i> Contact &amp; Emergency</strong>
+                  <i class="fa fa-chevron-down small"></i>
+                </div>
+                <div id="pgContactBody" class="collapse p-3">
+                  <div class="row g-2">
+                    <div class="col-md-4 view-group">
+                      <input id="pgPhone" type="text" class="form-control hs_span_view" maxlength="30" placeholder="+8801…">
+                      <label class="input-label">Phone</label>
+                    </div>
+                    <div class="col-md-4 view-group">
+                      <input id="pgEmail" type="email" class="form-control hs_span_view" maxlength="150" placeholder="name@example.com">
+                      <label class="input-label">Email</label>
+                    </div>
+                    <div class="col-md-4 view-group">
+                      <input id="pgEmContactName" type="text" class="form-control hs_span_view" maxlength="150">
+                      <label class="input-label">Emergency Contact</label>
+                    </div>
+                    <div class="col-md-4 view-group">
+                      <input id="pgEmContactRelation" type="text" class="form-control hs_span_view" maxlength="50" placeholder="Spouse, Father…">
+                      <label class="input-label">Relationship</label>
+                    </div>
+                    <div class="col-md-4 view-group">
+                      <input id="pgEmContactPhone" type="text" class="form-control hs_span_view" maxlength="30">
+                      <label class="input-label">Emergency Phone</label>
+                    </div>
+                    <div class="col-md-4 view-group">
+                      <input id="pgFatherName" type="text" class="form-control hs_span_view" maxlength="150">
+                      <label class="input-label">Father's Name</label>
+                    </div>
+                    <div class="col-md-4 view-group">
+                      <input id="pgMotherName" type="text" class="form-control hs_span_view" maxlength="150">
+                      <label class="input-label">Mother's Name</label>
+                    </div>
+                    <div class="col-md-8 view-group">
+                      <input id="pgPermanentAddress" type="text" class="form-control hs_span_view" maxlength="500">
+                      <label class="input-label">Permanent Address</label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Preferences -->
+              <div class="card mb-3 border">
+                <div class="card-header py-2 px-3 d-flex justify-content-between align-items-center" style="cursor:pointer" data-bs-toggle="collapse" data-bs-target="#pgPrefBody">
+                  <strong class="small"><i class="fa fa-utensils me-1"></i> Travel Preferences</strong>
+                  <i class="fa fa-chevron-down small"></i>
+                </div>
+                <div id="pgPrefBody" class="collapse p-3">
+                  <div class="row g-2">
+                    <div class="col-md-4 view-group">
+                      <input id="pgMealPref" type="text" class="form-control hs_span_view" maxlength="100" placeholder="Halal, Vegetarian, AVML…">
+                      <label class="input-label">Meal Preference</label>
+                    </div>
+                    <div class="col-md-4 view-group">
+                      <input id="pgSeatPref" type="text" class="form-control hs_span_view" maxlength="100" placeholder="Window, Aisle, Front row…">
+                      <label class="input-label">Seat Preference</label>
+                    </div>
+                    <div class="col-md-4 view-group">
+                      <input id="pgDietary" type="text" class="form-control hs_span_view" maxlength="300">
+                      <label class="input-label">Dietary Restriction</label>
+                    </div>
+                    <div class="col-md-6 view-group">
+                      <input id="pgAssistance" type="text" class="form-control hs_span_view" maxlength="300" placeholder="Wheelchair, medical…">
+                      <label class="input-label">Special Assistance</label>
+                    </div>
+                    <div class="col-md-6 view-group">
+                      <input id="pgPrefRemarks" type="text" class="form-control hs_span_view" maxlength="500">
+                      <label class="input-label">Preference Remarks</label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="row g-2">
+                <div class="col-12 view-group">
+                  <input id="pgRemarks" type="text" class="form-control hs_span_view" maxlength="500">
+                  <label class="input-label">Remarks</label>
+                </div>
+              </div>
+
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-success" type="submit" id="pgSubmitBtn">
+              <span class="spinner-border spinner-border-sm me-2 d-none" id="pgSpinner"></span>
+              <span id="pgBtnText">Save</span>
+            </button>
+            <button type="button" class="btn btn-white" data-bs-dismiss="modal">Cancel</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── VIEW MODAL ─────────────────────────────────────────────────────── -->
+  <div tabindex="-1" id="pgViewModal" class="modal fade">
+    <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Passenger Details</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body" id="pgViewBody"></div>
+        <div class="modal-footer"><button type="button" class="btn btn-white" data-bs-dismiss="modal">Close</button></div>
+      </div>
+    </div>
+  </div>
+
+  <script th:src="@{/js/travel-passport-scan.js}"></script>
+  <script th:inline="none">
+  (function () {
+    'use strict';
+    const BASE = '/travel/passengers';
+
+    /* Logical field name → element id. The scanner only touches keys it finds. */
+    const SCAN_MAP = {
+      title:            'pgTitle',
+      firstName:        'pgFirstName',
+      lastName:         'pgLastName',
+      dateOfBirth:      'pgDob',
+      gender:           'pgGender',
+      passengerType:    'pgPaxType',
+      passportNumber:   'pgPassportNo',
+      passportExpiry:   'pgPassportExp',
+      nationality:      'pgNationality',
+      passportCountry:  'pgPassportCountry',
+      personalNumber:   'pgPersonalNo',
+      mrzLine1:         'pgMrz1',
+      mrzLine2:         'pgMrz2',
+      mrzLine3:         'pgMrz3'
+    };
+
+    function _v(id)        { var el = document.getElementById(id); return el ? el.value : ''; }
+    function _set(id, val) { var el = document.getElementById(id); if (el) el.value = (val === null || val === undefined) ? '' : val; }
+    function _esc(s) {
+      return String(s === null || s === undefined ? '' : s).replace(/[&<>"']/g, function (c) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+      });
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+      document.getElementById('pgForm').addEventListener('submit', _onSubmit);
+      document.getElementById('pgScanBtn').addEventListener('click', function () {
+        scanPassport(SCAN_MAP, {
+          scanBtn: document.getElementById('pgScanBtn'),
+          onApply: function (scan) {
+            document.getElementById('pgMrzBadge').classList.toggle('d-none', !scan.checkDigitsValid);
+            pgExpiryHint();
+          }
+        });
+      });
+      _initBookingFilter();
+      pgReload();
+    });
+
+    /* ── List ──────────────────────────────────────────────────────────── */
+    window.pgReload = function () {
+      var qs = '?search=' + encodeURIComponent(_v('pgSearch'))
+             + '&expiryFilter=' + encodeURIComponent(_v('pgExpiryFilter'));
+      var bk = $('#pgBookingFilter').val();
+      if (bk) qs += '&bookingId=' + bk;
+
+      secureFetch(BASE + '/list' + qs).then(function (res) {
+        var body = document.getElementById('pgBody');
+        body.innerHTML = '';
+        var rows = res.data || [];
+        rows.forEach(function (r) {
+          body.insertAdjacentHTML('beforeend',
+            '<tr><td>' + r.sl + '</td>'
+            + '<td>' + _esc(r.booking_no) + '</td>'
+            + '<td>' + _esc(r.full_name) + '</td>'
+            + '<td class="font-monospace">' + _esc(r.passport_number) + '</td>'
+            + '<td>' + _esc(r.nationality) + '</td>'
+            + '<td>' + _esc(r.date_of_birth) + '</td>'
+            + '<td>' + _esc(r.passport_expiry) + '</td>'
+            + '<td class="text-center">' + r.type_badge + '</td>'
+            + '<td class="text-center">' + r.passport_badge
+              + (r.document_count > 0 ? ' <i class="fa fa-paperclip text-muted small" title="' + r.document_count + ' document(s)"></i>' : '')
+            + '</td>'
+            + '<td class="text-center">' + r.actions + '</td></tr>');
+        });
+        if (!rows.length) {
+          body.innerHTML = '<tr><td colspan="10" class="text-center text-muted py-3">No passengers found.</td></tr>';
+          document.getElementById('pgCount').textContent = '';
+        } else {
+          document.getElementById('pgCount').textContent =
+            'Showing ' + rows.length + ' of ' + (rows[0].full_count || rows.length) + ' passenger(s).';
+        }
+      });
+    };
+
+    /* ── Booking pickers ───────────────────────────────────────────────── */
+    function _bookingSelect2(selector, parentModal, placeholder) {
+      var cfg = {
+        width: '100%', placeholder: placeholder, allowClear: true, minimumInputLength: 0,
+        ajax: {
+          url: BASE + '/booking-search', dataType: 'json', delay: 250,
+          data: function (p) { return { q: p.term || '' }; },
+          processResults: function (data) {
+            return { results: (data.items || []).map(function (i) { return { id: i.id, text: i.text }; }) };
+          },
+          cache: true
+        }
+      };
+      if (parentModal) cfg.dropdownParent = $(parentModal);
+      $(selector).select2(cfg);
+    }
+
+    function _initBookingFilter() {
+      _bookingSelect2('#pgBookingFilter', null, 'All bookings');
+      $('#pgBookingFilter').on('change', function () { pgReload(); });
+      _bookingSelect2('#pgBookingId', '#pgModal', '— Select Booking —');
+    }
+
+    /* ── Create ────────────────────────────────────────────────────────── */
+    window.pgOpenCreate = function () {
+      _resetForm();
+      document.getElementById('pgDocBtn').classList.add('d-none');
+      document.getElementById('pgModalTitle').innerHTML = '<i class="fa fa-user-plus me-1 text-success"></i> New Passenger';
+      document.getElementById('pgBtnText').textContent = 'Save';
+      $('#pgBookingId').val(null).trigger('change');
+      var preset = $('#pgBookingFilter').val();
+      if (preset) {
+        var text = $('#pgBookingFilter option:selected').text();
+        $('#pgBookingId').append(new Option(text, preset, true, true)).trigger('change');
+      }
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('pgModal')).show();
+    };
+
+    /* ── Edit ──────────────────────────────────────────────────────────── */
+    window.pgEdit = function (id) {
+      secureFetch(BASE + '/show/' + id).then(function (res) {
+        if (!res.success) { Swal.fire('Error', res.message, 'error'); return; }
+        var o = res.obj.defaultData;
+        _resetForm();
+        _fillForm(o);
+        document.getElementById('pgModalTitle').innerHTML = '<i class="fa fa-pencil me-1 text-warning"></i> Edit Passenger';
+        document.getElementById('pgBtnText').textContent = 'Update';
+        var docBtn = document.getElementById('pgDocBtn');
+        docBtn.classList.remove('d-none');
+        docBtn.onclick = function () { trvOpenDocuments('PASSENGER', o.id, o.fullName); };
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('pgModal')).show();
+      });
+    };
+
+    function _fillForm(o) {
+      _set('pgId', o.id);
+      $('#pgBookingId').empty()
+        .append(new Option(o.bookingNo || ('Booking #' + o.bookingId), o.bookingId, true, true))
+        .trigger('change');
+
+      _set('pgTitle', o.title);
+      _set('pgFirstName', o.firstName);
+      _set('pgLastName', o.lastName);
+      _set('pgDob', o.dateOfBirth);
+      _set('pgGender', o.gender);
+      _set('pgPaxType', o.passengerType || 'ADULT');
+      document.getElementById('pgIsLead').checked = !!o.isLeadPassenger;
+      _set('pgPlaceOfBirth', o.placeOfBirth);
+      _set('pgNationality', o.nationality);
+
+      _set('pgPassportNo', o.passportNumber);
+      _set('pgPassportCountry', o.passportCountry);
+      _set('pgPassportIssue', o.passportIssueDate);
+      _set('pgPassportExp', o.passportExpiry);
+      _set('pgIssuingAuthority', o.passportIssuingAuthority);
+      _set('pgPersonalNo', o.personalNumber);
+
+      _set('pgPhone', o.phone);
+      _set('pgEmail', o.email);
+      _set('pgEmContactName', o.emergencyContactName);
+      _set('pgEmContactRelation', o.emergencyContactRelation);
+      _set('pgEmContactPhone', o.emergencyContactPhone);
+      _set('pgFatherName', o.fatherName);
+      _set('pgMotherName', o.motherName);
+      _set('pgPermanentAddress', o.permanentAddress);
+      _set('pgRemarks', o.remarks);
+
+      _set('pgMrz1', o.mrzLine1);
+      _set('pgMrz2', o.mrzLine2);
+      _set('pgMrz3', o.mrzLine3);
+      _set('pgPassportDocId', o.passportDocumentId);
+      document.getElementById('pgMrzBadge').classList.toggle('d-none', !o.mrzLine2);
+
+      var p = o.preference || {};
+      _set('pgMealPref', p.mealPreference);
+      _set('pgSeatPref', p.seatPreference);
+      _set('pgDietary', p.dietaryRestriction);
+      _set('pgAssistance', p.specialAssistance);
+      _set('pgPrefRemarks', p.remarks);
+
+      pgExpiryHint();
+    }
+
+    /* ── View ──────────────────────────────────────────────────────────── */
+    window.pgShow = function (id) {
+      secureFetch(BASE + '/show/' + id).then(function (res) {
+        if (!res.success) { Swal.fire('Error', res.message, 'error'); return; }
+        var o = res.obj.defaultData;
+
+        var html = '<div class="row g-2">'
+          + _vf('Booking', o.bookingNo || '—')
+          + _vf('Name', o.fullName || '—')
+          + _vf('Type', (o.passengerType || '—') + (o.isLeadPassenger ? ' (Lead)' : ''))
+          + _vf('Date of Birth', (o.dateOfBirth || '—') + (o.age != null ? '  (' + o.age + ' yrs)' : ''))
+          + _vf('Gender', o.gender || '—')
+          + _vf('Nationality', o.nationality || '—')
+          + _vf('Place of Birth', o.placeOfBirth || '—')
+          + _vf('Phone', o.phone || '—')
+          + _vf('Email', o.email || '—')
+          + '</div>';
+
+        html += '<h6 class="mt-3 mb-2"><i class="fa fa-passport me-1"></i> Passport</h6>'
+          + '<div class="row g-2">'
+          + _vf('Passport No', o.passportNumber || '—')
+          + _vf('Issuing Country', o.passportCountry || '—')
+          + _vf('Issuing Authority', o.passportIssuingAuthority || '—')
+          + _vf('Date of Issue', o.passportIssueDate || '—')
+          + _vf('Date of Expiry', o.passportExpiry || '—')
+          + _vf('Personal / NID No', o.personalNumber || '—')
+          + '</div>';
+
+        if (o.daysToExpiry !== null && o.daysToExpiry !== undefined) {
+          var cls = o.daysToExpiry < 0 ? 'danger' : o.daysToExpiry < 183 ? 'warning' : 'success';
+          var msg = o.daysToExpiry < 0
+            ? 'This passport expired ' + Math.abs(o.daysToExpiry) + ' day(s) ago.'
+            : o.daysToExpiry < 183
+              ? 'Expires in ' + o.daysToExpiry + ' day(s) — inside the six-month window most destinations require.'
+              : 'Valid for another ' + o.daysToExpiry + ' day(s).';
+          html += '<div class="alert alert-' + cls + ' py-2 px-3 small mt-2 mb-0">' + msg + '</div>';
+        }
+
+        if (o.fatherName || o.motherName || o.emergencyContactName || o.permanentAddress) {
+          html += '<h6 class="mt-3 mb-2"><i class="fa fa-address-book me-1"></i> Personal Data</h6>'
+            + '<div class="row g-2">'
+            + _vf("Father's Name", o.fatherName || '—')
+            + _vf("Mother's Name", o.motherName || '—')
+            + _vf('Emergency Contact', o.emergencyContactName || '—')
+            + _vf('Relationship', o.emergencyContactRelation || '—')
+            + _vf('Emergency Phone', o.emergencyContactPhone || '—')
+            + _vf('Permanent Address', o.permanentAddress || '—')
+            + '</div>';
+        }
+
+        var pr = o.preference;
+        if (pr) {
+          html += '<h6 class="mt-3 mb-2"><i class="fa fa-utensils me-1"></i> Preferences</h6>'
+            + '<div class="row g-2">'
+            + _vf('Meal', pr.mealPreference || '—')
+            + _vf('Seat', pr.seatPreference || '—')
+            + _vf('Dietary', pr.dietaryRestriction || '—')
+            + _vf('Assistance', pr.specialAssistance || '—')
+            + '</div>';
+        }
+
+        html += '<h6 class="mt-3 mb-2"><i class="fa fa-ticket me-1"></i> Tickets</h6>'
+          + '<p class="small mb-0">' + (o.ticketCount || 0) + ' ticket(s) issued to this passenger.</p>';
+
+        if (o.mrzLine2) {
+          html += '<h6 class="mt-3 mb-1"><i class="fa fa-barcode me-1"></i> Captured MRZ</h6>'
+            + '<pre class="small bg-light p-2 rounded mb-0" style="letter-spacing:1px;white-space:pre-wrap;word-break:break-all">'
+            + _esc([o.mrzLine1, o.mrzLine2, o.mrzLine3].filter(Boolean).join('\n')) + '</pre>';
+        }
+
+        document.getElementById('pgViewBody').innerHTML = html;
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('pgViewModal')).show();
+      });
+    };
+
+    /* ── Documents ─────────────────────────────────────────────────────── */
+    window.pgDocs = function (id) { trvOpenDocuments('PASSENGER', id, 'Passenger #' + id); };
+
+    /* ── Lead ──────────────────────────────────────────────────────────── */
+    window.pgSetLead = function (id) {
+      secureFetch(BASE + '/set-lead/' + id, { method: 'POST' }).then(function (d) {
+        if (d.success) {
+          if (typeof toast === 'function') toast(d.message);
+          else Swal.fire({ icon: 'success', timer: 1200, showConfirmButton: false, title: d.message });
+          pgReload();
+        } else Swal.fire('Error', d.message, 'error');
+      });
+    };
+
+    /* ── Delete ────────────────────────────────────────────────────────── */
+    window.pgDelete = function (id) {
+      Swal.fire({
+        title: 'Delete this passenger?',
+        text: 'Their preferences and uploaded documents go too. This cannot be undone.',
+        icon: 'warning', showCancelButton: true, confirmButtonColor: '#dc3545',
+        confirmButtonText: 'Delete'
+      }).then(function (r) {
+        if (!r.isConfirmed) return;
+        secureFetch(BASE + '/delete/' + id, { method: 'DELETE' }).then(function (d) {
+          if (d.success) { Swal.fire({ icon: 'success', timer: 1400, showConfirmButton: false, title: d.message }); pgReload(); }
+          else Swal.fire('Cannot delete', d.message, 'error');
+        });
+      });
+    };
+
+    /* ── Expiry hint ───────────────────────────────────────────────────── */
+    window.pgExpiryHint = function () {
+      var box = document.getElementById('pgExpiryHintBox');
+      var val = _v('pgPassportExp');
+      if (!val) { box.innerHTML = ''; return; }
+      var days = Math.round((new Date(val) - new Date()) / 86400000);
+      if (days < 0)        box.innerHTML = '<span class="text-danger"><i class="fa fa-circle-exclamation me-1"></i>Expired ' + Math.abs(days) + ' day(s) ago</span>';
+      else if (days < 183) box.innerHTML = '<span class="text-warning"><i class="fa fa-triangle-exclamation me-1"></i>Only ' + days + ' day(s) left — under the six-month rule</span>';
+      else                 box.innerHTML = '<span class="text-success"><i class="fa fa-circle-check me-1"></i>Valid for ' + days + ' more day(s)</span>';
+    };
+
+    /* ── Submit ────────────────────────────────────────────────────────── */
+    function _onSubmit(e) {
+      e.preventDefault();
+      var sb = document.getElementById('pgSubmitBtn'), sp = document.getElementById('pgSpinner'), bt = document.getElementById('pgBtnText');
+
+      if (!$('#pgBookingId').val()) { Swal.fire('Info', 'Choose the booking this passenger belongs to.', 'info'); return; }
+      if (!_v('pgFirstName').trim()) { Swal.fire('Info', 'First name is required.', 'info'); return; }
+
+      hsDisableButton(sb, sp, bt);
+
+      var body = {
+        id: _v('pgId') || null,
+        bookingId: $('#pgBookingId').val(),
+        title: _v('pgTitle') || null,
+        firstName: _v('pgFirstName').trim(),
+        lastName: _v('pgLastName') || null,
+        dateOfBirth: _v('pgDob') || null,
+        gender: _v('pgGender') || null,
+        passengerType: _v('pgPaxType') || 'ADULT',
+        isLeadPassenger: document.getElementById('pgIsLead').checked,
+        placeOfBirth: _v('pgPlaceOfBirth') || null,
+        nationality: _v('pgNationality') || null,
+        passportNumber: _v('pgPassportNo') || null,
+        passportCountry: _v('pgPassportCountry') || null,
+        passportIssueDate: _v('pgPassportIssue') || null,
+        passportExpiry: _v('pgPassportExp') || null,
+        passportIssuingAuthority: _v('pgIssuingAuthority') || null,
+        personalNumber: _v('pgPersonalNo') || null,
+        phone: _v('pgPhone') || null,
+        email: _v('pgEmail') || null,
+        emergencyContactName: _v('pgEmContactName') || null,
+        emergencyContactRelation: _v('pgEmContactRelation') || null,
+        emergencyContactPhone: _v('pgEmContactPhone') || null,
+        fatherName: _v('pgFatherName') || null,
+        motherName: _v('pgMotherName') || null,
+        permanentAddress: _v('pgPermanentAddress') || null,
+        remarks: _v('pgRemarks') || null,
+        mrzLine1: _v('pgMrz1') || null,
+        mrzLine2: _v('pgMrz2') || null,
+        mrzLine3: _v('pgMrz3') || null,
+        passportDocumentId: _v('pgPassportDocId') || null,
+        preference: {
+          mealPreference: _v('pgMealPref') || null,
+          seatPreference: _v('pgSeatPref') || null,
+          dietaryRestriction: _v('pgDietary') || null,
+          specialAssistance: _v('pgAssistance') || null,
+          remarks: _v('pgPrefRemarks') || null
+        }
+      };
+
+      secureFetch(BASE + '/save', { method: 'POST', body: JSON.stringify(body) }).then(function (d) {
+        if (!d.success) { Swal.fire('Error', d.message, 'error'); return; }
+        /* File the scanned image now that the passenger has an id. */
+        return trvAttachPassportImage(d.id).then(function () {
+          Swal.fire({ icon: 'success', timer: 1500, showConfirmButton: false, title: d.message });
+          bootstrap.Modal.getOrCreateInstance(document.getElementById('pgModal')).hide();
+          pgReload();
+        });
+      }).finally(function () { hsEnableButton(sb, sp, bt); });
+    }
+
+    function _resetForm() {
+      document.getElementById('pgForm').reset();
+      _set('pgId', '');
+      _set('pgMrz1', ''); _set('pgMrz2', ''); _set('pgMrz3', ''); _set('pgPassportDocId', '');
+      document.getElementById('pgMrzBadge').classList.add('d-none');
+      document.getElementById('pgExpiryHintBox').innerHTML = '';
+      document.getElementById('pgIsLead').checked = false;
+      window.__trvPendingPassportFile = null;
+      $('#pgBookingId').val(null).trigger('change');
+    }
+
+    function _vf(label, value) {
+      return (typeof travel !== 'undefined' && travel.viewField)
+        ? travel.viewField(label, value)
+        : '<div class="col-md-4"><div class="small text-muted">' + label + '</div><div class="fw-bold">' + _esc(value) + '</div></div>';
+    }
+  })();
+  </script>
+
+  <div th:replace="~{travel/trv-documents-fragment :: modal}"></div>
+</section>
+</html>
