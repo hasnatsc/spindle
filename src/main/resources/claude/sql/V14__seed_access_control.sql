@@ -623,6 +623,10 @@ VALUES
     ('trv.visa.edit',                   'Edit visa application',              '/travel/visa-applications/save',       'POST', 'TRAVEL', 'TRAVEL', true, NOW(), NOW()),
     ('trv.visa.status',                 'Update visa application status',    '/travel/visa-applications/status/**',  'POST', 'TRAVEL', 'TRAVEL', true, NOW(), NOW()),
     ('trv.visa.delete',                 'Delete visa application',            '/travel/visa-applications/delete/**',  'DELETE','TRAVEL', 'TRAVEL', true, NOW(), NOW()),
+    ('trv.passenger.view',              'View passengers',                    '/travel/passengers/**',               'GET',  'TRAVEL', 'TRAVEL', true, NOW(), NOW()),
+    ('trv.passenger.create',            'Create passenger',                   '/travel/passengers/save',             'POST', 'TRAVEL', 'TRAVEL', true, NOW(), NOW()),
+    ('trv.passenger.edit',              'Edit passenger',                     '/travel/passengers/save',             'POST', 'TRAVEL', 'TRAVEL', true, NOW(), NOW()),
+    ('trv.passenger.delete',            'Delete passenger',                   '/travel/passengers/delete/**',        'DELETE','TRAVEL', 'TRAVEL', true, NOW(), NOW()),
     ('trv.air_ticket.confirm',          'Confirm air ticket',                 '/travel/air-tickets/confirm/**',      'POST', 'TRAVEL', 'TRAVEL', true, NOW(), NOW()),
     ('trv.air_ticket.void',             'Void air ticket',                    '/travel/air-tickets/void/**',         'POST', 'TRAVEL', 'TRAVEL', true, NOW(), NOW()),
     ('trv.air_ticket.cancel',           'Cancel air ticket',                  '/travel/air-tickets/cancel/**',       'POST', 'TRAVEL', 'TRAVEL', true, NOW(), NOW()),
@@ -1264,6 +1268,9 @@ INSERT INTO app_menus (menu_code, menu_name, menu_url, icon, parent_id, display_
 SELECT 'TRV_BOOKINGS', 'Bookings', '/travel/bookings', 'fa fa-ticket-alt', g.id, 10, 'LEAF', 'TRAVEL', 'trv.booking.view', '_self', true, true, false, NOW(), NOW()
 FROM app_menus g WHERE g.menu_code = 'GRP_TRV_SALES' ON CONFLICT (menu_code) DO NOTHING;
 INSERT INTO app_menus (menu_code, menu_name, menu_url, icon, parent_id, display_order, menu_type, module_name, required_permission, target, active, visible, deleted, created_at, updated_at)
+SELECT 'TRV_PASSENGER', 'Passengers', '/travel/passengers', 'fa fa-users', g.id, 15, 'LEAF', 'TRAVEL', 'trv.passenger.view', '_self', true, true, false, NOW(), NOW()
+FROM app_menus g WHERE g.menu_code = 'GRP_TRV_SALES' ON CONFLICT (menu_code) DO NOTHING;
+INSERT INTO app_menus (menu_code, menu_name, menu_url, icon, parent_id, display_order, menu_type, module_name, required_permission, target, active, visible, deleted, created_at, updated_at)
 SELECT 'TRV_FRONT_DESK', 'Front Desk', '/travel/frontdesk', 'fa fa-concierge-bell', g.id, 20, 'LEAF', 'TRAVEL', 'trv.booking.view', '_self', true, true, false, NOW(), NOW()
 FROM app_menus g WHERE g.menu_code = 'GRP_TRV_SALES' ON CONFLICT (menu_code) DO NOTHING;
 INSERT INTO app_menus (menu_code, menu_name, menu_url, icon, parent_id, display_order, menu_type, module_name, required_permission, target, active, visible, deleted, created_at, updated_at)
@@ -1403,7 +1410,8 @@ JOIN sec_permissions p ON p.name IN (
     'trv.setting.view', 'trv.setting.edit',
     'trv.package.view', 'trv.package.create', 'trv.package.edit', 'trv.package.delete',
     'trv.tour.view', 'trv.tour.create', 'trv.tour.edit', 'trv.tour.delete',
-    'trv.visa.view', 'trv.visa.create', 'trv.visa.edit', 'trv.visa.status', 'trv.visa.delete'
+    'trv.visa.view', 'trv.visa.create', 'trv.visa.edit', 'trv.visa.status', 'trv.visa.delete',
+    'trv.passenger.view', 'trv.passenger.create', 'trv.passenger.edit', 'trv.passenger.delete'
 )
 WHERE r.name = 'ROLE_TRAVEL_MANAGER'
 ON CONFLICT DO NOTHING;
@@ -1424,7 +1432,8 @@ JOIN sec_permissions p ON p.name IN (
     'trv.airline.view', 'trv.airport.view', 'trv.cabin_class.view',
     'trv.package.view', 'trv.package.create', 'trv.package.edit',
     'trv.tour.view', 'trv.tour.create', 'trv.tour.edit',
-    'trv.visa.view', 'trv.visa.create', 'trv.visa.edit', 'trv.visa.status'
+    'trv.visa.view', 'trv.visa.create', 'trv.visa.edit', 'trv.visa.status',
+    'trv.passenger.view', 'trv.passenger.create', 'trv.passenger.edit'
 )
 WHERE r.name = 'ROLE_TRAVEL_EXECUTIVE'
 ON CONFLICT DO NOTHING;
