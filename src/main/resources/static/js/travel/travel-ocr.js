@@ -18,7 +18,10 @@
    *     dateOfBirth:   'apDob',
    *     passportNumber:'apPassportNo',
    *     passportExpiry:'apPassportExp',
-   *     nationality:   'apNationality'
+   *     nationality:   'apNationality',
+   *     gender:        'apGender',       // optional
+   *     phone:         'apPhone',        // optional
+   *     email:         'apEmail'         // optional
    *   }
    * @param {object} [opts] — additional options
    *   @param {string}  [opts.accept]     — file accept filter (default: '.jpg,.jpeg,.png,.tif,.tiff,.webp')
@@ -90,6 +93,18 @@
               var el = document.getElementById(fieldMap.nationality);
               if (el) el.value = d.nationality;
             }
+            if (fieldMap.gender && d.gender) {
+              var el = document.getElementById(fieldMap.gender);
+              if (el) el.value = d.gender;
+            }
+            if (fieldMap.phone && d.phone) {
+              var el = document.getElementById(fieldMap.phone);
+              if (el) el.value = d.phone;
+            }
+            if (fieldMap.email && d.email) {
+              var el = document.getElementById(fieldMap.email);
+              if (el) el.value = d.email;
+            }
 
             var populated = [];
             if (d.firstName || d.lastName) populated.push('name');
@@ -97,6 +112,8 @@
             if (d.passportNumber) populated.push('passport no');
             if (d.nationality) populated.push('nationality');
             if (d.passportExpiry) populated.push('expiry');
+            if (d.phone) populated.push('phone');
+            if (d.gender) populated.push('gender');
 
             var msg = populated.length
               ? 'Extracted: ' + populated.join(', ') + '. Please verify before saving.'

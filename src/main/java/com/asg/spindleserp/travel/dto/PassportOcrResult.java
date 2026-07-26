@@ -29,6 +29,12 @@ public class PassportOcrResult {
     /** Passport expiry date. */
     private LocalDate passportExpiry;
 
+    /** Gender extracted from passport (MALE / FEMALE). */
+    private String gender;
+
+    /** Phone number extracted from passport emergency contact section. */
+    private String phone;
+
     /** Full raw text extracted by the OCR engine (for debugging / manual override). */
     private String rawOcrText;
 

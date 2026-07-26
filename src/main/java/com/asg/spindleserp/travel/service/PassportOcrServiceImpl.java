@@ -2,6 +2,7 @@ package com.asg.spindleserp.travel.service;
 
 import com.asg.spindleserp.travel.dto.PassportOcrResult;
 import jakarta.annotation.PostConstruct;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import net.sourceforge.tess4j.Tesseract;
 import net.sourceforge.tess4j.TesseractException;
@@ -50,9 +51,15 @@ public class PassportOcrServiceImpl implements PassportOcrService {
     private static final Pattern PREFIX_NATIONALITY = Pattern.compile(
             "(?i)(?:nationality|citizenship|nationalit[ée])\\s*[:.]?\\s*([A-Za-z]{2,})");
     private static final Pattern PREFIX_GIVEN_NAMES = Pattern.compile(
-            "(?i)(?:given\\s*names|first\\s*name|given\\s*name)\\s*[:.]?\\s*([A-Za-z\\s-]+)");
+            "(?i)(?:given\\s*names|first\\s*name|given\\s*name|father['´`]?s?\\s*name|mother['´`]?s?\\s*name|spouse['´`]?s?\\s*name|holder['´`]?s?\\s*name|name\\s*of\\s*holder)\\s*[:.]?\\s*([A-Za-z\\s-]+)");
     private static final Pattern PREFIX_SURNAME = Pattern.compile(
             "(?i)(?:surname|last\\s*name|family\\s*name)\\s*[:.]?\\s*([A-Za-z\\s-]+)");
+    private static final Pattern PREFIX_FULL_NAME = Pattern.compile(
+            "(?i)(?:name|full\\s*name|passenger\\s*name)\\s*[:.]?\\s*([A-Z][A-Za-z]+(?:\\s+[A-Z][A-Za-z]+){1,4})");
+    private static final Pattern PREFIX_GENDER = Pattern.compile(
+            "(?i)(?:sex|gender)\\s*[:.]?\\s*(MALE|FEMALE|M|F)");
+    private static final Pattern PREFIX_PHONE = Pattern.compile(
+            "(?i)(?:telephone\\s*no|phone|mobile|tel|cell)\\s*[:.]?\\s*(\\+?\\d[\\d\\s-]{6,20})");
 
     private static final DateTimeFormatter[] DATE_FORMATS = {
             DateTimeFormatter.ofPattern("dd/MM/yy"),
@@ -73,6 +80,9 @@ public class PassportOcrServiceImpl implements PassportOcrService {
 
     private String resolvedDatapath;
 
+    @Getter
+    private boolean available;
+
     @PostConstruct
     public void init() {
         tesseract = new Tesseract();
@@ -87,16 +97,33 @@ public class PassportOcrServiceImpl implements PassportOcrService {
                 resolvedDatapath = "/usr/share/tesseract-ocr/4.00/tessdata";
             }
         }
-        tesseract.setDatapath(resolvedDatapath);
-        tesseract.setLanguage("eng");
-        tesseract.setPageSegMode(6); // Assume uniform block of text (good for passports)
-        log.info("PassportOCR initialised with tessdata: {}", resolvedDatapath);
+
+        // Check whether the traineddata file actually exists
+        Path tessdataDir = Path.of(resolvedDatapath);
+        Path engData = tessdataDir.resolve("eng.traineddata");
+        if (Files.exists(engData)) {
+            tesseract.setDatapath(resolvedDatapath);
+            tesseract.setLanguage("eng");
+            tesseract.setPageSegMode(6);
+            available = true;
+            log.info("PassportOCR initialised with tessdata: {}", resolvedDatapath);
+        } else {
+            available = false;
+            log.warn("PassportOCR UNAVAILABLE — Tesseract not found at {}. " +
+                    "Install from https://github.com/UB-Mannheim/tesseract/wiki " +
+                    "or set app.ocr.tesseract-data-path", resolvedDatapath);
+        }
     }
 
     @Override
     public PassportOcrResult extractPassportData(MultipartFile file) {
         if (file == null || file.isEmpty()) {
             throw new IllegalArgumentException("Passport image file is required.");
+        }
+        if (!available) {
+            throw new IllegalStateException("Passport OCR is not available. Tesseract OCR engine was not found at \""
+                    + resolvedDatapath + "\". Install Tesseract from https://github.com/UB-Mannheim/tesseract/wiki"
+                    + " or configure app.ocr.tesseract-data-path in application.properties.");
         }
         validateImageContentType(file.getOriginalFilename());
 
@@ -206,6 +233,13 @@ public class PassportOcrServiceImpl implements PassportOcrService {
                     if (!expiryStr.isEmpty() && !expiryStr.matches("<+")) {
                         result.setPassportExpiry(parseMrzDate(expiryStr));
                     }
+
+                    // Gender from MRZ group 6: M, F, or X
+                    String genderChar = m2.group(6);
+                    if (genderChar != null && !genderChar.isBlank() && !"<".equals(genderChar)) {
+                        result.setGender("M".equalsIgnoreCase(genderChar) ? "MALE"
+                                : "F".equalsIgnoreCase(genderChar) ? "FEMALE" : null);
+                    }
                     result.setFromMrz(true);
                 }
             }
@@ -237,6 +271,35 @@ public class PassportOcrServiceImpl implements PassportOcrService {
                 result.setNationality(m.group(1).trim());
             }
         }
+        // Fallback: look for country name like "BANGLADESH" or "REPUBLIC OF BANGLADESH" in text
+        if (result.getNationality() == null || result.getNationality().isBlank()) {
+            Matcher m = Pattern.compile("(?i)(?:REPUBLIC\\s+OF\\s+)?(BANGLADESH|INDIA|PAKISTAN|NEPAL|SRI\\s*LANKA|MALDIVES|BHUTAN|MYANMAR|THAILAND|MALAYSIA|SINGAPORE|INDONESIA|PHILIPPINES|VIETNAM|CHINA|JAPAN|KOREA|UAE|SAUDI\\s*ARABIA|QATAR|KUWAIT|OMAN|BAHRAIN|TURKEY|USA|UNITED\\s*STATES|CANADA|UK|UNITED\\s*KINGDOM|AUSTRALIA|GERMANY|FRANCE|ITALY|SPAIN|NETHERLANDS|SWITZERLAND|SWEDEN|NORWAY|DENMARK)").matcher(ocrText);
+            if (m.find()) {
+                String country = m.group(1).toUpperCase().replaceAll("\\s+", " ");
+                // Map common full names to ICAO codes
+                if (country.contains("BANGLADESH")) result.setNationality("BGD");
+                else if (country.contains("INDIA")) result.setNationality("IND");
+                else if (country.contains("PAKISTAN")) result.setNationality("PAK");
+                else if (country.contains("NEPAL")) result.setNationality("NPL");
+                else if (country.contains("SRI") || country.contains("LANKA")) result.setNationality("LKA");
+                else if (country.contains("MALDIVES")) result.setNationality("MDV");
+                else if (country.contains("THAILAND")) result.setNationality("THA");
+                else if (country.contains("MALAYSIA")) result.setNationality("MYS");
+                else if (country.contains("SINGAPORE")) result.setNationality("SGP");
+                else if (country.contains("INDONESIA")) result.setNationality("IDN");
+                else if (country.contains("CHINA")) result.setNationality("CHN");
+                else if (country.contains("JAPAN")) result.setNationality("JPN");
+                else if (country.contains("UAE") || country.contains("EMIRATES")) result.setNationality("ARE");
+                else if (country.contains("SAUDI")) result.setNationality("SAU");
+                else if (country.contains("USA") || country.contains("UNITED STATES")) result.setNationality("USA");
+                else if (country.contains("UK") || country.contains("UNITED KINGDOM")) result.setNationality("GBR");
+                else if (country.contains("CANADA")) result.setNationality("CAN");
+                else if (country.contains("AUSTRALIA")) result.setNationality("AUS");
+                else if (country.contains("GERMANY")) result.setNationality("DEU");
+                else if (country.contains("FRANCE")) result.setNationality("FRA");
+                else result.setNationality(country);
+            }
+        }
         if (result.getDateOfBirth() == null) {
             Matcher m = PREFIX_DOB.matcher(ocrText);
             if (m.find()) {
@@ -247,6 +310,36 @@ public class PassportOcrServiceImpl implements PassportOcrService {
             Matcher m = PREFIX_EXPIRY.matcher(ocrText);
             if (m.find()) {
                 result.setPassportExpiry(parseDateFlexible(m.group(1).trim()));
+            }
+        }
+        // ── Full name fallback: if no first/last found, try "name:" labels ──
+        if ((result.getFirstName() == null || result.getFirstName().isBlank())
+                && (result.getLastName() == null || result.getLastName().isBlank())) {
+            Matcher m = PREFIX_FULL_NAME.matcher(ocrText);
+            if (m.find()) {
+                String full = m.group(1).trim().replaceAll("\\s+", " ");
+                int space = full.indexOf(' ');
+                if (space > 0) {
+                    result.setFirstName(full.substring(0, space).trim());
+                    result.setLastName(full.substring(space + 1).trim());
+                } else {
+                    result.setFirstName(full);
+                }
+            }
+        }
+        if (result.getGender() == null) {
+            Matcher m = PREFIX_GENDER.matcher(ocrText);
+            if (m.find()) {
+                String g = m.group(1).toUpperCase();
+                if ("M".equals(g)) g = "MALE";
+                else if ("F".equals(g)) g = "FEMALE";
+                result.setGender(g.startsWith("M") ? "MALE" : "FEMALE");
+            }
+        }
+        if (result.getPhone() == null) {
+            Matcher m = PREFIX_PHONE.matcher(ocrText);
+            if (m.find()) {
+                result.setPhone(m.group(1).trim().replaceAll("\\s+", ""));
             }
         }
 

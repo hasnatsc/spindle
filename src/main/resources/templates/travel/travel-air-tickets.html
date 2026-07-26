@@ -183,7 +183,7 @@
 
   <!-- ── CREATE PASSENGER MODAL ─────────────────────────────────────────── -->
   <div tabindex="-1" id="atPaxModal" class="modal fade">
-    <div class="modal-dialog modal-dialog-centered modal-md">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
       <div class="modal-content">
         <div class="modal-header">
           <h5 class="modal-title"><i class="fa fa-user-plus me-1 text-success"></i> New Passenger</h5>
@@ -201,18 +201,50 @@
               </div>
             </div>
             <div class="row g-2">
-              <div class="col-md-6 view-group">
+              <div class="col-md-2 view-group">
+                <select id="apTitle" class="form-select">
+                  <option value="">—</option>
+                  <option value="Mr">Mr</option>
+                  <option value="Mrs">Mrs</option>
+                  <option value="Ms">Ms</option>
+                  <option value="Dr">Dr</option>
+                  <option value="Md">Md</option>
+                </select>
+                <label class="input-label">Title</label>
+              </div>
+              <div class="col-md-5 view-group">
                 <input id="apFirstName" type="text" class="form-control" maxlength="100" required placeholder="First name">
                 <label class="input-label">First Name <span class="text-danger">*</span></label>
               </div>
-              <div class="col-md-6 view-group">
+              <div class="col-md-5 view-group">
                 <input id="apLastName" type="text" class="form-control" maxlength="100" placeholder="Last name">
                 <label class="input-label">Last Name</label>
               </div>
-              <div class="col-md-6 view-group">
+            </div>
+            <div class="row g-2">
+              <div class="col-md-4 view-group">
                 <input id="apDob" type="date" class="form-control">
                 <label class="input-label">Date of Birth</label>
               </div>
+              <div class="col-md-4 view-group">
+                <select id="apGender" class="form-select">
+                  <option value="">—</option>
+                  <option value="MALE">Male</option>
+                  <option value="FEMALE">Female</option>
+                  <option value="OTHER">Other</option>
+                </select>
+                <label class="input-label">Gender</label>
+              </div>
+              <div class="col-md-4 view-group">
+                <select id="apPaxType" class="form-select">
+                  <option value="ADULT">Adult</option>
+                  <option value="CHILD">Child</option>
+                  <option value="INFANT">Infant</option>
+                </select>
+                <label class="input-label">Type</label>
+              </div>
+            </div>
+            <div class="row g-2">
               <div class="col-md-6 view-group">
                 <input id="apPassportNo" type="text" class="form-control" maxlength="50" placeholder="Passport number">
                 <label class="input-label">Passport No</label>
@@ -221,9 +253,19 @@
                 <input id="apPassportExp" type="date" class="form-control">
                 <label class="input-label">Passport Expiry</label>
               </div>
+            </div>
+            <div class="row g-2">
               <div class="col-md-6 view-group">
                 <input id="apNationality" type="text" class="form-control" maxlength="100" placeholder="Nationality">
                 <label class="input-label">Nationality</label>
+              </div>
+              <div class="col-md-3 view-group">
+                <input id="apPhone" type="text" class="form-control" maxlength="30" placeholder="Phone">
+                <label class="input-label">Phone</label>
+              </div>
+              <div class="col-md-3 view-group">
+                <input id="apEmail" type="email" class="form-control" maxlength="150" placeholder="Email">
+                <label class="input-label">Email</label>
               </div>
             </div>
           </div>
@@ -246,6 +288,12 @@
     var _paxTicketCount = 0;
     var _segCount = 0;
 
+    // ── DOM value helpers (null-safe) ──────────────────────────────────────
+    /** Set value on an element that MUST exist (throws if not found). */
+    function _setVal(id, val) { var el = document.getElementById(id); if (el) el.value = val != null ? val : ''; }
+    /** Set value on an element that MAY be absent (silently skips if not found). */
+    function _setValSafe(id, val) { var el = document.getElementById(id); if (el) el.value = val != null ? val : ''; }
+
     document.addEventListener('DOMContentLoaded', function () {
       document.getElementById('atForm').addEventListener('submit', _onSubmit);
       document.getElementById('atPaxForm').addEventListener('submit', _onPaxSubmit);
@@ -257,7 +305,10 @@
           dateOfBirth:   'apDob',
           passportNumber:'apPassportNo',
           passportExpiry:'apPassportExp',
-          nationality:   'apNationality'
+          nationality:   'apNationality',
+          gender:        'apGender',
+          phone:         'apPhone',
+          email:         'apEmail'
         }, { scanBtn: document.getElementById('apScanBtn') });
       });
       atReload();
@@ -446,12 +497,17 @@
       var sb = document.getElementById('apSubmitBtn'), sp = document.getElementById('apSpinner'), bt = document.getElementById('apBtnText');
       hsDisableButton(sb, sp, bt);
       var body = {
+        title: document.getElementById('apTitle').value || null,
         firstName: document.getElementById('apFirstName').value,
         lastName: document.getElementById('apLastName').value || null,
         dateOfBirth: document.getElementById('apDob').value || null,
+        gender: document.getElementById('apGender').value || null,
+        passengerType: document.getElementById('apPaxType').value || 'ADULT',
         passportNumber: document.getElementById('apPassportNo').value || null,
         passportExpiry: document.getElementById('apPassportExp').value || null,
-        nationality: document.getElementById('apNationality').value || null
+        nationality: document.getElementById('apNationality').value || null,
+        phone: document.getElementById('apPhone').value || null,
+        email: document.getElementById('apEmail').value || null
       };
       secureFetch('/travel/service-lines/' + _currentServiceLineId + '/passengers', { method: 'POST', body: JSON.stringify(body) }).then(function (d) {
         if (d.success) {
@@ -560,31 +616,31 @@
         _loadServiceLines(o.bookingServiceId);
 
         // Ticket-level fields
-        document.getElementById('atPnr').value = o.pnr || '';
-        document.getElementById('atTicketNumber').value = o.ticketNumber || '';
-        document.getElementById('atValidatingCarrier').value = o.validatingCarrier || '';
-        document.getElementById('atFareBasis').value = o.fareBasis || '';
-        document.getElementById('atTourCode').value = o.tourCode || '';
-        document.getElementById('atTicketTimeLimit').value = o.ticketTimeLimit ? o.ticketTimeLimit.substring(0, 16) : '';
-        document.getElementById('atEndorsementRestrictions').value = o.endorsementRestrictions || '';
+        _setVal('atPnr', o.pnr);
+        _setVal('atTicketNumber', o.ticketNumber);
+        _setValSafe('atValidatingCarrier', o.validatingCarrier);
+        _setValSafe('atFareBasis', o.fareBasis);
+        _setValSafe('atTourCode', o.tourCode);
+        _setVal('atTicketTimeLimit', o.ticketTimeLimit ? o.ticketTimeLimit.substring(0, 16) : '');
+        _setValSafe('atEndorsementRestrictions', o.endorsementRestrictions);
 
         // Fare
-        document.getElementById('atFareAmount').value = o.fareAmount || 0;
-        document.getElementById('atTaxAmount').value = o.taxAmount || 0;
-        document.getElementById('atCommissionAmount').value = o.commissionAmount || 0;
-        document.getElementById('atCommissionRate').value = o.commissionRate || '';
-        document.getElementById('atServiceFeeAmount').value = o.serviceFeeAmount || 0;
-        document.getElementById('atNetFare').value = o.netFare || 0;
-        document.getElementById('atTotalAmount').value = o.totalAmount || 0;
-        document.getElementById('atSupplierReference').value = o.supplierReference || '';
+        _setValSafe('atFareAmount', o.fareAmount || 0);
+        _setValSafe('atTaxAmount', o.taxAmount || 0);
+        _setValSafe('atCommissionAmount', o.commissionAmount || 0);
+        _setValSafe('atCommissionRate', o.commissionRate || '');
+        _setValSafe('atServiceFeeAmount', o.serviceFeeAmount || 0);
+        _setValSafe('atNetFare', o.netFare || 0);
+        _setValSafe('atTotalAmount', o.totalAmount || 0);
+        _setVal('atSupplierReference', o.supplierReference || '');
 
         // Vendor fields
-        document.getElementById('atIssueDate').value = o.issueDate || '';
-        document.getElementById('atBookingReference').value = o.bookingReference || '';
-        document.getElementById('atAgentVendorName').value = o.agentVendorName || '';
-        document.getElementById('atAgentVendorAddress').value = o.agentVendorAddress || '';
-        document.getElementById('atAgentVendorEmail').value = o.agentVendorEmail || '';
-        document.getElementById('atAgentVendorMocatNo').value = o.agentVendorMocatNo || '';
+        _setVal('atIssueDate', o.issueDate);
+        _setVal('atBookingReference', o.bookingReference);
+        _setVal('atAgentVendorName', o.agentVendorName);
+        _setVal('atAgentVendorAddress', o.agentVendorAddress);
+        _setVal('atAgentVendorEmail', o.agentVendorEmail);
+        _setVal('atAgentVendorMocatNo', o.agentVendorMocatNo);
 
         // Load masters then segments + passengers
         _loadMasters(function () {

@@ -691,13 +691,18 @@ public class TravelOperationsServiceImpl implements TravelOperationsService {
         TrvBookingService svc = bookingServiceRepo.findById(bookingServiceId)
             .orElseThrow(() -> new IllegalArgumentException("Service line #" + bookingServiceId + " not found."));
         TrvPassenger p = TrvPassenger.builder()
+            .title((String) data.get("title"))
             .firstName((String) data.getOrDefault("firstName", ""))
             .lastName((String) data.get("lastName"))
             .dateOfBirth(data.get("dateOfBirth") != null ? LocalDate.parse((String) data.get("dateOfBirth")) : null)
+            .gender(data.get("gender") != null ? TrvPassenger.Gender.valueOf((String) data.get("gender")) : null)
             .passportNumber((String) data.get("passportNumber"))
             .passportExpiry(data.get("passportExpiry") != null ? LocalDate.parse((String) data.get("passportExpiry")) : null)
             .nationality((String) data.get("nationality"))
-            .passengerType(TrvPassenger.PassengerType.ADULT)
+            .passengerType(data.get("passengerType") != null
+                ? TrvPassenger.PassengerType.valueOf((String) data.get("passengerType")) : TrvPassenger.PassengerType.ADULT)
+            .phone((String) data.get("phone"))
+            .email((String) data.get("email"))
             .booking(svc.getBooking())
             .build();
         TrvPassenger saved = passengerRepo.save(p);

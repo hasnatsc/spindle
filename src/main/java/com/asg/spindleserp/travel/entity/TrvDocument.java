@@ -19,8 +19,8 @@ import java.io.Serializable;
 public class TrvDocument extends BaseEntity implements Serializable {
 
     public enum EntityType {
-        BOOKING, PASSENGER, HOTEL_BOOKING, AIR_TICKET, VISA_APPLICATION,
-        PACKAGE_BOOKING, TOUR_BOOKING, SUPPLIER_COST
+        BOOKING, PASSENGER, HOTEL_BOOKING, AIR_TICKET, AIR_TICKET_PAX,
+        VISA_APPLICATION, PACKAGE_BOOKING, TOUR_BOOKING, SUPPLIER_COST
     }
 
     public enum DocumentType {
