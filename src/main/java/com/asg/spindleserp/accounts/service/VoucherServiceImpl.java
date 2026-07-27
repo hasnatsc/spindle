@@ -321,7 +321,7 @@ public class VoucherServiceImpl implements VoucherService {
                     ), 0) >= (SELECT total_amount FROM acc_journal_entry_master WHERE id = sc.journal_entry_id)
                     THEN 'PAID'
                     WHEN COALESCE((
-                        SELECT SUM(a.allocated_amount)
+                        SELECT SUM(a.allocated_amount + a.discount_amount + a.write_off_amount)
                         FROM acc_voucher_allocations a
                         WHERE a.source_voucher_id = sc.journal_entry_id
                     ), 0) > 0
@@ -359,7 +359,7 @@ public class VoucherServiceImpl implements VoucherService {
                     ), 0) >= (SELECT total_amount FROM acc_journal_entry_master WHERE id = sc.journal_entry_id)
                     THEN 'PAID'
                     WHEN COALESCE((
-                        SELECT SUM(a.allocated_amount)
+                        SELECT SUM(a.allocated_amount + a.discount_amount + a.write_off_amount)
                         FROM acc_voucher_allocations a
                         WHERE a.source_voucher_id = sc.journal_entry_id
                     ), 0) > 0

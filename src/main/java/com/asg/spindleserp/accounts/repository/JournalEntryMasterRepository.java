@@ -96,4 +96,7 @@ public interface JournalEntryMasterRepository extends JpaRepository<JournalEntry
             String referenceNo,
             VoucherType voucherType
     );
+
+    @Query("SELECT j FROM JournalEntryMaster j WHERE j.organization.id = :orgId AND j.referenceNo = :refNo AND j.voucherType = :vType")
+    List<JournalEntryMaster> findAllByOrgAndRefAndType(@Param("orgId") Long orgId, @Param("refNo") String refNo, @Param("vType") VoucherType vType);
 }

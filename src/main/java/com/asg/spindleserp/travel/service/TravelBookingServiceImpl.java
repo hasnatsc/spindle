@@ -228,6 +228,11 @@ public class TravelBookingServiceImpl implements TravelBookingService {
             } else {
                 booking.setStatus(TrvBooking.Status.CONFIRMED);
             }
+        } else {
+            // No receipts to process — booking confirmed without payment
+            booking.setPaidAmount(BigDecimal.ZERO);
+            booking.setDueAmount(booking.getTotalAmount());
+            booking.setStatus(TrvBooking.Status.CONFIRMED);
         }
         booking.setUpdatedBy(user);
         booking.setUpdatedAt(LocalDateTime.now());
@@ -284,6 +289,8 @@ public class TravelBookingServiceImpl implements TravelBookingService {
             throw new IllegalStateException("Use cancel() for DRAFT bookings.");
         if (booking.getStatus() == TrvBooking.Status.CANCELLED)
             throw new IllegalStateException("Booking " + booking.getBookingNo() + " is already cancelled.");
+        if (booking.getStatus() == TrvBooking.Status.COMPLETED)
+            throw new IllegalStateException("Booking " + booking.getBookingNo() + " is COMPLETED and cannot be reversed.");
 
         Long orgId = ContextProvider.getOrganizationId();
         String user = SecurityHelper.currentUsername().orElse("system");
@@ -294,13 +301,17 @@ public class TravelBookingServiceImpl implements TravelBookingService {
                 reason != null && !reason.isBlank() ? "Reversal: " + reason : "Reversal of booking " + booking.getBookingNo());
         }
 
-        // Reverse any RECEIPT_VOUCHER linked to this booking
+        // Reverse ALL RECEIPT_VOUCHERs linked to this booking (there may be multiple partial payments)
         try {
-            jemRepo.findByOrganizationIdAndReferenceNoAndVoucherType(orgId, booking.getBookingNo(), VoucherType.RECEIPT_VOUCHER)
-                .filter(rv -> !rv.isReversed() && "POSTED".equals(rv.getVoucherStatus()))
-                .ifPresent(rv -> voucherService.reverse(rv.getId(), "Reversal of receipt for cancelled booking " + booking.getBookingNo()));
+            List<JournalEntryMaster> receiptVouchers = jemRepo
+                .findAllByOrgAndRefAndType(orgId, booking.getBookingNo(), VoucherType.RECEIPT_VOUCHER);
+            for (JournalEntryMaster rv : receiptVouchers) {
+                if (!rv.isReversed() && "POSTED".equals(rv.getVoucherStatus())) {
+                    voucherService.reverse(rv.getId(), "Reversal of receipt for cancelled booking " + booking.getBookingNo());
+                }
+            }
         } catch (Exception e) {
-            log.warn("Could not reverse receipt voucher for booking {}: {}", booking.getBookingNo(), e.getMessage());
+            log.warn("Could not reverse receipt voucher(s) for booking {}: {}", booking.getBookingNo(), e.getMessage());
         }
 
         // Update booking status

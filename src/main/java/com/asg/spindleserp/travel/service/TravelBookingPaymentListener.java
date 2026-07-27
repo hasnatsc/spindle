@@ -98,7 +98,7 @@ public class TravelBookingPaymentListener {
                 if (start < 0) return;
                 int end = narration.indexOf("]", start);
                 if (end < 0) return;
-                Long salesVoucherId = Long.parseLong(narration.substring(start + 14, end));
+                Long salesVoucherId = Long.parseLong(narration.substring(start + 15, end));
 
                 jemRepo.findById(salesVoucherId).ifPresent(salesJem -> {
                     VoucherDTO.AllocationDTO alloc = new VoucherDTO.AllocationDTO();
