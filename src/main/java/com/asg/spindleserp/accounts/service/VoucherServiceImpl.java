@@ -2,6 +2,7 @@ package com.asg.spindleserp.accounts.service;
 
 import com.asg.spindleserp.accounts.dto.VoucherDTO;
 import com.asg.spindleserp.accounts.entity.*;
+import com.asg.spindleserp.accounts.event.VoucherPostedEvent;
 import com.asg.spindleserp.accounts.repository.*;
 import com.asg.spindleserp.approval.dto.ApprovalRequestDTO;
 import com.asg.spindleserp.approval.service.ApprovalService;
@@ -15,6 +16,7 @@ import com.asg.spindleserp.setup.service.DocumentSequenceService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -53,6 +55,7 @@ public class VoucherServiceImpl implements VoucherService {
     private final ChartOfAccountSubRepository subRepo;
     private final VoucherAllocationRepository allocRepo;
     private final DocumentSequenceService seqService;
+    private final ApplicationEventPublisher eventPublisher;
     private final JdbcTemplate jdbcTemplate;
 
     @Autowired
@@ -187,7 +190,32 @@ public class VoucherServiceImpl implements VoucherService {
             adjustSubAccountBalance(entity, false);
         }
 
-        return toDTO(masterRepo.save(entity));
+        JournalEntryMaster saved = masterRepo.save(entity);
+
+        // Publish event for downstream modules (travel booking payment tracking, etc.)
+        publishPostEvent(saved);
+
+        return toDTO(saved);
+    }
+
+    /**
+     * Publish a VoucherPostedEvent so that downstream modules (Travel, Purchase, etc.)
+     * can sync their own payment-status tracking when a voucher referencing their
+     * documents is posted.
+     */
+    private void publishPostEvent(JournalEntryMaster voucher) {
+        try {
+            eventPublisher.publishEvent(new VoucherPostedEvent(
+                    voucher.getId(),
+                    voucher.getVoucherType() != null ? voucher.getVoucherType().name() : null,
+                    voucher.getVoucherStatus(),
+                    voucher.getReferenceNo(),
+                    voucher.getOrganization() != null ? voucher.getOrganization().getId() : null
+            ));
+        } catch (Exception e) {
+            log.warn("Failed to publish VoucherPostedEvent for voucher {}: {}",
+                    voucher.getId(), e.getMessage());
+        }
     }
 
     private boolean hasApprovalConfig(JournalEntryMaster entity) {
@@ -266,6 +294,83 @@ public class VoucherServiceImpl implements VoucherService {
             pv.setAllocatedAmount(finalApplied);
             masterRepo.save(pv);
         });
+
+        // Sync travel supplier-cost payment status when a PAYMENT_VOUCHER is allocated
+        if ("PAYMENT_VOUCHER".equals(payingVoucher.getVoucherType() != null ? payingVoucher.getVoucherType().name() : "")) {
+            syncSupplierCosts(payingVoucher.getId());
+        }
+    }
+
+    /**
+     * Updates TrvSupplierCost paymentStatus based on allocations against
+     * the DEBIT_NOTEs that the given PAYMENT_VOUCHER pays.
+     * <p>
+     * Uses SQL-only — no Java-level dependency on the travel module. The
+     * try/catch makes this safe even if the travel module is not deployed.
+     */
+    private void syncSupplierCosts(Long payingVoucherId) {
+        try {
+            int updated = jdbcTemplate.update("""
+                UPDATE trv_supplier_costs sc
+                SET payment_status = CASE
+                    WHEN COALESCE((
+                        SELECT SUM(a.allocated_amount + a.discount_amount + a.write_off_amount)
+                        FROM acc_voucher_allocations a
+                        WHERE a.source_voucher_id = sc.journal_entry_id
+                    ), 0) >= (SELECT total_amount FROM acc_journal_entry_master WHERE id = sc.journal_entry_id)
+                    THEN 'PAID'
+                    WHEN COALESCE((
+                        SELECT SUM(a.allocated_amount)
+                        FROM acc_voucher_allocations a
+                        WHERE a.source_voucher_id = sc.journal_entry_id
+                    ), 0) > 0
+                    THEN 'PARTIAL'
+                    ELSE 'UNPAID'
+                END
+                WHERE sc.journal_entry_id IN (
+                    SELECT a.source_voucher_id
+                    FROM acc_voucher_allocations a
+                    WHERE a.paying_voucher_id = ?
+                )
+                """, payingVoucherId);
+            if (updated > 0) {
+                log.info("Updated {} supplier cost(s) linked to PAYMENT_VOUCHER #{}", updated, payingVoucherId);
+            }
+        } catch (Exception e) {
+            log.debug("Could not sync supplier costs for PAYMENT_VOUCHER #{}: {} (travel module may not be deployed)",
+                      payingVoucherId, e.getMessage());
+        }
+    }
+
+    /**
+     * Syncs a single supplier cost by its DEBIT_NOTE (source voucher) ID.
+     * Used during PAYMENT_VOUCHER reversal when allocations have been deleted.
+     */
+    private void syncSupplierCostBySource(Long sourceVoucherId) {
+        try {
+            jdbcTemplate.update("""
+                UPDATE trv_supplier_costs sc
+                SET payment_status = CASE
+                    WHEN COALESCE((
+                        SELECT SUM(a.allocated_amount + a.discount_amount + a.write_off_amount)
+                        FROM acc_voucher_allocations a
+                        WHERE a.source_voucher_id = sc.journal_entry_id
+                    ), 0) >= (SELECT total_amount FROM acc_journal_entry_master WHERE id = sc.journal_entry_id)
+                    THEN 'PAID'
+                    WHEN COALESCE((
+                        SELECT SUM(a.allocated_amount)
+                        FROM acc_voucher_allocations a
+                        WHERE a.source_voucher_id = sc.journal_entry_id
+                    ), 0) > 0
+                    THEN 'PARTIAL'
+                    ELSE 'UNPAID'
+                END
+                WHERE sc.journal_entry_id = ?
+                """, sourceVoucherId);
+        } catch (Exception e) {
+            log.debug("Could not sync supplier cost for debit note #{}: {}",
+                      sourceVoucherId, e.getMessage());
+        }
     }
 
     // =========================================================================
@@ -331,6 +436,11 @@ public class VoucherServiceImpl implements VoucherService {
 
         // Undo all allocations made BY the original paying voucher
         List<VoucherAllocation> paidAllocs = allocRepo.findByPayingVoucherId(original.getId());
+        // Collect affected DEBIT_NOTE IDs before deletion for supplier cost sync
+        List<Long> affectedSourceIds = paidAllocs.stream()
+                .map(a -> a.getSourceVoucher().getId())
+                .distinct()
+                .toList();
         for (VoucherAllocation alloc : paidAllocs) {
             BigDecimal totalUndo = alloc.getAllocatedAmount()
                     .add(alloc.getDiscountAmount())
@@ -343,12 +453,34 @@ public class VoucherServiceImpl implements VoucherService {
         }
         allocRepo.deleteByPayingVoucherId(original.getId());
 
+        // Sync supplier costs for DEBIT_NOTEs that no longer have this payment
+        if ("PAYMENT_VOUCHER".equals(original.getVoucherType() != null ? original.getVoucherType().name() : "")) {
+            affectedSourceIds.forEach(this::syncSupplierCostBySource);
+        }
+
         // Mark original as reversed
         original.setVoucherStatus("REVERSED");
         original.setReversed(true);
         masterRepo.save(original);
 
-        return toDTO(masterRepo.save(mirror));
+        JournalEntryMaster savedMirror = masterRepo.save(mirror);
+
+        // Publish event so downstream modules can react to the reversal
+        try {
+            eventPublisher.publishEvent(new VoucherPostedEvent(
+                    savedMirror.getId(),
+                    savedMirror.getVoucherType() != null ? savedMirror.getVoucherType().name() : null,
+                    savedMirror.getVoucherStatus(),
+                    savedMirror.getReferenceNo(),
+                    savedMirror.getOrganization() != null ? savedMirror.getOrganization().getId() : null,
+                    original.getId()  // reversedVoucherId — identifies the original
+            ));
+        } catch (Exception e) {
+            log.warn("Failed to publish reversal VoucherPostedEvent for mirror {}: {}",
+                    savedMirror.getId(), e.getMessage());
+        }
+
+        return toDTO(savedMirror);
     }
 
     // =========================================================================

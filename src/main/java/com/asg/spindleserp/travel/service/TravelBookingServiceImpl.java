@@ -17,6 +17,7 @@ import com.asg.spindleserp.security.auth.ContextProvider;
 import com.asg.spindleserp.security.auth.SecurityHelper;
 import com.asg.spindleserp.setup.service.DocumentSequenceService;
 import com.asg.spindleserp.travel.dto.TrvBookingDTO;
+import com.asg.spindleserp.travel.dto.TrvBookingDTO.VoucherRef;
 import com.asg.spindleserp.travel.entity.*;
 import com.asg.spindleserp.travel.repository.*;
 import lombok.RequiredArgsConstructor;
@@ -298,6 +299,75 @@ public class TravelBookingServiceImpl implements TravelBookingService {
         logStatus(saved, TrvBooking.Status.CANCELLED, "Booking reversed." + (reason != null ? " Reason: " + reason : ""));
         return toDTO(saved);
     }
+    @Override
+    public TrvBookingDTO partialRefund(Long id, List<Long> receiptVoucherIds, String reason) {
+        TrvBooking booking = findBooking(id);
+        if (booking.getStatus() != TrvBooking.Status.PARTIALLY_PAID
+                && booking.getStatus() != TrvBooking.Status.PAID)
+            throw new IllegalStateException(
+                    "Booking " + booking.getBookingNo() + " must be PARTIALLY_PAID or PAID for partial refund. Current: " + booking.getStatus());
+        if (receiptVoucherIds == null || receiptVoucherIds.isEmpty())
+            throw new IllegalArgumentException("At least one RECEIPT_VOUCHER ID is required for partial refund.");
+
+        Long orgId = ContextProvider.getOrganizationId();
+        String user = SecurityHelper.currentUsername().orElse("system");
+
+        BigDecimal totalRefund = BigDecimal.ZERO;
+        for (Long rvId : receiptVoucherIds) {
+            JournalEntryMaster rv = jemRepo.findById(rvId)
+                    .orElseThrow(() -> new IllegalArgumentException("RECEIPT_VOUCHER #" + rvId + " not found."));
+            if (rv.getVoucherType() != VoucherType.RECEIPT_VOUCHER)
+                throw new IllegalArgumentException("Voucher #" + rvId + " is not a RECEIPT_VOUCHER.");
+            if (!"POSTED".equals(rv.getVoucherStatus()) || rv.isReversed())
+                throw new IllegalArgumentException("RECEIPT_VOUCHER #" + rvId + " is not posted or already reversed.");
+            // Verify it belongs to this booking
+            if (!booking.getBookingNo().equals(rv.getReferenceNo()))
+                throw new IllegalArgumentException("RECEIPT_VOUCHER #" + rvId + " does not reference booking " + booking.getBookingNo());
+
+            voucherService.reverse(rvId, reason != null && !reason.isBlank()
+                    ? "Partial refund: " + reason
+                    : "Partial refund of booking " + booking.getBookingNo());
+            totalRefund = totalRefund.add(rv.getTotalAmount() != null ? rv.getTotalAmount() : BigDecimal.ZERO);
+        }
+
+        // Recalculate booking payment status from remaining posted receipts
+        BigDecimal totalReceived = calculateTotalReceived(orgId, booking.getBookingNo());
+        booking.setPaidAmount(totalReceived);
+        booking.setDueAmount(booking.getTotalAmount().subtract(totalReceived));
+        if (totalReceived.compareTo(BigDecimal.ZERO) > 0
+                && totalReceived.compareTo(booking.getTotalAmount()) >= 0) {
+            booking.setStatus(TrvBooking.Status.PAID);
+        } else if (totalReceived.compareTo(BigDecimal.ZERO) > 0) {
+            booking.setStatus(TrvBooking.Status.PARTIALLY_PAID);
+        } else {
+            // All receipts reversed — booking goes back to CONFIRMED
+            booking.setStatus(TrvBooking.Status.CONFIRMED);
+        }
+        booking.setUpdatedBy(user);
+        booking.setUpdatedAt(LocalDateTime.now());
+        TrvBooking saved = bookingRepo.save(booking);
+
+        logStatus(saved, saved.getStatus(), "Partial refund of " + totalRefund
+                + (reason != null && !reason.isBlank() ? ": " + reason : ""));
+        log.info("Booking {} partial refund of {}. New paid={}, status={}",
+                booking.getBookingNo(), totalRefund, totalReceived, saved.getStatus());
+        return toDTO(saved);
+    }
+
+    /** Sums posted (non-reversed) RECEIPT_VOUCHERs for this booking. */
+    private BigDecimal calculateTotalReceived(Long orgId, String bookingNo) {
+        String sql = """
+            SELECT COALESCE(SUM(j.total_amount), 0)
+            FROM acc_journal_entry_master j
+            WHERE j.organization_id = ?
+              AND j.voucher_type    = 'RECEIPT_VOUCHER'
+              AND j.voucher_status  = 'POSTED'
+              AND j.is_reversed     = FALSE
+              AND j.reference_no    = ?
+            """;
+        return jdbcTemplate.queryForObject(sql, BigDecimal.class, orgId, bookingNo);
+    }
+
     @Override
     public void delete(Long id) {
         TrvBooking booking = findBooking(id);
@@ -692,6 +762,7 @@ public class TravelBookingServiceImpl implements TravelBookingService {
             .salesAgentId(e.getSalesAgentId())
             .approvalRequestId(e.getApprovalRequestId())
             .journalEntryId(e.getJournalEntryId())
+            .relatedVouchers(fetchRelatedVouchers(e))
             .createdAt(e.getCreatedAt() != null ? e.getCreatedAt().toString() : null)
             .updatedAt(e.getUpdatedAt() != null ? e.getUpdatedAt().toString() : null)
             .createdBy(e.getCreatedBy())
@@ -1113,6 +1184,45 @@ public class TravelBookingServiceImpl implements TravelBookingService {
         } catch (Exception e) {
             log.debug("Failed to resolve payment mode account for {}: {}", paymentModeStr, e.getMessage());
             return null;
+        }
+    }
+
+    /**
+     * Fetches all accounting vouchers linked to this booking by matching
+     * referenceNo = bookingNo (SALES_VOUCHER + RECEIPT_VOUCHERs).
+     */
+    private List<VoucherRef> fetchRelatedVouchers(TrvBooking booking) {
+        if (booking.getBookingNo() == null) return List.of();
+        Long orgId = SecurityHelper.requireOrgId();
+        try {
+            List<Map<String, Object>> rows = jdbcTemplate.queryForList("""
+                SELECT DISTINCT j.id, j.voucher_no, j.voucher_type, j.voucher_status,
+                       j.reference_no, j.payment_mode,
+                       TO_CHAR(j.voucher_date, 'DD-Mon-YYYY') AS voucher_date,
+                       j.total_amount, j.is_reversed,
+                       COALESCE(j.narration, '') AS narration
+                FROM   acc_journal_entry_master j
+                WHERE  j.organization_id = ?
+                  AND  (j.reference_no = ? OR j.id = ?)
+                  AND  j.voucher_type IN ('SALES_VOUCHER', 'RECEIPT_VOUCHER')
+                ORDER  BY j.voucher_date ASC, j.id ASC
+                """, orgId, booking.getBookingNo(),
+                    booking.getJournalEntryId() != null ? booking.getJournalEntryId() : -1L);
+            return rows.stream().map(r -> VoucherRef.builder()
+                .id(CommonUtils.toLong(r.get("id")))
+                .voucherNo((String) r.get("voucher_no"))
+                .voucherType((String) r.get("voucher_type"))
+                .voucherStatus((String) r.get("voucher_status"))
+                .referenceNo((String) r.get("reference_no"))
+                .paymentMode((String) r.get("payment_mode"))
+                .voucherDate((String) r.get("voucher_date"))
+                .narration((String) r.get("narration"))
+                .amount(CommonUtils.getBigDecimal(r.get("total_amount")))
+                .isReversed(Boolean.TRUE.equals(r.get("is_reversed")))
+                .build()).collect(Collectors.toList());
+        } catch (Exception ex) {
+            log.debug("Could not fetch related vouchers for booking {}: {}", booking.getId(), ex.getMessage());
+            return List.of();
         }
     }
 

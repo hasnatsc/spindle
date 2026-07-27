@@ -41,6 +41,18 @@ public interface TravelBookingService {
     TrvBookingDTO reverse(Long id, String reason);
 
     /**
+     * Reverses specific RECEIPT_VOUCHERs for a booking (partial refund) without
+     * cancelling the entire booking. After reversal the booking's paidAmount,
+     * dueAmount, and status are recalculated.
+     *
+     * @param id                booking ID
+     * @param receiptVoucherIds RECEIPT_VOUCHER IDs to reverse
+     * @param reason            optional reason for the refund
+     * @return updated booking DTO
+     */
+    TrvBookingDTO partialRefund(Long id, java.util.List<Long> receiptVoucherIds, String reason);
+
+    /**
      * Pre-fills a Receipt Voucher for a CONFIRMED booking with due balance.
      * Mirror of SalesServiceImpl.populateReceiptFromInvoice().
      */

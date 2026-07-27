@@ -12,6 +12,7 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -26,6 +27,7 @@ import java.util.Map;
  *   GET    /travel/bookings/show/{id}
  *   POST   /travel/bookings/save
  *   POST   /travel/bookings/confirm/{id}
+ *   POST   /travel/bookings/partial-refund/{id}?receiptVoucherIds=1,2,3&reason=
  *   POST   /travel/bookings/cancel/{id}
  *   DELETE /travel/bookings/delete/{id}
  *   GET    /travel/bookings/receipt-prefill?bookingId=
@@ -122,6 +124,23 @@ public class TravelBookingController {
             TrvBookingDTO dto = bookingService.confirm(id);
             res.put("success", true);
             res.put("message", "Booking " + dto.getBookingNo() + " confirmed successfully.");
+        } catch (Exception e) { res.put("success", false); res.put("message", e.getMessage()); }
+        return res;
+    }
+
+    // ── PARTIAL REFUND (reverse specific RECEIPT_VOUCHERs) ────────────────────
+
+    @PostMapping("/bookings/partial-refund/{id}")
+    @ResponseBody
+    public Map<String, Object> partialRefund(@PathVariable Long id,
+                                              @RequestParam List<Long> receiptVoucherIds,
+                                              @RequestParam(defaultValue = "") String reason) {
+        Map<String, Object> res = new HashMap<>();
+        try {
+            TrvBookingDTO dto = bookingService.partialRefund(id, receiptVoucherIds, reason);
+            res.put("success", true);
+            res.put("message", "Partial refund processed. Booking " + dto.getBookingNo()
+                    + " now " + dto.getStatus() + ".");
         } catch (Exception e) { res.put("success", false); res.put("message", e.getMessage()); }
         return res;
     }

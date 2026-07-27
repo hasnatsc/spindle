@@ -74,6 +74,14 @@ public class TrvBookingDTO {
     @Builder.Default
     private List<ReceiptLineDTO> receipts = new ArrayList<>();
 
+    /**
+     * All accounting vouchers linked to this booking, populated on read.
+     * Contains the SALES_VOUCHER plus any RECEIPT_VOUCHERs referencing this
+     * bookingNo — enables traceability from travel booking to GL entries.
+     */
+    @Builder.Default
+    private List<VoucherRef> relatedVouchers = new ArrayList<>();
+
     private String createdAt;
     private String updatedAt;
     private String createdBy;
@@ -140,6 +148,25 @@ public class TrvBookingDTO {
         private String subAccountText;
         private String reference;
         private BigDecimal amount;
+    }
+
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class VoucherRef {
+        private Long   id;
+        private String voucherNo;
+        private String voucherType;
+        private String voucherStatus;
+        private String referenceNo;
+        private String paymentMode;
+        private String voucherDate;
+        private String narration;
+        private BigDecimal amount;
+        @Builder.Default
+        private Boolean isReversed = false;
     }
 
     @Getter
