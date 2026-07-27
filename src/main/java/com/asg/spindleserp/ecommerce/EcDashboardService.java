@@ -43,9 +43,6 @@ public class EcDashboardService {
     @Transactional(readOnly = true)
     public Map<String, Object> summary() {
         Long orgId = SecurityHelper.currentOrgId().orElse(null);
-        String f  = orgId != null ? " AND o.organization_id = " + orgId : "";
-        String fc = orgId != null ? " AND c.organization_id = " + orgId : "";
-        String fp = orgId != null ? " AND p.organization_id = " + orgId : "";
 
         String today    = LocalDate.now().toString();
         String mtdStart = LocalDate.now().withDayOfMonth(1).toString();
@@ -67,7 +64,7 @@ public class EcDashboardService {
     // 1. KPI HEADLINE CARDS
     // ─────────────────────────────────────────────────────────────────────────
     private void _loadKpi(Map<String, Object> res, Long orgId, String today, String mtdStart) {
-        String f = orgId != null ? " AND organization_id = " + orgId : "";
+        String orgFilter = orgId != null ? " AND organization_id = ?" : "";
 
         // Orders
         String orderSql = """
@@ -90,8 +87,10 @@ public class EcDashboardService {
                 COALESCE(SUM(grand_total) FILTER (
                     WHERE order_status NOT IN ('CANCELLED')), 0)            AS revenue_total
             FROM ec_orders WHERE 1=1
-            """ + f;
-        List<Map<String, Object>> orderRows = jdbc.queryForList(orderSql, today, mtdStart, today, mtdStart);
+            """ + orgFilter;
+        List<Map<String, Object>> orderRows = orgId != null
+                ? jdbc.queryForList(orderSql, today, mtdStart, today, mtdStart, orgId)
+                : jdbc.queryForList(orderSql, today, mtdStart, today, mtdStart);
         Map<String, Object> ok = orderRows.isEmpty() ? Map.of() : orderRows.get(0);
 
         // Customers
@@ -101,8 +100,10 @@ public class EcDashboardService {
                 COUNT(*) FILTER (WHERE DATE(created_at) >= ?::date) AS new_customers_mtd,
                 COUNT(*)                                            AS total_customers
             FROM ec_customers WHERE 1=1
-            """ + (orgId != null ? " AND organization_id = " + orgId : "");
-        List<Map<String, Object>> custRows = jdbc.queryForList(custSql, mtdStart);
+            """ + orgFilter;
+        List<Map<String, Object>> custRows = orgId != null
+                ? jdbc.queryForList(custSql, mtdStart, orgId)
+                : jdbc.queryForList(custSql, mtdStart);
         Map<String, Object> ck = custRows.isEmpty() ? Map.of() : custRows.get(0);
 
         // Products
@@ -112,8 +113,10 @@ public class EcDashboardService {
                 COUNT(*) FILTER (WHERE active = true)                       AS active_products,
                 COUNT(*)                                                    AS total_products
             FROM ec_product_catalog WHERE 1=1
-            """ + (orgId != null ? " AND organization_id = " + orgId : "");
-        List<Map<String, Object>> prodRows = jdbc.queryForList(prodSql);
+            """ + orgFilter;
+        List<Map<String, Object>> prodRows = orgId != null
+                ? jdbc.queryForList(prodSql, orgId)
+                : jdbc.queryForList(prodSql);
         Map<String, Object> pk = prodRows.isEmpty() ? Map.of() : prodRows.get(0);
 
         // Average order value (MTD, non-cancelled)
@@ -122,16 +125,20 @@ public class EcDashboardService {
             FROM ec_orders
             WHERE DATE(created_at) >= ?::date
               AND order_status NOT IN ('CANCELLED')
-            """ + (orgId != null ? " AND organization_id = " + orgId : "");
-        BigDecimal avgOrder = jdbc.queryForObject(avgSql, BigDecimal.class, mtdStart);
+            """ + orgFilter;
+        BigDecimal avgOrder = orgId != null
+                ? jdbc.queryForObject(avgSql, BigDecimal.class, mtdStart, orgId)
+                : jdbc.queryForObject(avgSql, BigDecimal.class, mtdStart);
 
         // Reviews pending moderation
         String revSql = """
             SELECT COUNT(*) AS pending_reviews
             FROM ec_reviews
             WHERE review_status = 'PENDING'
-            """ + (orgId != null ? " AND organization_id = " + orgId : "");
-        Long pendingReviews = jdbc.queryForObject(revSql, Long.class);
+            """ + orgFilter;
+        Long pendingReviews = orgId != null
+                ? jdbc.queryForObject(revSql, Long.class, orgId)
+                : jdbc.queryForObject(revSql, Long.class);
 
         Map<String, Object> kpi = new LinkedHashMap<>();
         kpi.put("ordersToday",       toLong(ok, "orders_today"));
@@ -161,11 +168,11 @@ public class EcDashboardService {
         String sql = """
             SELECT order_status, COUNT(*) AS cnt
             FROM ec_orders
-            """ + (orgId != null ? " WHERE organization_id = " + orgId +" " : "") + """
+            """ + (orgId != null ? " WHERE organization_id = ? " : "") + """
             GROUP BY order_status
             ORDER BY cnt DESC
             """;
-        res.put("orderStatus", jdbc.queryForList(sql));
+        res.put("orderStatus", orgId != null ? jdbc.queryForList(sql, orgId) : jdbc.queryForList(sql));
     }
 
     // ─────────────────────────────────────────────────────────────────────────

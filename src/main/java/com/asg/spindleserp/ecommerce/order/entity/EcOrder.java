@@ -93,7 +93,7 @@ public class EcOrder extends BaseEntity {
     @Builder.Default @Column(precision = 18, scale = 2) private BigDecimal couponDiscount  = BigDecimal.ZERO;
     @Builder.Default @Column(precision = 18, scale = 2) private BigDecimal shippingCharge  = BigDecimal.ZERO;
     @Builder.Default @Column(precision = 18, scale = 2) private BigDecimal taxAmount       = BigDecimal.ZERO;
-    @Column(nullable = false, precision = 18, scale = 2) private BigDecimal grandTotal;
+    @Builder.Default @Column(nullable = false, precision = 18, scale = 2) private BigDecimal grandTotal = BigDecimal.ZERO;
     @Builder.Default @Column(precision = 18, scale = 2) private BigDecimal paidAmount      = BigDecimal.ZERO;
     @Builder.Default @Column(precision = 18, scale = 2) private BigDecimal dueAmount       = BigDecimal.ZERO;
 
