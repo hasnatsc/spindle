@@ -1,5 +1,6 @@
 package com.asg.spindleserp.travel.dto;
 
+import jakarta.validation.constraints.NotNull;
 import lombok.*;
 
 import java.math.BigDecimal;
@@ -16,7 +17,10 @@ public class TrvTourBookingDTO {
     private String confirmationNumber;
     @Builder.Default private String status = "PENDING";
 
+    @NotNull(message = "Booking service line is required.")
     private Long bookingServiceId;
-    private Long tourId; private String tourDisplay;
+    @NotNull(message = "Tour is required.")
+    private Long tourId;
+    private String tourDisplay;
     private Long guideId; private String guideDisplay;
 }

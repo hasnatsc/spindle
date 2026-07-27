@@ -100,8 +100,9 @@ public class TravelPortalController {
     public String tours(@RequestParam(required = false) String q, Model model) {
         List<TrvTourDTO> items = (q != null && !q.isBlank())
                 ? tourService.findAllActive().stream()
-                    .filter(t -> t.getTourName() != null
-                        && t.getTourName().toLowerCase().contains(q.toLowerCase()))
+                    .filter(t -> (t.getTourName() != null && t.getTourName().toLowerCase().contains(q.toLowerCase()))
+                        || (t.getDestination() != null && t.getDestination().toLowerCase().contains(q.toLowerCase()))
+                        || (t.getTourCode() != null && t.getTourCode().toLowerCase().contains(q.toLowerCase())))
                     .collect(Collectors.toList())
                 : tourService.findAllActive();
         model.addAttribute("tours", items);
@@ -184,7 +185,7 @@ public class TravelPortalController {
             passengers.add(lead);
 
             TrvBookingDTO booking = TrvBookingDTO.builder()
-                    .bookingType("TOUR".equalsIgnoreCase(type) ? "PACKAGE" : "PACKAGE") // schema allows PACKAGE|HOTEL|AIR|COMBINED
+                    .bookingType("PACKAGE")
                     .bookingDate(LocalDate.now())
                     .status("DRAFT")
                     .currency("BDT")

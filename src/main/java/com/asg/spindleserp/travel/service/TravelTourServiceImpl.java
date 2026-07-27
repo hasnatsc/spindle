@@ -101,7 +101,12 @@ public class TravelTourServiceImpl implements TravelTourService {
     @Transactional(readOnly = true)
     public List<TrvTourDTO> findAllActive() {
         return tourRepo.findByIsActiveTrue().stream()
-                .map(p -> findTourById(p.getId()))
+                .map(e -> TrvTourDTO.builder()
+                        .id(e.getId()).tourCode(e.getTourCode()).tourName(e.getTourName())
+                        .destination(e.getDestination()).durationHours(e.getDurationHours())
+                        .basePrice(e.getBasePrice()).currency(e.getCurrency())
+                        .description(e.getDescription()).isActive(e.getIsActive())
+                        .build())
                 .collect(Collectors.toList());
     }
 
