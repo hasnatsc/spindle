@@ -9,14 +9,45 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Locale;
 
+/**
+ * ChartOfAccountSub — the sub-ledger under a Chart of Account head.
+ *
+ * <h3>What changed in this revision</h3>
+ * <p>Five columns carried a bare {@code unique = true}: {@code sub_account_code},
+ * {@code account_number}, {@code bank_account_code}, {@code cash_account_code} and
+ * {@code lc_number}. In a single-tenant system that is right. Here it means the
+ * first organisation to create customer <em>CUS-0001</em> permanently blocks every
+ * other organisation on the instance from using that code — a cross-tenant
+ * collision that surfaces as a baffling "already exists" on a code the user has
+ * never seen.</p>
+ *
+ * <p>Uniqueness is now scoped to the organisation:</p>
+ * <ul>
+ *   <li>{@code (organization_id, sub_account_code)} — declared below, so
+ *       {@code ddl-auto=update} keeps it;</li>
+ *   <li>the four optional codes get <em>partial</em> unique indexes
+ *       ({@code WHERE col IS NOT NULL}) in {@code V310}, because a plain unique
+ *       constraint would be satisfied by many NULLs but not by many empty
+ *       strings — and empty strings are exactly what a blank form field used to
+ *       send. The service now collapses blanks to NULL for the same reason.</li>
+ * </ul>
+ *
+ * <p>Everything else is unchanged. Field set, discriminator strategy and the
+ * {@code subAccountType} read-only mapping are all as they were.</p>
+ */
 @Entity
 @Table(name = "acc_chart_of_accounts_sub",
+        uniqueConstraints = {
+                @UniqueConstraint(name = "uq_sub_org_code", columnNames = {"organization_id", "sub_account_code"})
+        },
         indexes = {
                 @Index(name = "idx_sub_org", columnList = "organization_id"),
                 @Index(name = "idx_sub_type", columnList = "sub_account_type"),
                 @Index(name = "idx_sub_main", columnList = "main_account_id"),
                 @Index(name = "idx_sub_bank", columnList = "bank_id"),
-                @Index(name = "idx_sub_org_type", columnList = "organization_id,sub_account_type")
+                @Index(name = "idx_sub_org_type", columnList = "organization_id,sub_account_type"),
+                // Covers the grid's default filter (org + type + active) in one scan.
+                @Index(name = "idx_sub_org_type_active", columnList = "organization_id,sub_account_type,is_active")
         })
 @Inheritance(strategy = InheritanceType.SINGLE_TABLE)
 @DiscriminatorColumn(name = "sub_account_type", discriminatorType = DiscriminatorType.STRING)
@@ -34,7 +65,8 @@ public abstract class ChartOfAccountSub extends BaseEntity {
     @JoinColumn(name = "main_account_id", nullable = false)
     private ChartOfAccount mainAccount;
 
-    @Column(nullable = false, unique = true, length = 50)
+    /** Unique per organisation — see uq_sub_org_code above, not a global unique. */
+    @Column(nullable = false, length = 50)
     private String subAccountCode;
 
     @Column(nullable = false, length = 200)
@@ -79,9 +111,11 @@ public abstract class ChartOfAccountSub extends BaseEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "bank_id")
     private Bank bank;
-    @Column(unique = true, length = 50)
+    /** Legacy mirror of subAccountCode. Per-org partial unique index in V310. */
+    @Column(length = 50)
     private String bankAccountCode;
-    @Column(unique = true, length = 50)
+    /** Per-org partial unique index in V310 — two orgs may hold the same A/C number. */
+    @Column(length = 50)
     private String accountNumber;
     @Column(length = 200)
     private String accountTitle;
@@ -113,7 +147,8 @@ public abstract class ChartOfAccountSub extends BaseEntity {
     private Long bankAccountLedgerId;
 
     // ── CASH-specific ───────────────────────────────────────────────────────
-    @Column(unique = true, length = 50)
+    /** Legacy mirror of subAccountCode. Per-org partial unique index in V310. */
+    @Column(length = 50)
     private String cashAccountCode;
     @Column(length = 20)
     private String cashAccountType;
@@ -192,6 +227,7 @@ public abstract class ChartOfAccountSub extends BaseEntity {
     private Long settlementAccountId;
 
     // ── CUSTOMER-specific ───────────────────────────────────────────────────
+    /** Legacy mirror of subAccountCode. */
     @Column(length = 50)
     private String customerCode;
     @Column(precision = 18, scale = 2)
@@ -207,6 +243,7 @@ public abstract class ChartOfAccountSub extends BaseEntity {
     private Boolean isExportCustomer = false;
 
     // ── SUPPLIER-specific ───────────────────────────────────────────────────
+    /** Legacy mirror of subAccountCode. */
     @Column(length = 50)
     private String supplierCode;
     private Integer leadTimeDays;
@@ -217,7 +254,8 @@ public abstract class ChartOfAccountSub extends BaseEntity {
     private String preferredCurrency;
 
     // ── LC-specific ─────────────────────────────────────────────────────────
-    @Column(unique = true, length = 100)
+    /** Per-org partial unique index in V310. */
+    @Column(length = 100)
     private String lcNumber;
     @Column(length = 100)
     private String manualLcNumber;
