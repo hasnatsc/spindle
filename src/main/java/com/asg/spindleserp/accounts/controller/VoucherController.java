@@ -143,7 +143,12 @@ public class VoucherController {
      * For Payment / Receipt vouchers, an optional JSON body with allocations is accepted:
      * { "allocations": [{sourceVoucherId, allocatedAmount, discountAmount, ...}] }
      * For Journal / Contra vouchers the body can be empty or {}.
-     * Allocations are only processed when the voucher actually reaches POSTED status.
+     * <p>
+     * Allocations are saved BEFORE the post action — they persist immediately even
+     * when the voucher enters PENDING_APPROVAL. After approval (completeApproval →
+     * executePost) the voucher status flips to POSTED and the pre-saved allocations
+     * become effective. This ensures allocations submitted with the POST are never
+     * lost in the approval handoff.
      */
     @PostMapping("/accounts/vouchers/post/{id}")
     @ResponseBody
@@ -151,22 +156,26 @@ public class VoucherController {
                                     @RequestBody(required = false) VoucherDTO allocationPayload) {
         Map<String, Object> res = new HashMap<>();
         try {
+            // Process allocations FIRST — saved immediately regardless of approval status.
+            // For POSTED vouchers: allocations take effect right away.
+            // For PENDING_APPROVAL vouchers: allocations are saved and will take effect
+            //   when the voucher is approved (completeApproval → executePost). If the
+            //   voucher is rejected, the allocations remain but are harmless (they
+            //   reference unposted vouchers that won't appear in reports).
+            if (allocationPayload != null
+                    && allocationPayload.getAllocations() != null
+                    && !allocationPayload.getAllocations().isEmpty()) {
+                JournalEntryMaster entity = voucherService.findEntityByIdPublic(id);
+                voucherService.processAllocations(entity, allocationPayload.getAllocations());
+            }
+
             VoucherDTO posted = voucherService.post(id);
 
             if ("PENDING_APPROVAL".equals(posted.getVoucherStatus())) {
-                // Voucher sent for approval — allocations processed after approval
                 res.put("success", true);
                 res.put("voucherStatus", "PENDING_APPROVAL");
                 res.put("message", "Voucher submitted for approval.");
             } else {
-                // Process allocations if provided (PV / RV only) — only after full posting
-                if (allocationPayload != null
-                        && allocationPayload.getAllocations() != null
-                        && !allocationPayload.getAllocations().isEmpty()) {
-                    JournalEntryMaster entity = voucherService.findEntityByIdPublic(id);
-                    voucherService.processAllocations(entity, allocationPayload.getAllocations());
-                }
-
                 res.put("success", true);
                 res.put("voucherNo", posted.getVoucherNo());
                 res.put("message", "Voucher " + posted.getVoucherNo() + " posted successfully.");
