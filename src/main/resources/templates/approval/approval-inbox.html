@@ -63,9 +63,11 @@
         </div>
         <div class="modal-body" id="inboxDetailBody"></div>
         <div class="modal-footer">
+          <button type="button" class="btn btn-info" id="inboxViewVoucherBtn" onclick="_openVoucherDetail()" style="display:none"><i class="fas fa-receipt me-1"></i> View Voucher</button>
           <button type="button" class="btn btn-success" id="inboxApproveDetailBtn" onclick="_approveFromModal()"><i class="fas fa-check me-1"></i> Approve</button>
           <button type="button" class="btn btn-danger"  onclick="_rejectFromModal()"><i class="fas fa-times me-1"></i> Reject</button>
           <button type="button" class="btn btn-warning" onclick="_returnFromModal()"><i class="fas fa-reply me-1"></i> Return</button>
+          <button type="button" class="btn btn-outline-secondary" onclick="_openVoucherDetail()" id="inboxViewVoucherBtn2" style="display:none"><i class="fas fa-receipt me-1"></i> View Voucher</button>
           <button type="button" class="btn btn-white" data-bs-dismiss="modal">Close</button>
         </div>
       </div>
@@ -76,7 +78,7 @@
   (function () {
     'use strict';
     const BASE = '/approval/inbox', REQ_BASE = '/approval/requests';
-    var dt, _currentReqId = null;
+    var dt, _currentReqId = null, _currentVoucherId = null;
 
     document.addEventListener('DOMContentLoaded', function () {
       dt = $('#inboxTable').DataTable({
@@ -110,9 +112,12 @@
 
     window.inboxShow = function(id) {
       _currentReqId = id;
+      _currentVoucherId = null;
       secureFetch(BASE+'/show/'+id).then(function(res) {
         if (!res.success) { Swal.fire('Error',res.message,'error'); return; }
         var o = res.obj.defaultData;
+        _currentVoucherId = _isVoucherType(o.documentType) ? o.referenceId : null;
+
         document.getElementById('inboxDetailTitle').innerHTML =
           '<i class="fa fa-eye me-1"></i> Review: ' + o.documentType + ' — ' + o.referenceNumber;
         var html = '<div class="hs-box"><div class="row g-2">'
@@ -143,10 +148,114 @@
             +'<td>'+(h.comments||h.rejectionReason||h.returnReason||'—')+'</td>'
             +'<td>'+(h.actionAt?h.actionAt.substring(0,16):'—')+'</td></tr>';
         });
-        html += '</tbody></table></div>';
+        html += '</tbody></table>';
+
+        // Collapsible voucher detail section
+        if (_currentVoucherId) {
+          html += '<div class="mt-3 border rounded">'
+            +'<div class="p-2 bg-light fw-bold cursor-pointer" onclick="_toggleVoucherSection()">'
+            +'<i class="fas fa-receipt me-1 text-primary"></i> Voucher Details <i class="fas fa-chevron-down float-end" id="voucherChevron"></i>'
+            +'</div>'
+            +'<div id="voucherDetailSection" style="display:none" class="p-2">'
+            +'<div class="text-center py-3"><span class="spinner-border spinner-border-sm me-2"></span> Loading voucher...</div>'
+            +'</div></div>';
+        }
+
+        html += '</div>';
         document.getElementById('inboxDetailBody').innerHTML = html;
+
+        // Show/hide the View Voucher button in the footer
+        document.getElementById('inboxViewVoucherBtn').style.display  = _currentVoucherId ? 'inline-block' : 'none';
+        document.getElementById('inboxViewVoucherBtn2').style.display = _currentVoucherId ? 'inline-block' : 'none';
+
+        // Auto-load voucher detail
+        if (_currentVoucherId) _loadVoucherDetail();
+
         bootstrap.Modal.getOrCreateInstance(document.getElementById('inboxDetailModal')).show();
       });
+    };
+
+    /** True if the document type is an accounts voucher. */
+    function _isVoucherType(type) {
+      if (!type) return false;
+      return type.indexOf('VOUCHER') !== -1 || type === 'DEBIT_NOTE' || type === 'CREDIT_NOTE';
+    }
+
+    /** Load voucher detail into the collapsible section. */
+    function _loadVoucherDetail() {
+      if (!_currentVoucherId) return;
+      secureFetch('/accounts/vouchers/show/'+_currentVoucherId).then(function(res) {
+        var section = document.getElementById('voucherDetailSection');
+        if (!section) return;
+        if (!res.success) {
+          section.innerHTML = '<div class="text-danger p-2">Could not load voucher: '+res.message+'</div>';
+          return;
+        }
+        var v = res.obj.defaultData;
+        var html = '<div class="row g-2 mt-1">'
+          +_vf('Voucher No', v.voucherNo||'—')
+          +_vf('Status', v.voucherStatus||'—')
+          +_vf('Total Amount', v.totalAmount ? parseFloat(v.totalAmount).toFixed(2) : '—')
+          +_vf('Payment Mode', v.paymentMode||'—')
+          +_vf('Party', v.partyDisplay||v.partyType||'—')
+          +_vf('Reference', v.referenceNo||'—')
+          +_vf('Narration', v.narration||'—')
+          +'</div>'
+          +'<h6 class="border-bottom pb-1 mt-2 mb-1">GL Lines</h6>'
+          +'<table class="table table-sm table-bordered mb-0"><thead class="table-light"><tr>'
+          +'<th>#</th><th>Account</th><th>Sub-Account</th><th>DR/CR</th><th class="text-end">Amount</th><th>Narration</th>'
+          +'</tr></thead><tbody>';
+        (v.lines||[]).forEach(function(l){
+          html += '<tr>'
+            +'<td>'+(l.lineNumber||'')+'</td>'
+            +'<td>'+(l.accountDisplay||'—')+'</td>'
+            +'<td>'+(l.subAccountDisplay||'—')+'</td>'
+            +'<td>'+l.entryType+'</td>'
+            +'<td class="text-end">'+(l.amount?parseFloat(l.amount).toFixed(2):'—')+'</td>'
+            +'<td>'+(l.narration||'—')+'</td></tr>';
+        });
+        html += '</tbody></table>';
+
+        // Allocations
+        if (v.allocations && v.allocations.length) {
+          html += '<h6 class="border-bottom pb-1 mt-2 mb-1">Allocations</h6>'
+            +'<table class="table table-sm table-bordered mb-0"><thead class="table-light"><tr>'
+            +'<th>Source Voucher</th><th>Type</th><th class="text-end">Allocated</th><th class="text-end">Discount</th><th>Date</th>'
+            +'</tr></thead><tbody>';
+          v.allocations.forEach(function(a){
+            html += '<tr>'
+              +'<td>'+(a.sourceVoucherNo||'—')+'</td>'
+              +'<td>'+(a.sourceVoucherType||'—')+'</td>'
+              +'<td class="text-end">'+(a.allocatedAmount?parseFloat(a.allocatedAmount).toFixed(2):'—')+'</td>'
+              +'<td class="text-end">'+(a.discountAmount?parseFloat(a.discountAmount).toFixed(2):'—')+'</td>'
+              +'<td>'+(a.allocationDate||'—')+'</td></tr>';
+          });
+          html += '</tbody></table>';
+        }
+
+        section.innerHTML = html;
+      }).catch(function(e){
+        var section = document.getElementById('voucherDetailSection');
+        if (section) section.innerHTML = '<div class="text-danger p-2">Error loading voucher: '+e.message+'</div>';
+      });
+    }
+
+    /** Toggle voucher detail section visibility. */
+    function _toggleVoucherSection() {
+      var section = document.getElementById('voucherDetailSection');
+      var chevron = document.getElementById('voucherChevron');
+      if (!section) return;
+      var show = section.style.display === 'none';
+      section.style.display = show ? 'block' : 'none';
+      if (chevron) chevron.className = show ? 'fas fa-chevron-up float-end' : 'fas fa-chevron-down float-end';
+    }
+
+    /** Open voucher detail in an external modal. */
+    window._openVoucherDetail = function() {
+      if (!_currentVoucherId) return;
+      // Expand the voucher section in the current modal
+      var section = document.getElementById('voucherDetailSection');
+      if (section && section.style.display === 'none') _toggleVoucherSection();
     };
 
     window.inboxApprove = function(id) {

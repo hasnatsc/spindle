@@ -191,6 +191,7 @@ public class VoucherServiceImpl implements VoucherService {
         }
 
         JournalEntryMaster saved = masterRepo.save(entity);
+        masterRepo.flush();
 
         // Publish event for downstream modules (travel booking payment tracking, etc.)
         publishPostEvent(saved);
@@ -464,6 +465,7 @@ public class VoucherServiceImpl implements VoucherService {
         masterRepo.save(original);
 
         JournalEntryMaster savedMirror = masterRepo.save(mirror);
+        masterRepo.flush();
 
         // Publish event so downstream modules can react to the reversal
         try {

@@ -656,7 +656,7 @@ public class ApprovalServiceImpl implements ApprovalService {
         m.put("byStatus", jdbcTemplate.queryForList("""
         SELECT status, COUNT(*) AS count
         FROM apr_requests r WHERE 1=1""" + f + """
-        GROUP BY status ORDER BY count DESC"""));
+         GROUP BY status ORDER BY count DESC"""));
 
         // ── 6. By document type — with approval/rejection split ─────────────────
         m.put("byDocType", jdbcTemplate.queryForList("""

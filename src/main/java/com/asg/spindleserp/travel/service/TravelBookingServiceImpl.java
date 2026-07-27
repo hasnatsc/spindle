@@ -196,32 +196,45 @@ public class TravelBookingServiceImpl implements TravelBookingService {
 
         // ── Process receipts (create RECEIPT_VOUCHER if any) ─────────────────
         BigDecimal totalReceived = BigDecimal.ZERO;
+        String rvStatus = null;
         if (booking.getReceipts() != null && !booking.getReceipts().isEmpty()) {
             totalReceived = booking.getReceipts().stream()
                 .map(r -> r.getAmount() != null ? r.getAmount() : BigDecimal.ZERO)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
             if (totalReceived.compareTo(BigDecimal.ZERO) > 0) {
-                createReceiptVoucher(booking, savedJem, user, orgId, year);
+                rvStatus = createReceiptVoucher(booking, savedJem, user, orgId, year);
             }
         }
 
         // ── Update booking record ──────────────────────────────────────────────
         booking.setJournalEntryId(savedJem.getId());
-        booking.setPaidAmount(totalReceived);
-        booking.setDueAmount(booking.getTotalAmount().subtract(totalReceived));
-        if (totalReceived.compareTo(BigDecimal.ZERO) > 0
-            && totalReceived.compareTo(booking.getTotalAmount()) >= 0) {
-            booking.setStatus(TrvBooking.Status.PAID);
-        } else if (totalReceived.compareTo(BigDecimal.ZERO) > 0) {
-            booking.setStatus(TrvBooking.Status.PARTIALLY_PAID);
-        } else {
+        if ("PENDING_APPROVAL".equals(rvStatus)) {
+            // RECEIPT_VOUCHER awaiting approval — keep booking CONFIRMED
+            // TravelBookingPaymentListener will update payment status after approval
+            booking.setPaidAmount(BigDecimal.ZERO);
+            booking.setDueAmount(booking.getTotalAmount());
             booking.setStatus(TrvBooking.Status.CONFIRMED);
+        } else if ("POSTED".equals(rvStatus)) {
+            // RECEIPT_VOUCHER posted directly — listener already updated booking
+            // Re-read totals to ensure we use the same values the listener computed
+            totalReceived = calculateTotalReceived(orgId, booking.getBookingNo());
+            booking.setPaidAmount(totalReceived);
+            booking.setDueAmount(booking.getTotalAmount().subtract(totalReceived));
+            if (totalReceived.compareTo(BigDecimal.ZERO) > 0
+                && totalReceived.compareTo(booking.getTotalAmount()) >= 0) {
+                booking.setStatus(TrvBooking.Status.PAID);
+            } else if (totalReceived.compareTo(BigDecimal.ZERO) > 0) {
+                booking.setStatus(TrvBooking.Status.PARTIALLY_PAID);
+            } else {
+                booking.setStatus(TrvBooking.Status.CONFIRMED);
+            }
         }
         booking.setUpdatedBy(user);
         booking.setUpdatedAt(LocalDateTime.now());
 
         TrvBooking saved = bookingRepo.save(booking);
-        log.info("Booking {} confirmed. Voucher {} posted.", booking.getBookingNo(), savedJem.getVoucherNo());
+        log.info("Booking {} confirmed. Voucher {} posted. Receipt status: {}",
+            booking.getBookingNo(), savedJem.getVoucherNo(), rvStatus != null ? rvStatus : "none");
         logStatus(saved, saved.getStatus() != null ? saved.getStatus() : TrvBooking.Status.CONFIRMED,
             "Confirmed. Voucher " + savedJem.getVoucherNo() + " posted.");
         return toDTO(saved);
@@ -1062,33 +1075,33 @@ public class TravelBookingServiceImpl implements TravelBookingService {
     }
 
     /**
-     * Creates a RECEIPT_VOUCHER JournalEntryMaster for the booking's receipt lines,
-     * allocates it against the SALES_VOUCHER, and updates customer AR balance.
+     * Creates a RECEIPT_VOUCHER for the booking's receipt lines and routes it
+     * through the approval workflow (or posts directly if no approval config).
+     * <p>
+     * Returns the voucher status after posting/PENDING_APPROVAL, or null if skipped.
      */
-    private void createReceiptVoucher(TrvBooking booking, JournalEntryMaster salesJem,
-                                       String user, Long orgId, String year) {
+    private String createReceiptVoucher(TrvBooking booking, JournalEntryMaster salesJem,
+                                        String user, Long orgId, String year) {
         BigDecimal totalReceived = booking.getReceipts().stream()
             .map(r -> r.getAmount() != null ? r.getAmount() : BigDecimal.ZERO)
             .reduce(BigDecimal.ZERO, BigDecimal::add);
-        if (totalReceived.compareTo(BigDecimal.ZERO) <= 0) return;
+        if (totalReceived.compareTo(BigDecimal.ZERO) <= 0) return null;
 
         // Resolve customer sub-account (AR)
         ChartOfAccountSub customerSub = booking.getParty();
-        if (customerSub == null || customerSub.getMainAccount() == null) return;
+        if (customerSub == null || customerSub.getMainAccount() == null) return null;
 
         // Generate voucher number
         String voucherNo = seqService.nextDocumentNumber(orgId, "RV", year);
 
-        // Build RECEIPT_VOUCHER JEM
+        // Build RECEIPT_VOUCHER JEM (as DRAFT)
         JournalEntryMaster rv = new JournalEntryMaster();
         rv.setOrganization(orgRepo.getReferenceById(orgId));
         rv.setVoucherType(VoucherType.RECEIPT_VOUCHER);
         rv.setVoucherNo(voucherNo);
         rv.setVoucherDate(booking.getBookingDate());
-        rv.setVoucherStatus("POSTED");
-        rv.setPosted(true);
-        rv.setPostedBy(user);
-        rv.setPostedAt(LocalDateTime.now());
+        rv.setVoucherStatus("DRAFT");
+        rv.setPosted(false);
         rv.setReversed(false);
         rv.setTotalAmount(totalReceived);
         rv.setTotalDebit(totalReceived);
@@ -1097,11 +1110,12 @@ public class TravelBookingServiceImpl implements TravelBookingService {
         rv.setPartyId(booking.getParty() != null ? booking.getParty().getId() : null);
         rv.setPartyType("CUSTOMER");
         rv.setReferenceNo(booking.getBookingNo());
-        rv.setNarration("Receipt against Booking: " + booking.getBookingNo());
+        rv.setNarration("Receipt against Booking: " + booking.getBookingNo()
+            + " [SALES_VOUCHER:" + salesJem.getId() + "]");
         rv.setCreatedBy(user);
         rv.setUpdatedBy(user);
 
-        // Set payment mode from first receipt's mode (convert travel PaymentMode → common PaymentMode)
+        // Set payment mode from first receipt's mode
         rv.setPaymentMode(booking.getReceipts().stream()
             .findFirst()
             .map(r -> com.asg.spindleserp.common.enums.PaymentMode.fromCode(r.getPaymentMode().name()))
@@ -1119,10 +1133,8 @@ public class TravelBookingServiceImpl implements TravelBookingService {
                 + (rcpt.getReference() != null ? " — " + rcpt.getReference() : ""));
             drLine.setOrganization(orgRepo.getReferenceById(orgId));
             drLine.setTaxLine(false);
-            // Resolve the GL account from the sub-account's main account
             Long subId = rcpt.getSubAccountId();
             if (subId == null) {
-                // Fall back to payment-mode default from settings
                 subId = resolvePaymentModeSubAccount(orgId, rcpt.getPaymentMode().name());
             }
             if (subId != null) {
@@ -1148,25 +1160,16 @@ public class TravelBookingServiceImpl implements TravelBookingService {
         crLine.setTaxLine(false);
         rv.getLines().add(crLine);
 
-        // Save RECEIPT_VOUCHER
-        JournalEntryMaster savedRv = jemRepo.save(rv);
+        // Save as DRAFT first, then post through the standard workflow.
+        // executePost() handles AR balance adjustment. TravelBookingPaymentListener
+        // handles auto-allocation against the SALES_VOUCHER + booking status update.
+        JournalEntryMaster draftRv = jemRepo.save(rv);
+        VoucherDTO postedDto = voucherService.post(draftRv.getId());
+        String status = postedDto.getVoucherStatus();
 
-        // Update customer AR balance (decrease — they paid us)
-        BigDecimal current = customerSub.getCurrentBalance() != null
-            ? customerSub.getCurrentBalance() : BigDecimal.ZERO;
-        customerSub.setCurrentBalance(current.subtract(totalReceived));
-        subRepo.save(customerSub);
-
-        // Allocate against the SALES_VOUCHER
-        VoucherDTO.AllocationDTO alloc = new VoucherDTO.AllocationDTO();
-        alloc.setSourceVoucherId(salesJem.getId());
-        alloc.setAllocatedAmount(totalReceived);
-        alloc.setAllocationDate(booking.getBookingDate());
-        alloc.setNarration("Auto-allocation from booking confirm: " + booking.getBookingNo());
-        voucherService.processAllocations(savedRv, List.of(alloc));
-
-        log.info("Booking {} confirmed. RECEIPT_VOUCHER {} posted for {}. Customer AR reduced by {}.",
-                 booking.getBookingNo(), voucherNo, totalReceived, totalReceived);
+        log.info("Booking {} confirmed. RECEIPT_VOUCHER {} status: {}",
+                 booking.getBookingNo(), voucherNo, status);
+        return status;
     }
 
     /**
@@ -1197,7 +1200,7 @@ public class TravelBookingServiceImpl implements TravelBookingService {
         try {
             List<Map<String, Object>> rows = jdbcTemplate.queryForList("""
                 SELECT DISTINCT j.id, j.voucher_no, j.voucher_type, j.voucher_status,
-                       j.reference_no, j.payment_mode,
+                       j.reference_no,
                        TO_CHAR(j.voucher_date, 'DD-Mon-YYYY') AS voucher_date,
                        j.total_amount, j.is_reversed,
                        COALESCE(j.narration, '') AS narration
@@ -1205,7 +1208,7 @@ public class TravelBookingServiceImpl implements TravelBookingService {
                 WHERE  j.organization_id = ?
                   AND  (j.reference_no = ? OR j.id = ?)
                   AND  j.voucher_type IN ('SALES_VOUCHER', 'RECEIPT_VOUCHER')
-                ORDER  BY j.voucher_date ASC, j.id ASC
+                ORDER  BY voucher_date ASC, j.id ASC
                 """, orgId, booking.getBookingNo(),
                     booking.getJournalEntryId() != null ? booking.getJournalEntryId() : -1L);
             return rows.stream().map(r -> VoucherRef.builder()
@@ -1214,7 +1217,6 @@ public class TravelBookingServiceImpl implements TravelBookingService {
                 .voucherType((String) r.get("voucher_type"))
                 .voucherStatus((String) r.get("voucher_status"))
                 .referenceNo((String) r.get("reference_no"))
-                .paymentMode((String) r.get("payment_mode"))
                 .voucherDate((String) r.get("voucher_date"))
                 .narration((String) r.get("narration"))
                 .amount(CommonUtils.getBigDecimal(r.get("total_amount")))
