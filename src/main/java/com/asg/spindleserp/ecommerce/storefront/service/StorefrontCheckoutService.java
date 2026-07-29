@@ -1,7 +1,7 @@
 // Path: com/asg/spindleserp/ecommerce/storefront/service/StorefrontCheckoutService.java
 package com.asg.spindleserp.ecommerce.storefront.service;
 
-//import com.asg.spindleserp.common.service.DocumentSequenceService;   // ★ adjust import if your DocumentSequenceService lives elsewhere
+import com.asg.spindleserp.ecommerce.EcInventoryService;
 import com.asg.spindleserp.ecommerce.cart.entity.EcCart;
 import com.asg.spindleserp.ecommerce.cart.entity.EcCartItem;
 import com.asg.spindleserp.ecommerce.customerSupport.entity.EcCustomer;
@@ -12,6 +12,8 @@ import com.asg.spindleserp.ecommerce.order.repository.EcOrderRepository;
 import com.asg.spindleserp.ecommerce.storefront.dto.SfAddressDTO;
 import com.asg.spindleserp.ecommerce.storefront.dto.SfCartDTO;
 import com.asg.spindleserp.ecommerce.storefront.dto.SfCheckoutDTO;
+import com.asg.spindleserp.inventory.entity.Item;
+import com.asg.spindleserp.inventory.repository.ItemRepository;
 import com.asg.spindleserp.security.auth.ContextProvider;
 import com.asg.spindleserp.setup.service.DocumentSequenceService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -54,12 +56,14 @@ public class StorefrontCheckoutService {
     private static final BigDecimal FREE_SHIP_THRESHOLD = new BigDecimal("2000");
     private static final BigDecimal DEFAULT_SHIPPING    = new BigDecimal("80");
 
-    private final StorefrontCartService cartService;
+    private final StorefrontCartService    cartService;
     private final StorefrontAddressService addressService;
-    private final EcOrderRepository orderRepository;
-    private final EcCustomerRepository customerRepository;
-    private final JdbcTemplate jdbcTemplate;
-    private final DocumentSequenceService documentSequenceService;
+    private final EcOrderRepository        orderRepository;
+    private final EcCustomerRepository     customerRepository;
+    private final EcInventoryService       inventoryService;
+    private final ItemRepository           itemRepository;
+    private final JdbcTemplate             jdbcTemplate;
+    private final DocumentSequenceService  documentSequenceService;
 
     // ═════════════════════════ COUPONS ═════════════════════════
 
@@ -168,6 +172,24 @@ public class StorefrontCheckoutService {
         if (cart.getItems() == null || cart.getItems().isEmpty())
             throw new IllegalArgumentException("Your cart is empty.");
 
+        // ── Stock validation ───────────────────────────────────────────────
+        for (EcCartItem ci : cart.getItems()) {
+            Long itemId;
+            if (ci.getVariant() != null && ci.getVariant().getItem() != null) {
+                itemId = ci.getVariant().getItem().getId();
+            } else if (ci.getProduct().getItem() != null) {
+                itemId = ci.getProduct().getItem().getId();
+            } else {
+                throw new IllegalArgumentException("The product '" + ci.getProduct().getProductTitle() + "' is not available.");
+            }
+            BigDecimal avail = inventoryService.availableStockAcrossWarehouses(itemId);
+            if (avail.compareTo(ci.getQuantity()) < 0)
+                throw new IllegalArgumentException(
+                    "Insufficient stock for '" + ci.getProduct().getProductTitle() +
+                    "'. Available: " + avail.stripTrailingZeros().toPlainString() +
+                    ", Requested: " + ci.getQuantity().stripTrailingZeros().toPlainString());
+        }
+
         SfAddressDTO addr = resolveAddress(customer, dto);
 
         BigDecimal subtotal = cart.getItems().stream()
@@ -212,17 +234,29 @@ public class StorefrontCheckoutService {
 
         if (order.getOrderItems() == null) order.setOrderItems(new ArrayList<>());
         for (EcCartItem ci : cart.getItems()) {
+            Item invItem = ci.getVariant() != null && ci.getVariant().getItem() != null
+                    ? ci.getVariant().getItem() : ci.getProduct().getItem();
+
+            // Snapshot cost price from Item master (costPrice → standardCost fallback)
+            BigDecimal costPrice = invItem.getCostPrice() != null
+                    ? invItem.getCostPrice()
+                    : (invItem.getStandardCost() != null ? invItem.getStandardCost() : BigDecimal.ZERO);
+
+            // Compute profit snapshot: (sellingPrice - costPrice) * quantity
+            BigDecimal profit = ci.getUnitPrice().subtract(costPrice).multiply(ci.getQuantity());
+
             order.getOrderItems().add(EcOrderItem.builder()
                     .order(order)
                     .product(ci.getProduct())
                     .variant(ci.getVariant())
-                    .item(ci.getVariant() != null && ci.getVariant().getItem() != null
-                            ? ci.getVariant().getItem() : ci.getProduct().getItem())
+                    .item(invItem)
                     .quantity(ci.getQuantity())
                     .unitPrice(ci.getUnitPrice())
+                    .costPrice(costPrice)
                     .discountAmount(BigDecimal.ZERO)
                     .taxAmount(BigDecimal.ZERO)
                     .lineTotal(ci.getLineTotal())
+                    .profitAmount(profit)
                     .build());
         }
         order = orderRepository.save(order);

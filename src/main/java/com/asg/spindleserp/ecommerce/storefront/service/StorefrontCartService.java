@@ -1,6 +1,7 @@
 // Path: com/asg/spindleserp/ecommerce/storefront/service/StorefrontCartService.java
 package com.asg.spindleserp.ecommerce.storefront.service;
 
+import com.asg.spindleserp.ecommerce.EcInventoryService;
 import com.asg.spindleserp.ecommerce.cart.entity.EcCart;
 import com.asg.spindleserp.ecommerce.cart.entity.EcCartItem;
 import com.asg.spindleserp.ecommerce.cart.repository.EcCartRepository;
@@ -134,8 +135,9 @@ public class StorefrontCartService {
     /** Per-line ceiling. Above this it is not a shopper, it is an attack or a typo. */
     private static final BigDecimal MAX_LINE_QUANTITY = new BigDecimal("999");
 
-    private final EcCartRepository cartRepository;
-    private final EcProductCatalogRepository productRepository;
+    private final EcCartRepository              cartRepository;
+    private final EcProductCatalogRepository     productRepository;
+    private final EcInventoryService             inventoryService;
 
     // ══════════════════════════════════════════════════════════════════════
     // GET / PEEK
@@ -517,19 +519,23 @@ public class StorefrontCartService {
     }
 
     /**
-     * v3 (retained) — the pre-v3 version ran stockLedgerService.balanceByItem()
-     * on EVERY add/update and then discarded the result (it always returned
-     * null). That was one wasted ledger query per cart mutation. The dead call
-     * and the StockLedgerService dependency stay removed.
+     * Returns the total available stock (quantity - reservedQuantity) across all
+     * warehouses for the item underlying this product/variant.
      *
-     * ★ STOCK-BLOCKING SEAM (unchanged, still open):
-     *   To enforce stock at add-to-cart time, sum the available qty from
-     *   StockLedgerService.balanceByItem(itemId) here — variant-aware via the
-     *   variant's linked item — and return it. Both callers already handle the
-     *   "Only N left in stock." rejection path. Returning null = never block.
+     * Both callers (addItem / updateQuantity) already handle the
+     * "Only N left in stock." rejection path when this returns a non-null value.
      */
     private BigDecimal resolveAvailableStock(EcProductCatalog product, EcProductVariant variant) {
-        return null;
+        Long itemId;
+        if (variant != null && variant.getItem() != null) {
+            itemId = variant.getItem().getId();
+        } else if (product.getItem() != null) {
+            itemId = product.getItem().getId();
+        } else {
+            return BigDecimal.ZERO;
+        }
+        BigDecimal avail = inventoryService.availableStockAcrossWarehouses(itemId);
+        return avail != null ? avail : BigDecimal.ZERO;
     }
 
     // ══════════════════════════════════════════════════════════════════════
@@ -596,8 +602,9 @@ public class StorefrontCartService {
     }
 
     private SfCartDTO toDTO(EcCart cart) {
-        List<SfCartDTO.SfCartItemDTO> items = cart.getItems().stream().map(i ->
-                SfCartDTO.SfCartItemDTO.builder()
+        List<SfCartDTO.SfCartItemDTO> items = cart.getItems().stream().map(i -> {
+                BigDecimal itemAvail = resolveAvailableStock(i.getProduct(), i.getVariant());
+                return SfCartDTO.SfCartItemDTO.builder()
                         .id(i.getId())
                         .productId(i.getProduct().getId())
                         .productTitle(i.getProduct().getProductTitle())
@@ -608,9 +615,10 @@ public class StorefrontCartService {
                         .quantity(i.getQuantity())
                         .unitPrice(i.getUnitPrice())
                         .lineTotal(i.getLineTotal())
-                        .inStock(true)
-                        .build()
-        ).toList();
+                        .availableStock(itemAvail)
+                        .inStock(itemAvail.compareTo(BigDecimal.ZERO) > 0)
+                        .build();
+        }).toList();
 
         return SfCartDTO.builder()
                 .id(cart.getId())

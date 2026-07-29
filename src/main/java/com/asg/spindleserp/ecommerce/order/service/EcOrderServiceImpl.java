@@ -3,6 +3,7 @@ package com.asg.spindleserp.ecommerce.order.service;
 
 import com.asg.spindleserp.common.dto.DataTableResponse;
 import com.asg.spindleserp.common.util.CommonUtils;
+import com.asg.spindleserp.ecommerce.EcInventoryService;
 import com.asg.spindleserp.ecommerce.order.dto.EcOrderDTO;
 import com.asg.spindleserp.ecommerce.order.entity.EcOrder;
 import com.asg.spindleserp.ecommerce.order.entity.EcOrderStatusHistory;
@@ -25,8 +26,9 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class EcOrderServiceImpl implements EcOrderService {
 
-    private final EcOrderRepository orderRepository;
-    private final JdbcTemplate      jdbcTemplate;
+    private final EcOrderRepository  orderRepository;
+    private final EcInventoryService inventoryService;
+    private final JdbcTemplate       jdbcTemplate;
 
     @Override @Transactional(readOnly = true)
     public EcOrderDTO findById(Long id) { return toDTO(findEntityById(id)); }
@@ -42,6 +44,32 @@ public class EcOrderServiceImpl implements EcOrderService {
         if (entity.getOrderStatus() == EcOrder.OrderStatus.COMPLETED ||
             entity.getOrderStatus() == EcOrder.OrderStatus.CANCELLED)
             throw new IllegalStateException("Order " + entity.getOrderNo() + " is in a terminal state and cannot be updated.");
+
+        // ── Stock management by status transition ──────────────────────────
+        String prev = entity.getOrderStatus() != null ? entity.getOrderStatus().name() : "";
+        switch (newStatus) {
+            case "CONFIRMED":
+                if (!entity.isStockReserved()) {
+                    inventoryService.reserveStock(entity);
+                }
+                break;
+            case "SHIPPED":
+                if (!entity.isStockPosted()) {
+                    inventoryService.deductStock(entity);
+                }
+                break;
+            case "CANCELLED":
+                if (entity.isStockReserved() && !entity.isStockPosted()) {
+                    inventoryService.releaseReservation(entity);
+                }
+                break;
+            case "RETURNED":
+            case "REFUNDED":
+                if (entity.isStockPosted()) {
+                    inventoryService.restock(entity);
+                }
+                break;
+        }
 
         entity.setOrderStatus(status);
         if (adminNote != null && !adminNote.isBlank())

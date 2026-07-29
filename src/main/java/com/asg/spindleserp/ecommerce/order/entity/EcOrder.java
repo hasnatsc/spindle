@@ -3,6 +3,7 @@ package com.asg.spindleserp.ecommerce.order.entity;
 import com.asg.spindleserp.BaseEntity;
 import com.asg.spindleserp.accounts.entity.JournalEntryMaster;
 import com.asg.spindleserp.ecommerce.customerSupport.entity.EcCustomer;
+import com.asg.spindleserp.organization.entity.Warehouse;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -121,6 +122,19 @@ public class EcOrder extends BaseEntity {
     @Builder.Default
     @Column(nullable = false)
     private boolean active = true;
+
+    // ── Stock management ──────────────────────────────────────────────────
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "warehouse_id")
+    private Warehouse warehouse;             // dispatch warehouse, set on SHIPPED
+
+    @Builder.Default
+    @Column(nullable = false)
+    private boolean stockReserved = false;   // true after CONFIRMED → reservedQuantity incremented
+
+    @Builder.Default
+    @Column(nullable = false)
+    private boolean stockPosted = false;     // true after SHIPPED → SALES_ISSUE posted
 
     // ── Collections ───────────────────────────────────────────────────────
     @Builder.Default

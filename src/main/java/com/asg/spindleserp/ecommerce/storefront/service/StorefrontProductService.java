@@ -2,6 +2,7 @@
 package com.asg.spindleserp.ecommerce.storefront.service;
 
 import com.asg.spindleserp.common.util.CommonUtils;
+import com.asg.spindleserp.ecommerce.EcInventoryService;
 import com.asg.spindleserp.ecommerce.productSupport.entity.EcCategory;
 import com.asg.spindleserp.ecommerce.productSupport.entity.EcProductCatalog;
 import com.asg.spindleserp.ecommerce.productSupport.entity.EcProductImage;
@@ -36,8 +37,9 @@ import java.util.Map;
 public class StorefrontProductService {
 
     private final EcProductCatalogRepository productRepository;
-    private final EcCategoryRepository categoryRepository;
-    private final JdbcTemplate jdbcTemplate;
+    private final EcCategoryRepository       categoryRepository;
+    private final EcInventoryService         inventoryService;
+    private final JdbcTemplate               jdbcTemplate;
 
     /** Shared card projection — every card query selects exactly these columns. */
     private static final String CARD_COLS = """
@@ -45,7 +47,8 @@ public class StorefrontProductService {
                 (SELECT img.image_url FROM ec_product_images img
                   WHERE img.product_id = p.id
                   ORDER BY img.is_primary DESC, img.display_order NULLS LAST, img.id LIMIT 1) AS primary_image,
-                i.unit_price AS selling_price,
+                i.id          AS item_id,
+                i.unit_price  AS selling_price,
                 (SELECT MIN(v.compare_price) FROM ec_product_variants v
                   WHERE v.product_id = p.id AND v.active = true AND v.compare_price IS NOT NULL) AS compare_price,
                 c.category_name, c.slug AS category_slug,
@@ -184,6 +187,10 @@ public class StorefrontProductService {
         Integer disc = (cmp != null && sell != null && cmp.compareTo(BigDecimal.ZERO) > 0 && cmp.compareTo(sell) > 0)
                 ? cmp.subtract(sell).multiply(BigDecimal.valueOf(100)).divide(cmp, 0, RoundingMode.HALF_UP).intValue()
                 : null;
+
+        Long itemId = CommonUtils.toLong(r.get("item_id"));
+        BigDecimal avail = itemId != null ? inventoryService.availableStockAcrossWarehouses(itemId) : BigDecimal.ZERO;
+
         return SfProductCardDTO.builder()
                 .id(CommonUtils.toLong(r.get("id")))
                 .productTitle((String) r.get("product_title"))
@@ -194,7 +201,7 @@ public class StorefrontProductService {
                 .discountPercent(disc)
                 .categoryName((String) r.get("category_name"))
                 .categorySlug((String) r.get("category_slug"))
-                .inStock(true)
+                .inStock(avail.compareTo(BigDecimal.ZERO) > 0)
                 .featured(Boolean.TRUE.equals(r.get("featured")))
                 .newArrival(Boolean.TRUE.equals(r.get("new_arrival")))
                 .bestSeller(Boolean.TRUE.equals(r.get("best_seller")))
@@ -217,16 +224,23 @@ public class StorefrontProductService {
                         b.getDisplayOrder() != null ? b.getDisplayOrder() : 0))
                 .map(EcProductImage::getImageUrl).toList();
 
-        List<SfProductDetailDTO.VariantDTO> variants = p.getVariants().stream().map(v ->
-            SfProductDetailDTO.VariantDTO.builder()
+        Long itemId = p.getItem().getId();
+        BigDecimal productAvail = inventoryService.availableStockAcrossWarehouses(itemId);
+        boolean productInStock = productAvail.compareTo(BigDecimal.ZERO) > 0;
+
+        List<SfProductDetailDTO.VariantDTO> variants = p.getVariants().stream().map(v -> {
+            Long vItemId = v.getItem() != null ? v.getItem().getId() : itemId;
+            BigDecimal vAvail = inventoryService.availableStockAcrossWarehouses(vItemId);
+            return SfProductDetailDTO.VariantDTO.builder()
                 .id(v.getId())
                 .variantName(v.getVariantName())
                 .colorCode(v.getColor())
                 .sizeLabel(v.getSizeName())
                 .sellingPrice(v.getSellingPrice() != null ? v.getSellingPrice() : p.getItem().getUnitPrice())
-                .inStock(true)
-                .build()
-        ).toList();
+                .availableStock(vAvail)
+                .inStock(vAvail.compareTo(BigDecimal.ZERO) > 0)
+                .build();
+        }).toList();
 
         // ★ Attribute label now comes from the attribute definition, not the value.
         //   Adjust getCategoryAttribute()/getAttributeLabel() if your entity names differ.
@@ -265,8 +279,8 @@ public class StorefrontProductService {
                 .brandName(p.getItem().getBrand() != null ? p.getItem().getBrand().getBrandName() : null)
                 .sellingPrice(sellPrice)
                 .salesUnitCode(p.getItem().getSalesUnitCode())
-                .availableStock(null)
-                .inStock(true)
+                .availableStock(productAvail)
+                .inStock(productInStock)
                 .categoryId(p.getCategory() != null ? p.getCategory().getId() : null)
                 .categoryName(p.getCategory() != null ? p.getCategory().getCategoryName() : null)
                 .categorySlug(p.getCategory() != null ? p.getCategory().getSlug() : null)
